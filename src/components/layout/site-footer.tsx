@@ -1,29 +1,72 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight, Clock, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
 import {
+  BellRing,
+  ChevronRight,
+  Clock,
+  ExternalLink,
+  Mail,
+  MapPin,
+  Phone,
+  Siren,
+} from "lucide-react";
+import {
+  EMERGENCY_HOTLINES,
   GOVERNMENT_LINKS,
   LEGAL_LINKS,
   NAV_ITEMS,
   SITE,
   SOCIAL_LINKS,
 } from "@/constants/site";
+import { toTelHref } from "@/lib/format";
 import { Container } from "@/components/ui/container";
+import { NewsletterForm } from "@/features/announcements";
 
 function FooterHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="mb-6 text-sm font-bold uppercase tracking-wider text-blue-200">{children}</h3>
+    <h3 className="mb-6 text-xs font-semibold uppercase tracking-wider text-brand-300">
+      {children}
+    </h3>
   );
 }
 
-/** Site-wide footer: brand, quick links, government links, contact details, legal. */
+/** Dark site-wide footer: newsletter panel, link columns, contact + hotline, legal. */
 export function SiteFooter() {
   const year = new Date().getFullYear();
+  const hotline = EMERGENCY_HOTLINES[0];
 
   return (
-    <footer className="border-t-4 border-accent bg-primary pb-8 pt-16 text-white">
-      <Container>
-        <div className="mb-12 grid grid-cols-1 gap-12 border-b border-primary-strong pb-12 md:grid-cols-2 lg:grid-cols-4">
+    <footer className="relative overflow-hidden border-t border-white/10 bg-ink-950 text-ink-100">
+      <div
+        aria-hidden="true"
+        className="bg-radial-fade pointer-events-none absolute inset-x-0 top-0 h-72 opacity-60"
+      />
+      <Container className="relative pt-16 md:pt-20">
+        <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-ink-900 via-ink-900 to-ink-800 p-8 sm:p-10 md:p-12">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-brand-500/30 blur-3xl"
+          />
+          <div className="relative grid gap-8 lg:grid-cols-12 lg:items-center lg:gap-10">
+            <div className="lg:col-span-7">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-brand-300">
+                <BellRing className="size-3.5" aria-hidden="true" />
+                Stay Notified
+              </span>
+              <h3 className="mt-4 font-display text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl">
+                Receive weekly news summaries and urgent alerts.
+              </h3>
+              <p className="mt-3 text-sm text-ink-300 sm:text-base">
+                Directly to your phone via SMS or Email. No spam, unsubscribe anytime.
+              </p>
+            </div>
+            <div className="lg:col-span-5">
+              <NewsletterForm variant="inline" />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-12 py-14 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <div className="mb-6 flex items-center gap-3">
               <Image
@@ -31,26 +74,28 @@ export function SiteFooter() {
                 alt={`${SITE.name} seal`}
                 width={48}
                 height={48}
-                className="h-12 w-12 rounded-full border-2 border-yellow-400 object-cover"
+                className="h-12 w-12 rounded-full border border-brand-400 object-cover"
               />
               <div>
-                <p className="text-lg font-bold uppercase leading-tight">{SITE.name}</p>
-                <p className="text-xs text-blue-200">{SITE.locality}</p>
+                <p className="font-display text-lg font-semibold leading-tight tracking-tight text-white">
+                  {SITE.name}
+                </p>
+                <p className="text-xs text-ink-400">{SITE.locality}</p>
               </div>
             </div>
-            <p className="mb-6 text-sm leading-relaxed text-blue-100">
+            <p className="mb-6 text-sm leading-relaxed text-ink-300">
               We are committed to transparency, accountability, and excellent public service for
               every resident.
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
                 <a
                   key={label}
                   href={href}
                   aria-label={label}
-                  className="rounded-full bg-primary-strong p-2 transition-colors hover:bg-secondary"
+                  className="rounded-full border border-white/10 bg-white/5 p-2.5 text-ink-200 transition-colors hover:bg-white/15 hover:text-white"
                 >
-                  <Icon className="h-5 w-5" aria-hidden="true" />
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                 </a>
               ))}
             </div>
@@ -58,14 +103,15 @@ export function SiteFooter() {
 
           <nav aria-label="Quick links">
             <FooterHeading>Quick Links</FooterHeading>
-            <ul className="space-y-3 text-sm text-blue-100">
+            <ul className="space-y-3 text-sm text-ink-300">
               {NAV_ITEMS.filter((item) => item.href !== "/").map((item) => (
                 <li key={item.href}>
                   <Link
                     href={item.href}
                     className="flex items-center gap-2 transition-colors hover:text-white"
                   >
-                    <ChevronRight className="h-3 w-3" aria-hidden="true" /> {item.label}
+                    <ChevronRight className="h-3 w-3 text-brand-400" aria-hidden="true" />
+                    {item.label}
                   </Link>
                 </li>
               ))}
@@ -74,7 +120,7 @@ export function SiteFooter() {
 
           <nav aria-label="Government links">
             <FooterHeading>Government Links</FooterHeading>
-            <ul className="space-y-3 text-sm text-blue-100">
+            <ul className="space-y-3 text-sm text-ink-300">
               {GOVERNMENT_LINKS.map((link) => (
                 <li key={link.label}>
                   <a
@@ -83,7 +129,8 @@ export function SiteFooter() {
                     rel="noreferrer noopener"
                     className="flex items-center gap-2 transition-colors hover:text-white"
                   >
-                    <ExternalLink className="h-3 w-3" aria-hidden="true" /> {link.label}
+                    <ExternalLink className="h-3 w-3 text-brand-400" aria-hidden="true" />
+                    {link.label}
                   </a>
                 </li>
               ))}
@@ -92,9 +139,9 @@ export function SiteFooter() {
 
           <div>
             <FooterHeading>Contact Us</FooterHeading>
-            <ul className="space-y-4 text-sm text-blue-100">
+            <ul className="space-y-4 text-sm text-ink-300">
               <li className="flex items-start gap-3">
-                <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
+                <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-brand-400" aria-hidden="true" />
                 <span>
                   {SITE.addressLines.map((line) => (
                     <span key={line} className="block">
@@ -104,26 +151,40 @@ export function SiteFooter() {
                 </span>
               </li>
               <li className="flex items-center gap-3">
-                <Phone className="h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
+                <Phone className="h-5 w-5 shrink-0 text-brand-400" aria-hidden="true" />
                 {SITE.phone}
               </li>
               <li className="flex items-center gap-3">
-                <Mail className="h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
+                <Mail className="h-5 w-5 shrink-0 text-brand-400" aria-hidden="true" />
                 {SITE.email}
               </li>
               <li className="flex items-center gap-3">
-                <Clock className="h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
+                <Clock className="h-5 w-5 shrink-0 text-brand-400" aria-hidden="true" />
                 {SITE.officeHours}
+              </li>
+              <li className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <Siren className="h-5 w-5 shrink-0 text-danger-bright" aria-hidden="true" />
+                <span>
+                  <span className="block text-xs uppercase tracking-wider text-ink-400">
+                    {hotline.label}
+                  </span>
+                  <a
+                    href={toTelHref(hotline.number)}
+                    className="font-semibold text-white hover:text-brand-300"
+                  >
+                    {hotline.number}
+                  </a>
+                </span>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="flex flex-col items-center justify-between text-sm text-blue-300 md:flex-row">
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-white/10 py-8 text-sm text-ink-400 md:flex-row">
           <p>
-            © {year} {SITE.name}. All Rights Reserved.
+            © {year} {SITE.name}, {SITE.locality}. All Rights Reserved. {SITE.republic}.
           </p>
-          <div className="mt-4 flex gap-4 md:mt-0">
+          <div className="flex gap-4">
             {LEGAL_LINKS.map((link, index) => (
               <span key={link.label} className="flex items-center gap-4">
                 {index > 0 ? <span aria-hidden="true">|</span> : null}
