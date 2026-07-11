@@ -74,7 +74,11 @@ export function InquiryForm() {
             variant="primary"
             size="lg"
             disabled={status !== "idle"}
-            className={status === "sent" ? "rounded-2xl bg-brand-100 text-brand-800 hover:bg-brand-100" : undefined}
+            className={
+              status === "sent"
+                ? "rounded-2xl bg-none bg-brand-100 text-brand-800 shadow-none hover:bg-brand-100 hover:shadow-none hover:brightness-100"
+                : undefined
+            }
           >
             {status === "idle" ? (
               <>

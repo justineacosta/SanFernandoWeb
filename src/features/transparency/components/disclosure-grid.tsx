@@ -108,7 +108,7 @@ export function DisclosureGrid() {
               </div>
               <Button
                 type="submit"
-                variant="accent"
+                variant="primary"
                 size="lg"
                 className="w-full whitespace-nowrap md:w-auto"
               >
