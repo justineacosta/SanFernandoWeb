@@ -63,7 +63,10 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
         })}
       </nav>
       <div className="relative mt-auto px-6">
-        <Button variant="primary" className="w-full bg-danger hover:bg-danger-deep">
+        <Button
+          variant="primary"
+          className="w-full bg-danger text-white shadow-none hover:bg-danger-deep hover:shadow-none hover:brightness-100"
+        >
           <Siren className="h-5 w-5" aria-hidden="true" />
           Emergency Response
         </Button>

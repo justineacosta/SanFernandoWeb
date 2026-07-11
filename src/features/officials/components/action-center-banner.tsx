@@ -10,7 +10,7 @@ export function ActionCenterBanner() {
         <div className="relative flex flex-col items-center justify-between gap-6 overflow-hidden rounded-3xl bg-danger p-8 text-danger-soft shadow-lg md:flex-row">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-brand-500/30 blur-3xl"
+            className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-brand-500/15 blur-3xl"
           />
           <div className="relative flex items-center gap-4">
             <span className="rounded-full bg-danger-deep p-3">
@@ -24,16 +24,11 @@ export function ActionCenterBanner() {
             </div>
           </div>
           <div className="relative flex flex-col gap-4 sm:flex-row">
-            <Button href="tel:911" variant="primary" size="lg" className="normal-case">
+            <Button href="tel:911" variant="primary" size="lg">
               <Phone className="h-5 w-5" aria-hidden="true" />
               Emergency Hotline: 911
             </Button>
-            <Button
-              href="/contact"
-              variant="outline-white"
-              size="lg"
-              className="border normal-case"
-            >
+            <Button href="/contact" variant="outline-white" size="lg">
               Request Assistance
             </Button>
           </div>

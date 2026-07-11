@@ -27,7 +27,7 @@ export function JoinCommunitySection() {
             <Button href="/contact" variant="primary" size="xl">
               Register as Resident
             </Button>
-            <Button href="/contact" variant="outline-white" size="xl" className="border">
+            <Button href="/contact" variant="outline-white" size="xl">
               Volunteer Programs
             </Button>
           </div>

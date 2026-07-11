@@ -15,7 +15,7 @@ export function GetInvolvedSection() {
       }
       description="Your participation today shapes our better tomorrow."
       actions={
-        <Button href="/contact" variant="white" size="lg">
+        <Button href="/contact" variant="primary" size="lg">
           Get Involved
         </Button>
       }

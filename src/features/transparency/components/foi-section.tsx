@@ -5,7 +5,7 @@ import { Section } from "@/components/ui/section";
 export function FoiSection() {
   return (
     <Section>
-      <div className="relative flex flex-col items-center justify-between gap-8 overflow-hidden rounded-[2rem] bg-danger p-8 text-white md:flex-row md:p-12">
+      <div className="relative flex flex-col items-center justify-between gap-8 overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-ink-900 via-ink-900 to-ink-800 p-8 text-white md:flex-row md:p-12">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-brand-500/30 blur-3xl"
