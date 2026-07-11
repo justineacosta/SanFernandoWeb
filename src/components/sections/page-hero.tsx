@@ -11,30 +11,33 @@ interface PageHeroProps {
 }
 
 /**
- * Deep-blue page banner used by every inner page.
- * Renders a dotted texture, optional eyebrow chip, and optional actions.
+ * Light page banner used by every inner page.
+ * Renders a blueprint-grid texture, optional eyebrow pill, and optional actions.
+ * Provides the top padding that clears the fixed floating header.
  */
 export function PageHero({ title, description, eyebrow, align = "left", children }: PageHeroProps) {
   return (
-    <section className="relative overflow-hidden bg-primary-strong py-16 text-white md:py-24">
+    <section className="relative overflow-hidden pb-14 pt-32 md:pb-20 md:pt-44">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-10"
-        style={{
-          backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-        }}
+        className="grid-bg pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="bg-radial-fade pointer-events-none absolute -top-32 left-1/2 -z-10 h-[480px] w-[900px] -translate-x-1/2 rounded-full blur-2xl"
       />
       <Container className={cn("relative", align === "center" && "text-center")}>
         <div className={cn("max-w-3xl", align === "center" && "mx-auto")}>
           {eyebrow ? (
-            <Badge variant="soft" className="mb-6 rounded-full px-3 py-1">
+            <Badge variant="soft" className="mb-5">
               {eyebrow}
             </Badge>
           ) : null}
-          <h1 className="mb-6 text-3xl font-bold leading-tight md:text-5xl">{title}</h1>
+          <h1 className="text-balance font-display text-4xl font-semibold leading-[1.1] tracking-tight text-ink-900 md:text-5xl">
+            {title}
+          </h1>
           {description ? (
-            <p className="text-lg leading-relaxed text-accent-muted md:text-xl">{description}</p>
+            <p className="mt-5 text-lg leading-relaxed text-ink-600 md:text-xl">{description}</p>
           ) : null}
           {children ? <div className="mt-8">{children}</div> : null}
         </div>

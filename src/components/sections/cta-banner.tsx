@@ -7,12 +7,12 @@ interface CtaBannerProps {
   actions: React.ReactNode;
   /** Extra content rendered beside the copy (e.g. an icon grid). */
   aside?: React.ReactNode;
-  /** Optional photo rendered behind a deep-blue overlay. */
+  /** Optional photo rendered behind a dark ink overlay. */
   backgroundImage?: string;
   className?: string;
 }
 
-/** Full-width deep-blue call-to-action band with title, copy, and action buttons. */
+/** Contained dark call-to-action panel with amber glow, title, copy, and actions. */
 export function CtaBanner({
   title,
   description,
@@ -22,32 +22,47 @@ export function CtaBanner({
   className,
 }: CtaBannerProps) {
   return (
-    <section
-      className={cn("bg-primary-strong bg-cover bg-center py-16 text-white", className)}
-      style={
-        backgroundImage
-          ? {
-              backgroundImage: `linear-gradient(rgba(0, 56, 168, 0.9), rgba(0, 56, 168, 0.9)), url(${backgroundImage})`,
-            }
-          : undefined
-      }
-    >
-      <Container
-        className={cn(
-          "flex flex-col items-center gap-8 text-center",
-          aside ? "md:flex-row md:justify-between md:text-left" : "md:text-center",
-        )}
-      >
-        <div className={cn(aside && "md:w-1/2")}>
-          <h2 className="mb-4 text-3xl font-bold leading-tight md:text-4xl">{title}</h2>
-          <p className={cn("mb-8 text-lg text-blue-100", aside ? "max-w-lg" : "mx-auto max-w-2xl")}>
-            {description}
-          </p>
-          <div className={cn("flex flex-col justify-center gap-4 sm:flex-row", aside && "md:justify-start")}>
-            {actions}
+    <section className={cn("py-12 md:py-16", className)}>
+      <Container>
+        <div
+          className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-ink-900 via-ink-900 to-ink-800 bg-cover bg-center px-6 py-12 text-white sm:px-10 md:px-14 md:py-16"
+          style={
+            backgroundImage
+              ? {
+                  backgroundImage: `linear-gradient(rgba(13, 13, 16, 0.88), rgba(13, 13, 16, 0.88)), url(${backgroundImage})`,
+                }
+              : undefined
+          }
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-brand-500/30 blur-3xl"
+          />
+          <div
+            className={cn(
+              "relative flex flex-col items-center gap-8 text-center",
+              aside ? "md:flex-row md:justify-between md:text-left" : "md:text-center",
+            )}
+          >
+            <div className={cn(aside && "md:w-1/2")}>
+              <h2 className="mb-4 font-display text-3xl font-semibold leading-tight tracking-tight md:text-4xl">
+                {title}
+              </h2>
+              <p className={cn("mb-8 text-lg text-ink-300", aside ? "max-w-lg" : "mx-auto max-w-2xl")}>
+                {description}
+              </p>
+              <div
+                className={cn(
+                  "flex flex-col justify-center gap-4 sm:flex-row",
+                  aside && "md:justify-start",
+                )}
+              >
+                {actions}
+              </div>
+            </div>
+            {aside ? <div className="md:w-1/2">{aside}</div> : null}
           </div>
         </div>
-        {aside ? <div className="md:w-1/2">{aside}</div> : null}
       </Container>
     </section>
   );
