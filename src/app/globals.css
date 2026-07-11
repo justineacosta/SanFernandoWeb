@@ -37,27 +37,6 @@
   --color-danger-soft-fg: #b91c1c;
   --color-danger-bright: #f87171; /* red accents on dark ink surfaces */
 
-  /*
-   * TRANSITIONAL ALIASES — legacy token names remapped onto the new
-   * palette so untouched components render correctly mid-migration.
-   * Removed in the final cleanup task; do not add new usages.
-   */
-  --color-primary: #1a1a1f;
-  --color-primary-strong: #0d0d10;
-  --color-secondary: #b45309;
-  --color-accent: #f59e0b;
-  --color-accent-soft: #fef3c7;
-  --color-accent-muted: #fcd34d;
-  --color-surface: #ffffff;
-  --color-surface-low: #f7f7f8;
-  --color-surface-mid: #eeeef0;
-  --color-surface-high: #eeeef0;
-  --color-surface-highest: #d8d8dd;
-  --color-line: #d8d8dd;
-  --color-outline: #71717f;
-  --color-ink: #1a1a1f;
-  --color-ink-muted: #5b5b67;
-
   /* Typography */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
