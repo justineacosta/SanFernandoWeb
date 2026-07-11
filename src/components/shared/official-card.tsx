@@ -19,7 +19,7 @@ function ContactIcons({ official }: { official: Official }) {
         <a
           href={`mailto:${official.email}`}
           aria-label={`Email ${official.name}`}
-          className="p-2 text-outline transition-colors hover:text-primary"
+          className="p-2 text-ink-400 transition-colors hover:text-brand-600"
         >
           <Mail className="h-5 w-5" aria-hidden="true" />
         </a>
@@ -28,7 +28,7 @@ function ContactIcons({ official }: { official: Official }) {
         <a
           href={toTelHref(official.phone)}
           aria-label={`Call ${official.name}`}
-          className="p-2 text-outline transition-colors hover:text-primary"
+          className="p-2 text-ink-400 transition-colors hover:text-brand-600"
         >
           <Phone className="h-5 w-5" aria-hidden="true" />
         </a>
@@ -47,12 +47,12 @@ export function OfficialCard({ official, variant = "portrait", highlighted = fal
           alt={official.photoAlt}
           width={96}
           height={96}
-          className="h-24 w-24 shrink-0 rounded-full border-2 border-primary/10 object-cover"
+          className="h-24 w-24 shrink-0 rounded-full border-2 border-ink-900/10 object-cover"
         />
         <div>
-          <h4 className="font-bold text-ink">{official.name}</h4>
-          <p className="text-sm font-medium text-secondary">{official.role}</p>
-          <div className="mt-2 flex flex-col gap-1 text-[13px] text-ink-muted">
+          <h4 className="font-display font-semibold tracking-tight text-ink-900">{official.name}</h4>
+          <p className="text-xs font-semibold uppercase tracking-wider text-brand-700">{official.role}</p>
+          <div className="mt-2 flex flex-col gap-1 text-[13px] text-ink-600">
             {official.email ? (
               <span className="flex items-center gap-2">
                 <Mail className="h-4 w-4" aria-hidden="true" /> {official.email}
@@ -70,8 +70,8 @@ export function OfficialCard({ official, variant = "portrait", highlighted = fal
   }
 
   return (
-    <Card className={cn("group overflow-hidden", highlighted && "ring-2 ring-primary/20")}>
-      <div className="relative aspect-square overflow-hidden">
+    <Card className={cn("group overflow-hidden", highlighted && "ring-2 ring-brand-400/20")}>
+      <div className="relative aspect-square overflow-hidden rounded-2xl">
         <Image
           src={official.photo}
           alt={official.photoAlt}
@@ -80,17 +80,17 @@ export function OfficialCard({ official, variant = "portrait", highlighted = fal
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
         {official.badge ? (
-          <span className="absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-[10px] font-bold uppercase text-white">
+          <span className="absolute right-2 top-2 rounded-full bg-ink-900 px-2 py-1 text-[10px] font-bold uppercase text-white">
             {official.badge}
           </span>
         ) : null}
       </div>
       <div className="p-4 text-center">
-        <h4 className="font-bold text-ink">{official.name}</h4>
+        <h4 className="font-display font-semibold tracking-tight text-ink-900">{official.name}</h4>
         <p
           className={cn(
-            "text-sm font-medium",
-            highlighted ? "font-bold text-primary" : "text-secondary",
+            "text-xs font-semibold uppercase tracking-wider text-brand-700",
+            highlighted && "font-bold text-ink-900",
           )}
         >
           {official.role}
