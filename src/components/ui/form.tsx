@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 const fieldClasses =
-  "w-full rounded-lg border border-line bg-surface-low p-3 text-base text-ink transition-all placeholder:text-ink-muted/60 focus:border-secondary focus:outline-none focus:ring-1 focus:ring-secondary";
+  "w-full rounded-2xl border border-ink-200 bg-white px-4 py-3 text-base text-ink-900 shadow-sm transition-colors placeholder:text-ink-400 focus:outline-none focus-visible:border-brand-400 focus-visible:ring-4 focus-visible:ring-brand-400/20 focus:border-brand-400 focus:ring-4 focus:ring-brand-400/20";
 
 interface FieldProps {
   label: string;
@@ -16,7 +16,7 @@ export function Field({ label, htmlFor, className, children }: FieldProps) {
     <div className={cn("space-y-2", className)}>
       <label
         htmlFor={htmlFor}
-        className="text-sm font-semibold uppercase tracking-wide text-ink-muted"
+        className="text-sm font-medium text-ink-700"
       >
         {label}
       </label>
@@ -42,7 +42,7 @@ export function Checkbox({ className, ...props }: React.InputHTMLAttributes<HTML
     <input
       type="checkbox"
       className={cn(
-        "h-5 w-5 rounded border-line text-primary focus:ring-secondary",
+        "h-5 w-5 rounded-md border-ink-300 text-brand-500 focus:ring-brand-400/30",
         className,
       )}
       {...props}

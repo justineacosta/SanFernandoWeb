@@ -10,8 +10,9 @@ export function Card({ interactive = false, className, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-lg border border-line bg-white shadow-sm",
-        interactive && "transition-all duration-300 hover:-translate-y-1 hover:shadow-(--shadow-ambient)",
+        "rounded-3xl border border-ink-200/70 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.08)]",
+        interactive &&
+          "transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.18)]",
         className,
       )}
       {...props}
@@ -29,10 +30,10 @@ interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
 export function CardHeader({ title, icon, action, className, ...props }: CardHeaderProps) {
   return (
     <div
-      className={cn("mb-6 flex items-center justify-between border-b border-line pb-4", className)}
+      className={cn("mb-6 flex items-center justify-between border-b border-ink-200/70 pb-4", className)}
       {...props}
     >
-      <h3 className="flex items-center gap-2 text-lg font-bold uppercase text-primary">
+      <h3 className="flex items-center gap-2 font-display text-lg font-semibold tracking-tight text-ink-900">
         {icon}
         {title}
       </h3>

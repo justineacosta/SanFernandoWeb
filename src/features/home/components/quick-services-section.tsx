@@ -11,7 +11,6 @@ export function QuickServicesSection() {
     <Section tone="white">
       <SectionHeading
         title="Quick Services"
-        underline
         action={{ label: "View All Services", href: "/services" }}
       />
       <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-6">

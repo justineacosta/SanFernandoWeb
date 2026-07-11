@@ -1,12 +1,12 @@
 import { cn } from "@/lib/utils";
 
 const variants = {
-  accent: "bg-accent text-white",
-  urgent: "bg-danger-soft text-danger-soft-fg",
-  new: "bg-red-500 text-white",
-  soft: "bg-accent-soft text-primary",
-  inverse: "bg-white/15 text-white",
-  neutral: "bg-surface-high text-ink-muted",
+  accent: "border-transparent bg-brand-500 text-ink-900",
+  urgent: "border-transparent bg-danger-soft text-danger-soft-fg",
+  new: "border-transparent bg-danger text-white",
+  soft: "border-brand-200 bg-brand-100 text-brand-800",
+  inverse: "border-white/15 bg-white/5 text-brand-300",
+  neutral: "border-ink-200 bg-ink-50 text-ink-600",
 } as const;
 
 export type BadgeVariant = keyof typeof variants;
@@ -20,7 +20,7 @@ export function Badge({ variant = "soft", className, ...props }: BadgeProps) {
   return (
     <span
       className={cn(
-        "inline-block rounded px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider",
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wider",
         variants[variant],
         className,
       )}

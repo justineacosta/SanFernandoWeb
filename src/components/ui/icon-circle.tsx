@@ -2,11 +2,11 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tones = {
-  primary: "bg-accent-soft text-primary",
-  secondary: "bg-blue-50 text-secondary",
+  primary: "bg-brand-100 text-brand-700",
+  secondary: "bg-ink-100 text-ink-700",
   danger: "bg-danger-soft text-danger",
-  white: "bg-white text-secondary border border-line",
-  inverse: "bg-white/15 text-white",
+  white: "bg-white text-brand-700 border border-ink-200",
+  inverse: "bg-white/10 text-brand-300",
 } as const;
 
 const sizes = {
@@ -36,7 +36,7 @@ export function IconCircle({
     <span
       className={cn(
         "inline-flex shrink-0 items-center justify-center",
-        square ? "rounded-lg" : "rounded-full",
+        square ? "rounded-2xl" : "rounded-full",
         tones[tone],
         sizes[size],
         className,

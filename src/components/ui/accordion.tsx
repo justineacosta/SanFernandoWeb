@@ -25,13 +25,13 @@ export function Accordion({ trigger, children, triggerClassName, className }: Ac
         aria-expanded={isOpen}
         aria-controls={panelId}
         className={cn(
-          "flex w-full items-center justify-between gap-2 text-left text-sm font-semibold uppercase tracking-wider",
+          "flex w-full items-center justify-between gap-2 text-left font-display text-sm font-semibold tracking-tight",
           triggerClassName,
         )}
       >
         {trigger}
         <ChevronDown
-          className={cn("h-5 w-5 shrink-0 transition-transform duration-300", isOpen && "rotate-180")}
+          className={cn("h-5 w-5 shrink-0 text-brand-500 transition-transform duration-300", isOpen && "rotate-180")}
           aria-hidden="true"
         />
       </button>

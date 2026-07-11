@@ -2,11 +2,11 @@ import { cn } from "@/lib/utils";
 import { Container } from "@/components/ui/container";
 
 const tones = {
-  default: "bg-surface",
+  default: "bg-white",
   white: "bg-white",
-  muted: "bg-surface-mid",
-  raised: "bg-surface-high",
-  primary: "bg-primary text-white",
+  muted: "bg-ink-50",
+  raised: "bg-ink-100",
+  primary: "bg-ink-950 text-white",
 } as const;
 
 export type SectionTone = keyof typeof tones;

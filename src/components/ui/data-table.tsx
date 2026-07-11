@@ -20,11 +20,11 @@ interface DataTableProps<T> {
 /** Generic, accessible data table inside a scrollable bordered card. */
 export function DataTable<T>({ columns, rows, rowKey, caption, className }: DataTableProps<T>) {
   return (
-    <div className={cn("overflow-x-auto rounded-lg border border-line bg-white", className)}>
+    <div className={cn("overflow-x-auto rounded-3xl border border-ink-200/70 bg-white", className)}>
       <table className="w-full text-left text-sm">
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
-          <tr className="border-b border-line bg-surface-mid text-xs font-semibold uppercase tracking-wider text-ink-muted">
+          <tr className="border-b border-ink-200 bg-ink-50 text-xs font-semibold uppercase tracking-wider text-ink-600">
             {columns.map((column) => (
               <th
                 key={column.header}
@@ -36,9 +36,9 @@ export function DataTable<T>({ columns, rows, rowKey, caption, className }: Data
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-line">
+        <tbody className="divide-y divide-ink-200/70">
           {rows.map((row) => (
-            <tr key={rowKey(row)} className="transition-colors hover:bg-surface-low">
+            <tr key={rowKey(row)} className="transition-colors hover:bg-ink-50">
               {columns.map((column) => (
                 <td
                   key={column.header}

@@ -1,24 +1,25 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 interface SectionHeadingProps {
   title: string;
   description?: string;
+  /** Small uppercase pill rendered above the title. */
+  eyebrow?: string;
   /** Optional "view all" style link rendered on the right. */
   action?: { label: string; href: string };
-  /** Underlined home-page style vs. plain display heading. */
-  underline?: boolean;
   align?: "left" | "center";
   className?: string;
 }
 
-/** Standard section title row with optional description and trailing action link. */
+/** Standard section title row with optional eyebrow pill, description, and action link. */
 export function SectionHeading({
   title,
   description,
+  eyebrow,
   action,
-  underline = false,
   align = "left",
   className,
 }: SectionHeadingProps) {
@@ -33,16 +34,16 @@ export function SectionHeading({
       )}
     >
       <div>
-        <h2
-          className={cn(
-            "text-2xl font-bold text-primary md:text-3xl",
-            underline && "inline-block border-b-4 border-accent pb-2 uppercase",
-          )}
-        >
+        {eyebrow ? (
+          <Badge variant="soft" className="mb-4">
+            {eyebrow}
+          </Badge>
+        ) : null}
+        <h2 className="text-balance font-display text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
           {title}
         </h2>
         {description ? (
-          <p className={cn("mt-3 text-ink-muted", align === "center" && "mx-auto max-w-2xl")}>
+          <p className={cn("mt-3 text-ink-600", align === "center" && "mx-auto max-w-2xl")}>
             {description}
           </p>
         ) : null}
@@ -50,7 +51,7 @@ export function SectionHeading({
       {action ? (
         <Link
           href={action.href}
-          className="inline-flex items-center gap-1 text-sm font-bold uppercase text-secondary transition-colors hover:text-primary"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink-200 bg-white px-4 py-2 text-sm font-medium text-ink-900 transition-colors hover:border-ink-300 hover:bg-ink-50"
         >
           {action.label} <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
