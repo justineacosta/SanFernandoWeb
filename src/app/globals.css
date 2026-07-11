@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+/*
+ * Amber + Ink design tokens
+ * Derived from docs/superpowers/specs/2026-07-11-amber-ink-reskin-design.md
+ * (reference: constructioneng.vercel.app) — single source of truth for
+ * color, typography, radius, elevation, and signature utilities.
+ */
+@theme {
+  /* Brand — amber */
+  --color-brand-100: #fef3c7;
+  --color-brand-200: #fde68a;
+  --color-brand-300: #fcd34d;
+  --color-brand-400: #fbbf24;
+  --color-brand-500: #f59e0b;
+  --color-brand-600: #d97706;
+  --color-brand-700: #b45309;
+  --color-brand-800: #92400e;
+
+  /* Ink — neutrals */
+  --color-ink-50: #f7f7f8;
+  --color-ink-100: #eeeef0;
+  --color-ink-200: #d8d8dd;
+  --color-ink-300: #b6b6bf;
+  --color-ink-400: #8e8e9b;
+  --color-ink-500: #71717f;
+  --color-ink-600: #5b5b67;
+  --color-ink-700: #4a4a55;
+  --color-ink-800: #3f3f47;
+  --color-ink-900: #1a1a1f;
+  --color-ink-950: #0d0d10;
+
+  /* Emergency red — re-tuned for the new neutrals */
+  --color-danger: #dc2626;
+  --color-danger-deep: #991b1b;
+  --color-danger-soft: #fee2e2;
+  --color-danger-soft-fg: #b91c1c;
+  --color-danger-bright: #f87171; /* red accents on dark ink surfaces */
+
+  /*
+   * TRANSITIONAL ALIASES — legacy token names remapped onto the new
+   * palette so untouched components render correctly mid-migration.
+   * Removed in the final cleanup task; do not add new usages.
+   */
+  --color-primary: #1a1a1f;
+  --color-primary-strong: #0d0d10;
+  --color-secondary: #b45309;
+  --color-accent: #f59e0b;
+  --color-accent-soft: #fef3c7;
+  --color-accent-muted: #fcd34d;
+  --color-surface: #ffffff;
+  --color-surface-low: #f7f7f8;
+  --color-surface-mid: #eeeef0;
+  --color-surface-high: #eeeef0;
+  --color-surface-highest: #d8d8dd;
+  --color-line: #d8d8dd;
+  --color-outline: #71717f;
+  --color-ink: #1a1a1f;
+  --color-ink-muted: #5b5b67;
+
+  /* Typography */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+
+  /* Elevation */
+  --shadow-ambient: 0px 8px 30px rgb(0 0 0 / 0.06);
+
+  /* Layout */
+  --container-page: 80rem;
+
+  /* Motion */
+  --animate-fade-up: fade-up 0.6s ease-out both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@utility grid-bg {
+  background-image:
+    linear-gradient(to right, rgb(26 26 31 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(26 26 31 / 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+@utility bg-radial-fade {
+  background: radial-gradient(closest-side, rgb(245 158 11 / 0.14), transparent);
+}
+
+@utility text-gradient-brand {
+  background-image: linear-gradient(to bottom right, #fbbf24, #d97706);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@layer base {
+  body {
+    @apply bg-white text-ink-900 font-sans antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display;
+  }
+
+  ::selection {
+    @apply bg-brand-100 text-brand-800;
+  }
+}
