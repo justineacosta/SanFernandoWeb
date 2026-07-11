@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Services | Barangay Sampaguita Official Website</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-tint": "#3056c4",
+                    "on-primary": "#ffffff",
+                    "secondary-container": "#659dfe",
+                    "on-primary-container": "#96adff",
+                    "error": "#ba1a1a",
+                    "surface-container-low": "#f3f4f5",
+                    "on-secondary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "secondary": "#115cb9",
+                    "outline": "#747685",
+                    "primary-fixed": "#dce1ff",
+                    "surface-bright": "#f8f9fa",
+                    "background": "#f8f9fa",
+                    "on-tertiary-fixed": "#410004",
+                    "inverse-primary": "#b6c4ff",
+                    "primary-fixed-dim": "#b6c4ff",
+                    "on-tertiary-fixed-variant": "#930015",
+                    "primary-container": "#0038a8",
+                    "on-secondary-fixed": "#001a40",
+                    "tertiary": "#62000a",
+                    "on-primary-fixed": "#00164f",
+                    "surface": "#f8f9fa",
+                    "on-secondary-fixed-variant": "#004491",
+                    "on-primary-fixed-variant": "#093cab",
+                    "on-background": "#191c1d",
+                    "outline-variant": "#c4c5d5",
+                    "tertiary-fixed": "#ffdad7",
+                    "tertiary-fixed-dim": "#ffb3ae",
+                    "on-tertiary-container": "#ff918b",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-surface": "#2e3132",
+                    "surface-dim": "#d9dadb",
+                    "surface-container-high": "#e7e8e9",
+                    "on-error": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "on-surface-variant": "#444653",
+                    "surface-container-highest": "#e1e3e4",
+                    "secondary-fixed": "#d7e2ff",
+                    "tertiary-container": "#8c0014",
+                    "on-secondary-container": "#003370",
+                    "surface-variant": "#e1e3e4",
+                    "surface-container": "#edeeef",
+                    "error-container": "#ffdad6",
+                    "on-surface": "#191c1d",
+                    "inverse-on-surface": "#f0f1f2",
+                    "secondary-fixed-dim": "#acc7ff",
+                    "primary": "#002576"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "container-max": "1280px",
+                    "gutter": "24px",
+                    "stack-md": "16px",
+                    "stack-lg": "32px",
+                    "stack-sm": "8px",
+                    "margin-mobile": "16px",
+                    "margin-desktop": "32px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Montserrat"],
+                    "label-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Montserrat"],
+                    "headline-lg-mobile": ["Montserrat"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "label-sm": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "headline-lg": ["48px", {"lineHeight": "1.1", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .service-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .service-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.05);
+        }
+        .requirement-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .requirement-active .requirement-content {
+            max-height: 500px;
+        }
+        .requirement-active .chevron-icon {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-surface-container-lowest dark:bg-inverse-surface w-full top-0 sticky z-50 border-b border-outline-variant dark:border-outline shadow-sm duration-200 ease-in-out">
+<div class="max-w-container-max mx-auto px-gutter flex justify-between items-center h-20">
+<div class="flex items-center gap-4">
+<span class="text-headline-md font-headline-md font-bold text-primary dark:text-inverse-primary tracking-tight">Barangay Sampaguita</span>
+</div>
+<div class="hidden md:flex items-center space-x-8">
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">Home</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">About</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">Officials</a>
+<a class="text-primary dark:text-secondary-container border-b-2 border-primary dark:border-secondary-container pb-1 font-bold font-body-md" href="#">Services</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">News</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">Transparency</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">Contact</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-primary text-on-primary px-6 py-2 rounded-lg font-label-sm hover:opacity-90 transition-all">
+                    e-Services
+                </button>
+<button class="md:hidden text-on-surface">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</div>
+</nav>
+<main class="flex-grow">
+<!-- Hero Section -->
+<section class="relative bg-primary-container text-on-primary py-20 overflow-hidden">
+<div class="absolute inset-0 opacity-10">
+<div class="w-full h-full bg-cover bg-center" data-alt="A sophisticated architectural photograph of a modern government building with clean lines and glass facades, reflecting a clear blue sky. The lighting is bright and professional, evoking a sense of transparency and institutional reliability. High-contrast blues and whites dominate the scene to match the corporate LGU branding." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCVnVFi4jiS34PivOPeWjjx0HX0X16CdPXte5rrS1MpI0O4E7Rr9JCrPjwtkDRkCNnxcLSqqtOfAgaTUgNUF2_GatWOk_GhUilWV5eOl3O3P9i0_6YPrGLxsexbBnNmT1duZHRgXLtrVOLZnAtWPxaGBo3HJ2-c49FRgXPOAbJmuE6HZ1trLqtN4SnrWngB94Aj8N-8-WxlZ2bMwdQjY9T3PHkHfeVQkxaRBmc7X6xJ3Pm4hIdDyooC5kG-p2QhD-9xM04Jp59eogE')"></div>
+</div>
+<div class="max-w-container-max mx-auto px-gutter relative z-10">
+<h1 class="font-headline-lg text-headline-lg mb-4">Official Services Directory</h1>
+<p class="font-body-lg text-body-lg max-w-2xl opacity-90">
+                    Access essential public services, document requests, and community support programs. We are committed to providing efficient and transparent governance for every citizen.
+                </p>
+</div>
+</section>
+<!-- Services Grid -->
+<section class="py-stack-lg max-w-container-max mx-auto px-gutter">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+<!-- Service Card 1: Barangay Clearance -->
+<div class="service-card bg-surface-container-lowest border border-outline-variant p-stack-lg rounded-xl flex flex-col h-full">
+<div class="w-12 h-12 bg-secondary-container/20 rounded-full flex items-center justify-center mb-stack-md text-primary">
+<span class="material-symbols-outlined text-3xl">verified_user</span>
+</div>
+<h3 class="font-headline-md text-headline-md mb-stack-sm">Barangay Clearance</h3>
+<p class="text-on-surface-variant mb-stack-lg flex-grow">
+                        An official document required for various transactions such as employment, business permits, and legal identification.
+                    </p>
+<div class="requirement-accordion border-t border-outline-variant pt-4">
+<button class="flex justify-between items-center w-full text-left group" onclick="toggleAccordion(this)">
+<span class="font-label-sm text-primary">VIEW REQUIREMENTS</span>
+<span class="material-symbols-outlined chevron-icon transition-transform duration-300 text-primary">expand_more</span>
+</button>
+<div class="requirement-content mt-4">
+<ul class="space-y-2 text-sm text-on-surface-variant">
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-secondary">check_circle</span>
+<span>Latest Community Tax Certificate (Cedula)</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-secondary">check_circle</span>
+<span>Recent 2x2 colored ID picture (white background)</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-secondary">check_circle</span>
+<span>Application fee: ₱50.00</span>
+</li>
+</ul>
+<button class="mt-6 w-full py-2 bg-primary text-on-primary rounded font-label-sm">Apply Online</button>
+</div>
+</div>
+</div>
+<!-- Service Card 2: Business Permit Recommendation -->
+<div class="service-card bg-surface-container-lowest border border-outline-variant p-stack-lg rounded-xl flex flex-col h-full">
+<div class="w-12 h-12 bg-secondary-container/20 rounded-full flex items-center justify-center mb-stack-md text-primary">
+<span class="material-symbols-outlined text-3xl">store</span>
+</div>
+<h3 class="font-headline-md text-headline-md mb-stack-sm">Business Permit Recommendation</h3>
+<p class="text-on-surface-variant mb-stack-lg flex-grow">
+                        Necessary for local entrepreneurs to operate legally within the barangay jurisdiction, ensuring compliance with local zoning.
+                    </p>
+<div class="requirement-accordion border-t border-outline-variant pt-4">
+<button class="flex justify-between items-center w-full text-left group" onclick="toggleAccordion(this)">
+<span class="font-label-sm text-primary">VIEW REQUIREMENTS</span>
+<span class="material-symbols-outlined chevron-icon transition-transform duration-300 text-primary">expand_more</span>
+</button>
+<div class="requirement-content mt-4">
+<ul class="space-y-2 text-sm text-on-surface-variant">
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-secondary">check_circle</span>
+<span>DTI / SEC Registration Papers</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-secondary">check_circle</span>
+<span>Contract of Lease or Land Title</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-secondary">check_circle</span>
+<span>Locational Clearance</span>
+</li>
+</ul>
+<button class="mt-6 w-full py-2 bg-primary text-on-primary rounded font-label-sm">Apply Online</button>
+</div>
+</div>
+</div>
+<!-- Service Card 3: Certificate of Indigency -->
+<div class="service-card bg-surface-container-lowest border border-outline-variant p-stack-lg rounded-xl flex flex-col h-full">
+<div class="w-12 h-12 bg-secondary-container/20 rounded-full flex items-center justify-center mb-stack-md text-primary">
+<span class="material-symbols-outlined text-3xl">volunteer_activism</span>
+</div>
+<h3 class="font-headline-md text-headline-md mb-stack-sm">Certificate of Indigency</h3>
+<p class="text-on-surface-variant mb-stack-lg flex-grow">
+                        Provided to residents needing social welfare assistance, medical aid, or scholarship applications.
+                    </p>
+<div class="requirement-accordion border-t border-outline-variant pt-4">
+<button class="flex justify-between items-center w-full text-left group" onclick="toggleAccordion(this)">
+<span class="font-label-sm text-primary">VIEW REQUIREMENTS</span>
+<span class="material-symbols-outlined chevron-icon transition-transform duration-300 text-primary">expand_more</span>
+</button>
+<div class="requirement-content mt-4">
+<ul class="space-y-2 text-sm text-on-surface-variant">
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-secondary">check_circle</span>
+<span>Voter's ID or Certification</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-secondary">check_circle</span>
+<span>Affidavit of Low Income</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-secondary">check_circle</span>
+<span>Referral from DSWD (if applicable)</span>
+</li>
+</ul>
+<button class="mt-6 w-full py-2 bg-primary text-on-primary rounded font-label-sm">Apply Online</button>
+</div>
+</div>
+</div>
+<!-- Service Card 4: Blotter & Complaints -->
+<div class="service-card bg-surface-container-lowest border border-outline-variant p-stack-lg rounded-xl flex flex-col h-full">
+<div class="w-12 h-12 bg-tertiary-container/10 rounded-full flex items-center justify-center mb-stack-md text-tertiary">
+<span class="material-symbols-outlined text-3xl">gavel</span>
+</div>
+<h3 class="font-headline-md text-headline-md mb-stack-sm">Blotter &amp; Complaints</h3>
+<p class="text-on-surface-variant mb-stack-lg flex-grow">
+                        For reporting neighborhood disputes, peace and order issues, or filing formal grievances for mediation.
+                    </p>
+<div class="requirement-accordion border-t border-outline-variant pt-4">
+<button class="flex justify-between items-center w-full text-left group" onclick="toggleAccordion(this)">
+<span class="font-label-sm text-tertiary">VIEW PROCESS</span>
+<span class="material-symbols-outlined chevron-icon transition-transform duration-300 text-tertiary">expand_more</span>
+</button>
+<div class="requirement-content mt-4">
+<ul class="space-y-2 text-sm text-on-surface-variant">
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-tertiary">info</span>
+<span>Personal appearance of the complainant</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-tertiary">info</span>
+<span>Valid Government ID</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-xs mt-1 text-tertiary">info</span>
+<span>Incident narrative and supporting evidence</span>
+</li>
+</ul>
+<button class="mt-6 w-full py-2 border border-tertiary text-tertiary rounded font-label-sm hover:bg-tertiary-container hover:text-on-tertiary-container transition-colors">File Incident Report</button>
+</div>
+</div>
+</div>
+<!-- Emergency Contact CTA Card -->
+<div class="service-card lg:col-span-2 bg-secondary-fixed text-on-secondary-fixed p-stack-lg rounded-xl border border-outline-variant flex flex-col md:flex-row items-center gap-8">
+<div class="flex-grow">
+<h3 class="font-headline-md text-headline-md mb-2">Emergency Assistance</h3>
+<p class="text-on-secondary-fixed-variant mb-4">
+                            In case of fire, medical emergencies, or urgent security threats, contact our 24/7 Response Team immediately.
+                        </p>
+<div class="flex flex-wrap gap-4">
+<div class="flex items-center gap-2 bg-surface-container-lowest px-4 py-2 rounded-full border border-outline-variant">
+<span class="material-symbols-outlined text-tertiary">phone_in_talk</span>
+<span class="font-bold">Hotline: 911-SAMPAGUITA</span>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-lowest px-4 py-2 rounded-full border border-outline-variant">
+<span class="material-symbols-outlined text-primary">medical_services</span>
+<span class="font-bold">Ambulance: 8-123-4567</span>
+</div>
+</div>
+</div>
+<div class="shrink-0">
+<span class="material-symbols-outlined text-7xl opacity-30">emergency_home</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Help Section -->
+<section class="bg-surface-container-high py-20">
+<div class="max-w-container-max mx-auto px-gutter text-center">
+<h2 class="font-headline-md text-headline-md mb-stack-md">Don't see the service you need?</h2>
+<p class="text-on-surface-variant max-w-xl mx-auto mb-stack-lg">
+                    Visit the Barangay Hall from Monday to Friday, 8:00 AM – 5:00 PM, or message us through our citizen help desk for personalized assistance.
+                </p>
+<div class="flex justify-center gap-4">
+<button class="bg-primary text-on-primary px-8 py-3 rounded-lg font-label-sm hover:opacity-90">Message Help Desk</button>
+<button class="bg-surface-container-lowest border border-outline-variant px-8 py-3 rounded-lg font-label-sm hover:bg-surface-container-low">Download All Forms</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-high dark:bg-inverse-surface w-full mt-auto border-t border-outline-variant dark:border-outline">
+<div class="max-w-container-max mx-auto px-gutter py-stack-lg grid grid-cols-1 md:grid-cols-3 gap-8">
+<div>
+<span class="text-headline-md font-headline-md font-bold text-primary dark:text-inverse-primary block mb-4">Barangay Sampaguita</span>
+<p class="text-label-sm font-label-sm text-on-surface-variant dark:text-surface-variant">
+                    © 2024 Barangay Sampaguita. All Rights Reserved. Official Website of the Local Government.
+                </p>
+</div>
+<div>
+<h4 class="font-headline-md text-sm uppercase tracking-wider mb-4 opacity-70">Resources</h4>
+<ul class="space-y-2">
+<li><a class="text-on-surface-variant dark:text-surface-variant hover:underline decoration-primary transition-all font-body-md" href="#">FOI Request</a></li>
+<li><a class="text-on-surface-variant dark:text-surface-variant hover:underline decoration-primary transition-all font-body-md" href="#">Sitemap</a></li>
+<li><a class="text-on-surface-variant dark:text-surface-variant hover:underline decoration-primary transition-all font-body-md" href="#">Emergency Hotlines</a></li>
+</ul>
+</div>
+<div>
+<h4 class="font-headline-md text-sm uppercase tracking-wider mb-4 opacity-70">Legal</h4>
+<ul class="space-y-2">
+<li><a class="text-on-surface-variant dark:text-surface-variant hover:underline decoration-primary transition-all font-body-md" href="#">Privacy Policy</a></li>
+<li><a class="text-on-surface-variant dark:text-surface-variant hover:underline decoration-primary transition-all font-body-md" href="#">Terms of Service</a></li>
+</ul>
+</div>
+</div>
+</footer>
+<script>
+        function toggleAccordion(button) {
+            const accordionItem = button.closest('.requirement-accordion');
+            const isActive = accordionItem.classList.contains('requirement-active');
+            
+            // Close all others
+            document.querySelectorAll('.requirement-accordion').forEach(item => {
+                item.classList.remove('requirement-active');
+            });
+            
+            // Toggle current
+            if (!isActive) {
+                accordionItem.classList.add('requirement-active');
+            }
+        }
+
+        // Micro-interaction for hover effects
+        document.querySelectorAll('.service-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                const icon = card.querySelector('.material-symbols-outlined');
+                if(icon) {
+                    icon.style.transform = 'scale(1.1) rotate(-5deg)';
+                    icon.style.transition = 'transform 0.3s ease';
+                }
+            });
+            card.addEventListener('mouseleave', () => {
+                const icon = card.querySelector('.material-symbols-outlined');
+                if(icon) {
+                    icon.style.transform = 'scale(1) rotate(0deg)';
+                }
+            });
+        });
+    </script>
+</body></html>

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Create New Content - Civic Horizon Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#d9dadb",
+                        "surface-bright": "#f8f9fa",
+                        "on-secondary-fixed-variant": "#004491",
+                        "tertiary-container": "#8c0014",
+                        "secondary": "#115cb9",
+                        "outline-variant": "#c4c5d5",
+                        "tertiary-fixed-dim": "#ffb3ae",
+                        "error": "#ba1a1a",
+                        "surface-tint": "#3056c4",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#ffdad7",
+                        "on-tertiary-container": "#ff918b",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed": "#d7e2ff",
+                        "secondary-container": "#659dfe",
+                        "surface-variant": "#e1e3e4",
+                        "on-surface-variant": "#444653",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed": "#001a40",
+                        "on-secondary-container": "#003370",
+                        "inverse-primary": "#b6c4ff",
+                        "inverse-on-surface": "#f0f1f2",
+                        "surface": "#f8f9fa",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#093cab",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary": "#62000a",
+                        "surface-container": "#edeeef",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "outline": "#747685",
+                        "on-background": "#191c1d",
+                        "on-error-container": "#93000a",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-primary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#2e3132",
+                        "primary-container": "#0038a8",
+                        "on-primary-container": "#96adff",
+                        "secondary-fixed-dim": "#acc7ff",
+                        "on-tertiary-fixed-variant": "#930015",
+                        "on-primary-fixed": "#00164f",
+                        "on-surface": "#191c1d",
+                        "surface-container-low": "#f3f4f5",
+                        "surface-container-high": "#e7e8e9",
+                        "on-tertiary-fixed": "#410004",
+                        "primary": "#002576",
+                        "background": "#f8f9fa"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "stack-sm": "8px",
+                        "margin-desktop": "32px",
+                        "container-max": "1280px",
+                        "stack-md": "16px",
+                        "margin-mobile": "16px",
+                        "stack-lg": "32px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Montserrat"],
+                        "headline-lg-mobile": ["Montserrat"],
+                        "headline-lg": ["Montserrat"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "headline-lg-mobile": ["32px", { "lineHeight": "1.2", "fontWeight": "700" }],
+                        "headline-lg": ["48px", { "lineHeight": "1.1", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "label-sm": ["14px", { "lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #f8f9fa; /* bg-background */
+        }
+    </style>
+</head>
+<body class="flex bg-background min-h-screen text-on-background font-body-md">
+<!-- SideNavBar (Suppressed intentionally as this is a focused creation page, but included structure for consistency if needed, hiding it to prioritize content as per mandate for task-focused pages) -->
+<aside aria-label="Sidebar Navigation" class="h-screen w-64 fixed left-0 top-0 bg-surface-container-low border-r border-outline-variant flex flex-col py-stack-lg hidden md:flex">
+<div class="px-gutter mb-stack-lg">
+<div class="flex items-center gap-4 mb-stack-sm">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="A small circular emblem or seal representing a local government unit. The seal features abstract geometric shapes in shades of blue and gold, set against a pristine white background. The lighting is neutral and even, highlighting the clean lines of the vector-style artwork. The overall mood is official and authoritative, fitting for a civic portal." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDLaxOjB6hpo6b27LDmu4b9xVKe52j9Mmyy9vyBNA4a_JGS2-I6Y7WqJ9A82Ucb4mu5YAxnwXuoQyr9fFSwWkIajApnkRkG_q-pofH8PoACFsy0PbDeYLv0aQDvUK9bAl5N8BTxpCGXLB-jPCG3xZDf_kdjEiwK0B1EbNKmZy8cEEF22TJ_afgV-7kQ6a_S133gkZxjhWTFt64F_0uaAOqPZUSPWHa9YS6egwFdpzLMW9lK_e4GFkWdb3G67rXFQTtE-Zb_UGIPgXs"/>
+<div>
+<h2 class="font-headline-md text-headline-md font-bold text-primary">Barangay Admin</h2>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Official LGU Portal</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 flex flex-col px-stack-sm gap-2">
+<a class="flex items-center gap-4 px-4 py-3 rounded-DEFAULT hover:bg-surface-variant transition-all text-on-surface-variant group" href="#">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">dashboard</span>
+<span class="font-label-sm text-label-sm">Dashboard Overview</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-DEFAULT hover:bg-surface-variant transition-all text-on-surface-variant group" href="#">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">account_balance</span>
+<span class="font-label-sm text-label-sm">Services Management</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-DEFAULT hover:bg-surface-variant transition-all text-on-surface-variant group" href="#">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">calendar_month</span>
+<span class="font-label-sm text-label-sm">Event Calendar</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-DEFAULT text-primary font-bold bg-secondary-container/20 border-r-4 border-primary group" href="#">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">campaign</span>
+<span class="font-label-sm text-label-sm">News &amp; Announcements</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-DEFAULT hover:bg-surface-variant transition-all text-on-surface-variant group" href="#">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">settings</span>
+<span class="font-label-sm text-label-sm">User Settings</span>
+</a>
+</nav>
+<div class="px-gutter mt-auto">
+<button class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-tertiary-container text-on-tertiary rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-on-tertiary">emergency</span>
+                Emergency Response
+            </button>
+</div>
+</aside>
+<div class="flex-1 flex flex-col md:ml-64 w-full min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-surface flex justify-between items-center w-full px-margin-desktop h-16 sticky top-0 z-50 border-b border-outline-variant flat no shadows">
+<div class="flex items-center gap-4">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Civic Horizon Admin</h1>
+</div>
+<div class="flex items-center gap-6">
+<!-- Search bar placeholder logic -->
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-full font-body-md text-body-md text-on-surface focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors w-64" placeholder="Search..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button aria-label="Notifications" class="text-on-surface-variant hover:bg-surface-container-low transition-colors p-2 rounded-full cursor-pointer active:opacity-80 transition-opacity">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button aria-label="Help" class="text-on-surface-variant hover:bg-surface-container-low transition-colors p-2 rounded-full cursor-pointer active:opacity-80 transition-opacity">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<img alt="Administrator Profile" class="w-8 h-8 rounded-full object-cover border border-outline-variant cursor-pointer" data-alt="A professional headshot of an administrator in a corporate setting. The person is wearing a smart-casual blue shirt, standing in a brightly lit modern office environment with blurred glass walls in the background. The lighting is soft and flattering, creating a trustworthy and approachable mood appropriate for an LGU portal profile image." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDywk9wpYtcWnNA0FWF88gUK3yo2MwAu2MWoBwHgoVtz2CbRQYsTGOP_slCwmRy9aeVnKX2Rf8gaBoZvaT9gXXdU8X2t1_Y8sraK7l6O7WswP_znAxgeJc9gJUxf22BMQckTxHodBglkQIBVboh0ZV720NsiTReQ8DsYiuuxNvX_1E4L6spfUG03Rx-24rhC3h52XJINUNPbjja_RqzXNIYhhtN4x49W-SmbkeKUfUPU0_7uigGsoiMstStrNKmgYP6Vzwc8Lnn3cw"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 p-margin-mobile md:p-margin-desktop w-full max-w-container-max mx-auto">
+<!-- Header Section -->
+<div class="mb-stack-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<div>
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-stack-sm">Create New Content</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Select a content type to start drafting for the public portal.</p>
+</div>
+<button class="bg-primary text-on-primary font-label-sm text-label-sm px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-on-primary-fixed-variant transition-colors shadow-sm">
+<span class="material-symbols-outlined">add</span>
+                    Quick Draft
+                </button>
+</div>
+<!-- Quick Actions Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-stack-lg">
+<!-- Action Card 1: Ordinance -->
+<a class="group bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col items-start gap-4 hover:border-primary hover:shadow-md transition-all h-full" href="#">
+<div class="w-12 h-12 rounded-lg bg-primary-fixed flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">gavel</span>
+</div>
+<div class="flex-1">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2 group-hover:text-primary transition-colors">Ordinance / Resolution</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Draft official local laws, resolutions, and policy documents for public review.</p>
+</div>
+<div class="w-full flex justify-end mt-auto">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</div>
+</a>
+<!-- Action Card 2: Community Event -->
+<a class="group bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col items-start gap-4 hover:border-primary hover:shadow-md transition-all h-full relative overflow-hidden" href="#">
+<div class="absolute top-0 right-0 w-32 h-32 bg-secondary-fixed-dim rounded-bl-full opacity-20 -z-10 group-hover:scale-110 transition-transform"></div>
+<div class="w-12 h-12 rounded-lg bg-secondary-fixed flex items-center justify-center group-hover:scale-110 transition-transform z-10">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">celebration</span>
+</div>
+<div class="flex-1 z-10">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2 group-hover:text-primary transition-colors">Community Event</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Schedule town halls, health drives, festivals, and public gatherings.</p>
+</div>
+<div class="w-full flex justify-end mt-auto z-10">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</div>
+</a>
+<!-- Action Card 3: News/Announcement -->
+<a class="group bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col items-start gap-4 hover:border-primary hover:shadow-md transition-all h-full" href="#">
+<div class="w-12 h-12 rounded-lg bg-primary-fixed-dim flex items-center justify-center group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">newspaper</span>
+</div>
+<div class="flex-1">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-2 group-hover:text-primary transition-colors">News &amp; Announcement</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Publish immediate updates, advisories, and local news bulletins.</p>
+</div>
+<div class="w-full flex justify-end mt-auto">
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</div>
+</a>
+</div>
+<!-- Lower Section: Recent Drafts & Publishing Log -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<!-- Recent Drafts List -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col gap-4">
+<div class="flex items-center justify-between border-b border-outline-variant pb-4 mb-2">
+<h3 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-outline">edit_document</span>
+                            Recent Drafts
+                        </h3>
+<button class="font-label-sm text-label-sm text-secondary hover:text-primary transition-colors">View All</button>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Draft Item 1 -->
+<div class="flex items-start justify-between p-3 hover:bg-surface-container-low rounded-lg transition-colors group cursor-pointer border border-transparent hover:border-outline-variant">
+<div class="flex items-start gap-4">
+<div class="mt-1 w-8 h-8 rounded bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">campaign</span>
+</div>
+<div>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface group-hover:text-primary transition-colors">Typhoon Preparedness Advisory</h4>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">Last edited 2 hours ago by Maria Santos</p>
+</div>
+</div>
+<span class="px-2 py-1 bg-surface-variant text-on-surface-variant font-label-sm text-xs rounded">Draft</span>
+</div>
+<!-- Draft Item 2 -->
+<div class="flex items-start justify-between p-3 hover:bg-surface-container-low rounded-lg transition-colors group cursor-pointer border border-transparent hover:border-outline-variant">
+<div class="flex items-start gap-4">
+<div class="mt-1 w-8 h-8 rounded bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">gavel</span>
+</div>
+<div>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface group-hover:text-primary transition-colors">Resolution No. 45 - Traffic Management</h4>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">Last edited yesterday by Juan Dela Cruz</p>
+</div>
+</div>
+<span class="px-2 py-1 bg-surface-variant text-on-surface-variant font-label-sm text-xs rounded">In Review</span>
+</div>
+<!-- Draft Item 3 -->
+<div class="flex items-start justify-between p-3 hover:bg-surface-container-low rounded-lg transition-colors group cursor-pointer border border-transparent hover:border-outline-variant">
+<div class="flex items-start gap-4">
+<div class="mt-1 w-8 h-8 rounded bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">event</span>
+</div>
+<div>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface group-hover:text-primary transition-colors">Annual Barangay Fiesta Schedule</h4>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">Last edited 3 days ago by Ana Reyes</p>
+</div>
+</div>
+<span class="px-2 py-1 bg-surface-variant text-on-surface-variant font-label-sm text-xs rounded">Draft</span>
+</div>
+</div>
+</section>
+<!-- Publishing Activity Log -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col gap-4">
+<div class="flex items-center justify-between border-b border-outline-variant pb-4 mb-2">
+<h3 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-outline">history</span>
+                            Publishing Activity
+                        </h3>
+<button class="font-label-sm text-label-sm text-secondary hover:text-primary transition-colors">Filter</button>
+</div>
+<div class="relative pl-4 border-l-2 border-surface-variant space-y-6 mt-2 ml-2">
+<!-- Activity 1 -->
+<div class="relative">
+<div class="absolute -left-[23px] top-1 w-3 h-3 rounded-full bg-primary ring-4 ring-surface-container-lowest"></div>
+<p class="font-label-sm text-label-sm text-primary mb-1">Today, 09:45 AM</p>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface">Community Clean-up Drive Announced</h4>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-1">Published by Admin user 'marcelo_p' under Events.</p>
+<a class="inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary mt-2 hover:underline" href="#">View live page <span class="material-symbols-outlined text-sm">open_in_new</span></a>
+</div>
+<!-- Activity 2 -->
+<div class="relative">
+<div class="absolute -left-[23px] top-1 w-3 h-3 rounded-full bg-outline-variant ring-4 ring-surface-container-lowest"></div>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Yesterday, 14:30 PM</p>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface">Updated Health Center Operating Hours</h4>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-1">Updated by 'dr_santos' in Announcements.</p>
+</div>
+<!-- Activity 3 -->
+<div class="relative">
+<div class="absolute -left-[23px] top-1 w-3 h-3 rounded-full bg-outline-variant ring-4 ring-surface-container-lowest"></div>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-1">Oct 12, 10:00 AM</p>
+<h4 class="font-body-md text-body-md font-semibold text-on-surface">Ordinance 2023-04: Noise Regulation</h4>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm mt-1">Published by Admin user 'sec_general' under Resolutions.</p>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+</body></html>

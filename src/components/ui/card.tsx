@@ -1,0 +1,42 @@
+import { cn } from "@/lib/utils";
+
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** Lift the card slightly on hover. */
+  interactive?: boolean;
+}
+
+/** White surface card with the design system's 1px soft border. */
+export function Card({ interactive = false, className, ...props }: CardProps) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-line bg-white shadow-sm",
+        interactive && "transition-all duration-300 hover:-translate-y-1 hover:shadow-(--shadow-ambient)",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
+  title: string;
+  icon?: React.ReactNode;
+  action?: React.ReactNode;
+}
+
+/** Card title row with optional leading icon and trailing action. */
+export function CardHeader({ title, icon, action, className, ...props }: CardHeaderProps) {
+  return (
+    <div
+      className={cn("mb-6 flex items-center justify-between border-b border-line pb-4", className)}
+      {...props}
+    >
+      <h3 className="flex items-center gap-2 text-lg font-bold uppercase text-primary">
+        {icon}
+        {title}
+      </h3>
+      {action}
+    </div>
+  );
+}

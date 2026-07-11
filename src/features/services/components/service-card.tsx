@@ -1,0 +1,55 @@
+import { CheckCircle2, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Accordion } from "@/components/ui/accordion";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { IconCircle } from "@/components/ui/icon-circle";
+import type { Service } from "@/types";
+
+interface ServiceCardProps {
+  service: Service;
+}
+
+/** Service directory card with an expandable requirements checklist. */
+export function ServiceCard({ service }: ServiceCardProps) {
+  const isDanger = service.tone === "danger";
+  const RequirementIcon = isDanger ? Info : CheckCircle2;
+
+  return (
+    <Card interactive className="flex h-full flex-col rounded-xl p-8">
+      <IconCircle
+        icon={service.icon}
+        tone={isDanger ? "danger" : "primary"}
+        className="mb-4"
+      />
+      <h3 className="mb-2 text-xl font-semibold">{service.title}</h3>
+      <p className="mb-8 flex-grow text-ink-muted">{service.description}</p>
+      <Accordion
+        className="border-t border-line pt-4"
+        trigger={<span>{service.requirementsLabel}</span>}
+        triggerClassName={isDanger ? "text-danger" : "text-primary"}
+      >
+        <ul className="space-y-2 text-sm text-ink-muted">
+          {service.requirements.map((requirement) => (
+            <li key={requirement} className="flex items-start gap-2">
+              <RequirementIcon
+                className={cn(
+                  "mt-0.5 h-4 w-4 shrink-0",
+                  isDanger ? "text-danger" : "text-secondary",
+                )}
+                aria-hidden="true"
+              />
+              <span>{requirement}</span>
+            </li>
+          ))}
+        </ul>
+        <Button
+          variant={isDanger ? "outline-danger" : "primary"}
+          className="mt-6 w-full"
+        >
+          {service.ctaLabel}
+        </Button>
+      </Accordion>
+    </Card>
+  );
+}

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>About Us | Barangay Sampaguita Official</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-tint": "#3056c4",
+                    "on-primary": "#ffffff",
+                    "secondary-container": "#659dfe",
+                    "on-primary-container": "#96adff",
+                    "error": "#ba1a1a",
+                    "surface-container-low": "#f3f4f5",
+                    "on-secondary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "secondary": "#115cb9",
+                    "outline": "#747685",
+                    "primary-fixed": "#dce1ff",
+                    "surface-bright": "#f8f9fa",
+                    "background": "#f8f9fa",
+                    "on-tertiary-fixed": "#410004",
+                    "inverse-primary": "#b6c4ff",
+                    "primary-fixed-dim": "#b6c4ff",
+                    "on-tertiary-fixed-variant": "#930015",
+                    "primary-container": "#0038a8",
+                    "on-secondary-fixed": "#001a40",
+                    "tertiary": "#62000a",
+                    "on-primary-fixed": "#00164f",
+                    "surface": "#f8f9fa",
+                    "on-secondary-fixed-variant": "#004491",
+                    "on-primary-fixed-variant": "#093cab",
+                    "on-background": "#191c1d",
+                    "outline-variant": "#c4c5d5",
+                    "tertiary-fixed": "#ffdad7",
+                    "tertiary-fixed-dim": "#ffb3ae",
+                    "on-tertiary-container": "#ff918b",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-surface": "#2e3132",
+                    "surface-dim": "#d9dadb",
+                    "surface-container-high": "#e7e8e9",
+                    "on-error": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "on-surface-variant": "#444653",
+                    "surface-container-highest": "#e1e3e4",
+                    "secondary-fixed": "#d7e2ff",
+                    "tertiary-container": "#8c0014",
+                    "on-secondary-container": "#003370",
+                    "surface-variant": "#e1e3e4",
+                    "surface-container": "#edeeef",
+                    "error-container": "#ffdad6",
+                    "primary": "#002576"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "container-max": "1280px",
+                    "gutter": "24px",
+                    "stack-md": "16px",
+                    "stack-lg": "32px",
+                    "stack-sm": "8px",
+                    "margin-mobile": "16px",
+                    "margin-desktop": "32px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Montserrat"],
+                    "label-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Montserrat"],
+                    "headline-lg-mobile": ["Montserrat"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "label-sm": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "headline-lg": ["48px", {"lineHeight": "1.1", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 24px;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid #DEE2E6;
+        }
+        .text-balance { text-wrap: balance; }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md selection:bg-primary-fixed selection:text-primary">
+<!-- Top Navigation Bar -->
+<header class="w-full top-0 sticky z-50 bg-surface-container-lowest border-b border-outline-variant shadow-sm transition-all duration-200 ease-in-out">
+<nav class="max-w-container-max mx-auto px-gutter flex justify-between items-center h-20">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+<span class="text-headline-md font-headline-md font-bold text-primary">Barangay Sampaguita</span>
+</div>
+<div class="hidden md:flex items-center gap-8">
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md" href="#">Home</a>
+<a class="text-primary border-b-2 border-primary pb-1 font-bold font-body-md" href="#">About</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md" href="#">Officials</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md" href="#">Services</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md" href="#">News</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md" href="#">Transparency</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md" href="#">Contact</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="hidden lg:flex items-center gap-2 px-4 py-2 text-primary hover:bg-surface-container-low transition-all rounded-lg font-label-sm">
+<span class="material-symbols-outlined text-xl">search</span>
+</button>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-label-sm hover:opacity-90 transition-all shadow-sm">
+                    e-Services
+                </button>
+</div>
+</nav>
+</header>
+<main>
+<!-- Hero Section -->
+<section class="relative py-24 overflow-hidden bg-primary-container text-on-primary">
+<div class="absolute inset-0 opacity-10 pointer-events-none">
+<div class="w-full h-full" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 40px 40px;"></div>
+</div>
+<div class="max-w-container-max mx-auto px-gutter relative">
+<div class="max-w-3xl">
+<span class="inline-block px-3 py-1 bg-secondary-container text-primary font-label-sm rounded-full mb-6 uppercase tracking-wider">Public Office &amp; Community</span>
+<h1 class="font-headline-lg text-headline-lg mb-8 text-balance">The Heart of Service: Understanding Barangay Sampaguita</h1>
+<p class="font-body-lg text-body-lg text-on-primary-container leading-relaxed">Dedicated to fostering a safe, transparent, and progressive community for all residents. Discover our history, our purpose, and our commitment to you.</p>
+</div>
+</div>
+</section>
+<!-- Mission & Vision Bento Grid -->
+<section class="py-stack-lg max-w-container-max mx-auto px-gutter">
+<div class="bento-grid">
+<!-- Mission Card -->
+<div class="col-span-12 md:col-span-7 bg-surface-container-lowest p-10 border border-outline-variant rounded-xl flex flex-col justify-center shadow-sm">
+<div class="w-16 h-16 bg-primary-fixed rounded-full flex items-center justify-center mb-6 text-primary">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">flag</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-primary mb-4">Our Mission</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">To empower every resident of Barangay Sampaguita through inclusive local governance, responsive public services, and sustainable community development programs that enhance the quality of life and promote social justice.</p>
+</div>
+<!-- Vision Card -->
+<div class="col-span-12 md:col-span-5 bg-primary text-on-primary p-10 rounded-xl flex flex-col justify-center shadow-md">
+<div class="w-16 h-16 bg-on-primary-container rounded-full flex items-center justify-center mb-6 text-primary">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">visibility</span>
+</div>
+<h2 class="font-headline-md text-headline-md mb-4">Our Vision</h2>
+<p class="font-body-lg text-body-lg opacity-90">A premier, technology-driven, and disaster-resilient community where citizens live in harmony, safety, and prosperity by the year 2030.</p>
+</div>
+<!-- Core Values -->
+<div class="col-span-12 grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
+<div class="p-6 bg-surface-container-low border border-outline-variant rounded-xl text-center">
+<span class="material-symbols-outlined text-3xl text-secondary mb-3">verified_user</span>
+<h3 class="font-label-sm text-primary mb-2">Integrity</h3>
+<p class="text-sm text-on-surface-variant">Honesty in every action.</p>
+</div>
+<div class="p-6 bg-surface-container-low border border-outline-variant rounded-xl text-center">
+<span class="material-symbols-outlined text-3xl text-secondary mb-3">diversity_1</span>
+<h3 class="font-label-sm text-primary mb-2">Service</h3>
+<p class="text-sm text-on-surface-variant">Putting the people first.</p>
+</div>
+<div class="p-6 bg-surface-container-low border border-outline-variant rounded-xl text-center">
+<span class="material-symbols-outlined text-3xl text-secondary mb-3">accessibility</span>
+<h3 class="font-label-sm text-primary mb-2">Accountability</h3>
+<p class="text-sm text-on-surface-variant">Answerable to the public.</p>
+</div>
+<div class="p-6 bg-surface-container-low border border-outline-variant rounded-xl text-center">
+<span class="material-symbols-outlined text-3xl text-secondary mb-3">eco</span>
+<h3 class="font-label-sm text-primary mb-2">Sustainability</h3>
+<p class="text-sm text-on-surface-variant">Preserving for the future.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Captain's Message -->
+<section class="py-24 bg-surface-container-highest">
+<div class="max-w-container-max mx-auto px-gutter">
+<div class="flex flex-col md:flex-row items-center gap-16">
+<div class="w-full md:w-1/3 relative">
+<div class="aspect-[4/5] rounded-xl overflow-hidden border-8 border-surface-container-lowest shadow-lg">
+<img class="w-full h-full object-cover" data-alt="A professional portrait of a Filipino local government official, a man in his late 50s wearing a crisp white Barong Tagalog. He has a warm, trustworthy smile and is standing in a brightly lit office with the Philippine flag and the barangay seal in the background. The lighting is soft and corporate, emphasizing institutional reliability and accessibility." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9OXsw1aa2Z_qUSgKBM12yWtsvOyVBsN0GF0YsLgWcmmZRNZP29WiG1t3NTjn--98v1qWECVAsIRXLRK0JFfv0SG4RghbjM-n9ZxXdgUs14eaYrZ6ky60pul58euMDptq7D1QK8qrEqNmbV_HDFaErkPbL4-8_HcFOXhF__AjiJFiTKrp-l2Ei2fx2jgsKehy49fNfuBjeg8qj50bG1KAAjPoPLXRwzlJR1h-urR--Qj7utoc8Xm0HZEGx6LgV-SWmwPfxenYr68w"/>
+</div>
+<div class="absolute -bottom-6 -right-6 bg-primary text-on-primary p-6 rounded-lg shadow-xl">
+<p class="font-headline-md text-xl">Hon. Roberto S. Garcia</p>
+<p class="font-label-sm opacity-80">Barangay Captain</p>
+</div>
+</div>
+<div class="w-full md:w-2/3">
+<span class="material-symbols-outlined text-6xl text-outline-variant opacity-50 mb-4" style="font-variation-settings: 'FILL' 1;">format_quote</span>
+<h2 class="font-headline-md text-headline-md text-primary mb-6">A Message from the Punong Barangay</h2>
+<div class="space-y-4 font-body-lg text-on-surface-variant leading-relaxed italic">
+<p>"Ang aming pamunuan ay nakatuon sa pagbibigay ng tapat at mabilis na serbisyo para sa bawat Sampaguiteño. Naniniwala ako na sa pamamagitan ng pagkakaisa at transparency, makakamit natin ang isang mas maunlad at ligtas na barangay."</p>
+<p>"It is our honor to serve this historic community. We are modernizing our systems to ensure that no one is left behind in our journey toward a digital and efficient local government. Maraming salamat sa inyong patuloy na pagtitiwala."</p>
+</div>
+<div class="mt-8 pt-8 border-t border-outline-variant">
+<button class="flex items-center gap-2 text-primary font-bold hover:underline">
+                                View Executive Agenda 2024-2027
+                                <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- History Timeline -->
+<section class="py-24 bg-surface-container-lowest">
+<div class="max-w-container-max mx-auto px-gutter">
+<div class="text-center mb-16">
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-4">Our Rich History</h2>
+<p class="max-w-2xl mx-auto text-on-surface-variant">Tracing our roots from a small agricultural settlement to a thriving urban center.</p>
+</div>
+<div class="relative">
+<!-- Vertical Line -->
+<div class="absolute left-1/2 -translate-x-1/2 w-0.5 h-full bg-outline-variant hidden md:block"></div>
+<div class="space-y-12">
+<!-- 1950s -->
+<div class="flex flex-col md:flex-row items-center gap-8 relative">
+<div class="w-full md:w-1/2 md:text-right">
+<span class="inline-block px-4 py-1 bg-surface-container-high rounded-full font-bold text-primary mb-2">1952</span>
+<h3 class="font-headline-md text-xl mb-2">Foundation</h3>
+<p class="text-on-surface-variant">Originally part of the sprawling agricultural estates, Barangay Sampaguita was formally established to serve the growing community of settlers.</p>
+</div>
+<div class="hidden md:flex absolute left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-primary border-4 border-surface-container-lowest z-10"></div>
+<div class="w-full md:w-1/2">
+<div class="h-48 rounded-lg overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover grayscale opacity-80" data-alt="A vintage, sepia-toned archival photograph showing a group of Filipino elders and community leaders gathering for the formal signing of a barangay establishment document in the 1950s. The setting is outdoors under a large mango tree, with classic mid-century rural attire. The image has a grainy, historical texture emphasizing heritage and authenticity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHmnHEnbZXmdv4Keaioe2SGecj73lnM5EVvYKoH9N5vQQnCK4y1ZM8H3HEUWY3ghjCZtMQ2D0PAe0t0dauW5xop-WCeYX8vD9ZfKZqdok3CxIPAG9TPAxd3qftPt2QK4QIP66J3EE7j-BFeX97kj4BIHj-JN4BM4Swq8gWzvusEUS6RgrL5ZSM7vw2z9eXtNizngellAIRdJgauRtdcmthr3q6erU482oMR-E6CemLoyvcWFpT4CIH_HOWhlSTqW6N-HjfAl-ehDY"/>
+</div>
+</div>
+</div>
+<!-- 1980s -->
+<div class="flex flex-col md:flex-row-reverse items-center gap-8 relative">
+<div class="w-full md:w-1/2">
+<span class="inline-block px-4 py-1 bg-surface-container-high rounded-full font-bold text-primary mb-2">1985</span>
+<h3 class="font-headline-md text-xl mb-2">Urban Transformation</h3>
+<p class="text-on-surface-variant">The completion of the major highway connecting the barangay to the city center sparked a period of rapid residential and commercial growth.</p>
+</div>
+<div class="hidden md:flex absolute left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-primary border-4 border-surface-container-lowest z-10"></div>
+<div class="w-full md:w-1/2">
+<div class="h-48 rounded-lg overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover opacity-80" data-alt="A 1980s color-film style wide shot showing the development of a busy paved road through Barangay Sampaguita. Construction equipment is visible alongside early commercial storefronts and growing residential neighborhoods. The lighting is warm afternoon sun, capturing a sense of progress and change in a developing Philippine district." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBTijX7Uvp4k47o_9FVoHoLzYZfjRhfNsZrc6mEnK001jcF5d53VlHRjAimOqwvUZjj136-6y4R9SNX23Uc3DLwsWXqNKb8qN6K2PWxc4pDkoETmU3CujHY41eeA5loU0jg-AI7lXMRs7eiDp_WWrn5Zz0l1YJmNHUG_KyXUi4LnghSl3U397BnPyOOrSCT9MuiE3ohNLHe9v3vcJhlebLAR47p_kAPaWGB7DqiOlssMYEf0DDZtzkXgKvyIb4ATxo08njHQWDVMOM"/>
+</div>
+</div>
+</div>
+<!-- 2020s -->
+<div class="flex flex-col md:flex-row items-center gap-8 relative">
+<div class="w-full md:w-1/2 md:text-right">
+<span class="inline-block px-4 py-1 bg-surface-container-high rounded-full font-bold text-primary mb-2">2021</span>
+<h3 class="font-headline-md text-xl mb-2">Digital Modernization</h3>
+<p class="text-on-surface-variant">Launch of the e-Barangay Portal, becoming the first in the region to digitize all resident certifications and health tracking services.</p>
+</div>
+<div class="hidden md:flex absolute left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-primary border-4 border-surface-container-lowest z-10"></div>
+<div class="w-full md:w-1/2">
+<div class="h-48 rounded-lg overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A clean, modern photograph of a young Filipino professional using a tablet at a public terminal inside a sleek, modern barangay hall. The background features blue and white corporate branding, high-speed internet routers, and organized digital kiosks. The atmosphere is bright, efficient, and technologically advanced." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDl3Ow_bdWJcZphiL4NDHt98LWWFHX-3VnIZxRawqYKy_xxTP8_ZvGLGKVQzza30FU2aKSVTfkC2iqkZfwvDCwK3XnjtZqL9VEVjrwjH-l-kqUv8xtSmquE042b2mqFd1kB-z_VVT4O0mTGL0C2oI_DpX0z7l9Eq_geyJmF8db2Oc0h13nqzXfd_2N49ZrBhBIRpLKCL-4kxhICCsxX5Q_Za6p4WlSKZYq9uM18uduFNJczdDb9ju1CXbA9GRVFj7vT0qcNDeDyf-o"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Milestones Section -->
+<section class="py-24 bg-surface-container">
+<div class="max-w-container-max mx-auto px-gutter">
+<div class="flex justify-between items-end mb-12">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary">Community Milestones</h2>
+<p class="text-on-surface-variant">Key achievements that define our progress.</p>
+</div>
+<button class="hidden md:flex items-center gap-2 text-primary font-bold hover:underline">
+                        View All Reports
+                        <span class="material-symbols-outlined">description</span>
+</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Achievement 1 -->
+<div class="bg-surface-container-lowest p-8 border border-outline-variant rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<div class="flex items-center justify-between mb-6">
+<span class="material-symbols-outlined text-4xl text-secondary">workspace_premium</span>
+<span class="text-headline-md font-bold text-outline-variant">01</span>
+</div>
+<h3 class="font-headline-md text-lg text-primary mb-4">Cleanest Barangay Award</h3>
+<p class="text-on-surface-variant mb-6">Recognized for three consecutive years for excellence in solid waste management and urban greening initiatives.</p>
+<div class="flex items-center gap-2 text-label-sm text-secondary">
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+                            Awarded Nov 2023
+                        </div>
+</div>
+<!-- Achievement 2 -->
+<div class="bg-surface-container-lowest p-8 border border-outline-variant rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<div class="flex items-center justify-between mb-6">
+<span class="material-symbols-outlined text-4xl text-secondary">medical_services</span>
+<span class="text-headline-md font-bold text-outline-variant">02</span>
+</div>
+<h3 class="font-headline-md text-lg text-primary mb-4">98% Vaccination Rate</h3>
+<p class="text-on-surface-variant mb-6">Achieved one of the highest primary healthcare coverage rates in the city through our mobile health clinic program.</p>
+<div class="flex items-center gap-2 text-label-sm text-secondary">
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+                            Status as of 2024
+                        </div>
+</div>
+<!-- Achievement 3 -->
+<div class="bg-surface-container-lowest p-8 border border-outline-variant rounded-xl shadow-sm hover:shadow-md transition-shadow">
+<div class="flex items-center justify-between mb-6">
+<span class="material-symbols-outlined text-4xl text-secondary">security</span>
+<span class="text-headline-md font-bold text-outline-variant">03</span>
+</div>
+<h3 class="font-headline-md text-lg text-primary mb-4">Smart CCTV Network</h3>
+<p class="text-on-surface-variant mb-6">Successfully implemented a 24/7 surveillance grid covering 100% of major intersections for community safety.</p>
+<div class="flex items-center gap-2 text-label-sm text-secondary">
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+                            Completed Dec 2023
+                        </div>
+</div>
+</div>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="py-24 max-w-container-max mx-auto px-gutter text-center">
+<div class="bg-primary text-on-primary p-12 rounded-3xl relative overflow-hidden">
+<div class="absolute top-0 right-0 p-12 opacity-10">
+<span class="material-symbols-outlined text-[200px]" style="font-variation-settings: 'FILL' 1;">groups</span>
+</div>
+<h2 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-6 relative">Join Our Growing Community</h2>
+<p class="max-w-2xl mx-auto font-body-lg text-on-primary-container mb-10 relative">Stay updated with official announcements and participate in our upcoming community assemblies. Your voice matters in shaping Sampaguita's future.</p>
+<div class="flex flex-col sm:flex-row justify-center gap-4 relative">
+<button class="bg-on-primary text-primary px-10 py-4 rounded-lg font-bold hover:bg-on-primary-container transition-all shadow-lg">Register as Resident</button>
+<button class="border border-on-primary text-on-primary px-10 py-4 rounded-lg font-bold hover:bg-white/10 transition-all">Volunteer Programs</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full mt-auto bg-surface-container-high border-t border-outline-variant">
+<div class="max-w-container-max mx-auto px-gutter py-stack-lg grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-2xl" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+<span class="text-headline-md font-headline-md font-bold text-primary">Barangay Sampaguita</span>
+</div>
+<p class="text-on-surface-variant max-w-xs font-body-md">Working together for a cleaner, safer, and more prosperous community for all residents.</p>
+<div class="flex gap-4">
+<a class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center text-primary hover:bg-primary hover:text-on-primary transition-all" href="#">
+<span class="material-symbols-outlined">face_nod</span>
+</a>
+<a class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center text-primary hover:bg-primary hover:text-on-primary transition-all" href="#">
+<span class="material-symbols-outlined">mail</span>
+</a>
+</div>
+</div>
+<div class="space-y-4">
+<h4 class="font-headline-md text-lg text-primary">Official Links</h4>
+<div class="flex flex-col gap-2">
+<a class="text-on-surface-variant hover:underline decoration-primary transition-all font-body-md" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant hover:underline decoration-primary transition-all font-body-md" href="#">Terms of Service</a>
+<a class="text-on-surface-variant hover:underline decoration-primary transition-all font-body-md" href="#">FOI Request</a>
+<a class="text-on-surface-variant hover:underline decoration-primary transition-all font-body-md" href="#">Sitemap</a>
+<a class="text-on-surface-variant hover:underline decoration-primary transition-all font-body-md" href="#">Emergency Hotlines</a>
+</div>
+</div>
+<div class="space-y-4">
+<h4 class="font-headline-md text-lg text-tertiary">Emergency Contact</h4>
+<div class="bg-surface-container-highest p-6 rounded-xl border border-outline-variant">
+<div class="flex items-center gap-4 mb-4">
+<span class="material-symbols-outlined text-tertiary text-3xl">emergency</span>
+<div>
+<p class="font-bold text-tertiary">Brgy. Hotline</p>
+<p class="text-2xl font-headline-md text-on-surface">8-SAMPAGUITA</p>
+</div>
+</div>
+<p class="text-sm text-on-surface-variant">Available 24/7 for immediate assistance and emergency response.</p>
+</div>
+</div>
+</div>
+<div class="border-t border-outline-variant py-8">
+<div class="max-w-container-max mx-auto px-gutter text-center text-label-sm text-on-surface-variant">
+                © 2024 Barangay Sampaguita. All Rights Reserved. Official Website of the Local Government.
+            </div>
+</div>
+</footer>
+<!-- Back to top micro-interaction script -->
+<script>
+        window.onscroll = function() {
+            const header = document.querySelector('header');
+            if (window.pageYOffset > 50) {
+                header.classList.add('shadow-md');
+                header.classList.remove('shadow-sm');
+            } else {
+                header.classList.remove('shadow-md');
+                header.classList.add('shadow-sm');
+            }
+        };
+    </script>
+</body></html>

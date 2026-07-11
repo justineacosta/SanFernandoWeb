@@ -1,0 +1,40 @@
+import { Phone, Siren } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Container } from "@/components/ui/container";
+
+/** Red 24/7 emergency action-center strip below the directory. */
+export function ActionCenterBanner() {
+  return (
+    <div className="pb-16">
+      <Container>
+        <div className="flex flex-col items-center justify-between gap-6 rounded-2xl bg-danger p-8 text-danger-soft shadow-lg md:flex-row">
+          <div className="flex items-center gap-4">
+            <span className="rounded-full bg-danger-deep p-3">
+              <Siren className="h-6 w-6 text-white" aria-hidden="true" />
+            </span>
+            <div>
+              <h3 className="text-xl font-semibold text-white">24/7 Action Center</h3>
+              <p className="opacity-90">
+                Our council members and response teams are on standby for any emergencies.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <Button href="tel:911" variant="white" size="lg" className="normal-case">
+              <Phone className="h-5 w-5" aria-hidden="true" />
+              Emergency Hotline: 911
+            </Button>
+            <Button
+              href="/contact"
+              variant="outline-white"
+              size="lg"
+              className="border normal-case"
+            >
+              Request Assistance
+            </Button>
+          </div>
+        </div>
+      </Container>
+    </div>
+  );
+}

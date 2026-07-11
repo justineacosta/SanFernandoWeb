@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Contact Us - Barangay Sampaguita</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-tint": "#3056c4",
+                    "on-primary": "#ffffff",
+                    "secondary-container": "#659dfe",
+                    "on-primary-container": "#96adff",
+                    "error": "#ba1a1a",
+                    "surface-container-low": "#f3f4f5",
+                    "on-secondary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "secondary": "#115cb9",
+                    "outline": "#747685",
+                    "primary-fixed": "#dce1ff",
+                    "surface-bright": "#f8f9fa",
+                    "background": "#f8f9fa",
+                    "on-tertiary-fixed": "#410004",
+                    "inverse-primary": "#b6c4ff",
+                    "primary-fixed-dim": "#b6c4ff",
+                    "on-tertiary-fixed-variant": "#930015",
+                    "primary-container": "#0038a8",
+                    "on-secondary-fixed": "#001a40",
+                    "tertiary": "#62000a",
+                    "on-primary-fixed": "#00164f",
+                    "surface": "#f8f9fa",
+                    "on-secondary-fixed-variant": "#004491",
+                    "on-primary-fixed-variant": "#093cab",
+                    "on-background": "#191c1d",
+                    "outline-variant": "#c4c5d5",
+                    "tertiary-fixed": "#ffdad7",
+                    "tertiary-fixed-dim": "#ffb3ae",
+                    "on-tertiary-container": "#ff918b",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-surface": "#2e3132",
+                    "surface-dim": "#d9dadb",
+                    "surface-container-high": "#e7e8e9",
+                    "on-error": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "on-surface-variant": "#444653",
+                    "surface-container-highest": "#e1e3e4",
+                    "secondary-fixed": "#d7e2ff",
+                    "tertiary-container": "#8c0014",
+                    "on-secondary-container": "#003370",
+                    "surface-variant": "#e1e3e4",
+                    "surface-container": "#edeeef",
+                    "error-container": "#ffdad6",
+                    "on-surface": "#191c1d",
+                    "inverse-on-surface": "#f0f1f2",
+                    "secondary-fixed-dim": "#acc7ff",
+                    "primary": "#002576"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "container-max": "1280px",
+                    "gutter": "24px",
+                    "stack-md": "16px",
+                    "stack-lg": "32px",
+                    "stack-sm": "8px",
+                    "margin-mobile": "16px",
+                    "margin-desktop": "32px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Montserrat"],
+                    "label-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "headline-lg": ["Montserrat"],
+                    "headline-lg-mobile": ["Montserrat"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "label-sm": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "headline-lg": ["48px", {"lineHeight": "1.1", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .form-input-focus:focus {
+            border-color: #115cb9;
+            box-shadow: 0 0 0 1px #115cb9;
+            outline: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="w-full top-0 sticky z-50 bg-surface-container-lowest dark:bg-inverse-surface border-b border-outline-variant dark:border-outline shadow-sm h-20">
+<div class="max-w-container-max mx-auto px-gutter flex justify-between items-center h-full">
+<div class="text-headline-md font-headline-md font-extrabold text-primary dark:text-inverse-primary tracking-tight">
+                Barangay Sampaguita
+            </div>
+<!-- Desktop Navigation -->
+<div class="hidden md:flex items-center space-x-8">
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">Home</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">About</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">Officials</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">Services</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">News</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary transition-colors font-body-md" href="#">Transparency</a>
+<a class="text-primary dark:text-secondary-container border-b-2 border-primary dark:border-secondary-container pb-1 font-bold font-body-md" href="#">Contact</a>
+</div>
+<div class="flex items-center space-x-4">
+<button class="bg-primary text-on-primary px-6 py-2 rounded-lg font-label-sm hover:opacity-90 transition-all">
+                    e-Services
+                </button>
+<!-- Mobile Menu Icon -->
+<button class="md:hidden p-2">
+<span class="material-symbols-outlined text-primary">menu</span>
+</button>
+</div>
+</div>
+</nav>
+<main class="flex-grow">
+<!-- Hero Section -->
+<header class="bg-primary-container text-on-primary-container py-16 md:py-24">
+<div class="max-w-container-max mx-auto px-gutter text-center">
+<h1 class="font-headline-lg text-headline-lg-mobile md:text-headline-lg mb-4 text-white">Connect with Your Barangay</h1>
+<p class="font-body-lg text-body-lg max-w-2xl mx-auto opacity-90 text-on-primary-container">We are here to serve you. Reach out for inquiries, feedback, or official requests. Our team is ready to assist the citizens of Sampaguita.</p>
+</div>
+</header>
+<!-- Contact Section -->
+<section class="max-w-container-max mx-auto px-gutter -mt-12 mb-stack-lg">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<!-- Contact Information Column (Left) -->
+<div class="lg:col-span-4 space-y-6">
+<div class="bg-surface-container-lowest p-8 rounded-xl border border-outline-variant shadow-sm h-full">
+<h2 class="font-headline-md text-headline-md mb-8 text-primary">Contact Details</h2>
+<div class="space-y-8">
+<!-- Address -->
+<div class="flex items-start gap-4">
+<div class="bg-secondary-fixed text-primary p-3 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined">location_on</span>
+</div>
+<div>
+<h3 class="font-label-sm text-label-sm uppercase tracking-wider text-outline mb-1">Office Address</h3>
+<p class="font-body-md text-on-surface">123 Sampaguita Drive, District IV, <br/>Barangay Sampaguita, Metro City</p>
+</div>
+</div>
+<!-- Phone -->
+<div class="flex items-start gap-4">
+<div class="bg-secondary-fixed text-primary p-3 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined">call</span>
+</div>
+<div>
+<h3 class="font-label-sm text-label-sm uppercase tracking-wider text-outline mb-1">Phone Number</h3>
+<p class="font-body-md text-on-surface">(02) 8888-1234</p>
+<p class="font-body-md text-on-surface">0917-555-6789</p>
+</div>
+</div>
+<!-- Email -->
+<div class="flex items-start gap-4">
+<div class="bg-secondary-fixed text-primary p-3 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined">mail</span>
+</div>
+<div>
+<h3 class="font-label-sm text-label-sm uppercase tracking-wider text-outline mb-1">Email Address</h3>
+<p class="font-body-md text-on-surface">info@sampaguita.gov.ph</p>
+<p class="font-body-md text-on-surface">helpdesk@sampaguita.gov.ph</p>
+</div>
+</div>
+<!-- Socials -->
+<div class="pt-6 border-t border-outline-variant">
+<h3 class="font-label-sm text-label-sm uppercase tracking-wider text-outline mb-4">Follow Us</h3>
+<div class="flex gap-4">
+<a class="bg-surface-container hover:bg-primary-fixed transition-colors p-3 rounded-full flex items-center justify-center" href="#">
+<span class="material-symbols-outlined text-primary" data-weight="fill">public</span>
+</a>
+<a class="bg-surface-container hover:bg-primary-fixed transition-colors p-3 rounded-full flex items-center justify-center" href="#">
+<span class="material-symbols-outlined text-primary" data-weight="fill">groups</span>
+</a>
+<a class="bg-surface-container hover:bg-primary-fixed transition-colors p-3 rounded-full flex items-center justify-center" href="#">
+<span class="material-symbols-outlined text-primary" data-weight="fill">video_library</span>
+</a>
+</div>
+</div>
+<!-- Emergency Widget -->
+<div class="bg-error-container p-6 rounded-lg border border-error/20 mt-8">
+<div class="flex items-center gap-2 mb-2 text-error">
+<span class="material-symbols-outlined" data-weight="fill">emergency</span>
+<h3 class="font-headline-md text-[18px] font-bold">Emergency Hotlines</h3>
+</div>
+<p class="font-body-md text-on-error-container font-bold mb-1">Police: 911</p>
+<p class="font-body-md text-on-error-container font-bold">Health: 161</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Contact Form Column (Right) -->
+<div class="lg:col-span-8">
+<div class="bg-surface-container-lowest p-8 md:p-10 rounded-xl border border-outline-variant shadow-sm">
+<h2 class="font-headline-md text-headline-md mb-2 text-primary">Send an Inquiry</h2>
+<p class="font-body-md text-on-surface-variant mb-8">Fill out the form below and our staff will get back to you within 24-48 business hours.</p>
+<form class="grid grid-cols-1 md:grid-cols-2 gap-6" id="inquiryForm">
+<div class="space-y-2">
+<label class="font-label-sm text-on-surface-variant" for="firstName">First Name</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-3 font-body-md form-input-focus transition-all" id="firstName" name="firstName" placeholder="Juan" required="" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="font-label-sm text-on-surface-variant" for="lastName">Last Name</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-3 font-body-md form-input-focus transition-all" id="lastName" name="lastName" placeholder="Dela Cruz" required="" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="font-label-sm text-on-surface-variant" for="email">Email Address</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-3 font-body-md form-input-focus transition-all" id="email" name="email" placeholder="juan.dc@email.com" required="" type="email"/>
+</div>
+<div class="space-y-2">
+<label class="font-label-sm text-on-surface-variant" for="phone">Phone Number (Optional)</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-3 font-body-md form-input-focus transition-all" id="phone" name="phone" placeholder="09XX XXX XXXX" type="tel"/>
+</div>
+<div class="md:col-span-2 space-y-2">
+<label class="font-label-sm text-on-surface-variant" for="subject">Subject</label>
+<select class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-3 font-body-md form-input-focus transition-all" id="subject" name="subject">
+<option value="general">General Inquiry</option>
+<option value="documents">Document Request</option>
+<option value="complaint">Report / Complaint</option>
+<option value="emergency">Non-Emergency Assistance</option>
+<option value="others">Others</option>
+</select>
+</div>
+<div class="md:col-span-2 space-y-2">
+<label class="font-label-sm text-on-surface-variant" for="message">Message</label>
+<textarea class="w-full bg-surface-container-low border border-outline-variant rounded-lg p-3 font-body-md form-input-focus transition-all" id="message" name="message" placeholder="How can we help you?" required="" rows="5"></textarea>
+</div>
+<div class="md:col-span-2 flex items-center gap-3 py-2">
+<input class="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary" id="terms" required="" type="checkbox"/>
+<label class="font-body-md text-on-surface-variant text-sm" for="terms">I agree to the processing of my personal data for the purpose of this inquiry.</label>
+</div>
+<div class="md:col-span-2 pt-4">
+<button class="w-full md:w-auto px-10 py-4 bg-primary text-on-primary rounded-lg font-headline-md text-[18px] hover:shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2" type="submit">
+                                    Submit Inquiry
+                                    <span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+</section>
+<!-- Map Section -->
+<section class="max-w-container-max mx-auto px-gutter mb-20">
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="p-8 border-b border-outline-variant flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<h2 class="font-headline-md text-headline-md text-primary">Barangay Hall Location</h2>
+<p class="font-body-md text-on-surface-variant">Visit us during office hours: Monday to Friday, 8:00 AM - 5:00 PM</p>
+</div>
+<button class="flex items-center gap-2 text-secondary font-label-sm hover:underline">
+<span class="material-symbols-outlined">directions</span>
+                        Get Directions
+                    </button>
+</div>
+<!-- Map Placeholder -->
+<div class="relative h-[450px] bg-surface-container-high overflow-hidden">
+<div class="w-full h-full bg-cover bg-center grayscale-[20%] opacity-80" data-alt="A clean, professional bird's eye view map of a modern urban barangay layout in Metro Manila, Philippines. The map features a prominent government building labeled Barangay Hall with a blue pin marker. The aesthetic is inspired by premium digital mapping interfaces, using a muted corporate color palette of soft grays, whites, and blue accents. Detailed streets, green patches representing local parks, and surrounding residential structures are visible in a flat, modern architectural style." data-location="Quezon City" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDAkBIJIGnHT97sdIP82suABS7zH2anKDrIB1ggPIeT3aRJBCia91GRdsvjF-bJOn6dUqz0zCa8XhlCJbkKRDFW843spLGy8DrYBc6HyHJ_wDXnneXxcySQIKkDqq-Do4KfbzQFh4bldTYYPygYf1dqtCZfat0ztk4u6ZKMBlgPwhnOw2ul6Cc8dFGmcpy1DpRMoD-P6C4wUAiaC8OzzMUojawPD4Lcz9t_FYq-W42Txyv0NYF2ACGflY0k9kKVosgtKNLfk1MQeik')"></div>
+<!-- Map Overlay UI -->
+<div class="absolute bottom-6 left-6 right-6 md:right-auto md:w-80 bg-white/95 backdrop-blur-md p-6 rounded-lg border border-outline-variant shadow-xl">
+<h4 class="font-headline-md text-[18px] mb-2">Sampaguita Barangay Hall</h4>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">The main administrative hub for all citizen services and local council sessions.</p>
+<div class="flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined text-[18px]" data-weight="fill">verified</span>
+<span class="font-label-sm text-[12px]">OFFICIAL GOVERNMENT SITE</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full mt-auto bg-surface-container-high dark:bg-inverse-surface border-t border-outline-variant dark:border-outline">
+<div class="max-w-container-max mx-auto px-gutter py-stack-lg grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Brand Section -->
+<div class="space-y-4">
+<div class="text-headline-md font-headline-md font-bold text-primary dark:text-inverse-primary">
+                    Barangay Sampaguita
+                </div>
+<p class="font-body-md text-on-surface-variant max-w-sm">
+                    Dedicated to providing transparent, accessible, and reliable public services to every citizen in our community.
+                </p>
+</div>
+<!-- Quick Links -->
+<div class="space-y-4">
+<h4 class="font-label-sm uppercase tracking-wider text-primary">Quick Links</h4>
+<ul class="space-y-2">
+<li><a class="font-body-md text-on-surface-variant dark:text-surface-variant hover:underline decoration-primary transition-all" href="#">Privacy Policy</a></li>
+<li><a class="font-body-md text-on-surface-variant dark:text-surface-variant hover:underline decoration-primary transition-all" href="#">Terms of Service</a></li>
+<li><a class="font-body-md text-on-surface-variant dark:text-surface-variant hover:underline decoration-primary transition-all" href="#">FOI Request</a></li>
+<li><a class="font-body-md text-on-surface-variant dark:text-surface-variant hover:underline decoration-primary transition-all" href="#">Sitemap</a></li>
+<li><a class="font-body-md text-on-surface-variant dark:text-surface-variant hover:underline decoration-primary transition-all" href="#">Emergency Hotlines</a></li>
+</ul>
+</div>
+<!-- Copyright -->
+<div class="flex flex-col justify-end">
+<p class="font-label-sm text-on-surface-variant opacity-70 leading-relaxed">
+                    © 2024 Barangay Sampaguita. All Rights Reserved. Official Website of the Local Government.
+                </p>
+<div class="flex gap-4 mt-4 text-outline">
+<span class="material-symbols-outlined text-[20px]">policy</span>
+<span class="material-symbols-outlined text-[20px]">security</span>
+<span class="material-symbols-outlined text-[20px]">account_balance</span>
+</div>
+</div>
+</div>
+</footer>
+<script>
+        // Simple Interaction: Form Submission Mock
+        document.getElementById('inquiryForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Sending...';
+            
+            setTimeout(() => {
+                btn.classList.replace('bg-primary', 'bg-green-600');
+                btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span> Message Sent!';
+                e.target.reset();
+                
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.classList.replace('bg-green-600', 'bg-primary');
+                    btn.innerHTML = originalText;
+                }, 3000);
+            }, 1500);
+        });
+
+        // Sticky Navbar Scroll Effect
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 10) {
+                nav.classList.add('shadow-md');
+                nav.classList.replace('h-20', 'h-16');
+            } else {
+                nav.classList.remove('shadow-md');
+                nav.classList.replace('h-16', 'h-20');
+            }
+        });
+    </script>
+</body></html>

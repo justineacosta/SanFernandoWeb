@@ -1,0 +1,14 @@
+interface DividerHeadingProps {
+  children: React.ReactNode;
+}
+
+/** Centered heading flanked by horizontal rules, used to segment directories. */
+export function DividerHeading({ children }: DividerHeadingProps) {
+  return (
+    <div className="mb-8 flex items-center gap-4">
+      <div className="h-px flex-grow bg-line" aria-hidden="true" />
+      <h2 className="text-xl font-semibold text-primary md:text-2xl">{children}</h2>
+      <div className="h-px flex-grow bg-line" aria-hidden="true" />
+    </div>
+  );
+}
