@@ -10,8 +10,10 @@ export function AdminPageHeader({ title, description, action }: AdminPageHeaderP
   return (
     <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
       <div>
-        <h2 className="mb-2 text-2xl font-bold text-ink md:text-4xl">{title}</h2>
-        {description ? <p className="text-lg text-ink-muted">{description}</p> : null}
+        <h2 className="mb-2 text-2xl font-semibold tracking-tight text-ink-900 md:text-4xl">
+          {title}
+        </h2>
+        {description ? <p className="text-lg text-ink-600">{description}</p> : null}
       </div>
       {action}
     </div>

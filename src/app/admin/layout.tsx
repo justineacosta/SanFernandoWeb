@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-surface">
+    <div className="flex min-h-screen bg-white">
       <AdminSidebar className="fixed left-0 top-0 hidden md:flex" />
       <div className="flex min-h-screen w-full flex-1 flex-col md:ml-64">
         <AdminTopBar />

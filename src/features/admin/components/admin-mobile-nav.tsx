@@ -15,7 +15,7 @@ export function AdminMobileNav() {
         onClick={toggle}
         aria-expanded={isOpen}
         aria-label={isOpen ? "Close admin menu" : "Open admin menu"}
-        className="p-2 text-primary"
+        className="p-2 text-ink-900"
       >
         {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
       </button>
@@ -25,7 +25,7 @@ export function AdminMobileNav() {
             type="button"
             aria-label="Close admin menu"
             onClick={close}
-            className="absolute inset-0 bg-ink/40"
+            className="absolute inset-0 bg-ink-900/40"
           />
           <div className="absolute left-0 top-0" onClick={close}>
             <AdminSidebar className="shadow-xl" />
