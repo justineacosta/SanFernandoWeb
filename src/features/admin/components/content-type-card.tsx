@@ -1,18 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { IconCircle } from "@/components/ui/icon-circle";
 import type { ContentTypeAction } from "@/types";
-
-/** Maps the content action's tone to an IconCircle tone + optional accent override. */
-const iconTones: Record<
-  ContentTypeAction["tone"],
-  { tone: "primary" | "secondary"; className?: string }
-> = {
-  primary: { tone: "primary" },
-  secondary: { tone: "secondary" },
-  deep: { tone: "primary", className: "bg-brand-200 text-ink-950" },
-};
 
 interface ContentTypeCardProps {
   action: ContentTypeAction;
@@ -21,17 +10,16 @@ interface ContentTypeCardProps {
 /** Quick-action card for starting a new piece of content. */
 export function ContentTypeCard({ action }: ContentTypeCardProps) {
   const Icon = action.icon;
-  const iconTone = iconTones[action.tone];
 
   return (
     <Link
       href={action.href}
-      className="group flex h-full flex-col items-start gap-4 rounded-3xl border border-ink-200 bg-white p-6 transition-all hover:border-ink-900 hover:shadow-md"
+      className="group flex h-full flex-col items-start gap-4 rounded-3xl border border-ink-200 bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_-20px_rgba(0,0,0,0.18)] hover:border-ink-900"
     >
       <IconCircle
         icon={Icon}
-        tone={iconTone.tone}
-        className={cn("transition-transform group-hover:scale-110", iconTone.className)}
+        tone="primary"
+        className="transition-transform group-hover:scale-110"
       />
       <span className="flex-1">
         <h3 className="mb-2 text-xl font-semibold text-ink-900 transition-colors group-hover:text-ink-900">
