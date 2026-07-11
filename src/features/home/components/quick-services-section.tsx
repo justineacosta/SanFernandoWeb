@@ -15,12 +15,18 @@ export function QuickServicesSection() {
       />
       <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-6">
         {QUICK_SERVICES.map((service) => (
-          <Card key={service.title} interactive className="rounded-xl p-6 text-center">
-            <IconCircle icon={service.icon} tone="secondary" size="lg" className="mb-4" />
-            <h3 className="mb-2 font-sans font-bold leading-tight text-ink">{service.title}</h3>
+          <Card
+            key={service.title}
+            interactive
+            className="rounded-3xl p-6 text-center hover:border-brand-300"
+          >
+            <IconCircle icon={service.icon} tone="primary" size="lg" className="mb-4" />
+            <h3 className="mb-2 font-sans font-semibold tracking-tight leading-tight text-ink-900">
+              {service.title}
+            </h3>
             <Link
               href={service.href}
-              className="text-sm font-medium text-secondary hover:underline"
+              className="text-sm font-medium text-brand-700 hover:underline"
             >
               {service.ctaLabel}
             </Link>

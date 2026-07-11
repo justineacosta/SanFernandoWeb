@@ -17,11 +17,11 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
           alt={announcement.imageAlt ?? ""}
           width={96}
           height={80}
-          className="h-20 w-24 shrink-0 rounded object-cover"
+          className="h-20 w-24 shrink-0 rounded-2xl object-cover"
         />
       ) : null}
       <div>
-        <h4 className="text-sm font-bold text-ink transition-colors group-hover:text-secondary">
+        <h4 className="text-sm font-semibold tracking-tight text-ink-900 transition-colors group-hover:text-brand-700">
           {announcement.isNew ? (
             <Badge variant="new" className="mr-1 px-1.5 text-[10px]">
               New
@@ -29,8 +29,8 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
           ) : null}
           {announcement.title}
         </h4>
-        <p className="mb-1 mt-1 text-xs text-ink-muted">{formatDate(announcement.date)}</p>
-        <p className="line-clamp-2 text-xs text-ink-muted">{announcement.excerpt}</p>
+        <p className="mb-1 mt-1 text-xs text-ink-600">{formatDate(announcement.date)}</p>
+        <p className="line-clamp-2 text-xs text-ink-600">{announcement.excerpt}</p>
       </div>
     </article>
   );

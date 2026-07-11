@@ -16,7 +16,7 @@ function ViewAllLink({ label, href }: { label: string; href: string }) {
   return (
     <Link
       href={href}
-      className="flex items-center gap-1 text-xs font-bold uppercase text-secondary transition-colors hover:text-primary"
+      className="flex items-center gap-1 text-xs font-bold uppercase text-brand-700 transition-colors hover:text-ink-900"
     >
       {label} <ArrowRight className="h-3 w-3" aria-hidden="true" />
     </Link>
@@ -31,7 +31,7 @@ export function CommunityPulseSection() {
         <Card className="p-6">
           <CardHeader
             title="Announcements"
-            icon={<Megaphone className="h-5 w-5 text-accent" aria-hidden="true" />}
+            icon={<Megaphone className="h-5 w-5 text-brand-500" aria-hidden="true" />}
             action={<ViewAllLink label="View All" href="/announcements" />}
           />
           <div className="space-y-6">
@@ -47,7 +47,7 @@ export function CommunityPulseSection() {
         <Card className="p-6">
           <CardHeader
             title="Upcoming Events"
-            icon={<Calendar className="h-5 w-5 text-accent" aria-hidden="true" />}
+            icon={<Calendar className="h-5 w-5 text-brand-500" aria-hidden="true" />}
             action={<ViewAllLink label="View Calendar" href="/announcements" />}
           />
           <div className="space-y-6">
@@ -63,7 +63,7 @@ export function CommunityPulseSection() {
         <Card className="p-6">
           <CardHeader
             title="Barangay at a Glance"
-            icon={<BarChart2 className="h-5 w-5 text-accent" aria-hidden="true" />}
+            icon={<BarChart2 className="h-5 w-5 text-brand-500" aria-hidden="true" />}
           />
           <div className="space-y-4">
             {GLANCE_STATS.map((stat) => (

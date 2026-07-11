@@ -23,9 +23,9 @@ export function GetInvolvedSection() {
         <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
           {INVOLVEMENT_ITEMS.map(({ icon: Icon, title, description }) => (
             <div key={title} className="text-center">
-              <Icon className="mx-auto mb-3 h-10 w-10 text-blue-200" aria-hidden="true" />
-              <h4 className="mb-1 text-sm font-bold">{title}</h4>
-              <p className="text-xs text-blue-200">{description}</p>
+              <Icon className="mx-auto mb-3 h-10 w-10 text-ink-300" aria-hidden="true" />
+              <h4 className="mb-1 text-sm font-semibold tracking-tight">{title}</h4>
+              <p className="text-xs text-ink-300">{description}</p>
             </div>
           ))}
         </div>
