@@ -19,10 +19,10 @@ export default function AnnouncementsPage() {
         description="Access the latest announcements, public notices, and community highlights from the heart of Barangay Sampaguita."
       >
         <div className="flex flex-wrap gap-4">
-          <Button variant="white" size="lg">
+          <Button variant="primary" size="lg">
             Subscribe to Alerts
           </Button>
-          <Button variant="outline-white" size="lg" className="border">
+          <Button variant="outline" size="lg">
             Community Calendar
           </Button>
         </div>

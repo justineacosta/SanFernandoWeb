@@ -12,20 +12,20 @@ export function ServicesGrid() {
           <ServiceCard key={service.id} service={service} />
         ))}
 
-        <div className="flex flex-col items-center gap-8 rounded-xl border border-line bg-accent-soft p-8 text-primary md:flex-row lg:col-span-2">
+        <div className="flex flex-col items-center gap-8 rounded-[2rem] border border-ink-200 bg-brand-100 p-8 text-ink-900 md:flex-row lg:col-span-2">
           <div className="flex-grow">
             <h3 className="mb-2 text-xl font-semibold">{EMERGENCY_ASSISTANCE.title}</h3>
-            <p className="mb-4 text-ink-muted">{EMERGENCY_ASSISTANCE.description}</p>
+            <p className="mb-4 text-ink-600">{EMERGENCY_ASSISTANCE.description}</p>
             <div className="flex flex-wrap gap-4">
               {EMERGENCY_ASSISTANCE.hotlines.map((hotline, index) => (
                 <span
                   key={hotline.label}
-                  className="flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2"
+                  className="flex items-center gap-2 rounded-full border border-ink-200 bg-white px-4 py-2"
                 >
                   {index === 0 ? (
                     <PhoneCall className="h-5 w-5 text-danger" aria-hidden="true" />
                   ) : (
-                    <Stethoscope className="h-5 w-5 text-primary" aria-hidden="true" />
+                    <Stethoscope className="h-5 w-5 text-ink-900" aria-hidden="true" />
                   )}
                   <span className="font-bold">
                     {hotline.label}: {hotline.number}

@@ -16,26 +16,26 @@ export function ServiceCard({ service }: ServiceCardProps) {
   const RequirementIcon = isDanger ? Info : CheckCircle2;
 
   return (
-    <Card interactive className="flex h-full flex-col rounded-xl p-8">
+    <Card interactive className="flex h-full flex-col rounded-3xl p-8">
       <IconCircle
         icon={service.icon}
         tone={isDanger ? "danger" : "primary"}
         className="mb-4"
       />
       <h3 className="mb-2 text-xl font-semibold">{service.title}</h3>
-      <p className="mb-8 flex-grow text-ink-muted">{service.description}</p>
+      <p className="mb-8 flex-grow text-ink-600">{service.description}</p>
       <Accordion
-        className="border-t border-line pt-4"
+        className="border-t border-ink-200 pt-4"
         trigger={<span>{service.requirementsLabel}</span>}
-        triggerClassName={isDanger ? "text-danger" : "text-primary"}
+        triggerClassName={isDanger ? "text-danger" : "text-ink-900"}
       >
-        <ul className="space-y-2 text-sm text-ink-muted">
+        <ul className="space-y-2 text-sm text-ink-600">
           {service.requirements.map((requirement) => (
             <li key={requirement} className="flex items-start gap-2">
               <RequirementIcon
                 className={cn(
                   "mt-0.5 h-4 w-4 shrink-0",
-                  isDanger ? "text-danger" : "text-secondary",
+                  isDanger ? "text-danger" : "text-brand-500",
                 )}
                 aria-hidden="true"
               />
