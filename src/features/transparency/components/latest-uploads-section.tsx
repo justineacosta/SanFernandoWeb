@@ -12,8 +12,8 @@ const columns: DataTableColumn<TransparencyDocument>[] = [
       const Icon = doc.icon;
       return (
         <span className="flex items-center gap-3">
-          <Icon className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-          <span className="font-medium text-ink">{doc.title}</span>
+          <Icon className="h-5 w-5 shrink-0 text-ink-900" aria-hidden="true" />
+          <span className="font-medium text-ink-900">{doc.title}</span>
         </span>
       );
     },
@@ -21,13 +21,13 @@ const columns: DataTableColumn<TransparencyDocument>[] = [
   { header: "Category", cell: (doc) => doc.category },
   {
     header: "Date Released",
-    cell: (doc) => <span className="text-ink-muted">{formatDate(doc.date)}</span>,
+    cell: (doc) => <span className="text-ink-600">{formatDate(doc.date)}</span>,
   },
   {
     header: "Action",
     align: "right",
     cell: () => (
-      <a href="#" className="font-semibold uppercase text-primary hover:underline">
+      <a href="#" className="font-semibold uppercase text-ink-900 hover:underline">
         Download
       </a>
     ),
@@ -37,7 +37,7 @@ const columns: DataTableColumn<TransparencyDocument>[] = [
 /** Table of the most recent documents added to the portal. */
 export function LatestUploadsSection() {
   return (
-    <Section tone="white" className="border-t border-line">
+    <Section tone="white" className="border-t border-ink-200">
       <SectionHeading
         title="Latest Uploads"
         description="Recent documents added to the transparency portal."

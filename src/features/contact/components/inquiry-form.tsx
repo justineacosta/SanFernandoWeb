@@ -26,9 +26,9 @@ export function InquiryForm() {
   }
 
   return (
-    <Card className="rounded-xl p-8 md:p-10">
-      <h2 className="mb-2 text-2xl font-semibold text-primary">Send an Inquiry</h2>
-      <p className="mb-8 text-ink-muted">
+    <Card className="rounded-3xl p-8 md:p-10">
+      <h2 className="mb-2 text-2xl font-semibold tracking-tight text-ink-900">Send an Inquiry</h2>
+      <p className="mb-8 text-ink-600">
         Fill out the form below and our staff will get back to you within 24-48 business hours.
       </p>
       <form className="grid grid-cols-1 gap-6 md:grid-cols-2" onSubmit={handleSubmit}>
@@ -64,16 +64,17 @@ export function InquiryForm() {
         </Field>
         <div className="flex items-center gap-3 py-2 md:col-span-2">
           <Checkbox id="terms" required />
-          <label htmlFor="terms" className="text-sm text-ink-muted">
+          <label htmlFor="terms" className="text-sm text-ink-600">
             I agree to the processing of my personal data for the purpose of this inquiry.
           </label>
         </div>
         <div className="pt-4 md:col-span-2">
           <Button
             type="submit"
-            size="xl"
+            variant="primary"
+            size="lg"
             disabled={status !== "idle"}
-            className={status === "sent" ? "bg-green-600 hover:bg-green-600" : undefined}
+            className={status === "sent" ? "rounded-2xl bg-brand-100 text-brand-800 hover:bg-brand-100" : undefined}
           >
             {status === "idle" ? (
               <>
