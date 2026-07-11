@@ -32,7 +32,7 @@ function AnnouncementsWidget() {
                 <span className="text-[10px] font-bold">{month}</span>
               </div>
               <div>
-                <h4 className="text-sm font-bold text-ink-900">{announcement.title}</h4>
+                <h4 className="text-sm font-semibold tracking-tight text-ink-900">{announcement.title}</h4>
                 <p className="mt-1 text-xs text-ink-600">{announcement.excerpt}</p>
                 {announcement.urgent ? (
                   <Badge variant="urgent" className="mt-2 text-[10px]">
