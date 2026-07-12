@@ -21,8 +21,7 @@ export function HomeHero() {
       />
       <Container>
         <div className="relative overflow-hidden rounded-[2.5rem] border border-ink-200/70 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.3)] lg:min-h-[600px]">
-          <HeroCarousel slides={HERO_SLIDES} />
-          <div className="pointer-events-none relative grid items-center gap-8 p-6 pb-20 sm:p-10 sm:pb-24 lg:grid-cols-12 lg:p-14 lg:pb-24">
+          <div className="pointer-events-none relative z-10 grid items-center gap-8 p-6 pb-20 sm:p-10 sm:pb-24 lg:grid-cols-12 lg:p-14 lg:pb-24">
             <div className="pointer-events-auto lg:col-span-7">
               <div className="rounded-3xl bg-white/95 p-8 shadow-xl backdrop-blur sm:p-10">
                 <Badge variant="soft" className="mb-5">
@@ -67,6 +66,7 @@ export function HomeHero() {
               <EmergencyHotlinesCard />
             </div>
           </div>
+          <HeroCarousel slides={HERO_SLIDES} />
         </div>
       </Container>
     </section>

@@ -62,7 +62,7 @@ export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; class
             aria-label={`Go to slide ${index + 1}`}
             aria-current={index === active}
             onClick={() => setActive(index)}
-            className="group p-1.5"
+            className="group rounded-full p-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             <span
               className={cn(
