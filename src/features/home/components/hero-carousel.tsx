@@ -58,10 +58,10 @@ export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; class
             )}
           />
         ))}
-        <div aria-hidden="true" className="absolute inset-0 bg-white/85 lg:hidden" />
+        <div aria-hidden="true" className="absolute inset-0 bg-white/75 lg:hidden" />
         <div
           aria-hidden="true"
-          className="absolute inset-0 hidden bg-gradient-to-r from-white/95 via-white/85 via-60% to-white/10 lg:block"
+          className="absolute inset-0 hidden bg-gradient-to-r from-white/95 via-white/85 via-50% to-white/0 to-85% lg:block"
         />
       </div>
       <div className="absolute bottom-4 left-6 flex sm:bottom-6 sm:left-10">

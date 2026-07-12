@@ -3,11 +3,10 @@ import { SITE } from "@/constants/site";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
-import { EmergencyHotlinesCard } from "@/components/shared/emergency-hotlines-card";
 import { HeroCarousel } from "./hero-carousel";
 import { HERO_SLIDES } from "@/features/home/data";
 
-/** Full-panel hero: sliding images fading at the edges behind the welcome text and hotline rail. */
+/** Full-panel hero: sliding images fading at the edges behind the welcome text. */
 export function HomeHero() {
   return (
     <section className="relative overflow-hidden pb-16 pt-28 md:pb-24 md:pt-36">
@@ -59,9 +58,6 @@ export function HomeHero() {
                   Contact Us
                 </Button>
               </div>
-            </div>
-            <div className="pointer-events-auto lg:col-span-4 lg:col-start-9">
-              <EmergencyHotlinesCard />
             </div>
           </div>
           <HeroCarousel slides={HERO_SLIDES} />
