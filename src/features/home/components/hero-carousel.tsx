@@ -67,12 +67,12 @@ export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; class
             aria-label={`Go to slide ${index + 1}`}
             aria-current={index === active}
             onClick={() => setActive(index)}
-            className="group rounded-full p-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            className="group rounded-full p-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
           >
             <span
               className={cn(
                 "block h-3 rounded-full transition-all",
-                index === active ? "w-8 bg-brand-500" : "w-3 bg-ink-900/20 group-hover:bg-ink-900/40",
+                index === active ? "w-8 bg-brand-600" : "w-3 bg-ink-900/50 group-hover:bg-ink-900/70",
               )}
             />
           </button>
