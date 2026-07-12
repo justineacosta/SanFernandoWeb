@@ -6,7 +6,7 @@ import { ContactDetails, InquiryForm, MapSection } from "@/features/contact";
 export const metadata: Metadata = {
   title: "Contact Us",
   description:
-    "Reach out to Barangay Sampaguita for inquiries, feedback, or official requests.",
+    "Reach out to Barangay San Fernando for inquiries, feedback, or official requests.",
 };
 
 export default function ContactPage() {
@@ -15,7 +15,7 @@ export default function ContactPage() {
       <PageHero
         align="center"
         title="Connect with Your Barangay"
-        description="We are here to serve you. Reach out for inquiries, feedback, or official requests. Our team is ready to assist the citizens of Sampaguita."
+        description="We are here to serve you. Reach out for inquiries, feedback, or official requests. Our team is ready to assist the citizens of San Fernando."
       />
       <Container className="py-12 md:py-16">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">

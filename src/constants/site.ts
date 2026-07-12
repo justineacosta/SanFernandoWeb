@@ -18,10 +18,10 @@ export const SITE = {
   tagline: "A Progressive Community, A Better Tomorrow.",
   description:
     "We are committed to providing transparent, efficient, and citizen-centered services for a stronger and united community.",
-  address: "Zone 4, Poblacion, Sample City, Philippines",
-  addressLines: ["Zone 4, Poblacion,", "Sample City, Philippines"],
-  phone: "(053) 123 4567",
-  email: "info@brgy-sampaguita.gov.ph",
+  address: "Barangay San Fernando, San Nicolas, Ilocos Norte, Philippines",
+  addressLines: ["Barangay San Fernando,", "San Nicolas, Ilocos Norte, Philippines"],
+  phone: "(077) 123 4567",
+  email: "info@brgy-sanfernando.gov.ph",
   officeHours: "Mon - Fri: 8:00 AM - 5:00 PM",
   sealImage:
     "https://lh3.googleusercontent.com/aida-public/AB6AXuDk9oPBXa9CA9E_ZE09gCrXvjGL6IV4S5glVxuUd3INe1QUVmHo7yx7aNxZd-xarM0lL_WAkfIfn-YAJ8XxxyRdWe7k2Xhqb1G-eSc0iqkF2sNizvsF1lv50lbEMqfuRDSdfJRpDvJ_Ykr2pezQ4t88oyTgaN70621JbTQA0D0L_1kHQqawzqxrBy8Wtp8T4GLEFn-puPDf2hAjZhTJhWy265RLocVbIGd33kTqpjQLr_Yaq48XH5qum-L8FAbYfBenmhA7IgLsnaw",
@@ -38,11 +38,11 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 export const EMERGENCY_HOTLINES: Hotline[] = [
-  { label: "Barangay Hotline", number: "(053) 123 4567", icon: PhoneCall },
+  { label: "Barangay Hotline", number: "(077) 123 4567", icon: PhoneCall },
   { label: "Tanod / Security", number: "0998 765 4321", icon: ShieldAlert },
-  { label: "Health Center", number: "(053) 987 6543", icon: PlusSquare },
-  { label: "Fire Department", number: "(053) 112 3456", icon: Flame },
-  { label: "PNP - Sample City", number: "(053) 321 7654", icon: MapPin },
+  { label: "Health Center", number: "(077) 987 6543", icon: PlusSquare },
+  { label: "Fire Department", number: "(077) 112 3456", icon: Flame },
+  { label: "PNP - San Nicolas", number: "(077) 321 7654", icon: MapPin },
 ];
 
 export const SOCIAL_LINKS: SocialLink[] = [

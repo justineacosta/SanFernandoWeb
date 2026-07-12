@@ -69,7 +69,7 @@ export const EMERGENCY_ASSISTANCE = {
   description:
     "In case of fire, medical emergencies, or urgent security threats, contact our 24/7 Response Team immediately.",
   hotlines: [
-    { label: "Hotline", number: "911-SAMPAGUITA" },
+    { label: "Hotline", number: "911-SANFERNANDO" },
     { label: "Ambulance", number: "8-123-4567" },
   ],
 };

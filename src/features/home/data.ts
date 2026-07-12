@@ -80,7 +80,7 @@ export const UPCOMING_EVENTS: CommunityEvent[] = [
     title: "Environment Clean-up Drive",
     date: "2025-06-05",
     time: "6:00 AM - 10:00 AM",
-    venue: "Barangay Sampaguita",
+    venue: "Barangay San Fernando",
   },
   {
     title: "Senior Citizens Gathering",

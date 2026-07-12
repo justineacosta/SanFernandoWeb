@@ -25,12 +25,12 @@ export function MapSection() {
         <div className="relative h-[450px] overflow-hidden rounded-[2rem] border border-ink-200/70 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.25)]">
           <div
             role="img"
-            aria-label="Map showing the location of the Sampaguita Barangay Hall"
+            aria-label="Map showing the location of the San Fernando Barangay Hall"
             className="h-full w-full bg-cover bg-center opacity-80 grayscale-20"
             style={{ backgroundImage: `url(${MAP_IMAGE})` }}
           />
           <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-ink-200 bg-white/95 p-6 shadow-xl backdrop-blur-md md:right-auto md:w-80">
-            <h3 className="mb-2 text-lg font-semibold">Sampaguita Barangay Hall</h3>
+            <h3 className="mb-2 text-lg font-semibold">San Fernando Barangay Hall</h3>
             <p className="mb-4 text-sm text-ink-600">
               The main administrative hub for all citizen services and local council sessions.
             </p>

@@ -15,7 +15,7 @@ export const CONTACT_CHANNELS: ContactChannel[] = [
   },
   {
     label: "Email Address",
-    lines: [SITE.email, "helpdesk@brgy-sampaguita.gov.ph"],
+    lines: [SITE.email, "helpdesk@brgy-sanfernando.gov.ph"],
     icon: Mail,
   },
 ];

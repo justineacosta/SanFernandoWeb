@@ -1,6 +1,6 @@
-# Barangay Sampaguita — Official Website
+# Barangay San Fernando — Official Website
 
-A modular, production-ready rebuild of the Barangay Sampaguita website (from the `stitch/` design exports) using **Next.js App Router**, **TypeScript**, and **Tailwind CSS v4**.
+A modular, production-ready rebuild of the Barangay San Fernando website (from the `stitch/` design exports) using **Next.js App Router**, **TypeScript**, and **Tailwind CSS v4**.
 
 ## Getting Started
 

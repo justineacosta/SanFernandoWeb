@@ -7,7 +7,7 @@ import { NewsFeed, NewsSidebar } from "@/features/announcements";
 export const metadata: Metadata = {
   title: "News & Announcements",
   description:
-    "The latest announcements, public notices, and community highlights from Barangay Sampaguita.",
+    "The latest announcements, public notices, and community highlights from Barangay San Fernando.",
 };
 
 export default function AnnouncementsPage() {
@@ -16,7 +16,7 @@ export default function AnnouncementsPage() {
       <PageHero
         eyebrow="Official Updates"
         title="Civic Hub: Stay Informed, Stay Connected"
-        description="Access the latest announcements, public notices, and community highlights from the heart of Barangay Sampaguita."
+        description="Access the latest announcements, public notices, and community highlights from the heart of Barangay San Fernando."
       >
         <div className="flex flex-wrap gap-4">
           <Button variant="primary" size="lg">

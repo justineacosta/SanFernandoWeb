@@ -30,5 +30,6 @@ No project Playwright install. Working recipe:
 - Server components render full HTML (hidden rows included) — `curl` verifies SSR
   content/placement, but interactivity (clicks, aria-expanded flips) needs the
   Playwright recipe above.
-- Mock content uses "Barangay Sampaguita" naming while the header brand says
-  "Barangay San Fernando" — pre-existing inconsistency, not a regression signal.
+- Site identity is "Barangay San Fernando, San Nicolas, Ilocos Norte" everywhere
+  (content was renamed from the "Barangay Sampaguita" design placeholder on 2026-07-12);
+  any "Sampaguita" appearing in `src/` is a regression.

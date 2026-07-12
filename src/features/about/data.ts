@@ -10,7 +10,7 @@ import {
 import type { Milestone, TimelineEntry, ValueItem } from "@/types";
 
 export const MISSION =
-  "To empower every resident of Barangay Sampaguita through inclusive local governance, responsive public services, and sustainable community development programs that enhance the quality of life and promote social justice.";
+  "To empower every resident of Barangay San Fernando through inclusive local governance, responsive public services, and sustainable community development programs that enhance the quality of life and promote social justice.";
 
 export const VISION =
   "A premier, technology-driven, and disaster-resilient community where citizens live in harmony, safety, and prosperity by the year 2030.";
@@ -40,7 +40,7 @@ export const HISTORY_TIMELINE: TimelineEntry[] = [
     year: "1952",
     title: "Foundation",
     description:
-      "Originally part of the sprawling agricultural estates, Barangay Sampaguita was formally established to serve the growing community of settlers.",
+      "Originally part of the sprawling agricultural estates, Barangay San Fernando was formally established to serve the growing community of settlers.",
     image:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuBHmnHEnbZXmdv4Keaioe2SGecj73lnM5EVvYKoH9N5vQQnCK4y1ZM8H3HEUWY3ghjCZtMQ2D0PAe0t0dauW5xop-WCeYX8vD9ZfKZqdok3CxIPAG9TPAxd3qftPt2QK4QIP66J3EE7j-BFeX97kj4BIHj-JN4BM4Swq8gWzvusEUS6RgrL5ZSM7vw2z9eXtNizngellAIRdJgauRtdcmthr3q6erU482oMR-E6CemLoyvcWFpT4CIH_HOWhlSTqW6N-HjfAl-ehDY",
     imageAlt: "Vintage photograph of community leaders at the barangay's founding",

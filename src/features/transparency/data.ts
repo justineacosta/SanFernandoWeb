@@ -44,7 +44,7 @@ export const ORDINANCES: LegislativeDocument[] = [
     title: "Comprehensive Solid Waste Management Program",
     date: "2024-09-28",
     summary:
-      "An ordinance institutionalizing waste segregation at source in all households and establishments within Barangay Sampaguita, prescribing collection schedules per purok, designating materials recovery facilities, and providing penalties of ₱500 to ₱2,500 for non-compliance. Enacted pursuant to RA 9003 (Ecological Solid Waste Management Act).",
+      "An ordinance institutionalizing waste segregation at source in all households and establishments within Barangay San Fernando, prescribing collection schedules per purok, designating materials recovery facilities, and providing penalties of ₱500 to ₱2,500 for non-compliance. Enacted pursuant to RA 9003 (Ecological Solid Waste Management Act).",
     fileUrl: "#",
   },
   {
@@ -71,7 +71,7 @@ export const RESOLUTIONS: LegislativeDocument[] = [
     title: "Adopting the Annual Budget for Fiscal Year 2025",
     date: "2024-10-05",
     summary:
-      "A resolution adopting the proposed annual budget of Barangay Sampaguita for fiscal year 2025 amounting to ₱8,450,000, allocating 20% to the Barangay Development Fund, 10% to the Sangguniang Kabataan fund, and 5% to the Barangay Disaster Risk Reduction and Management Fund, as reviewed by the Barangay Development Council.",
+      "A resolution adopting the proposed annual budget of Barangay San Fernando for fiscal year 2025 amounting to ₱8,450,000, allocating 20% to the Barangay Development Fund, 10% to the Sangguniang Kabataan fund, and 5% to the Barangay Disaster Risk Reduction and Management Fund, as reviewed by the Barangay Development Council.",
     fileUrl: "#",
   },
   {
@@ -79,15 +79,15 @@ export const RESOLUTIONS: LegislativeDocument[] = [
     title: "Authorizing a Memorandum of Agreement for the Feeding Program",
     date: "2024-07-19",
     summary:
-      "A resolution authorizing the Punong Barangay to enter into a memorandum of agreement with the City Social Welfare and Development Office for the implementation of a six-month supplemental feeding program benefiting 120 undernourished children in the barangay day care centers.",
+      "A resolution authorizing the Punong Barangay to enter into a memorandum of agreement with the Municipal Social Welfare and Development Office for the implementation of a six-month supplemental feeding program benefiting 120 undernourished children in the barangay day care centers.",
     fileUrl: "#",
   },
   {
     number: "Resolution No. 04-2024",
-    title: "Requesting Streetlight Installation Along Sampaguita Extension",
+    title: "Requesting Streetlight Installation Along San Fernando Extension",
     date: "2024-03-22",
     summary:
-      "A resolution respectfully requesting the City Engineering Office to install fifteen (15) LED streetlights along Sampaguita Extension from Purok 3 to Purok 5, citing recorded safety incidents and the results of the barangay assembly consultation held February 2024.",
+      "A resolution respectfully requesting the Municipal Engineering Office to install fifteen (15) LED streetlights along San Fernando Extension from Purok 3 to Purok 5, citing recorded safety incidents and the results of the barangay assembly consultation held February 2024.",
     fileUrl: "#",
   },
 ];

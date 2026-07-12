@@ -10,7 +10,7 @@ import {
 export const metadata: Metadata = {
   title: "Transparency Board",
   description:
-    "Official records, financial statements, and legislative documents of Barangay Sampaguita under the Full Disclosure Policy.",
+    "Official records, financial statements, and legislative documents of Barangay San Fernando under the Full Disclosure Policy.",
 };
 
 export default function TransparencyPage() {

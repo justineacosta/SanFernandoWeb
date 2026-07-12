@@ -1,8 +1,8 @@
 {
-  "name": "barangay-sampaguita-web",
+  "name": "barangay-san-fernando-web",
   "version": "1.0.0",
   "private": true,
-  "description": "Official website of Barangay Sampaguita — a modular, production-ready Next.js application.",
+  "description": "Official website of Barangay San Fernando, San Nicolas, Ilocos Norte — a modular, production-ready Next.js application.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

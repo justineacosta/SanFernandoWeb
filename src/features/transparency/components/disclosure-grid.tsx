@@ -87,7 +87,7 @@ export function DisclosureGrid() {
               <h3 className="mb-4 text-2xl font-semibold">Barangay Ordinances</h3>
               <p className="mb-8 max-w-xl text-ink-300">
                 Searchable database of all passed resolutions and local laws that govern Barangay
-                Sampaguita. Updated monthly for public awareness.
+                San Fernando. Updated monthly for public awareness.
               </p>
             </div>
             <form className="flex flex-col items-center gap-4 md:flex-row" action="#">

@@ -1,4 +1,4 @@
-# Backend Handoff — Barangay Sampaguita Website
+# Backend Handoff — Barangay San Fernando Website
 
 > Snapshot of the frontend as of **2026-07-11**, written as the starting brief for backend
 > development. The frontend is complete, fully static, and every piece of content that the

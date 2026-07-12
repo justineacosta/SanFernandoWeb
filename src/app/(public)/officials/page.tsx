@@ -6,7 +6,7 @@ import { TERM_LABEL } from "@/features/officials/data";
 export const metadata: Metadata = {
   title: "Barangay Officials",
   description:
-    "Meet the elected officials and administrative staff of Barangay Sampaguita.",
+    "Meet the elected officials and administrative staff of Barangay San Fernando.",
 };
 
 export default function OfficialsPage() {
@@ -15,7 +15,7 @@ export default function OfficialsPage() {
       <PageHero
         align="center"
         title="Barangay Officials"
-        description={`Meet the dedicated leaders of Barangay Sampaguita serving the community with transparency, integrity, and excellence for the term ${TERM_LABEL}.`}
+        description={`Meet the dedicated leaders of Barangay San Fernando serving the community with transparency, integrity, and excellence for the term ${TERM_LABEL}.`}
       />
       <LeadershipDirectory />
       <ActionCenterBanner />

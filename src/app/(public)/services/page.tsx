@@ -5,7 +5,7 @@ import { HelpSection, ServicesGrid } from "@/features/services";
 export const metadata: Metadata = {
   title: "Services",
   description:
-    "Access essential public services, document requests, and community support programs of Barangay Sampaguita.",
+    "Access essential public services, document requests, and community support programs of Barangay San Fernando.",
 };
 
 export default function ServicesPage() {

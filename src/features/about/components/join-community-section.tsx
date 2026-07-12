@@ -21,7 +21,7 @@ export function JoinCommunitySection() {
           </h2>
           <p className="relative mx-auto mb-10 max-w-2xl text-lg text-brand-300">
             Stay updated with official announcements and participate in our upcoming community
-            assemblies. Your voice matters in shaping Sampaguita&apos;s future.
+            assemblies. Your voice matters in shaping San Fernando&apos;s future.
           </p>
           <div className="relative flex flex-col justify-center gap-4 sm:flex-row">
             <Button href="/contact" variant="primary" size="xl">

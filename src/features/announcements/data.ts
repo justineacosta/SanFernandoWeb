@@ -4,7 +4,7 @@ export const FEATURED_ARTICLE: NewsArticle = {
   title: "Annual Barangay Health Mission: Serving Over 500 Residents",
   category: "Health & Wellness",
   excerpt:
-    "The Barangay Sampaguita council, in collaboration with the City Health Office, successfully concluded its 3-day health mission providing free consultations, medicines, and dental services to the community.",
+    "The Barangay San Fernando council, in collaboration with the Municipal Health Office, successfully concluded its 3-day health mission providing free consultations, medicines, and dental services to the community.",
   image:
     "https://lh3.googleusercontent.com/aida-public/AB6AXuDQ1ENg0K93q5ytb5OOTgJEY55sIn8nMDOlzJU0htQWmrd7zczGG0qK3G2pZit_pe52gsn8nXZuxFE3GpmYY2BKwIjjlkUW2TZs7B4OAQifFp9FnEGJqEqFQC4DT0kz3KsKbgnHClpLUwgNYUZEVeq4a8EGE_M-7wIlojSNb2nkeAe5yarhLzxsXDrgW7wa--fNBMYQXPZm3dDe3mK68fUwJzVXjyXjfv7HNFtKclIKYXXGmAuF2k49XRRuQ3mDJxIAv7d1Ay4N0ps",
   imageAlt: "Medical professionals providing checkups during a community health mission",
@@ -25,7 +25,7 @@ export const NEWS_ARTICLES: NewsArticle[] = [
     dateLabel: "2 days ago",
   },
   {
-    title: "Green Sampaguita: Tree Planting Drive",
+    title: "Green San Fernando: Tree Planting Drive",
     category: "Environment",
     excerpt:
       "Over 100 seedlings were planted along the riverside as part of our climate resilience initiative.",

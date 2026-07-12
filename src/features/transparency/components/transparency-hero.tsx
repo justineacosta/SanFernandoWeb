@@ -27,7 +27,7 @@ export function TransparencyHero() {
               Transparency Portal
             </h1>
             <p className="mb-8 text-lg leading-relaxed text-ink-600">
-              The Full Disclosure Policy of Barangay Sampaguita. Access official records, financial
+              The Full Disclosure Policy of Barangay San Fernando. Access official records, financial
               statements, and legislative documents as we uphold accountability in public service.
             </p>
             <div className="flex flex-wrap gap-4">
