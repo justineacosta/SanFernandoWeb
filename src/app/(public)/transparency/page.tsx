@@ -3,6 +3,7 @@ import {
   DisclosureGrid,
   FoiSection,
   LatestUploadsSection,
+  LegislativeSection,
   TransparencyHero,
 } from "@/features/transparency";
 
@@ -18,6 +19,7 @@ export default function TransparencyPage() {
       <TransparencyHero />
       <DisclosureGrid />
       <LatestUploadsSection />
+      <LegislativeSection />
       <FoiSection />
     </>
   );
