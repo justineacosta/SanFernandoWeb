@@ -9,7 +9,9 @@ const SLIDE_INTERVAL_MS = 5000;
 
 /**
  * Auto-advancing cross-fade image layer with dot controls; pauses on
- * hover/focus. Fills its nearest `relative` parent, which provides the size.
+ * hover/focus. Fills its nearest `relative` parent. The image layer fades
+ * out at every edge and carries a light wash so overlaid ink text stays
+ * readable; the dots sit outside the mask so they never fade.
  */
 export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; className?: string }) {
   const [active, setActive] = useState(0);
@@ -35,25 +37,28 @@ export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; class
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
-      {slides.map((slide, index) => (
-        <Image
-          key={slide.src}
-          src={slide.src}
-          alt={slide.alt}
-          fill
-          sizes="(min-width: 1280px) 1200px, 100vw"
-          priority={index === 0}
-          aria-hidden={index !== active}
-          className={cn(
-            "object-cover transition-opacity duration-700",
-            index === active ? "opacity-100" : "opacity-0",
-          )}
+      <div className="absolute inset-0 overflow-hidden [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent,black_3rem,black_calc(100%-3rem),transparent),linear-gradient(to_bottom,transparent,black_3rem,black_calc(100%-3rem),transparent)]">
+        {slides.map((slide, index) => (
+          <Image
+            key={slide.src}
+            src={slide.src}
+            alt={slide.alt}
+            fill
+            sizes="(min-width: 1280px) 1200px, 100vw"
+            priority={index === 0}
+            aria-hidden={index !== active}
+            className={cn(
+              "object-cover transition-opacity duration-700",
+              index === active ? "opacity-100" : "opacity-0",
+            )}
+          />
+        ))}
+        <div aria-hidden="true" className="absolute inset-0 bg-white/85 lg:hidden" />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 hidden bg-gradient-to-r from-white/95 via-white/75 to-white/10 lg:block"
         />
-      ))}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-ink-900/50 to-transparent"
-      />
+      </div>
       <div className="absolute bottom-4 left-6 flex sm:bottom-6 sm:left-10">
         {slides.map((slide, index) => (
           <button
@@ -62,12 +67,12 @@ export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; class
             aria-label={`Go to slide ${index + 1}`}
             aria-current={index === active}
             onClick={() => setActive(index)}
-            className="group rounded-full p-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="group rounded-full p-1.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
             <span
               className={cn(
                 "block h-3 rounded-full transition-all",
-                index === active ? "w-8 bg-white" : "w-3 bg-white/50 group-hover:bg-white/80",
+                index === active ? "w-8 bg-brand-500" : "w-3 bg-ink-900/20 group-hover:bg-ink-900/40",
               )}
             />
           </button>
