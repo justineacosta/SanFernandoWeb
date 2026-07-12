@@ -55,8 +55,10 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
 - Content changes go in the feature's `data.ts`, never hardcoded in components.
 - Placeholder reality: document/download `fileUrl`s are `"#"`; phone numbers, emails, office
   hours, and the seal image are placeholder-shaped (correct names, not real contact data);
-  images are hotlinked from `lh3.googleusercontent.com` (allow-listed in `next.config.ts`)
-  and must eventually move to owned storage.
+  most images are hotlinked from `lh3.googleusercontent.com` (allow-listed in
+  `next.config.ts`) and must eventually move to owned storage. Exception: the home hero
+  carousel uses **real barangay photos** bundled in `src/images/carousel/` via static
+  imports (`HERO_SLIDES` in `src/features/home/data.ts`).
 - The barangay identity is San Fernando everywhere (renamed 2026-07-12 from the
   "Barangay Sampaguita" design placeholder) — any "Sampaguita" appearing in `src/` is a
   regression. San Nicolas is a **municipality** (write "Municipal …", not "City …"), and the

@@ -24,6 +24,17 @@
 > 3. `npm run lint` was restored via the ESLint CLI (`eslint.config.mjs` flat config) after
 >    Next 16 removed `next lint`. Both tables also gained empty-state rows and
 >    screen-reader-differentiated Download links.
+>
+> **Updated 2026-07-13:** the home hero was rebuilt as a full-panel **auto-sliding photo
+> carousel** (`HeroCarousel` client component; edge-faded image layer with a left white
+> wash; 3s cross-fade, dot controls, hover/focus pause, reduced-motion guard). It went
+> through three same-day iterations (specs: `2026-07-12-hero-carousel-design.md`,
+> `2026-07-12-hero-redesign-design.md`, `2026-07-12-hero-fade-design.md`). Slides are
+> **real barangay photos** bundled from `src/images/carousel/` via static imports —
+> `HeroSlide.src` is `StaticImageData | string`, so a future API should return image URLs
+> from owned storage. `EmergencyHotlinesCard` was removed from the hero (the shared
+> component and `EMERGENCY_HOTLINES` in `constants/site.ts` remain; hotlines still render
+> in the news sidebar and footer).
 
 ---
 
@@ -119,7 +130,7 @@ return components — return an icon name (e.g. `"file-text"`) and add a small
 
 | File | Content |
 | --- | --- |
-| `src/features/home/data.ts` | Quick services, 3 announcements, 4 events, 4 stats, 4 hero carousel slides, CTA image |
+| `src/features/home/data.ts` | Quick services, 3 announcements, 4 events, 4 stats, 4 hero carousel slides (real photos, statically imported), CTA image |
 | `src/features/about/data.ts` | Mission, vision, core values, captain message, history timeline, milestones |
 | `src/features/officials/data.ts` | 11 officials incl. photos/contacts, `TERM_LABEL`, `getOfficialsByGroup()` |
 | `src/features/services/data.ts` | 4 services with requirements, emergency-assistance block |
@@ -225,10 +236,12 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
 - **Pages stay thin** — data fetching should happen in feature section components (they're
   async-ready Server Components) or in the page and passed down; don't put JSX logic in `app/`.
 - **Client islands only when interactive**: `SiteHeader` (scroll state), `MobileNav`,
-  `AdminMobileNav`, `Accordion`, `InquiryForm`, `NewsletterForm` are the only `"use client"`
-  files (plus `NavLink`/`useDisclosure` helpers). Keep new fetches out of client components.
+  `AdminMobileNav`, `Accordion`, `LegislativeTable`, `HeroCarousel`, `InquiryForm`,
+  `NewsletterForm` are the only `"use client"` files (plus `NavLink`/`useDisclosure`
+  helpers). Keep new fetches out of client components.
 - **Fixed header clearance**: the header is `fixed`, not in-flow — every page's first
-  section must provide `pt-32 md:pt-44` top padding. New pages/heroes must follow this.
+  section must provide generous top padding (`pt-32 md:pt-44` for text-first heroes;
+  the home hero panel uses `pt-28 md:pt-36`). New pages/heroes must follow this.
 - `NewsletterForm` takes `variant?: "card" | "inline"` — the footer uses `inline`, the news
   sidebar uses the default `card`. Both instances hit the same (future) subscribe endpoint.
 - Path alias `@/*` → `src/*`. Shared shapes go in `src/types`, shared values in `src/constants`.
