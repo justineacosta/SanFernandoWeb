@@ -10,8 +10,8 @@ description: Build/launch/drive recipe for verifying changes in this Next.js sit
 - Dev server: `npm run dev` from repo root, serves http://localhost:3000. It is
   usually already running — check with
   `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000` before starting another.
-- `npm run typecheck` works; `npm run lint` is BROKEN repo-wide (Next 16 removed
-  `next lint`, no ESLint config exists) — do not treat its failure as a change regression.
+- `npm run typecheck` and `npm run lint` (ESLint CLI + eslint-config-next flat config
+  in `eslint.config.mjs`) both work and should pass clean.
 - No test framework exists. Runtime verification is the only check beyond typecheck.
 
 ## Drive (browser interactions)
