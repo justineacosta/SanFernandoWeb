@@ -7,7 +7,10 @@ import { cn } from "@/lib/utils";
 
 const SLIDE_INTERVAL_MS = 5000;
 
-/** Auto-advancing cross-fade image carousel with dot controls; pauses on hover/focus. */
+/**
+ * Auto-advancing cross-fade image layer with dot controls; pauses on
+ * hover/focus. Fills its nearest `relative` parent, which provides the size.
+ */
 export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; className?: string }) {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -26,7 +29,7 @@ export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; class
     <div
       aria-roledescription="carousel"
       aria-label="Barangay photo highlights"
-      className={cn("relative h-52 w-full sm:h-64", className)}
+      className={cn("absolute inset-0", className)}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)}
@@ -37,17 +40,21 @@ export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; class
           key={slide.src}
           src={slide.src}
           alt={slide.alt}
-          width={640}
-          height={420}
+          fill
+          sizes="(min-width: 1280px) 1200px, 100vw"
           priority={index === 0}
           aria-hidden={index !== active}
           className={cn(
-            "absolute inset-0 h-full w-full object-cover transition-opacity duration-700",
+            "object-cover transition-opacity duration-700",
             index === active ? "opacity-100" : "opacity-0",
           )}
         />
       ))}
-      <div className="absolute right-4 top-4 flex gap-2">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-ink-900/50 to-transparent"
+      />
+      <div className="absolute bottom-4 left-6 flex sm:bottom-6 sm:left-10">
         {slides.map((slide, index) => (
           <button
             key={slide.src}
@@ -55,11 +62,15 @@ export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; class
             aria-label={`Go to slide ${index + 1}`}
             aria-current={index === active}
             onClick={() => setActive(index)}
-            className={cn(
-              "h-2.5 rounded-full transition-all",
-              index === active ? "w-6 bg-white" : "w-2.5 bg-white/50 hover:bg-white/80",
-            )}
-          />
+            className="group p-1.5"
+          >
+            <span
+              className={cn(
+                "block h-3 rounded-full transition-all",
+                index === active ? "w-8 bg-white" : "w-3 bg-white/50 group-hover:bg-white/80",
+              )}
+            />
+          </button>
         ))}
       </div>
     </div>
