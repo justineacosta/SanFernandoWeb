@@ -39,9 +39,15 @@ export function LegislativeTable({ caption, documents }: LegislativeTableProps) 
           </tr>
         </thead>
         <tbody className="divide-y divide-ink-200/70">
-          {documents.map((doc) => (
-            <LegislativeRow key={doc.number} doc={doc} />
-          ))}
+          {documents.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="px-6 py-10 text-center text-ink-600">
+                No documents have been published yet.
+              </td>
+            </tr>
+          ) : (
+            documents.map((doc) => <LegislativeRow key={doc.number} doc={doc} />)
+          )}
         </tbody>
       </table>
     </div>
@@ -79,6 +85,7 @@ function LegislativeRow({ doc }: { doc: LegislativeDocument }) {
         <td className="px-6 py-4 text-right">
           <a href={doc.fileUrl} className="font-semibold uppercase text-ink-900 hover:underline">
             Download
+            <span className="sr-only"> {doc.number}</span>
           </a>
         </td>
       </tr>

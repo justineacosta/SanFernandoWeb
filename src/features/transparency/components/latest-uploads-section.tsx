@@ -26,9 +26,10 @@ const columns: DataTableColumn<TransparencyDocument>[] = [
   {
     header: "Action",
     align: "right",
-    cell: () => (
+    cell: (doc) => (
       <a href="#" className="font-semibold uppercase text-ink-900 hover:underline">
         Download
+        <span className="sr-only"> {doc.title}</span>
       </a>
     ),
   },

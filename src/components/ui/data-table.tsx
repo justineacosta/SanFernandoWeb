@@ -37,6 +37,13 @@ export function DataTable<T>({ columns, rows, rowKey, caption, className }: Data
           </tr>
         </thead>
         <tbody className="divide-y divide-ink-200/70">
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length} className="px-6 py-10 text-center text-ink-600">
+                No records have been published yet.
+              </td>
+            </tr>
+          ) : null}
           {rows.map((row) => (
             <tr key={rowKey(row)} className="transition-colors hover:bg-ink-50">
               {columns.map((column) => (

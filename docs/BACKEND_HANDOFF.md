@@ -186,7 +186,7 @@ GET  /api/news?page=&featured=            → NewsArticle[]
 GET  /api/officials                       → Official[] (grouped client-side)
 GET  /api/services                        → Service[]
 GET  /api/documents?category=&q=&page=    → TransparencyDocument[] (drives table + ordinance search)
-GET  /api/legislative?type=ordinance|resolution → LegislativeDocument[] (drives collapsible tables)
+GET  /api/legislative?type=               → LegislativeDocument[] (type: ordinance | resolution; drives collapsible tables)
 GET  /api/stats                           → Stat[]
 GET  /api/settings                        → site identity, hotlines, hours, socials
 POST /api/inquiries                       → contact form
