@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { StaticImageData } from "next/image";
 
 /* ---------------------------------- Navigation --------------------------------- */
 
@@ -26,8 +27,8 @@ export interface IconNavItem extends NavItem {
 /* ------------------------------------ Media ------------------------------------ */
 
 export interface HeroSlide {
-  /** Image URL. Hotlinked placeholder until owned storage exists. */
-  src: string;
+  /** Bundled static image (preferred; imported from `src/images/`) or a remote URL. */
+  src: StaticImageData | string;
   alt: string;
 }
 

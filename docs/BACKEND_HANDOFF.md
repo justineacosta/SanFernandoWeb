@@ -104,7 +104,7 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | `Service` | Services page | `requirements: string[]`, `tone: "primary" \| "danger"`; `icon` is a Lucide component — store an **icon name string** server-side and map on the client |
 | `QuickService` | Home quick-services grid | Same icon caveat |
 | `Stat` | Home "At a Glance" | value/note are display strings |
-| `HeroSlide` | Home hero carousel | `src` is a hotlinked placeholder image — needs owned image storage |
+| `HeroSlide` | Home hero carousel | `src` is a bundled static image import from `src/images/carousel/` (real photos); an API should return image URLs from owned storage instead |
 | `TransparencyDocument` | Transparency table | Needs a real `fileUrl` field (currently `#`) |
 | `LegislativeDocument` | Ordinances & resolutions tables | Needs real `fileUrl` from file upload; `summary` (expanded row content) comes from CMS |
 | `ProjectStatus` | Transparency project monitoring | `progress: number` (0–100) |

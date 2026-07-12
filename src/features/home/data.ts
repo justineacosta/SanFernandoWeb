@@ -21,27 +21,31 @@ import type {
   Stat,
   ValueItem,
 } from "@/types";
+import certificate from "@/images/carousel/Certificate.jpg";
+import organizationGroupPicture from "@/images/carousel/OrganizationGroupPicture.jpg";
+import cleaningOperation from "@/images/carousel/CleaningOperation.jpg";
+import trickOrTreat from "@/images/carousel/TrickOrTreat.jpg";
 
 export const CTA_IMAGE =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuDdUZq8tdAhUP0f1C3psoNXrr7LYQFX_4T6TL0OjRcM0zwxNFRi3Syn7EBYV9Vh3XhVTmfY_wz2-9d2Gowg6-C4aBHMmP5G3FIkuoLomUFq5cRZ041Bp8nRb9KX4ylWdytodNwOBZeFzuKDGNJ_uoLas3SuyV1tme8Unz0JoXnWTC-6v-BnV5IWyVX70-H0oqLiWjLZFG48zxBKvRdJrr8FEsSWNlhRDeGlLorF3NvaUGRej6MN-GkAhgojKlOmgtHIqPT5eMSs2QY";
 
-/** Home hero carousel slides. Placeholder images until real barangay photos are provided. */
+/** Home hero carousel slides — real barangay photos bundled from `src/images/carousel/`. */
 export const HERO_SLIDES: HeroSlide[] = [
   {
-    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuB6faUsk_X5aG7dJSCaPD0iynJ9zyUAOQ31BcXvBKmyxNUWIVmPeUMDNkrXBjdfD5Sbh3RwnnPysj_RxfrMhBwTPGb-BP4mDyyH5pBOrh8ofsySWtfjhE3jGUBJUtHisLpGRFiJHiyO1HwFQEw8KYPLhWDyvG3jUzkKqxH9lIEQZya9ZR5D_Ojw3nN6wAa9ciR_WqVt8F-e2sR_Oh-HFrXZISx48HxChtUdNXfk1pngRXYLGnffZle8eZLdxxT5pWYCjvLGSEkFhNY",
-    alt: "Barangay San Fernando community",
+    src: certificate,
+    alt: "Certificate recognizing Barangay San Fernando as an Active Clean-up Partner of San Nicolas",
   },
   {
-    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuDdUZq8tdAhUP0f1C3psoNXrr7LYQFX_4T6TL0OjRcM0zwxNFRi3Syn7EBYV9Vh3XhVTmfY_wz2-9d2Gowg6-C4aBHMmP5G3FIkuoLomUFq5cRZ041Bp8nRb9KX4ylWdytodNwOBZeFzuKDGNJ_uoLas3SuyV1tme8Unz0JoXnWTC-6v-BnV5IWyVX70-H0oqLiWjLZFG48zxBKvRdJrr8FEsSWNlhRDeGlLorF3NvaUGRej6MN-GkAhgojKlOmgtHIqPT5eMSs2QY",
-    alt: "Community members joining a barangay program",
+    src: organizationGroupPicture,
+    alt: "Barangay San Fernando officials and volunteers gathered at the barangay hall",
   },
   {
-    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuAKfX6kI2fekmRPUd1kE_O3EyuEA3gJBN7KbNJDLjXz1PYGsNn8myyZZFhbbGnpIeJy711seRjFGNjzfgJJdN1_4JCKTETETxt_Qey4QEJ8cyiyPU2l9b_qB-HLlkwi9reMFdSd0b8LbCrY5AkFxFJvPLTHF-UpjNkyazbr4gVeTVo71J3OEJEqVDi46slsj_oc8JcjUShpuGlDyHCccCPsQAkf0lEW4spWv-w4YL9D0fJp_v3CXRVXoSwVDPQWzMXvMg6jDS_CObk",
-    alt: "Residents gathered for a barangay assembly",
+    src: cleaningOperation,
+    alt: "Residents clearing branches during a community clean-up drive",
   },
   {
-    src: "https://lh3.googleusercontent.com/aida-public/AB6AXuBQMEWS1CFwllE8d9raqgMitrZe3lxxzWXQ3Bcl2I1HXP7eHqHEK-hqYJgyWkH3UD0brZRExGSa6WZnAViKeIXMh8s0B4saCQjR7DrQUVlkYtWz7hleSkf5wufO4vDDEmqkDlv8z6bMCyl0t04YwZws14Lx0jGXLoOWgFmGq-2O9kHlhu5ab9-ojY4N96RIQVx5QlNdldjOaujdC7lDoqUfEQxtEysVrhbjng7EVEHi9Z_d91NIpXXDZFAILNbLfieTKvuefXZDugY",
-    alt: "Health workers during a medical mission",
+    src: trickOrTreat,
+    alt: "Children in costumes receiving treats during a barangay trick-or-treat event",
   },
 ];
 

@@ -7,6 +7,11 @@ import { cn } from "@/lib/utils";
 
 const SLIDE_INTERVAL_MS = 5000;
 
+/** Stable string key for a slide whether its src is a static import or a URL. */
+function slideKey(slide: HeroSlide) {
+  return typeof slide.src === "string" ? slide.src : slide.src.src;
+}
+
 /**
  * Auto-advancing cross-fade image layer with dot controls; pauses on
  * hover/focus. Fills its nearest `relative` parent. The image layer fades
@@ -40,7 +45,7 @@ export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; class
       <div className="absolute inset-0 overflow-hidden [mask-composite:intersect] [mask-image:linear-gradient(to_right,transparent,black_3rem,black_calc(100%-3rem),transparent),linear-gradient(to_bottom,transparent,black_3rem,black_calc(100%-3rem),transparent)]">
         {slides.map((slide, index) => (
           <Image
-            key={slide.src}
+            key={slideKey(slide)}
             src={slide.src}
             alt={slide.alt}
             fill
@@ -62,7 +67,7 @@ export function HeroCarousel({ slides, className }: { slides: HeroSlide[]; class
       <div className="absolute bottom-4 left-6 flex sm:bottom-6 sm:left-10">
         {slides.map((slide, index) => (
           <button
-            key={slide.src}
+            key={slideKey(slide)}
             type="button"
             aria-label={`Go to slide ${index + 1}`}
             aria-current={index === active}
