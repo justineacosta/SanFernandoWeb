@@ -23,6 +23,14 @@ export interface IconNavItem extends NavItem {
   exact?: boolean;
 }
 
+/* ------------------------------------ Media ------------------------------------ */
+
+export interface HeroSlide {
+  /** Image URL. Hotlinked placeholder until owned storage exists. */
+  src: string;
+  alt: string;
+}
+
 /* ----------------------------------- Contact ----------------------------------- */
 
 export interface Hotline {
