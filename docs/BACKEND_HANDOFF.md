@@ -19,8 +19,8 @@
 >    **Barangay San Fernando, San Nicolas, Ilocos Norte**: official emails are now
 >    `@sanfernando.gov.ph` / `info@brgy-sanfernando.gov.ph`, phone placeholders use the
 >    Ilocos Norte `(077)` area code, and "City …" office references became "Municipal …"
->    (San Nicolas is a municipality). ⚠️ Phone numbers, emails, office hours, and the seal
->    image are still **placeholder-shaped** — collect the real values before launch.
+>    (San Nicolas is a municipality). ⚠️ Phone numbers, emails, and office hours are still
+>    **placeholder-shaped** — collect the real values before launch.
 > 3. `npm run lint` was restored via the ESLint CLI (`eslint.config.mjs` flat config) after
 >    Next 16 removed `next lint`. Both tables also gained empty-state rows and
 >    screen-reader-differentiated Download links.
@@ -35,6 +35,18 @@
 > from owned storage. `EmergencyHotlinesCard` was removed from the hero (the shared
 > component and `EMERGENCY_HOTLINES` in `constants/site.ts` remain; hotlines still render
 > in the news sidebar and footer).
+>
+> **Updated 2026-07-13 (later the same day):** real branding assets landed as static
+> imports. The **barangay seal** is now `src/images/logo/BarangaySFLogo.png`, wired as
+> `SITE.sealImage` (header, footer, admin sidebar) and downsized into the favicon at
+> `src/app/icon.png` (App Router icon convention; regenerate it if the seal changes —
+> circular crop, 256px). The **Punong Barangay** is the real official, **Hon. Dominic B.
+> Dela Cruz**, with his bundled portrait from `src/images/officials/` used in both
+> `features/officials/data.ts` and the About-page `CAPTAIN` block; `Official.photo` is now
+> `StaticImageData | string`. Remaining council/administration portraits will be dropped
+> into `src/images/officials/` the same way (an unused `BagongPilipinasLogo.png` also sits
+> in `src/images/logo/`). Like the carousel, a future API should serve these as image URLs
+> from owned storage.
 
 ---
 
@@ -48,7 +60,7 @@
 | Build | `npm run build` ✅ — all routes prerender static |
 | Backend | **None.** All data is hardcoded in `src/features/*/data.ts` and `src/constants/site.ts`; both forms fake their submission client-side |
 | Auth | None yet — an **admin portal UI shell exists at `/admin`** (unprotected, mock data, `noindex`); it needs auth before any write capability ships |
-| Images | Hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — must move to owned storage |
+| Images | Mostly hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — must move to owned storage. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), Punong Barangay portrait (`src/images/officials/`) |
 
 ### Routes
 
@@ -132,7 +144,7 @@ return components — return an icon name (e.g. `"file-text"`) and add a small
 | --- | --- |
 | `src/features/home/data.ts` | Quick services, 3 announcements, 4 events, 4 stats, 4 hero carousel slides (real photos, statically imported), CTA image |
 | `src/features/about/data.ts` | Mission, vision, core values, captain message, history timeline, milestones |
-| `src/features/officials/data.ts` | 11 officials incl. photos/contacts, `TERM_LABEL`, `getOfficialsByGroup()` |
+| `src/features/officials/data.ts` | 11 officials incl. photos/contacts, `TERM_LABEL`, `getOfficialsByGroup()` — Punong Barangay (Hon. Dominic B. Dela Cruz) has his real bundled portrait; the other 10 are placeholder names/photos |
 | `src/features/services/data.ts` | 4 services with requirements, emergency-assistance block |
 | `src/features/announcements/data.ts` | Featured article, 2 articles, 3 sidebar announcements, sidebar hotlines |
 | `src/features/transparency/data.ts` | Budget docs, 2 projects, 4 latest uploads, 3 ordinances + 3 resolutions |

@@ -1,15 +1,18 @@
 import type { Official } from "@/types";
+// Real portraits live in `src/images/officials/` as static imports. As photos for the
+// rest of the council and administration arrive, drop them in that folder, import them
+// here, and replace the remaining placeholder URLs.
+import punongBarangayPhoto from "@/images/officials/Punong Barangay - Domini B. Dela Cruz.jpg";
 
 export const TERM_LABEL = "2023-2025";
 
 export const OFFICIALS: Official[] = [
   {
-    name: "Hon. Roberto S. Garcia",
+    name: "Hon. Dominic B. Dela Cruz",
     role: "Punong Barangay",
     group: "executive",
-    photo:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuCFGb7ROG3Uo3vs8hbN_dP5u7B67bHGCIl3-MEqcuPKZo9ksw41cgaQcl4O6rxzdegdpby8y85MIfqKX36YCuvDNEVbpA9H6Fg30McnJtUwjNDXHVaaDzvikFLraF4GWVE5Ak0M55mIUcMiQksfwwVNe8TcGBJmUYrkiQlmWU-VkK1t1zyTXy0ByfkXWvN-cX-oK6uaESO6HvfCI_8SuxESE6k59SJnimVMQpAqmw3e13W5p-Qen9YZTtPM3_MSq9r5PhVgFooU-PY",
-    photoAlt: "Portrait of the Punong Barangay in a traditional Barong Tagalog",
+    photo: punongBarangayPhoto,
+    photoAlt: "Portrait of Punong Barangay Dominic B. Dela Cruz",
     email: "captain@sanfernando.gov.ph",
     phone: "+63 912 345 6789",
   },

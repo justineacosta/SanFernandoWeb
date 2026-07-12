@@ -10,6 +10,7 @@ import {
   Youtube,
 } from "lucide-react";
 import type { Hotline, LinkItem, NavItem, SocialLink } from "@/types";
+import barangaySealLogo from "@/images/logo/BarangaySFLogo.png";
 
 export const SITE = {
   name: "Barangay San Fernando",
@@ -23,8 +24,7 @@ export const SITE = {
   phone: "(077) 123 4567",
   email: "info@brgy-sanfernando.gov.ph",
   officeHours: "Mon - Fri: 8:00 AM - 5:00 PM",
-  sealImage:
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuDk9oPBXa9CA9E_ZE09gCrXvjGL6IV4S5glVxuUd3INe1QUVmHo7yx7aNxZd-xarM0lL_WAkfIfn-YAJ8XxxyRdWe7k2Xhqb1G-eSc0iqkF2sNizvsF1lv50lbEMqfuRDSdfJRpDvJ_Ykr2pezQ4t88oyTgaN70621JbTQA0D0L_1kHQqawzqxrBy8Wtp8T4GLEFn-puPDf2hAjZhTJhWy265RLocVbIGd33kTqpjQLr_Yaq48XH5qum-L8FAbYfBenmhA7IgLsnaw",
+  sealImage: barangaySealLogo,
 } as const;
 
 export const NAV_ITEMS: NavItem[] = [

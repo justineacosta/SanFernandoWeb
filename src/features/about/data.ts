@@ -8,12 +8,13 @@ import {
   Video,
 } from "lucide-react";
 import type { Milestone, TimelineEntry, ValueItem } from "@/types";
+import punongBarangayPhoto from "@/images/officials/Punong Barangay - Domini B. Dela Cruz.jpg";
 
 export const MISSION =
-  "To empower every resident of Barangay San Fernando through inclusive local governance, responsive public services, and sustainable community development programs that enhance the quality of life and promote social justice.";
+  "To promoted people participation; To provide a business-friendly environment for business investors; To ensure public safety, peace and order in the community; To sustain a clean and green environment thru intensified clean and green program implementation; and To enhance capability of barangay leaders.";
 
 export const VISION =
-  "A premier, technology-driven, and disaster-resilient community where citizens live in harmony, safety, and prosperity by the year 2030.";
+  "A progressive, industrialized and business friendly barangay with developed economy, god loving, united and cooperative citizenry who lives in a peaceful, orderly and ecologically balanced environment under a firm, innovative, transparent, accountable and proactive leadership by 2026.";
 
 export const CORE_VALUES: ValueItem[] = [
   { icon: ShieldCheck, title: "Integrity", description: "Honesty in every action." },
@@ -23,14 +24,12 @@ export const CORE_VALUES: ValueItem[] = [
 ];
 
 export const CAPTAIN = {
-  name: "Hon. Roberto S. Garcia",
+  name: "Dominic B. Dela Cruz",
   role: "Barangay Captain",
-  photo:
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuA9OXsw1aa2Z_qUSgKBM12yWtsvOyVBsN0GF0YsLgWcmmZRNZP29WiG1t3NTjn--98v1qWECVAsIRXLRK0JFfv0SG4RghbjM-n9ZxXdgUs14eaYrZ6ky60pul58euMDptq7D1QK8qrEqNmbV_HDFaErkPbL4-8_HcFOXhF__AjiJFiTKrp-l2Ei2fx2jgsKehy49fNfuBjeg8qj50bG1KAAjPoPLXRwzlJR1h-urR--Qj7utoc8Xm0HZEGx6LgV-SWmwPfxenYr68w",
-  photoAlt:
-    "Portrait of the Barangay Captain wearing a white Barong Tagalog in his office",
+  photo: punongBarangayPhoto,
+  photoAlt: "Portrait of Punong Barangay Dominic B. Dela Cruz",
   message: [
-    "“Ang aming pamunuan ay nakatuon sa pagbibigay ng tapat at mabilis na serbisyo para sa bawat Sampaguiteño. Naniniwala ako na sa pamamagitan ng pagkakaisa at transparency, makakamit natin ang isang mas maunlad at ligtas na barangay.”",
+    "“Ang aming pamunuan ay nakatuon sa pagbibigay ng tapat at mabilis na serbisyo para sa lahat. Naniniwala ako na sa pamamagitan ng pagkakaisa at transparency, makakamit natin ang isang mas maunlad at ligtas na barangay.”",
     "“It is our honor to serve this historic community. We are modernizing our systems to ensure that no one is left behind in our journey toward a digital and efficient local government. Maraming salamat sa inyong patuloy na pagtitiwala.”",
   ],
 };

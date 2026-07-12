@@ -53,12 +53,16 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
 
 - Path alias `@/*` → `src/*`.
 - Content changes go in the feature's `data.ts`, never hardcoded in components.
-- Placeholder reality: document/download `fileUrl`s are `"#"`; phone numbers, emails, office
-  hours, and the seal image are placeholder-shaped (correct names, not real contact data);
-  most images are hotlinked from `lh3.googleusercontent.com` (allow-listed in
-  `next.config.ts`) and must eventually move to owned storage. Exception: the home hero
-  carousel uses **real barangay photos** bundled in `src/images/carousel/` via static
-  imports (`HERO_SLIDES` in `src/features/home/data.ts`).
+- Placeholder reality: document/download `fileUrl`s are `"#"`; phone numbers, emails, and
+  office hours are placeholder-shaped (correct names, not real contact data); most images
+  are hotlinked from `lh3.googleusercontent.com` (allow-listed in `next.config.ts`) and
+  must eventually move to owned storage. Exceptions — real assets bundled via static
+  imports: the home hero carousel (`src/images/carousel/`, `HERO_SLIDES` in
+  `src/features/home/data.ts`), the barangay seal (`src/images/logo/`, `SITE.sealImage`),
+  and the Punong Barangay portrait (`src/images/officials/`, used in both
+  `features/officials/data.ts` and `features/about/data.ts`). Remaining council and
+  administration portraits will land in `src/images/officials/` the same way. The favicon
+  `src/app/icon.png` is a 256px circular crop of the seal — regenerate it if the seal changes.
 - The barangay identity is San Fernando everywhere (renamed 2026-07-12 from the
   "Barangay Sampaguita" design placeholder) — any "Sampaguita" appearing in `src/` is a
   regression. San Nicolas is a **municipality** (write "Municipal …", not "City …"), and the

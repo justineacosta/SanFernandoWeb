@@ -76,7 +76,8 @@ export interface Official {
   name: string;
   role: string;
   group: OfficialGroup;
-  photo: string;
+  /** Bundled static portrait (preferred; imported from `src/images/officials/`) or a remote URL. */
+  photo: StaticImageData | string;
   photoAlt: string;
   email?: string;
   phone?: string;
