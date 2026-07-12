@@ -104,6 +104,7 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | `Service` | Services page | `requirements: string[]`, `tone: "primary" \| "danger"`; `icon` is a Lucide component — store an **icon name string** server-side and map on the client |
 | `QuickService` | Home quick-services grid | Same icon caveat |
 | `Stat` | Home "At a Glance" | value/note are display strings |
+| `HeroSlide` | Home hero carousel | `src` is a hotlinked placeholder image — needs owned image storage |
 | `TransparencyDocument` | Transparency table | Needs a real `fileUrl` field (currently `#`) |
 | `LegislativeDocument` | Ordinances & resolutions tables | Needs real `fileUrl` from file upload; `summary` (expanded row content) comes from CMS |
 | `ProjectStatus` | Transparency project monitoring | `progress: number` (0–100) |
@@ -118,7 +119,7 @@ return components — return an icon name (e.g. `"file-text"`) and add a small
 
 | File | Content |
 | --- | --- |
-| `src/features/home/data.ts` | Quick services, 3 announcements, 4 events, 4 stats, hero/CTA images |
+| `src/features/home/data.ts` | Quick services, 3 announcements, 4 events, 4 stats, 4 hero carousel slides, CTA image |
 | `src/features/about/data.ts` | Mission, vision, core values, captain message, history timeline, milestones |
 | `src/features/officials/data.ts` | 11 officials incl. photos/contacts, `TERM_LABEL`, `getOfficialsByGroup()` |
 | `src/features/services/data.ts` | 4 services with requirements, emergency-assistance block |
