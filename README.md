@@ -16,7 +16,7 @@ npm run typecheck
 ```
 src/
 ├── app/                  # Routes — thin pages that compose feature sections
-│   ├── (public)/         # Public site (TopBar + Header + Footer chrome)
+│   ├── (public)/         # Public site (floating pill header + footer chrome)
 │   │   ├── page.tsx      # Home
 │   │   ├── about/
 │   │   ├── officials/
@@ -30,7 +30,7 @@ src/
 ├── components/
 │   ├── ui/               # Primitives: Button, Badge, Card, Container, Section,
 │   │                     # SectionHeading, IconCircle, DataTable, form fields, Accordion
-│   ├── layout/           # TopBar, SiteHeader, SiteFooter
+│   ├── layout/           # SiteHeader (fixed floating pill), SiteFooter, PublicShell
 │   ├── navigation/       # DesktopNav, MobileNav, NavLink (active-route aware)
 │   ├── sections/         # PageHero, CtaBanner — cross-page section shells
 │   └── shared/           # Domain cards: AnnouncementCard, EventCard, OfficialCard,
@@ -53,10 +53,11 @@ src/
 ### Principles
 
 - **Design system first** — all colors, fonts, radii, and shadows are defined once as
-  Tailwind v4 `@theme` tokens in `src/app/globals.css`, derived from
-  `stitch/civic_horizon/DESIGN.md` ("Civic Horizon").
+  Tailwind v4 `@theme` tokens in `src/app/globals.css`: the **amber + ink** system
+  (`brand-*` amber, `ink-*` neutrals, `danger*` red) with Space Grotesk display headings
+  and Inter body text (spec: `docs/superpowers/specs/2026-07-11-amber-ink-reskin-design.md`).
 - **Server Components by default** — only interactive islands are client components
-  (mobile nav, accordion, inquiry form, newsletter form).
+  (site header scroll state, mobile navs, accordion, inquiry form, newsletter form).
 - **Pages compose sections** — each route renders named feature sections
   (`<MissionVisionSection />`, `<HistorySection />`, …) with zero inline layout logic.
 - **Content as data** — page copy, officials, services, documents, and events live in

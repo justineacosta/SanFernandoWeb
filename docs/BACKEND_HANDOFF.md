@@ -4,6 +4,12 @@
 > development. The frontend is complete, fully static, and every piece of content that the
 > backend will eventually own is isolated in typed `data.ts` files — the integration work is
 > "replace constants with fetches," not a refactor.
+>
+> **Updated 2026-07-12:** the site was fully re-skinned to the **amber + ink** design system
+> (spec: `docs/superpowers/specs/2026-07-11-amber-ink-reskin-design.md`). This was a pure
+> visual change — all routes, data files, types, and form contracts below are unchanged.
+> The `TopBar` component was deleted (hotline/hours moved to the footer) and the header is
+> now a fixed floating pill (client component).
 
 ---
 
@@ -12,9 +18,9 @@
 | Item | Status |
 | --- | --- |
 | Framework | Next.js 16 (App Router, Turbopack), React 19, TypeScript strict |
-| Styling | Tailwind CSS v4 — design tokens in `src/app/globals.css` (`@theme`) |
-| Rendering | 100% Server Components except 4 client islands (see §5) |
-| Build | `npm run build` ✅ — all 8 routes prerender static |
+| Styling | Tailwind CSS v4 — amber + ink design tokens (`brand-*`, `ink-*`, `danger*`) in `src/app/globals.css` (`@theme`); Space Grotesk headings + Inter body |
+| Rendering | 100% Server Components except a handful of client islands (see §5) |
+| Build | `npm run build` ✅ — all routes prerender static |
 | Backend | **None.** All data is hardcoded in `src/features/*/data.ts` and `src/constants/site.ts`; both forms fake their submission client-side |
 | Auth | None yet — an **admin portal UI shell exists at `/admin`** (unprotected, mock data, `noindex`); it needs auth before any write capability ships |
 | Images | Hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — must move to owned storage |
@@ -55,7 +61,7 @@ src/
 ├── components/
 │   ├── ui/         # Primitives: Button, Badge, Card, Container, Section,
 │   │               # SectionHeading, IconCircle, DataTable, form fields, Accordion
-│   ├── layout/     # TopBar, SiteHeader, SiteFooter
+│   ├── layout/     # SiteHeader (fixed floating pill, client), SiteFooter, PublicShell
 │   ├── navigation/ # DesktopNav, MobileNav, NavLink (active-route aware)
 │   ├── sections/   # PageHero, CtaBanner (cross-page shells)
 │   └── shared/     # AnnouncementCard, EventCard, OfficialCard, StatCard,
@@ -200,9 +206,13 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
 
 - **Pages stay thin** — data fetching should happen in feature section components (they're
   async-ready Server Components) or in the page and passed down; don't put JSX logic in `app/`.
-- **Client islands only when interactive**: `MobileNav`, `Accordion`, `InquiryForm`,
-  `NewsletterForm` are the only `"use client"` files (plus `NavLink`/`useDisclosure` helpers).
-  Keep new fetches out of client components.
+- **Client islands only when interactive**: `SiteHeader` (scroll state), `MobileNav`,
+  `AdminMobileNav`, `Accordion`, `InquiryForm`, `NewsletterForm` are the only `"use client"`
+  files (plus `NavLink`/`useDisclosure` helpers). Keep new fetches out of client components.
+- **Fixed header clearance**: the header is `fixed`, not in-flow — every page's first
+  section must provide `pt-32 md:pt-44` top padding. New pages/heroes must follow this.
+- `NewsletterForm` takes `variant?: "card" | "inline"` — the footer uses `inline`, the news
+  sidebar uses the default `card`. Both instances hit the same (future) subscribe endpoint.
 - Path alias `@/*` → `src/*`. Shared shapes go in `src/types`, shared values in `src/constants`.
 - Design tokens only — no raw hex values in components; extend `@theme` in `globals.css`.
 - Dates: store/transport ISO strings; format with `lib/format.ts` helpers.
