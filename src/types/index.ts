@@ -126,6 +126,18 @@ export interface TransparencyDocument {
   icon: LucideIcon;
 }
 
+export interface LegislativeDocument {
+  /** e.g. "Ordinance No. 05-2024" */
+  number: string;
+  title: string;
+  /** ISO date approved */
+  date: string;
+  /** Content shown when the row is expanded. Placeholder until CMS/backend. */
+  summary: string;
+  /** Link to the uploaded PDF/raw file. "#" placeholder until backend upload exists. */
+  fileUrl: string;
+}
+
 export interface ProjectStatus {
   name: string;
   progress: number;
