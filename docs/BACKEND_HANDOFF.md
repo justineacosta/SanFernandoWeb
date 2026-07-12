@@ -10,6 +10,20 @@
 > visual change — all routes, data files, types, and form contracts below are unchanged.
 > The `TopBar` component was deleted (hotline/hours moved to the footer) and the header is
 > now a fixed floating pill (client component).
+>
+> **Updated 2026-07-12 (later the same day):**
+> 1. `/transparency` gained collapsible **Ordinances & Resolutions** tables
+>    (`LegislativeSection` + `LegislativeDocument` entity — see §2 and the API surface in §4;
+>    spec: `docs/superpowers/specs/2026-07-12-legislative-tables-design.md`).
+> 2. Site identity switched from the "Barangay Sampaguita" design placeholder to the real
+>    **Barangay San Fernando, San Nicolas, Ilocos Norte**: official emails are now
+>    `@sanfernando.gov.ph` / `info@brgy-sanfernando.gov.ph`, phone placeholders use the
+>    Ilocos Norte `(077)` area code, and "City …" office references became "Municipal …"
+>    (San Nicolas is a municipality). ⚠️ Phone numbers, emails, office hours, and the seal
+>    image are still **placeholder-shaped** — collect the real values before launch.
+> 3. `npm run lint` was restored via the ESLint CLI (`eslint.config.mjs` flat config) after
+>    Next 16 removed `next lint`. Both tables also gained empty-state rows and
+>    screen-reader-differentiated Download links.
 
 ---
 

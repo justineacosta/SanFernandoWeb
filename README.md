@@ -1,15 +1,19 @@
 # Barangay San Fernando — Official Website
 
-A modular, production-ready rebuild of the Barangay San Fernando website (from the `stitch/` design exports) using **Next.js App Router**, **TypeScript**, and **Tailwind CSS v4**.
+The official website of **Barangay San Fernando, San Nicolas, Ilocos Norte** — a modular, production-ready rebuild (from the `stitch/` design exports) using **Next.js App Router**, **TypeScript**, and **Tailwind CSS v4**.
 
 ## Getting Started
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000
-npm run build    # production build
-npm run typecheck
+npm run dev        # http://localhost:3000
+npm run build      # production build
+npm run typecheck  # tsc --noEmit
+npm run lint       # ESLint 9 flat config (eslint.config.mjs, eslint-config-next)
 ```
+
+There is no test framework — verification is `typecheck` + `lint` + exercising the
+running app (recipe: `.claude/skills/verify/SKILL.md`).
 
 ## Architecture
 
