@@ -34,7 +34,7 @@
 | `/officials` | Officials directory | `LeadershipDirectory`, `ActionCenterBanner` |
 | `/services` | Services directory | `ServicesGrid` (accordion requirements), `HelpSection` |
 | `/announcements` | News & Announcements | `NewsFeed`, `NewsSidebar` (announcements, hotlines, newsletter) |
-| `/transparency` | Transparency portal | `TransparencyHero`, `DisclosureGrid`, `LatestUploadsSection`, `FoiSection` |
+| `/transparency` | Transparency portal | `TransparencyHero`, `DisclosureGrid`, `LatestUploadsSection`, `LegislativeSection`, `FoiSection` |
 | `/contact` | Contact | `ContactDetails`, `InquiryForm`, `MapSection` |
 
 **Admin portal** (from `stitch/barangay_admin_create_content_hub`; own layout — sidebar + app bar, no public chrome, `robots: noindex`):
@@ -91,6 +91,7 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | `QuickService` | Home quick-services grid | Same icon caveat |
 | `Stat` | Home "At a Glance" | value/note are display strings |
 | `TransparencyDocument` | Transparency table | Needs a real `fileUrl` field (currently `#`) |
+| `LegislativeDocument` | Ordinances & resolutions tables | Needs real `fileUrl` from file upload; `summary` (expanded row content) comes from CMS |
 | `ProjectStatus` | Transparency project monitoring | `progress: number` (0–100) |
 | `TimelineEntry`, `Milestone`, `ValueItem` | About page | Mostly CMS-style static content |
 | `Hotline`, `ContactChannel`, `NavItem`, `SocialLink` | Site-wide | Live in `constants/site.ts` |
@@ -108,7 +109,7 @@ return components — return an icon name (e.g. `"file-text"`) and add a small
 | `src/features/officials/data.ts` | 11 officials incl. photos/contacts, `TERM_LABEL`, `getOfficialsByGroup()` |
 | `src/features/services/data.ts` | 4 services with requirements, emergency-assistance block |
 | `src/features/announcements/data.ts` | Featured article, 2 articles, 3 sidebar announcements, sidebar hotlines |
-| `src/features/transparency/data.ts` | Budget docs, 2 projects, 4 latest uploads |
+| `src/features/transparency/data.ts` | Budget docs, 2 projects, 4 latest uploads, 3 ordinances + 3 resolutions |
 | `src/features/contact/data.ts` | Contact channels, inquiry subject options, map image |
 | `src/constants/site.ts` | Site identity, address/phone/email/hours, nav, 5 emergency hotlines, social + government + legal links |
 
@@ -139,7 +140,8 @@ Replace the `data.ts` constants, roughly in order of how often the content chang
    pagination; "LOAD MORE NEWS" button in `news-feed.tsx` is the pagination hook.
 2. **Transparency documents** (changes monthly) — document entity with real file storage
    (S3-style bucket), categories, and the ordinance **search** endpoint
-   (`disclosure-grid.tsx` has a search form pointing at `#`).
+   (`disclosure-grid.tsx` has a search form pointing at `#`). Ordinances/resolutions
+   (`LegislativeDocument`) additionally carry a `summary` shown in the expandable table rows.
 3. **Officials** (changes per term) — CRUD + photo upload.
 4. **Services** (rarely changes) — CRUD with requirements list.
 5. **Site settings** (hotlines, hours, socials) — key-value settings table.
@@ -184,6 +186,7 @@ GET  /api/news?page=&featured=            → NewsArticle[]
 GET  /api/officials                       → Official[] (grouped client-side)
 GET  /api/services                        → Service[]
 GET  /api/documents?category=&q=&page=    → TransparencyDocument[] (drives table + ordinance search)
+GET  /api/legislative?type=ordinance|resolution → LegislativeDocument[] (drives collapsible tables)
 GET  /api/stats                           → Stat[]
 GET  /api/settings                        → site identity, hotlines, hours, socials
 POST /api/inquiries                       → contact form
