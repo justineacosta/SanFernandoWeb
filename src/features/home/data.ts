@@ -22,9 +22,6 @@ import type {
   ValueItem,
 } from "@/types";
 
-export const HERO_IMAGE =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuB6faUsk_X5aG7dJSCaPD0iynJ9zyUAOQ31BcXvBKmyxNUWIVmPeUMDNkrXBjdfD5Sbh3RwnnPysj_RxfrMhBwTPGb-BP4mDyyH5pBOrh8ofsySWtfjhE3jGUBJUtHisLpGRFiJHiyO1HwFQEw8KYPLhWDyvG3jUzkKqxH9lIEQZya9ZR5D_Ojw3nN6wAa9ciR_WqVt8F-e2sR_Oh-HFrXZISx48HxChtUdNXfk1pngRXYLGnffZle8eZLdxxT5pWYCjvLGSEkFhNY";
-
 export const CTA_IMAGE =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuDdUZq8tdAhUP0f1C3psoNXrr7LYQFX_4T6TL0OjRcM0zwxNFRi3Syn7EBYV9Vh3XhVTmfY_wz2-9d2Gowg6-C4aBHMmP5G3FIkuoLomUFq5cRZ041Bp8nRb9KX4ylWdytodNwOBZeFzuKDGNJ_uoLas3SuyV1tme8Unz0JoXnWTC-6v-BnV5IWyVX70-H0oqLiWjLZFG48zxBKvRdJrr8FEsSWNlhRDeGlLorF3NvaUGRej6MN-GkAhgojKlOmgtHIqPT5eMSs2QY";
 

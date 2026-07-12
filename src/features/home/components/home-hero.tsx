@@ -1,11 +1,11 @@
-import Image from "next/image";
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import { SITE } from "@/constants/site";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { EmergencyHotlinesCard } from "@/components/shared/emergency-hotlines-card";
-import { HERO_IMAGE } from "@/features/home/data";
+import { HeroCarousel } from "./hero-carousel";
+import { HERO_SLIDES } from "@/features/home/data";
 
 /** Light hero with gradient headline, dual CTAs, and the emergency hotline rail. */
 export function HomeHero() {
@@ -61,14 +61,7 @@ export function HomeHero() {
           </div>
           <div className="lg:col-span-5">
             <div className="overflow-hidden rounded-[2rem] border border-ink-200/70 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.3)]">
-              <Image
-                src={HERO_IMAGE}
-                alt={`${SITE.name} community`}
-                width={640}
-                height={420}
-                className="h-52 w-full object-cover sm:h-64"
-                priority
-              />
+              <HeroCarousel slides={HERO_SLIDES} />
             </div>
             <div className="relative z-10 -mt-12 px-4 sm:px-6">
               <EmergencyHotlinesCard />
