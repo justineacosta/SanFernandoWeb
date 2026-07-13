@@ -192,7 +192,9 @@ export interface TimelineEntry {
   year: string;
   title: string;
   description: string;
-  image: string;
+  image: string | StaticImageData;
+  /** How the image fills its frame; "contain" suits logos/seals. Defaults to "cover". */
+  imageFit?: "cover" | "contain";
   imageAlt: string;
 }
 

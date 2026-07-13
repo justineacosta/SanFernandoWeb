@@ -11,7 +11,7 @@ export function HistorySection() {
       <SectionHeading
         align="center"
         title="Our Rich History"
-        description="Tracing our roots from a small agricultural settlement to a thriving urban center."
+        description="From an eighteenth-century founding to a modern urban barangay at the heart of San Nicolas."
       />
       <div className="relative">
         <div
@@ -41,15 +41,15 @@ export function HistorySection() {
                   aria-hidden="true"
                 />
                 <div className="w-full md:w-1/2">
-                  <div className="h-48 overflow-hidden rounded-2xl border border-ink-200">
+                  <div className="h-48 overflow-hidden rounded-2xl border border-ink-200 bg-brand-50">
                     <Image
                       src={entry.image}
                       alt={entry.imageAlt}
                       width={640}
                       height={192}
                       className={cn(
-                        "h-full w-full object-cover",
-                        index === 0 && "opacity-80 grayscale",
+                        "h-full w-full",
+                        entry.imageFit === "contain" ? "object-contain p-4" : "object-cover",
                       )}
                     />
                   </div>
