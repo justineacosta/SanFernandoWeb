@@ -68,6 +68,13 @@ export interface Service {
   ctaLabel: string;
 }
 
+export interface WasteCollectionSlot {
+  label: string;
+  days: string;
+  note: string;
+  icon: LucideIcon;
+}
+
 /* ----------------------------------- Officials ---------------------------------- */
 
 export type OfficialGroup = "executive" | "council" | "administration";
