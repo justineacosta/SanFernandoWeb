@@ -24,3 +24,8 @@ export function toCalendarParts(iso: string): { month: string; day: string } {
 export function toTelHref(phone: string): string {
   return `tel:${phone.replace(/[^+\d]/g, "")}`;
 }
+
+/** Compact count for view totals, e.g. 3400 → "3.4k". */
+export function formatCount(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(n);
+}
