@@ -1,19 +1,32 @@
 import {
   CalendarDays,
   Gavel,
+  IdCard,
   Landmark,
   LayoutDashboard,
   Megaphone,
   Newspaper,
   PartyPopper,
+  ScrollText,
   Settings,
 } from "lucide-react";
 import type {
+  AdminEventRecord,
+  AdminLegislativeRecord,
+  AdminNewsRecord,
+  AdminServiceRecord,
+  AdminTeamMember,
   ContentDraft,
   ContentTypeAction,
+  EventCategory,
   IconNavItem,
   PublishingActivityEntry,
+  TeamRole,
 } from "@/types";
+import { SERVICES } from "@/features/services/data";
+import { UPCOMING_EVENTS } from "@/features/home/data";
+import { FEATURED_ARTICLE, NEWS_ARTICLES } from "@/features/announcements/data";
+import { ORDINANCES, RESOLUTIONS } from "@/features/transparency/data";
 
 export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Dashboard Overview", href: "/admin", icon: LayoutDashboard, exact: true },
@@ -26,6 +39,8 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
 export const ADMIN_USER = {
   name: "Maria Santos",
   role: "Content Administrator",
+  email: "m.santos@brgy-sanfernando.gov.ph",
+  phone: "(077) 600-2345",
   avatar:
     "https://lh3.googleusercontent.com/aida-public/AB6AXuDywk9wpYtcWnNA0FWF88gUK3yo2MwAu2MWoBwHgoVtz2CbRQYsTGOP_slCwmRy9aeVnKX2Rf8gaBoZvaT9gXXdU8X2t1_Y8sraK7l6O7WswP_znAxgeJc9gJUxf22BMQckTxHodBglkQIBVboh0ZV720NsiTReQ8DsYiuuxNvX_1E4L6spfUG03Rx-24rhC3h52XJINUNPbjja_RqzXNIYhhtN4x49W-SmbkeKUfUPU0_7uigGsoiMstStrNKmgYP6Vzwc8Lnn3cw",
 };
@@ -101,4 +116,223 @@ export const PUBLISHING_ACTIVITY: PublishingActivityEntry[] = [
     title: "Ordinance 2023-04: Noise Regulation",
     description: "Published by Admin user 'sec_general' under Resolutions.",
   },
+];
+
+/* ------------------- Section seed data (wraps real public content) ------------------ */
+
+/** Mock-only services demonstrating extra table states (not shown on the public site). */
+const MOCK_SERVICES: AdminServiceRecord[] = [
+  {
+    id: "mock-senior-citizen-id",
+    service: {
+      id: "mock-senior-citizen-id",
+      title: "Senior Citizen ID Assistance",
+      description:
+        "Assistance with OSCA ID registration and issuance for residents aged 60 and above.",
+      icon: IdCard,
+      tone: "primary",
+      requirementsLabel: "View Requirements",
+      requirements: [
+        "Birth certificate or valid government ID",
+        "Recent 1x1 ID picture",
+        "Proof of residency",
+      ],
+      ctaLabel: "Registration and ID issuance",
+    },
+    department: "Office of Senior Citizens Affairs (OSCA)",
+    status: "inactive",
+    updatedAt: "2025-04-02",
+  },
+  {
+    id: "mock-cedula",
+    service: {
+      id: "mock-cedula",
+      title: "Community Tax Certificate (Cedula)",
+      description:
+        "Issuance of community tax certificates for employment, business, and legal transactions.",
+      icon: ScrollText,
+      tone: "primary",
+      requirementsLabel: "View Requirements",
+      requirements: [
+        "Valid government ID",
+        "Accomplished CTC form",
+        "Basic community tax: ₱5.00 plus additional levies",
+      ],
+      ctaLabel: "Same-day issuance",
+    },
+    department: "Office of the Barangay Treasurer",
+    status: "active",
+    updatedAt: "2025-05-10",
+  },
+];
+
+const SERVICE_DEPARTMENTS: Record<string, string> = {
+  "barangay-clearance": "Office of the Barangay Secretary",
+  "business-permit": "Office of the Barangay Treasurer",
+  "certificate-of-indigency": "Barangay Social Welfare Desk",
+  "blotter-complaints": "Lupong Tagapamayapa",
+};
+
+const SERVICE_UPDATED_AT: Record<string, string> = {
+  "barangay-clearance": "2025-05-12",
+  "business-permit": "2025-04-28",
+  "certificate-of-indigency": "2025-03-15",
+  "blotter-complaints": "2025-05-01",
+};
+
+export const ADMIN_SERVICES: AdminServiceRecord[] = [
+  ...SERVICES.map((service) => ({
+    id: service.id,
+    service,
+    department: SERVICE_DEPARTMENTS[service.id] ?? "Office of the Barangay Secretary",
+    status: "active" as const,
+    updatedAt: SERVICE_UPDATED_AT[service.id] ?? "2025-05-01",
+  })),
+  ...MOCK_SERVICES,
+];
+
+export const EVENT_CATEGORY_LABELS: Record<EventCategory, string> = {
+  "town-hall": "Town Hall",
+  "health-drive": "Health Drive",
+  festival: "Festival",
+  youth: "Youth",
+  environment: "Environment",
+  community: "Community",
+};
+
+const EVENT_META: Record<
+  string,
+  Pick<AdminEventRecord, "category" | "registered" | "capacity" | "volunteers">
+> = {
+  "Medical & Dental Mission": { category: "health-drive", registered: 120, capacity: 200 },
+  "Youth Leadership Seminar": { category: "youth", registered: 45, capacity: 60 },
+  "Environment Clean-up Drive": { category: "environment", volunteers: 30 },
+  "Senior Citizens Gathering": { category: "community", registered: 80, capacity: 100 },
+};
+
+export const ADMIN_EVENTS: AdminEventRecord[] = [
+  ...UPCOMING_EVENTS.map((event, index) => ({
+    id: `evt-${index + 1}`,
+    event,
+    status: "published" as const,
+    ...(EVENT_META[event.title] ?? { category: "community" as const }),
+  })),
+  {
+    id: "evt-fiesta-2025",
+    event: {
+      title: "San Fernando Grand Fiesta 2025",
+      date: "2025-08-28",
+      time: "All Day",
+      venue: "Entire Barangay Jurisdiction",
+    },
+    category: "festival",
+    status: "planning",
+    note: "Registration opens August 1st",
+  },
+];
+
+export const ADMIN_NEWS: AdminNewsRecord[] = [
+  {
+    id: "news-health-mission",
+    article: FEATURED_ARTICLE,
+    status: "published",
+    views: 3400,
+    updatedAt: "2024-10-24",
+  },
+  {
+    id: "news-q4-town-hall",
+    article: NEWS_ARTICLES[0],
+    status: "published",
+    views: 1200,
+    updatedAt: "2024-10-22",
+  },
+  {
+    id: "news-tree-planting",
+    article: NEWS_ARTICLES[1],
+    status: "published",
+    views: 860,
+    updatedAt: "2024-10-20",
+  },
+  {
+    id: "news-fiesta-schedule-draft",
+    article: {
+      title: "Annual Barangay Fiesta Schedule and Guidelines",
+      category: "Events",
+      excerpt: "",
+      image: "",
+      imageAlt: "",
+      dateLabel: "",
+    },
+    status: "draft",
+    updatedAt: "2024-10-25",
+  },
+  {
+    id: "news-anti-rabies-drive",
+    article: {
+      title: "Free Anti-Rabies Vaccination Drive for Pets",
+      category: "Public Health",
+      excerpt:
+        "Details regarding the upcoming free anti-rabies vaccination drive for dogs and cats, in coordination with the Municipal Agriculture Office.",
+      image:
+        "https://lh3.googleusercontent.com/aida-public/AB6AXuBQMEWS1CFwllE8d9raqgMitrZe3lxxzWXQ3Bcl2I1HXP7eHqHEK-hqYJgyWkH3UD0brZRExGSa6WZnAViKeIXMh8s0B4saCQjR7DrQUVlkYtWz7hleSkf5wufO4vDDEmqkDlv8z6bMCyl0t04YwZws14Lx0jGXLoOWgFmGq-2O9kHlhu5ab9-ojY4N96RIQVx5QlNdldjOaujdC7lDoqUfEQxtEysVrhbjng7EVEHi9Z_d91NIpXXDZFAILNbLfieTKvuefXZDugY",
+      imageAlt: "Health workers preparing vaccines at an outdoor station",
+      dateLabel: "Oct 26, 2024",
+    },
+    status: "scheduled",
+    scheduledFor: "2024-10-26T08:00:00",
+    updatedAt: "2024-10-23",
+  },
+];
+
+export const ADMIN_LEGISLATIVE: AdminLegislativeRecord[] = [
+  ...ORDINANCES.map((document, index) => ({
+    id: `ord-${index + 1}`,
+    document,
+    type: "ordinance" as const,
+    status: "active" as const,
+  })),
+  ...RESOLUTIONS.map((document, index) => ({
+    id: `res-${index + 1}`,
+    document,
+    type: "resolution" as const,
+    status: "active" as const,
+  })),
+  {
+    id: "ord-draft-anti-littering",
+    document: {
+      number: "Ordinance No. 01-2025",
+      title: "Barangay Anti-Littering and Public Cleanliness Code",
+      date: "2025-02-10",
+      summary:
+        "Draft ordinance consolidating anti-littering rules, sidewalk obstruction penalties, and purok-level cleanliness inspections into a single code. Under committee review.",
+      fileUrl: "#",
+    },
+    type: "ordinance",
+    status: "under-review",
+  },
+  {
+    id: "res-old-traffic-routing",
+    document: {
+      number: "Resolution No. 02-2019",
+      title: "Old Traffic Routing Scheme for Fiesta Season",
+      date: "2019-01-15",
+      summary:
+        "Previous one-way routing scheme for the fiesta season, superseded by Resolution No. 04-2024.",
+      fileUrl: "#",
+    },
+    type: "resolution",
+    status: "archived",
+  },
+];
+
+export const TEAM_ROLE_LABELS: Record<TeamRole, string> = {
+  "super-admin": "Super Admin",
+  editor: "Editor",
+  viewer: "Viewer",
+};
+
+export const ADMIN_TEAM: AdminTeamMember[] = [
+  { name: "Maria Santos", role: "super-admin", initials: "MS", isCurrentUser: true },
+  { name: "Juan Dela Cruz", role: "editor", initials: "JD" },
+  { name: "Ana Reyes", role: "viewer", initials: "AR" },
 ];

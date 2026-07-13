@@ -193,6 +193,125 @@ export interface ContentTypeAction {
   tone: "primary" | "secondary" | "deep";
 }
 
+/* ----------------------- Admin content management (mock CMS) --------------------- */
+/* Envelope types wrapping the public entities the admin portal manages. These are    */
+/* the de-facto write-side contract for the future backend (see BACKEND_HANDOFF §3E). */
+
+export type AdminContentStatus = "published" | "scheduled" | "draft" | "in-review";
+export type AdminServiceStatus = "active" | "inactive";
+export type AdminLegislativeStatus = "active" | "under-review" | "archived";
+export type AdminEventStatus = "published" | "planning";
+export type EventCategory =
+  | "town-hall"
+  | "health-drive"
+  | "festival"
+  | "youth"
+  | "environment"
+  | "community";
+
+/** Every status a StatusChip can render. */
+export type AdminStatus =
+  | AdminContentStatus
+  | AdminServiceStatus
+  | AdminLegislativeStatus
+  | AdminEventStatus;
+
+export interface AdminServiceRecord {
+  /** `Service.id` for real rows; `mock-*` for demo-only extras. */
+  id: string;
+  service: Service;
+  department: string;
+  status: AdminServiceStatus;
+  /** ISO date of the last edit. */
+  updatedAt: string;
+}
+
+export interface AdminEventRecord {
+  id: string;
+  /** The public entity has no id — the envelope provides it. */
+  event: CommunityEvent;
+  category: EventCategory;
+  status: AdminEventStatus;
+  registered?: number;
+  capacity?: number;
+  volunteers?: number;
+  /** Free-form footnote for planning-stage events, e.g. "Registration opens August 1st". */
+  note?: string;
+}
+
+export interface AdminNewsRecord {
+  id: string;
+  article: NewsArticle;
+  status: AdminContentStatus;
+  /** Published posts only. */
+  views?: number;
+  /** ISO datetime; scheduled posts only. */
+  scheduledFor?: string;
+  /** ISO date of the last edit. */
+  updatedAt: string;
+}
+
+export interface AdminLegislativeRecord {
+  id: string;
+  document: LegislativeDocument;
+  /** The public data splits by array; the envelope makes the type explicit. */
+  type: "ordinance" | "resolution";
+  status: AdminLegislativeStatus;
+}
+
+export type TeamRole = "super-admin" | "editor" | "viewer";
+
+export interface AdminTeamMember {
+  name: string;
+  role: TeamRole;
+  initials: string;
+  isCurrentUser?: boolean;
+}
+
+/* Drawer-form value shapes — the future POST/PUT body contracts. */
+
+export interface ServiceFormValues {
+  title: string;
+  description: string;
+  department: string;
+  /** Newline-separated list in the mock UI. */
+  requirements: string;
+  status: AdminServiceStatus;
+}
+
+export interface EventFormValues {
+  title: string;
+  category: EventCategory;
+  /** ISO date. */
+  date: string;
+  startTime: string;
+  endTime: string;
+  venue: string;
+  capacity?: number;
+  description: string;
+}
+
+export interface NewsPostFormValues {
+  title: string;
+  category: string;
+  excerpt: string;
+  body: string;
+  status: AdminContentStatus;
+  /** Required when status is "scheduled". */
+  scheduledFor?: string;
+}
+
+export interface LegislativeFormValues {
+  type: "ordinance" | "resolution";
+  /** e.g. "Ordinance No. 05-2024". */
+  number: string;
+  title: string;
+  /** ISO date. */
+  datePassed: string;
+  summary: string;
+  status: AdminLegislativeStatus;
+}
+
 /* ------------------------------------- About ------------------------------------ */
 
 export interface TimelineEntry {
