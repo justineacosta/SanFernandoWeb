@@ -121,7 +121,7 @@ export const UPCOMING_EVENTS: CommunityEvent[] = [
 export const GLANCE_STATS: Stat[] = [
   { label: "Total Population", value: "1,228", note: "as of 2024", icon: Users },
   { label: "Households", value: "248", note: "as of 2024", icon: Home },
-  { label: "Total Land Area", value: "8.95 ha", note: "per Barangay Development Plan", icon: Map },
+  { label: "Total Land Area", value: "8.95 ha", icon: Map },
   { label: "Puroks", value: "7", note: "Active Puroks", icon: LayoutGrid },
 ];
 
