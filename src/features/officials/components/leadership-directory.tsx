@@ -37,9 +37,11 @@ export function LeadershipDirectory() {
 
       <div>
         <DividerHeading>Administration</DividerHeading>
-        <div className="mx-auto grid max-w-4xl grid-cols-1 gap-8 md:grid-cols-2">
+        <div className="mx-auto flex max-w-4xl flex-wrap justify-center gap-8">
           {administration.map((official) => (
-            <OfficialCard key={official.name} official={official} variant="compact" />
+            <div key={official.name} className="w-full md:w-[calc(50%-1rem)]">
+              <OfficialCard official={official} variant="compact" />
+            </div>
           ))}
         </div>
       </div>
