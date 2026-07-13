@@ -1,16 +1,16 @@
-import { CalendarDays, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Section } from "@/components/ui/section";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { MILESTONES } from "@/features/about/data";
 
-/** Numbered achievement cards ("Community Milestones"). */
+/** Numbered program cards ("Community Programs"). */
 export function MilestonesSection() {
   return (
     <Section tone="muted" className="py-16 md:py-24">
       <SectionHeading
-        title="Community Milestones"
-        description="Key achievements that define our progress."
+        title="Community Programs"
+        description="Ongoing initiatives that keep the barangay clean, safe, and flood-ready."
         action={{ label: "View All Reports", href: "/transparency" }}
       />
       <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
@@ -25,7 +25,7 @@ export function MilestonesSection() {
             <h3 className="mb-4 text-lg font-semibold tracking-tight text-ink-900">{title}</h3>
             <p className="mb-6 text-ink-600">{description}</p>
             <div className="flex items-center gap-2 text-sm font-semibold text-brand-700">
-              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+              <FileText className="h-4 w-4" aria-hidden="true" />
               {meta}
             </div>
           </Card>

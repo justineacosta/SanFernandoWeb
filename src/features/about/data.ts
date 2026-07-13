@@ -1,11 +1,10 @@
 import {
   Accessibility,
+  Droplets,
   HeartHandshake,
   Leaf,
+  Recycle,
   ShieldCheck,
-  Stethoscope,
-  Trophy,
-  Video,
 } from "lucide-react";
 import type { Milestone, TimelineEntry, ValueItem } from "@/types";
 import punongBarangayPhoto from "@/images/officials/Punong Barangay - Domini B. Dela Cruz.jpg";
@@ -13,10 +12,10 @@ import barangaySeal from "@/images/logo/BarangaySFLogo.png";
 import communityPhoto from "@/images/carousel/OrganizationGroupPicture.jpg";
 
 export const MISSION =
-  "To promoted people participation; To provide a business-friendly environment for business investors; To ensure public safety, peace and order in the community; To sustain a clean and green environment thru intensified clean and green program implementation; and To enhance capability of barangay leaders.";
+  "To promote people participation; To provide a business-friendly environment for business investors; To ensure public safety, peace and order in the community; To sustain a clean and green environment thru intensified clean and green program implementation; and To enhance capability of barangay leaders.";
 
 export const VISION =
-  "A progressive, industrialized and business friendly barangay with developed economy, god loving, united and cooperative citizenry who lives in a peaceful, orderly and ecologically balanced environment under a firm, innovative, transparent, accountable and proactive leadership by 2026.";
+  "A progressive, industrialized and business friendly barangay with developed economy, God-loving, united and cooperative citizenry who lives in a peaceful, orderly and ecologically balanced environment under a firm, innovative, transparent, accountable and proactive leadership by 2026.";
 
 export const CORE_VALUES: ValueItem[] = [
   { icon: ShieldCheck, title: "Integrity", description: "Honesty in every action." },
@@ -58,24 +57,24 @@ export const HISTORY_TIMELINE: TimelineEntry[] = [
 
 export const MILESTONES: Milestone[] = [
   {
-    icon: Trophy,
-    title: "Cleanest Barangay Award",
+    icon: Leaf,
+    title: "Weekly Community Clean-Up Drive",
     description:
-      "Recognized for three consecutive years for excellence in solid waste management and urban greening initiatives.",
-    meta: "Awarded Nov 2023",
+      "Residents join barangay officials, SK officials, health workers, and tanods in the mandatory weekly clean-up of roads, canals, and vacant lots.",
+    meta: "Barangay Development Plan",
   },
   {
-    icon: Stethoscope,
-    title: "98% Vaccination Rate",
+    icon: Recycle,
+    title: "100% Household Waste Segregation",
     description:
-      "Achieved one of the highest primary healthcare coverage rates in the city through our mobile health clinic program.",
-    meta: "Status as of 2024",
+      "All 248 households segregate their garbage and are covered by scheduled barangay-wide collection.",
+    meta: "RBI 2024",
   },
   {
-    icon: Video,
-    title: "Smart CCTV Network",
+    icon: Droplets,
+    title: "Flood Mitigation Through Canal Rehabilitation",
     description:
-      "Successfully implemented a 24/7 surveillance grid covering 100% of major intersections for community safety.",
-    meta: "Completed Dec 2023",
+      "As the catch basin of neighboring barangays, San Fernando rehabilitated its canals so typhoon floodwater now subsides quickly.",
+    meta: "Barangay Development Plan",
   },
 ];
