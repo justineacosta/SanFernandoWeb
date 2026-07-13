@@ -49,7 +49,7 @@ export const HISTORY_TIMELINE: TimelineEntry[] = [
     year: "Today",
     title: "An Urban Poblacion Barangay",
     description:
-      "San Fernando is one of the 15 urban barangays surrounding the center of San Nicolas — 8.95 hectares and seven sitios that are home to about 1,228 residents. It is bounded by San Ildefonso, San Paulo, San Cayetano, and San Guillermo, just 250 meters from the Municipal Hall along the Manila North Road.",
+      "San Fernando is one of the 15 urban barangays surrounding the center of San Nicolas — 8.95 hectares and seven sitios that are home to about 1,228 residents (RBI 2024). It is bounded by San Ildefonso, San Paulo, San Cayetano, and San Guillermo, just 250 meters from the Municipal Hall along the Manila North Road.",
     image: communityPhoto,
     imageAlt: "Barangay officials and residents gathered for a community group photo",
   },
