@@ -47,8 +47,10 @@
 > all 12 officials (PB, 7 Kagawads, SK Chairman, Secretary, Treasurer, and a new
 > **Barangay Administrative Assistant** role) now use real names and bundled portraits from
 > `src/images/officials/`; their emails/phones remain placeholder-shaped, now on the (077)
-> area code. An unused `BagongPilipinasLogo.png` also sits in `src/images/logo/`. Like the
-> carousel, a future API should serve these as image URLs from owned storage.
+> area code. The Administration block in `LeadershipDirectory` is a wrapping flex row that
+> centers an odd last card, so any number of admin staff lays out correctly. An unused
+> `BagongPilipinasLogo.png` also sits in `src/images/logo/`. Like the carousel, a future
+> API should serve these as image URLs from owned storage.
 
 ---
 
