@@ -119,10 +119,10 @@ export const UPCOMING_EVENTS: CommunityEvent[] = [
 ];
 
 export const GLANCE_STATS: Stat[] = [
-  { label: "Total Population", value: "4,532", note: "as of 2024", icon: Users },
-  { label: "Households", value: "1,256", note: "as of 2024", icon: Home },
-  { label: "Total Land Area", value: "2.35 km²", icon: Map },
-  { label: "Puroks", value: "6", note: "Active Puroks", icon: LayoutGrid },
+  { label: "Total Population", value: "1,228", note: "as of 2024", icon: Users },
+  { label: "Households", value: "248", note: "as of 2024", icon: Home },
+  { label: "Total Land Area", value: "0.895 km²", icon: Map },
+  { label: "Puroks", value: "7", note: "Active Puroks", icon: LayoutGrid },
 ];
 
 export const INVOLVEMENT_ITEMS: ValueItem[] = [

@@ -14,7 +14,7 @@ import secretaryPhoto from "@/images/officials/Barangay Secretary - Sharah Mae R
 import treasurerPhoto from "@/images/officials/Barangay Treasurer - Mariela A. Tolentino.png";
 import adminAssistantPhoto from "@/images/officials/Barangay Administrative Assistant - Mary Kaye A. Maltezo.png";
 
-export const TERM_LABEL = "2023-2025";
+export const TERM_LABEL = "2023-2026";
 
 export const OFFICIALS: Official[] = [
   {
