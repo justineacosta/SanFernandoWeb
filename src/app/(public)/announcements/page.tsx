@@ -15,7 +15,7 @@ export default function AnnouncementsPage() {
     <>
       <PageHero
         eyebrow="Official Updates"
-        title="Civic Hub: Stay Informed, Stay Connected"
+        title="News Hub: Stay Informed, Stay Connected"
         description="Access the latest announcements, public notices, and community highlights from the heart of Barangay San Fernando."
       >
         <div className="flex flex-wrap gap-4">
