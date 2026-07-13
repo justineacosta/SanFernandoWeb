@@ -7,6 +7,7 @@ import {
   Megaphone,
   Newspaper,
   PartyPopper,
+  Scale,
   ScrollText,
   Settings,
 } from "lucide-react";
@@ -31,6 +32,7 @@ import { ORDINANCES, RESOLUTIONS } from "@/features/transparency/data";
 export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Dashboard Overview", href: "/admin", icon: LayoutDashboard, exact: true },
   { label: "Services Management", href: "/admin/services", icon: Landmark },
+  { label: "Ordinance & Resolution", href: "/admin/legislative", icon: Scale },
   { label: "Event Calendar", href: "/admin/events", icon: CalendarDays },
   { label: "News & Announcements", href: "/admin/news", icon: Megaphone },
   { label: "User Settings", href: "/admin/settings", icon: Settings },
@@ -49,7 +51,7 @@ export const CONTENT_TYPE_ACTIONS: ContentTypeAction[] = [
   {
     title: "Ordinance / Resolution",
     description: "Draft official local laws, resolutions, and policy documents for public review.",
-    href: "/admin/news",
+    href: "/admin/legislative",
     icon: Gavel,
     tone: "primary",
   },
