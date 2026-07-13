@@ -63,6 +63,12 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
   is also reused by the About-page `CAPTAIN` block). Officials' names are real; their
   emails/phones are placeholder-shaped. The favicon `src/app/icon.png` is a 256px circular
   crop of the seal — regenerate it if the seal changes.
+- Real content (verified against the barangay's official **Ecological Profile / Barangay
+  Development Plan** PDF, 2026-07-13): mission/vision, the About history timeline (1733
+  founding) and "Community Programs", home glance stats, and the Services waste-collection
+  schedule. Land area is **8.95 ha** — the PDF's own "(0.895 sq. km)" parenthetical is a
+  decimal error; don't reintroduce it. Still invented: the About `CAPTAIN.message` quotes
+  (flagged in `docs/BACKEND_HANDOFF.md` §6 — needs his real message before launch).
 - The barangay identity is San Fernando everywhere (renamed 2026-07-12 from the
   "Barangay Sampaguita" design placeholder) — any "Sampaguita" appearing in `src/` is a
   regression. San Nicolas is a **municipality** (write "Municipal …", not "City …"), and the

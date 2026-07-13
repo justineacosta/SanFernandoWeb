@@ -51,6 +51,28 @@
 > centers an odd last card, so any number of admin staff lays out correctly. An unused
 > `BagongPilipinasLogo.png` also sits in `src/images/logo/`. Like the carousel, a future
 > API should serve these as image URLs from owned storage.
+>
+> **Updated 2026-07-13 (evening):** first pass of **verified real content** landed, sourced
+> from the barangay's official **Ecological Profile / Barangay Development Plan** PDF (the
+> authoritative content source for stats and programs — get a copy from the barangay when
+> seeding the CMS; spec: `docs/superpowers/specs/2026-07-13-ecological-profile-content-design.md`):
+> 1. About **history timeline** is now two verified entries (1733 founding per *History of
+>    San Nicolas* by Atty. Manuel F. Aurelio; a "Today" profile entry) using bundled images
+>    (barangay seal + a carousel photo). `TimelineEntry.image` is now
+>    `string | StaticImageData` with an optional `imageFit` (`"contain"` for the seal).
+> 2. About **"Community Milestones" became "Community Programs"** — three documented
+>    programs (weekly clean-up drive, 100% waste segregation, canal-rehab flood mitigation)
+>    with source citations in `meta` instead of invented awards.
+> 3. `/services` gained a **`WasteScheduleSection`** (new `WasteCollectionSlot` type +
+>    `WASTE_SCHEDULE` in `features/services/data.ts`): perishables Wed & Sun AM,
+>    non-perishables Fri.
+> 4. Mission/vision typos fixed; home land-area stat corrected to **8.95 ha** (⚠️ the PDF
+>    itself says "8.95 hectares (0.895 sq. km)" — internally inconsistent; 8.95 ha was
+>    adjudicated correct from the barangay map and population density. Confirm with the
+>    barangay before using either figure elsewhere).
+> 5. The announcements hero was renamed **"News Hub"** (was "Civic Hub").
+> Still placeholder: captain's quoted message (§6 item 6), all contact data, document
+> `fileUrl`s, and the remaining Google-hotlinked images.
 
 ---
 
@@ -64,7 +86,7 @@
 | Build | `npm run build` ✅ — all routes prerender static |
 | Backend | **None.** All data is hardcoded in `src/features/*/data.ts` and `src/constants/site.ts`; both forms fake their submission client-side |
 | Auth | None yet — an **admin portal UI shell exists at `/admin`** (unprotected, mock data, `noindex`); it needs auth before any write capability ships |
-| Images | Mostly hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — must move to owned storage. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), Punong Barangay portrait (`src/images/officials/`) |
+| Images | Mostly hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — must move to owned storage. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), all 12 officials' portraits (`src/images/officials/`), About history-timeline images (seal + carousel photo) |
 
 ### Routes
 
@@ -73,7 +95,7 @@
 | `/` | Home | `HomeHero`, `QuickServicesSection`, `CommunityPulseSection`, `GetInvolvedSection` |
 | `/about` | About Us | `MissionVisionSection`, `CaptainMessageSection`, `HistorySection`, `MilestonesSection`, `JoinCommunitySection` |
 | `/officials` | Officials directory | `LeadershipDirectory`, `ActionCenterBanner` |
-| `/services` | Services directory | `ServicesGrid` (accordion requirements), `HelpSection` |
+| `/services` | Services directory | `ServicesGrid` (accordion requirements), `WasteScheduleSection`, `HelpSection` |
 | `/announcements` | News & Announcements | `NewsFeed`, `NewsSidebar` (announcements, hotlines, newsletter) |
 | `/transparency` | Transparency portal | `TransparencyHero`, `DisclosureGrid`, `LatestUploadsSection`, `LegislativeSection`, `FoiSection` |
 | `/contact` | Contact | `ContactDetails`, `InquiryForm`, `MapSection` |
@@ -135,7 +157,8 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | `TransparencyDocument` | Transparency table | Needs a real `fileUrl` field (currently `#`) |
 | `LegislativeDocument` | Ordinances & resolutions tables | Needs real `fileUrl` from file upload; `summary` (expanded row content) comes from CMS |
 | `ProjectStatus` | Transparency project monitoring | `progress: number` (0–100) |
-| `TimelineEntry`, `Milestone`, `ValueItem` | About page | Mostly CMS-style static content |
+| `TimelineEntry`, `Milestone`, `ValueItem` | About page | Mostly CMS-style static content; `TimelineEntry.image` is `string \| StaticImageData` + optional `imageFit: "cover" \| "contain"` — an API should return URLs |
+| `WasteCollectionSlot` | Services waste schedule | `days`/`note` are display strings; same icon caveat |
 | `Hotline`, `ContactChannel`, `NavItem`, `SocialLink` | Site-wide | Live in `constants/site.ts` |
 
 ⚠️ **Icon fields**: several types carry `icon: LucideIcon` (a React component). An API can't
@@ -147,9 +170,9 @@ return components — return an icon name (e.g. `"file-text"`) and add a small
 | File | Content |
 | --- | --- |
 | `src/features/home/data.ts` | Quick services, 3 announcements, 4 events, 4 stats, 4 hero carousel slides (real photos, statically imported), CTA image |
-| `src/features/about/data.ts` | Mission, vision, core values, captain message, history timeline, milestones |
+| `src/features/about/data.ts` | Mission, vision (real, from the BDP), core values, captain message (placeholder), history timeline + community programs (real, sourced from the Ecological Profile) |
 | `src/features/officials/data.ts` | 12 officials incl. photos/contacts, `TERM_LABEL`, `getOfficialsByGroup()` — all real names with bundled portraits from `src/images/officials/`; emails/phones placeholder-shaped |
-| `src/features/services/data.ts` | 4 services with requirements, emergency-assistance block |
+| `src/features/services/data.ts` | 4 services with requirements, emergency-assistance block, waste collection schedule (real days from the BDP) |
 | `src/features/announcements/data.ts` | Featured article, 2 articles, 3 sidebar announcements, sidebar hotlines |
 | `src/features/transparency/data.ts` | Budget docs, 2 projects, 4 latest uploads, 3 ordinances + 3 resolutions |
 | `src/features/contact/data.ts` | Contact channels, inquiry subject options, map image |
