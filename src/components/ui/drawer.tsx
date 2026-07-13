@@ -15,6 +15,11 @@ interface DrawerProps {
 export function Drawer({ open, onClose, title, children }: DrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -23,12 +28,12 @@ export function Drawer({ open, onClose, title, children }: DrawerProps) {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab" || !panelRef.current) return;
       const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
       );
       if (focusables.length === 0) return;
       const first = focusables[0];
@@ -47,7 +52,7 @@ export function Drawer({ open, onClose, title, children }: DrawerProps) {
       document.body.style.overflow = "";
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
     <div className={cn("fixed inset-0 z-50", !open && "pointer-events-none")} inert={!open}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { CheckCircle2 } from "lucide-react";
 
 interface ToastProps {
@@ -10,10 +10,16 @@ interface ToastProps {
 
 /** Transient bottom-right notice; auto-dismisses after 3 seconds. */
 export function Toast({ message, onDismiss }: ToastProps) {
+  const onDismissRef = useRef(onDismiss);
+
   useEffect(() => {
-    const timer = setTimeout(onDismiss, 3000);
+    onDismissRef.current = onDismiss;
+  });
+
+  useEffect(() => {
+    const timer = setTimeout(() => onDismissRef.current(), 3000);
     return () => clearTimeout(timer);
-  }, [onDismiss]);
+  }, []);
 
   return (
     <div
