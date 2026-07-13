@@ -59,10 +59,10 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
   must eventually move to owned storage. Exceptions — real assets bundled via static
   imports: the home hero carousel (`src/images/carousel/`, `HERO_SLIDES` in
   `src/features/home/data.ts`), the barangay seal (`src/images/logo/`, `SITE.sealImage`),
-  and the Punong Barangay portrait (`src/images/officials/`, used in both
-  `features/officials/data.ts` and `features/about/data.ts`). Remaining council and
-  administration portraits will land in `src/images/officials/` the same way. The favicon
-  `src/app/icon.png` is a 256px circular crop of the seal — regenerate it if the seal changes.
+  and **all 12 officials' portraits** (`src/images/officials/`; the Punong Barangay photo
+  is also reused by the About-page `CAPTAIN` block). Officials' names are real; their
+  emails/phones are placeholder-shaped. The favicon `src/app/icon.png` is a 256px circular
+  crop of the seal — regenerate it if the seal changes.
 - The barangay identity is San Fernando everywhere (renamed 2026-07-12 from the
   "Barangay Sampaguita" design placeholder) — any "Sampaguita" appearing in `src/` is a
   regression. San Nicolas is a **municipality** (write "Municipal …", not "City …"), and the

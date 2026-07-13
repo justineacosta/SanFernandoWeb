@@ -43,10 +43,12 @@
 > circular crop, 256px). The **Punong Barangay** is the real official, **Hon. Dominic B.
 > Dela Cruz**, with his bundled portrait from `src/images/officials/` used in both
 > `features/officials/data.ts` and the About-page `CAPTAIN` block; `Official.photo` is now
-> `StaticImageData | string`. Remaining council/administration portraits will be dropped
-> into `src/images/officials/` the same way (an unused `BagongPilipinasLogo.png` also sits
-> in `src/images/logo/`). Like the carousel, a future API should serve these as image URLs
-> from owned storage.
+> `StaticImageData | string`. Later the same day the **full officials directory went real**:
+> all 12 officials (PB, 7 Kagawads, SK Chairman, Secretary, Treasurer, and a new
+> **Barangay Administrative Assistant** role) now use real names and bundled portraits from
+> `src/images/officials/`; their emails/phones remain placeholder-shaped, now on the (077)
+> area code. An unused `BagongPilipinasLogo.png` also sits in `src/images/logo/`. Like the
+> carousel, a future API should serve these as image URLs from owned storage.
 
 ---
 
@@ -144,7 +146,7 @@ return components — return an icon name (e.g. `"file-text"`) and add a small
 | --- | --- |
 | `src/features/home/data.ts` | Quick services, 3 announcements, 4 events, 4 stats, 4 hero carousel slides (real photos, statically imported), CTA image |
 | `src/features/about/data.ts` | Mission, vision, core values, captain message, history timeline, milestones |
-| `src/features/officials/data.ts` | 11 officials incl. photos/contacts, `TERM_LABEL`, `getOfficialsByGroup()` — Punong Barangay (Hon. Dominic B. Dela Cruz) has his real bundled portrait; the other 10 are placeholder names/photos |
+| `src/features/officials/data.ts` | 12 officials incl. photos/contacts, `TERM_LABEL`, `getOfficialsByGroup()` — all real names with bundled portraits from `src/images/officials/`; emails/phones placeholder-shaped |
 | `src/features/services/data.ts` | 4 services with requirements, emergency-assistance block |
 | `src/features/announcements/data.ts` | Featured article, 2 articles, 3 sidebar announcements, sidebar hotlines |
 | `src/features/transparency/data.ts` | Budget docs, 2 projects, 4 latest uploads, 3 ordinances + 3 resolutions |
