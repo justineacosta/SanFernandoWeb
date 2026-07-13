@@ -276,3 +276,5 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
    (no `/announcements/[slug]` route yet — needed once news is dynamic).
 5. No tests yet — when the backend lands, add integration tests around the two forms and
    the document search first.
+6. `CAPTAIN.message` on the About page is invented placeholder text presented as direct quotes
+   from the real Punong Barangay — replace with his actual message before launch.
