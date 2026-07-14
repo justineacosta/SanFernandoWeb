@@ -201,6 +201,7 @@ export type AdminContentStatus = "published" | "scheduled" | "draft" | "in-revie
 export type AdminServiceStatus = "active" | "inactive";
 export type AdminLegislativeStatus = "active" | "under-review" | "archived";
 export type AdminEventStatus = "published" | "planning";
+export type ApplicationStatus = "pending" | "approved" | "rejected";
 export type EventCategory =
   | "town-hall"
   | "health-drive"
@@ -214,7 +215,8 @@ export type AdminStatus =
   | AdminContentStatus
   | AdminServiceStatus
   | AdminLegislativeStatus
-  | AdminEventStatus;
+  | AdminEventStatus
+  | ApplicationStatus;
 
 export interface AdminServiceRecord {
   /** `Service.id` for real rows; `mock-*` for demo-only extras. */
@@ -257,6 +259,35 @@ export interface AdminLegislativeRecord {
   /** The public data splits by array; the envelope makes the type explicit. */
   type: "ordinance" | "resolution";
   status: AdminLegislativeStatus;
+}
+
+/**
+ * A resident's certificate/clearance request — a first-class transactional record
+ * (not an envelope around public content). References the services catalog by id.
+ */
+export interface AdminApplicationRecord {
+  id: string;
+  /** Human-facing reference, e.g. "APP-2025-0148". */
+  referenceNo: string;
+  applicantName: string;
+  /** Placeholder-shaped, (077) area code. */
+  contactNumber: string;
+  email?: string;
+  /** Street/purok address within the barangay. */
+  address: string;
+  /** FK to `Service.id` — certificate-issuing services only. */
+  serviceId: string;
+  /** Why the applicant needs the certificate. */
+  purpose: string;
+  /** ISO date. */
+  dateApplied: string;
+  status: ApplicationStatus;
+  /** Reviewer remarks; set when approved or rejected. */
+  remarks?: string;
+  /** Reviewer name; set when approved or rejected. */
+  reviewedBy?: string;
+  /** ISO date; set when approved or rejected. */
+  reviewedAt?: string;
 }
 
 export type TeamRole = "super-admin" | "editor" | "viewer";
@@ -310,6 +341,23 @@ export interface LegislativeFormValues {
   datePassed: string;
   summary: string;
   status: AdminLegislativeStatus;
+}
+
+export interface ApplicationFormValues {
+  applicantName: string;
+  contactNumber: string;
+  email?: string;
+  address: string;
+  /** FK to `Service.id`. */
+  serviceId: string;
+  purpose: string;
+}
+
+/** The future review-action (PATCH) body. */
+export interface ApplicationReviewValues {
+  status: "approved" | "rejected";
+  /** Required when rejecting; optional when approving. */
+  remarks: string;
 }
 
 /* ------------------------------------- About ------------------------------------ */

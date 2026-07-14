@@ -11,16 +11,22 @@ const LABELS: Record<AdminStatus, string> = {
   "under-review": "Under Review",
   archived: "Archived",
   planning: "Planning",
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
 };
 
 const TONES: Record<AdminStatus, string> = {
   published: "bg-brand-100 text-brand-800",
   active: "bg-brand-100 text-brand-800",
+  approved: "bg-brand-100 text-brand-800",
   scheduled: "bg-ink-100 text-ink-700",
+  pending: "bg-ink-100 text-ink-700",
   draft: "bg-ink-100 text-ink-600",
   planning: "bg-ink-100 text-ink-600",
   "in-review": "bg-danger-soft text-danger-soft-fg",
   "under-review": "bg-danger-soft text-danger-soft-fg",
+  rejected: "bg-danger-soft text-danger-soft-fg",
   inactive: "bg-ink-100 text-ink-500",
   archived: "bg-ink-100 text-ink-500",
 };
