@@ -132,11 +132,15 @@
 | `/admin/news` | News & Announcements | `NewsManager` (card grid + filters + drawer) |
 | `/admin/settings` | Settings | `SettingsPanel` (profile, security, preferences, team) |
 
-Admin mock data lives in `src/features/admin/data.ts` (`ADMIN_NAV_ITEMS`, `ADMIN_USER`,
-`CONTENT_TYPE_ACTIONS`, `RECENT_DRAFTS`, `PUBLISHING_ACTIVITY`). Admin entity types in
-`src/types/index.ts`: `ContentDraft` (status: `draft | in-review`), `PublishingActivityEntry`,
-`ContentTypeAction`. Public routes sit in the `app/(public)` route group; admin has its own
-`app/admin/layout.tsx`.
+Admin mock data lives in `src/features/admin/data.ts`: hub constants (`ADMIN_NAV_ITEMS`,
+`ADMIN_USER`, `CONTENT_TYPE_ACTIONS`, `RECENT_DRAFTS`, `PUBLISHING_ACTIVITY`) plus one seed
+array per section — `ADMIN_SERVICES`, `ADMIN_APPLICATIONS` (with `CERTIFICATE_SERVICES` /
+`certificateTitle()` derived from the public catalog), `ADMIN_LEGISLATIVE`, `ADMIN_EVENTS`,
+`ADMIN_NEWS`, `ADMIN_TEAM` — and label maps (`EVENT_CATEGORY_LABELS`, `TEAM_ROLE_LABELS`,
+`DRAFT_STATUS_LABELS`). Admin entity types in `src/types/index.ts`: `ContentDraft`
+(status: `draft | in-review`), `PublishingActivityEntry`, `ContentTypeAction`, plus the
+envelope/record and `*FormValues` contract types listed in §2. Public routes sit in the
+`app/(public)` route group; admin has its own `app/admin/layout.tsx`.
 
 ### Folder architecture
 
@@ -311,8 +315,8 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
   `AdminMobileNav`, `Accordion`, `LegislativeTable`, `HeroCarousel`, `InquiryForm`,
   `NewsletterForm` are the only `"use client"` files (plus `NavLink`/`useDisclosure`
   helpers), plus the admin portal's client surface: the six section managers, their
-  drawer forms and the application review drawer, `MiniCalendar`, `ToggleSwitch`, and the `Drawer`/`Toast` UI primitives
-  (see §3E). Keep new fetches out of client components.
+  drawer forms and the application review drawer, `MiniCalendar`, `ToggleSwitch`, and
+  the `Drawer`/`Toast` UI primitives (see §3E). Keep new fetches out of client components.
 - **Fixed header clearance**: the header is `fixed`, not in-flow — every page's first
   section must provide generous top padding (`pt-32 md:pt-44` for text-first heroes;
   the home hero panel uses `pt-28 md:pt-36`). New pages/heroes must follow this.

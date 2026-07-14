@@ -31,7 +31,8 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
   Public routes live in the `app/(public)` route group (shared header/footer chrome);
   the admin portal has its own `app/admin/layout.tsx` (sidebar chrome, `noindex`,
   unprotected interactive mock — six sections over typed seed data in
-  `features/admin/data.ts` — mostly wrapping the public content; applications are first-class records keyed by `serviceId`; drawer editors fake-save).
+  `features/admin/data.ts` — mostly wrapping the public content; applications are
+  first-class records keyed by `serviceId`; drawer editors fake-save).
 - **Feature modules own everything for a route:** `src/features/<name>/` =
   `data.ts` (typed mock content) + `components/` (section components) + `index.ts`
   (barrel re-exports, kept in page order). Pages import only from the barrel.
@@ -76,6 +77,7 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
   regression. San Nicolas is a **municipality** (write "Municipal …", not "City …"), and the
   Ilocos Norte area code is (077).
 - `stitch/` holds the original design-tool HTML exports — reference material only, ignored
-  by ESLint, not part of the app.
+  by ESLint, not part of the app. Newer exports (`stitch_tabbed_content_manager/` — source
+  of the admin screens) sit untracked at the repo root by choice: don't commit or delete them.
 - Design/implementation history (specs and plans) lives in `docs/superpowers/specs/` and
   `docs/superpowers/plans/`; those dated files are historical records — don't retro-edit them.
