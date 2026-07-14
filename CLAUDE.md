@@ -30,8 +30,8 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
   (`<TransparencyHero />`, `<LegislativeSection />`, …) — no inline layout logic or data.
   Public routes live in the `app/(public)` route group (shared header/footer chrome);
   the admin portal has its own `app/admin/layout.tsx` (sidebar chrome, `noindex`,
-  unprotected interactive mock — five sections over typed seed data in
-  `features/admin/data.ts` that wraps the public content; drawer editors fake-save).
+  unprotected interactive mock — six sections over typed seed data in
+  `features/admin/data.ts` — mostly wrapping the public content; applications are first-class records keyed by `serviceId`; drawer editors fake-save).
 - **Feature modules own everything for a route:** `src/features/<name>/` =
   `data.ts` (typed mock content) + `components/` (section components) + `index.ts`
   (barrel re-exports, kept in page order). Pages import only from the barrel.

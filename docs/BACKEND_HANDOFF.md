@@ -84,6 +84,15 @@
 > `*FormValues` types that define the future POST/PUT body shapes. Search, filters,
 > pagination, and drawer create/edit forms all work client-side; saves are faked (toast, no
 > persistence). Still unprotected + `noindex` — auth remains work item E1.
+>
+> **Updated 2026-07-14 (applications CMS):** new **Certificate Applications** section at
+> `/admin/applications` (spec: `docs/superpowers/specs/2026-07-14-admin-applications-cms-design.md`).
+> Unlike the other managers it introduces a first-class transactional entity —
+> `AdminApplicationRecord` in `src/types/index.ts`, referencing the public services catalog
+> by `serviceId` FK — plus `ApplicationFormValues` (submission POST body) and
+> `ApplicationReviewValues` (approve/reject PATCH body). Approve/reject and walk-in
+> encoding mutate **React session state only** (a refresh resets them); saves are
+> toast-faked like the rest of the portal.
 
 ---
 
@@ -117,6 +126,7 @@
 | --- | --- | --- |
 | `/admin` | Create Content hub | `ContentHub` → `ContentTypeCard` ×3, `RecentDrafts`, `PublishingActivity` |
 | `/admin/services` | Services Management | `ServicesManager` (table + drawer editor) |
+| `/admin/applications` | Certificate Applications | `ApplicationsManager` (stat cards + queue + review/create drawers) |
 | `/admin/legislative` | Ordinance & Resolution | `LegislativeManager` (stat cards + directory + drawer) |
 | `/admin/events` | Event Calendar | `EventsManager` (schedule + `MiniCalendar` + engagement) |
 | `/admin/news` | News & Announcements | `NewsManager` (card grid + filters + drawer) |
@@ -173,6 +183,7 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | `WasteCollectionSlot` | Services waste schedule | `days`/`note` are display strings; same icon caveat |
 | `Hotline`, `ContactChannel`, `NavItem`, `SocialLink` | Site-wide | Live in `constants/site.ts` |
 | `AdminServiceRecord`, `AdminEventRecord`, `AdminNewsRecord`, `AdminLegislativeRecord`, `AdminTeamMember`, `*FormValues` | Admin portal sections | Envelope types wrapping the public entities + drawer-form body shapes — the write-side API contract; statuses (`AdminContentStatus`, `AdminServiceStatus`, `AdminLegislativeStatus`, `AdminEventStatus`) map to content-workflow columns |
+| `AdminApplicationRecord`, `ApplicationStatus`, `ApplicationFormValues`, `ApplicationReviewValues` | Admin applications queue | First-class transactional entity (not an envelope): references `Service` by `serviceId` FK; status flow `pending → approved \| rejected`; form values = submission POST body, review values = review PATCH body |
 
 ⚠️ **Icon fields**: several types carry `icon: LucideIcon` (a React component). An API can't
 return components — return an icon name (e.g. `"file-text"`) and add a small
@@ -231,7 +242,7 @@ storage; `next.config.ts` `images.remotePatterns` must be updated for the new ho
 Transparency PDFs need upload + download endpoints.
 
 ### E. Admin panel + auth
-The admin **UI now exists in full** (`/admin` content hub + interactive mock screens for services, ordinances & resolutions, events, news, and settings), but it is unprotected and shows mock data. Backend needs, in order:
+The admin **UI now exists in full** (`/admin` content hub + interactive mock screens for services, certificate applications, ordinances & resolutions, events, news, and settings), but it is unprotected and shows mock data. Backend needs, in order:
 
 1. **Auth first** — the `/admin` tree must sit behind a login (middleware guard + session);
    `ADMIN_USER` in `features/admin/data.ts` is the placeholder for the session user.
@@ -244,6 +255,12 @@ The admin **UI now exists in full** (`/admin` content hub + interactive mock scr
    `LegislativeManager`, `EventsManager`, `NewsManager`, each with typed `*FormValues`
    contracts) under `/admin/*`; the backend wires them to real endpoints in (C) instead of
    building forms from scratch.
+5. **Application processing** — `/admin/applications` models the certificate-request
+   queue end-to-end: `POST /api/applications` (`ApplicationFormValues`) for walk-in or
+   citizen submissions and `PATCH /api/applications/:id/review`
+   (`ApplicationReviewValues`) for approve/reject with remarks (remarks required on
+   rejection). Status flow: `pending → approved | rejected`. The mock mutates session
+   state only; the reviewer identity comes from `ADMIN_USER` pending real auth (item 1).
 
 Citizen accounts are **not** required by any current UI.
 
@@ -267,6 +284,9 @@ GET  /api/documents?category=&q=&page=    → TransparencyDocument[] (drives tab
 GET  /api/legislative?type=               → LegislativeDocument[] (type: ordinance | resolution; drives collapsible tables)
 GET  /api/stats                           → Stat[]
 GET  /api/settings                        → site identity, hotlines, hours, socials
+GET  /api/admin/applications?status=&serviceId=&q=&page= → AdminApplicationRecord[]
+POST /api/applications                    → ApplicationFormValues (new pending application)
+PATCH /api/admin/applications/:id/review  → ApplicationReviewValues (approve/reject)
 POST /api/inquiries                       → contact form
 POST /api/subscriptions                   → newsletter/SMS signup
 ```
@@ -290,8 +310,8 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
 - **Client islands only when interactive**: `SiteHeader` (scroll state), `MobileNav`,
   `AdminMobileNav`, `Accordion`, `LegislativeTable`, `HeroCarousel`, `InquiryForm`,
   `NewsletterForm` are the only `"use client"` files (plus `NavLink`/`useDisclosure`
-  helpers), plus the admin portal's client surface: the five section managers, their
-  drawer forms, `MiniCalendar`, `ToggleSwitch`, and the `Drawer`/`Toast` UI primitives
+  helpers), plus the admin portal's client surface: the six section managers, their
+  drawer forms and the application review drawer, `MiniCalendar`, `ToggleSwitch`, and the `Drawer`/`Toast` UI primitives
   (see §3E). Keep new fetches out of client components.
 - **Fixed header clearance**: the header is `fixed`, not in-flow — every page's first
   section must provide generous top padding (`pt-32 md:pt-44` for text-first heroes;
