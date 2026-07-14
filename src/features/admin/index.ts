@@ -7,3 +7,4 @@ export { NewsManager } from "./components/news-manager";
 export { ServicesManager } from "./components/services-manager";
 export { EventsManager } from "./components/events-manager";
 export { SettingsPanel } from "./components/settings-panel";
+export { ApplicationsManager } from "./components/applications-manager";
