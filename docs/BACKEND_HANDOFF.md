@@ -231,8 +231,7 @@ storage; `next.config.ts` `images.remotePatterns` must be updated for the new ho
 Transparency PDFs need upload + download endpoints.
 
 ### E. Admin panel + auth
-The admin **UI shell now exists** (`/admin` content hub + stub pages for services, events,
-news, settings), but it is unprotected and shows mock data. Backend needs, in order:
+The admin **UI now exists in full** (`/admin` content hub + interactive mock screens for services, ordinances & resolutions, events, news, and settings), but it is unprotected and shows mock data. Backend needs, in order:
 
 1. **Auth first** — the `/admin` tree must sit behind a login (middleware guard + session);
    `ADMIN_USER` in `features/admin/data.ts` is the placeholder for the session user.
