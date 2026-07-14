@@ -94,7 +94,7 @@ export function LegislativeManager() {
       <Card>
         <CardHeader
           title="Document Directory"
-          className="mb-0 px-6 pt-6"
+          className="mb-0 flex-wrap gap-3 px-6 pt-6"
           action={
             <AdminFilterBar
               selects={[
