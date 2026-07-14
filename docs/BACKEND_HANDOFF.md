@@ -73,6 +73,17 @@
 > 5. The announcements hero was renamed **"News Hub"** (was "Civic Hub").
 > Still placeholder: captain's quoted message (§6 item 6), all contact data, document
 > `fileUrl`s, and the remaining Google-hotlinked images.
+>
+> **Updated 2026-07-13 (admin buildout):** the four `/admin` placeholder stubs became
+> interactive mock screens (spec: `docs/superpowers/specs/2026-07-13-admin-dashboard-buildout-design.md`),
+> plus a new **Ordinance & Resolution** section at `/admin/legislative`. Each section is a
+> client "manager" over typed seed data in `features/admin/data.ts` that **wraps the same
+> records the public site renders** (services, home events, news articles, transparency
+> ordinances/resolutions) in admin envelope types — `AdminServiceRecord`, `AdminEventRecord`,
+> `AdminNewsRecord`, `AdminLegislativeRecord` in `src/types/index.ts` — alongside
+> `*FormValues` types that define the future POST/PUT body shapes. Search, filters,
+> pagination, and drawer create/edit forms all work client-side; saves are faked (toast, no
+> persistence). Still unprotected + `noindex` — auth remains work item E1.
 
 ---
 
@@ -105,10 +116,11 @@
 | Route | Page | Composed from |
 | --- | --- | --- |
 | `/admin` | Create Content hub | `ContentHub` → `ContentTypeCard` ×3, `RecentDrafts`, `PublishingActivity` |
-| `/admin/services` | Services Management | `AdminPlaceholder` stub — awaiting backend module |
-| `/admin/events` | Event Calendar | `AdminPlaceholder` stub |
-| `/admin/news` | News & Announcements | `AdminPlaceholder` stub |
-| `/admin/settings` | User Settings | `AdminPlaceholder` stub |
+| `/admin/services` | Services Management | `ServicesManager` (table + drawer editor) |
+| `/admin/legislative` | Ordinance & Resolution | `LegislativeManager` (stat cards + directory + drawer) |
+| `/admin/events` | Event Calendar | `EventsManager` (schedule + `MiniCalendar` + engagement) |
+| `/admin/news` | News & Announcements | `NewsManager` (card grid + filters + drawer) |
+| `/admin/settings` | Settings | `SettingsPanel` (profile, security, preferences, team) |
 
 Admin mock data lives in `src/features/admin/data.ts` (`ADMIN_NAV_ITEMS`, `ADMIN_USER`,
 `CONTENT_TYPE_ACTIONS`, `RECENT_DRAFTS`, `PUBLISHING_ACTIVITY`). Admin entity types in
@@ -160,6 +172,7 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | `TimelineEntry`, `Milestone`, `ValueItem` | About page | Mostly CMS-style static content; `TimelineEntry.image` is `string \| StaticImageData` + optional `imageFit: "cover" \| "contain"` — an API should return URLs |
 | `WasteCollectionSlot` | Services waste schedule | `days`/`note` are display strings; same icon caveat |
 | `Hotline`, `ContactChannel`, `NavItem`, `SocialLink` | Site-wide | Live in `constants/site.ts` |
+| `AdminServiceRecord`, `AdminEventRecord`, `AdminNewsRecord`, `AdminLegislativeRecord`, `AdminTeamMember`, `*FormValues` | Admin portal sections | Envelope types wrapping the public entities + drawer-form body shapes — the write-side API contract; statuses (`AdminContentStatus`, `AdminServiceStatus`, `AdminLegislativeStatus`, `AdminEventStatus`) map to content-workflow columns |
 
 ⚠️ **Icon fields**: several types carry `icon: LucideIcon` (a React component). An API can't
 return components — return an icon name (e.g. `"file-text"`) and add a small
@@ -228,9 +241,10 @@ news, settings), but it is unprotected and shows mock data. Backend needs, in or
    `status` column from day one so "Recent Drafts" and "Publishing Activity" are real queries.
 3. **Audit log** — `PublishingActivityEntry` maps to an activity/audit table
    (who, what, when, link to live page).
-4. **Editors** — the three `ContentTypeCard` actions (ordinance/resolution, event,
-   news/announcement) need create/edit forms wired to the content APIs in (C); the stub
-   pages under `/admin/*` are their mount points.
+4. **Editors** — the create/edit forms already exist as drawer UIs (`ServicesManager`,
+   `LegislativeManager`, `EventsManager`, `NewsManager`, each with typed `*FormValues`
+   contracts) under `/admin/*`; the backend wires them to real endpoints in (C) instead of
+   building forms from scratch.
 
 Citizen accounts are **not** required by any current UI.
 

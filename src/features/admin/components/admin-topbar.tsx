@@ -10,7 +10,7 @@ export function AdminTopBar() {
       <div className="flex items-center gap-2">
         <AdminMobileNav />
         <h1 className="text-lg font-semibold tracking-tight text-ink-900 md:text-xl">
-          Civic Horizon Admin
+          San Fernando Admin
         </h1>
       </div>
       <div className="flex items-center gap-6">
