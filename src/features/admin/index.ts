@@ -7,3 +7,4 @@ export { LegislativeManager } from "./components/legislative-manager";
 export { NewsManager } from "./components/news-manager";
 export { ServicesManager } from "./components/services-manager";
 export { EventsManager } from "./components/events-manager";
+export { SettingsPanel } from "./components/settings-panel";
