@@ -23,6 +23,8 @@ export function Drawer({ open, onClose, title, children }: DrawerProps) {
 
   useEffect(() => {
     if (!open) return;
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeRef.current?.focus();
     document.body.style.overflow = "hidden";
 
@@ -51,6 +53,7 @@ export function Drawer({ open, onClose, title, children }: DrawerProps) {
     return () => {
       document.body.style.overflow = "";
       document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
     };
   }, [open]);
 

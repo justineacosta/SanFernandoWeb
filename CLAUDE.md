@@ -40,8 +40,9 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
   live in `src/constants/site.ts` (`SITE` object).
 - **Server Components by default.** Client components (`"use client"`) only for real
   interactivity: `SiteHeader` scroll state, mobile navs, `Accordion`, `LegislativeTable`
-  (collapsible rows), inquiry + newsletter forms. Small state helpers live in `src/hooks/`
-  (`useDisclosure`).
+  (collapsible rows), inquiry + newsletter forms, and the admin portal's managers/drawer
+  editors (Drawer, Toast, MiniCalendar, ToggleSwitch). Small state helpers live in
+  `src/hooks/` (`useDisclosure`).
 - **Design system: amber + ink.** All colors/fonts/radii are Tailwind v4 `@theme` tokens in
   `src/app/globals.css` — `brand-*` (amber), `ink-*` (neutrals), `danger*`. Use only these
   tokens; blue tokens are from the pre-2026-07 design and must not reappear. Space Grotesk

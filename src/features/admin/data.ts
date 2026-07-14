@@ -35,7 +35,7 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Ordinance & Resolution", href: "/admin/legislative", icon: Scale },
   { label: "Event Calendar", href: "/admin/events", icon: CalendarDays },
   { label: "News & Announcements", href: "/admin/news", icon: Megaphone },
-  { label: "User Settings", href: "/admin/settings", icon: Settings },
+  { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
 export const ADMIN_USER = {

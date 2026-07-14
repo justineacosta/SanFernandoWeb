@@ -290,7 +290,9 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
 - **Client islands only when interactive**: `SiteHeader` (scroll state), `MobileNav`,
   `AdminMobileNav`, `Accordion`, `LegislativeTable`, `HeroCarousel`, `InquiryForm`,
   `NewsletterForm` are the only `"use client"` files (plus `NavLink`/`useDisclosure`
-  helpers). Keep new fetches out of client components.
+  helpers), plus the admin portal's client surface: the five section managers, their
+  drawer forms, `MiniCalendar`, `ToggleSwitch`, and the `Drawer`/`Toast` UI primitives
+  (see §3E). Keep new fetches out of client components.
 - **Fixed header clearance**: the header is `fixed`, not in-flow — every page's first
   section must provide generous top padding (`pt-32 md:pt-44` for text-first heroes;
   the home hero panel uses `pt-28 md:pt-36`). New pages/heroes must follow this.
