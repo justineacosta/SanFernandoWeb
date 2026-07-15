@@ -5,9 +5,14 @@ import { ContentTypeCard } from "@/features/admin/components/content-type-card";
 import { PublishingActivity } from "@/features/admin/components/publishing-activity";
 import { RecentDrafts } from "@/features/admin/components/recent-drafts";
 import { CONTENT_TYPE_ACTIONS } from "@/features/admin/data";
+import type { AuditEntry } from "@/types";
+
+interface ContentHubProps {
+  activityEntries: AuditEntry[];
+}
 
 /** "Create New Content" hub: quick actions, recent drafts, and publishing log. */
-export function ContentHub() {
+export function ContentHub({ activityEntries }: ContentHubProps) {
   return (
     <>
       <AdminPageHeader
@@ -27,7 +32,7 @@ export function ContentHub() {
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <RecentDrafts />
-        <PublishingActivity />
+        <PublishingActivity entries={activityEntries} />
       </div>
     </>
   );

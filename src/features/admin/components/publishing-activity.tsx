@@ -1,11 +1,15 @@
-import Link from "next/link";
-import { ExternalLink, History } from "lucide-react";
+import { History } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui/card";
-import { PUBLISHING_ACTIVITY } from "@/features/admin/data";
+import type { AuditEntry } from "@/types";
 
-/** Timeline of recent publish/update events on the public portal. */
-export function PublishingActivity() {
+interface PublishingActivityProps {
+  entries: AuditEntry[];
+}
+
+/** Timeline of recent publish/update events on the public portal, from the audit log. */
+export function PublishingActivity({ entries }: PublishingActivityProps) {
   return (
     <Card className="rounded-3xl p-6">
       <CardHeader
@@ -20,37 +24,35 @@ export function PublishingActivity() {
           </button>
         }
       />
-      <ol className="relative ml-2 mt-2 space-y-6 border-l-2 border-ink-200 pl-6">
-        {PUBLISHING_ACTIVITY.map((entry) => (
-          <li key={entry.title} className="relative">
-            <span
-              className={cn(
-                "absolute -left-[31px] top-1 h-3 w-3 rounded-full ring-4 ring-white",
-                entry.highlight ? "bg-ink-900" : "bg-ink-200",
-              )}
-              aria-hidden="true"
-            />
-            <p
-              className={cn(
-                "mb-1 text-sm font-semibold",
-                entry.highlight ? "text-ink-900" : "text-ink-600",
-              )}
-            >
-              {entry.dateLabel}
-            </p>
-            <h4 className="font-semibold text-ink-900">{entry.title}</h4>
-            <p className="mt-1 text-sm text-ink-600">{entry.description}</p>
-            {entry.liveHref ? (
-              <Link
-                href={entry.liveHref}
-                className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline"
+      {entries.length === 0 ? (
+        <p className="px-6 py-10 text-center text-ink-600">No activity yet.</p>
+      ) : (
+        <ol className="relative ml-2 mt-2 space-y-6 border-l-2 border-ink-200 pl-6">
+          {entries.map((entry, index) => (
+            <li key={entry.id} className="relative">
+              <span
+                className={cn(
+                  "absolute -left-[31px] top-1 h-3 w-3 rounded-full ring-4 ring-white",
+                  index === 0 ? "bg-ink-900" : "bg-ink-200",
+                )}
+                aria-hidden="true"
+              />
+              <p
+                className={cn(
+                  "mb-1 text-sm font-semibold",
+                  index === 0 ? "text-ink-900" : "text-ink-600",
+                )}
               >
-                View live page <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            ) : null}
-          </li>
-        ))}
-      </ol>
+                {formatDate(entry.createdAt.slice(0, 10))}
+              </p>
+              <h4 className="font-semibold text-ink-900">
+                {entry.actorName} {entry.action}
+              </h4>
+              {entry.detail ? <p className="mt-1 text-sm text-ink-600">{entry.detail}</p> : null}
+            </li>
+          ))}
+        </ol>
+      )}
     </Card>
   );
 }
