@@ -384,3 +384,51 @@ export interface ValueItem {
   title: string;
   description: string;
 }
+
+/* ── Auth & permissions (backend plan 1) ─────────────────────────────── */
+
+/** Permission slugs stored in profiles.permissions. Order matches the admin UI. */
+export const PERMISSIONS = [
+  "process-applications",
+  "process-appointments",
+  "handle-complaints",
+  "handle-assistance",
+  "manage-news",
+  "manage-officials",
+  "manage-transparency",
+] as const;
+
+export type Permission = (typeof PERMISSIONS)[number];
+
+/** Display title only — real power is the permissions array (spec §4). */
+export type StaffStatusLabel = "staff" | "editor";
+
+/** The signed-in admin user, resolved server-side from Supabase Auth + profiles. */
+export interface SessionUser {
+  id: string;
+  email: string;
+  fullName: string;
+  statusLabel: StaffStatusLabel;
+  isSuperAdmin: boolean;
+  permissions: Permission[];
+}
+
+/** A row in the team-management list (profiles table). */
+export interface TeamUser extends SessionUser {
+  isActive: boolean;
+  isArchived: boolean;
+  /** ISO timestamp. */
+  createdAt: string;
+}
+
+/** A row in the audit_log table. */
+export interface AuditEntry {
+  id: number;
+  actorName: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  detail: string | null;
+  /** ISO timestamp. */
+  createdAt: string;
+}
