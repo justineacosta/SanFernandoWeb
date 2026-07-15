@@ -126,6 +126,9 @@ export async function updateTeamUser(
 
 export async function setTeamUserActive(id: string, isActive: boolean): Promise<ActionResult> {
   const actor = await requireSuperAdmin();
+  if (id === actor.id) {
+    return { error: "You cannot change your own account's active state." };
+  }
   if (!isActive && (await wouldOrphanSuperAdmin(id))) {
     return { error: "At least one SuperAdmin must remain. Promote someone else first." };
   }
@@ -141,6 +144,9 @@ export async function setTeamUserActive(id: string, isActive: boolean): Promise<
 
 export async function archiveTeamUser(id: string): Promise<ActionResult> {
   const actor = await requireSuperAdmin();
+  if (id === actor.id) {
+    return { error: "You cannot archive your own account." };
+  }
   if (await wouldOrphanSuperAdmin(id)) {
     return { error: "At least one SuperAdmin must remain. Promote someone else first." };
   }
@@ -160,6 +166,9 @@ export async function archiveTeamUser(id: string): Promise<ActionResult> {
 /** Hard delete — only for users with no recorded actions (spec §4). */
 export async function deleteTeamUser(id: string): Promise<ActionResult> {
   const actor = await requireSuperAdmin();
+  if (id === actor.id) {
+    return { error: "You cannot delete your own account." };
+  }
   if (await wouldOrphanSuperAdmin(id)) {
     return { error: "At least one SuperAdmin must remain. Promote someone else first." };
   }

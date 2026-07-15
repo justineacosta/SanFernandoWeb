@@ -8,7 +8,10 @@ export async function listRecentActivity(limit = 8): Promise<AuditEntry[]> {
     .select("id, actor_name, action, entity_type, entity_id, detail, created_at")
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (error || !data) return [];
+  if (error || !data) {
+    if (error) console.error("listRecentActivity failed:", error.message);
+    return [];
+  }
 
   return data.map((row) => ({
     id: row.id,

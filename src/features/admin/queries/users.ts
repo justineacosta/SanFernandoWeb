@@ -9,7 +9,10 @@ export async function listTeamUsers(): Promise<TeamUser[]> {
     .select("id, email, full_name, status_label, is_superadmin, permissions, is_active, is_archived, created_at")
     .eq("is_archived", false)
     .order("created_at", { ascending: true });
-  if (error || !data) return [];
+  if (error || !data) {
+    if (error) console.error("listTeamUsers failed:", error.message);
+    return [];
+  }
 
   return data.map((row) => ({
     id: row.id,
