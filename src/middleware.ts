@@ -28,12 +28,26 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Exact match — assumes no nested routes exist under /admin/login.
   const isLoginPage = request.nextUrl.pathname === "/admin/login";
   if (!user && !isLoginPage) {
-    return NextResponse.redirect(new URL("/admin/login", request.url));
+    const redirectResponse = NextResponse.redirect(
+      new URL("/admin/login", request.url),
+    );
+    // Carry refreshed session cookies onto the redirect — getUser() may have rotated them.
+    response.cookies
+      .getAll()
+      .forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
   }
   if (user && isLoginPage) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    const redirectResponse = NextResponse.redirect(
+      new URL("/admin", request.url),
+    );
+    response.cookies
+      .getAll()
+      .forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
   }
   return response;
 }
