@@ -46,13 +46,15 @@ async function activeSuperAdminCount(): Promise<number> {
 /** True when removing this user's power would leave zero SuperAdmins. */
 async function wouldOrphanSuperAdmin(id: string): Promise<boolean> {
   const admin = createSupabaseAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("profiles")
     .select("is_superadmin, is_active, is_archived")
     .eq("id", id)
     .single();
+  // Fail closed: if we cannot verify the target's role, block the mutation.
+  if (error || !data) return true;
   const isActiveSuperAdmin =
-    data?.is_superadmin && data.is_active && !data.is_archived;
+    data.is_superadmin && data.is_active && !data.is_archived;
   if (!isActiveSuperAdmin) return false;
   return (await activeSuperAdminCount()) <= 1;
 }
@@ -163,10 +165,13 @@ export async function deleteTeamUser(id: string): Promise<ActionResult> {
   }
 
   const admin = createSupabaseAdminClient();
-  const { count } = await admin
+  const { count, error: countError } = await admin
     .from("audit_log")
     .select("id", { count: "exact", head: true })
     .eq("actor_id", id);
+  if (countError) {
+    return { error: "Could not verify this user's activity history. Try again." };
+  }
   if ((count ?? 0) > 0) {
     return { error: "This user has recorded actions. Disable or archive instead of deleting." };
   }
