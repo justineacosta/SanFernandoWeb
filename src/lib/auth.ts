@@ -13,7 +13,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("email, full_name, status_label, is_superadmin, permissions, is_active, is_archived")
+    .select("email, full_name, status_label, is_superadmin, permissions, is_active, is_archived, phone")
     .eq("id", user.id)
     .single();
   if (!profile || !profile.is_active || profile.is_archived) return null;
@@ -25,6 +25,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     statusLabel: profile.status_label as StaffStatusLabel,
     isSuperAdmin: profile.is_superadmin,
     permissions: profile.permissions as Permission[],
+    phone: profile.phone,
   };
 });
 

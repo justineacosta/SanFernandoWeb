@@ -411,6 +411,7 @@ export interface SessionUser {
   statusLabel: StaffStatusLabel;
   isSuperAdmin: boolean;
   permissions: Permission[];
+  phone: string | null;
 }
 
 /** A row in the team-management list (profiles table). */
@@ -431,4 +432,16 @@ export interface AuditEntry {
   detail: string | null;
   /** ISO timestamp. */
   createdAt: string;
+}
+
+/** Self-service profile edit (own row). */
+export interface UpdateMyProfileValues {
+  fullName: string;
+  phone: string;
+}
+
+/** Self-service password change. */
+export interface ChangePasswordValues {
+  currentPassword: string;
+  newPassword: string;
 }

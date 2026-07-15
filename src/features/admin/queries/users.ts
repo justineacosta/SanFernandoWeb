@@ -6,7 +6,7 @@ export async function listTeamUsers(): Promise<TeamUser[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, email, full_name, status_label, is_superadmin, permissions, is_active, is_archived, created_at")
+    .select("id, email, full_name, status_label, is_superadmin, permissions, is_active, is_archived, created_at, phone")
     .eq("is_archived", false)
     .order("created_at", { ascending: true });
   if (error || !data) {
@@ -24,5 +24,6 @@ export async function listTeamUsers(): Promise<TeamUser[]> {
     isActive: row.is_active,
     isArchived: row.is_archived,
     createdAt: row.created_at,
+    phone: row.phone,
   }));
 }
