@@ -1,25 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
-import { ShieldCheck, UserPlus } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
+import type { SessionUser, TeamUser } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/form";
 import { Toast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
-import { ADMIN_TEAM, ADMIN_USER, TEAM_ROLE_LABELS } from "@/features/admin/data";
 import { AdminPageHeader } from "./admin-page-header";
+import { TeamManager } from "./team-manager";
 import { ToggleSwitch } from "./toggle-switch";
 
 const SAVE_TOAST = "Saved — demo only, backend pending.";
 
-/** Account settings: profile, security, preferences, team roles. All saves are mock. */
-export function SettingsPanel() {
+/** Placeholder — SessionUser has no phone field yet (contact data still pending). */
+const PLACEHOLDER_PHONE = "(077) 600-2345";
+
+function initialsOf(fullName: string): string {
+  return fullName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join("");
+}
+
+interface SettingsPanelProps {
+  team: TeamUser[];
+  currentUser: SessionUser;
+}
+
+/** Account settings: profile, security, preferences, team roles. Profile/security/preferences saves are mock. */
+export function SettingsPanel({ team, currentUser }: SettingsPanelProps) {
   const [profile, setProfile] = useState({
-    name: ADMIN_USER.name,
-    email: ADMIN_USER.email,
-    phone: ADMIN_USER.phone,
+    name: currentUser.fullName,
+    email: currentUser.email,
+    phone: PLACEHOLDER_PHONE,
   });
   const [profileErrors, setProfileErrors] = useState<{ name?: string; email?: string }>({});
   const [savingProfile, setSavingProfile] = useState(false);
@@ -80,13 +96,12 @@ export function SettingsPanel() {
             </p>
             <div className="flex flex-col gap-6 border-t border-ink-200/70 pt-6 sm:flex-row">
               <div className="flex shrink-0 flex-col items-center gap-2">
-                <Image
-                  src={ADMIN_USER.avatar}
-                  alt={`${ADMIN_USER.name} — ${ADMIN_USER.role}`}
-                  width={96}
-                  height={96}
-                  className="h-24 w-24 rounded-full object-cover"
-                />
+                <span
+                  aria-hidden="true"
+                  className="flex h-24 w-24 items-center justify-center rounded-full bg-brand-500 text-2xl font-bold text-white ring-2 ring-brand-400"
+                >
+                  {initialsOf(currentUser.fullName) || "?"}
+                </span>
                 <button
                   type="button"
                   onClick={() => setToast(SAVE_TOAST)}
@@ -245,54 +260,7 @@ export function SettingsPanel() {
             </div>
           </Card>
           <Card className="p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-display text-lg font-semibold tracking-tight text-ink-900">
-                Team Roles
-              </h3>
-              <button
-                type="button"
-                aria-label="Invite team member"
-                onClick={() => setToast(SAVE_TOAST)}
-                className="rounded-full p-2 text-brand-700 transition-colors hover:bg-brand-100"
-              >
-                <UserPlus className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </div>
-            <ul className="space-y-4 border-t border-ink-200/70 pt-4">
-              {ADMIN_TEAM.map((member) => (
-                <li key={member.name} className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink-100 text-sm font-semibold text-ink-700">
-                      {member.initials}
-                    </span>
-                    <p className="text-sm font-medium text-ink-900">
-                      {member.name}
-                      {member.isCurrentUser ? (
-                        <span className="text-ink-500"> (You)</span>
-                      ) : null}
-                    </p>
-                  </div>
-                  <span
-                    className={cn(
-                      "rounded-lg px-2.5 py-1 text-xs font-semibold uppercase tracking-wider",
-                      member.role === "super-admin"
-                        ? "bg-brand-100 text-brand-800"
-                        : "bg-ink-100 text-ink-600",
-                    )}
-                  >
-                    {TEAM_ROLE_LABELS[member.role]}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 border-t border-ink-200/70 pt-4 text-center">
-              <a
-                href="#"
-                className="text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800"
-              >
-                View All Team Members
-              </a>
-            </div>
+            <TeamManager team={team} currentUser={currentUser} />
           </Card>
         </div>
       </div>
