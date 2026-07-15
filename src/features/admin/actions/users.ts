@@ -29,7 +29,22 @@ const teamUserSchema = z.object({
   isSuperAdmin: z.boolean(),
 });
 
-const updateSchema = teamUserSchema.omit({ email: true, password: true });
+export interface UpdateTeamUserInput {
+  fullName: string;
+  statusLabel: StaffStatusLabel;
+  permissions: Permission[];
+  isSuperAdmin: boolean;
+  /** Only honored when editing another user; ignored on the actor's own row. */
+  email?: string;
+}
+
+const updateSchema = z.object({
+  fullName: z.string().trim().min(2, "Name is too short."),
+  statusLabel: z.enum(["staff", "editor"]),
+  permissions: z.array(z.enum(PERMISSIONS)),
+  isSuperAdmin: z.boolean(),
+  email: z.string().email("Enter a valid email.").optional(),
+});
 
 /** Active, non-archived SuperAdmins. The system must never drop below one. */
 async function activeSuperAdminCount(): Promise<number> {
@@ -96,18 +111,39 @@ export async function createTeamUser(input: TeamUserInput): Promise<ActionResult
 
 export async function updateTeamUser(
   id: string,
-  input: Omit<TeamUserInput, "email" | "password">,
+  input: UpdateTeamUserInput,
 ): Promise<ActionResult> {
   const actor = await requireSuperAdmin();
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
   }
+
+  const isSelf = id === actor.id;
+  // A SuperAdmin cannot strip their own SuperAdmin status — another must do it.
+  if (isSelf && !parsed.data.isSuperAdmin) {
+    return {
+      error: "You cannot remove your own SuperAdmin status — another SuperAdmin must do it.",
+    };
+  }
   if (!parsed.data.isSuperAdmin && (await wouldOrphanSuperAdmin(id))) {
     return { error: "At least one SuperAdmin must remain. Promote someone else first." };
   }
 
   const admin = createSupabaseAdminClient();
+
+  // Email is editable only for OTHER users. Change auth first so a duplicate
+  // is rejected before we touch the profile row.
+  const changingEmail = !isSelf && parsed.data.email !== undefined;
+  if (changingEmail) {
+    const { error: authError } = await admin.auth.admin.updateUserById(id, {
+      email: parsed.data.email!,
+    });
+    if (authError) {
+      return { error: "That email is already in use." };
+    }
+  }
+
   const { error } = await admin
     .from("profiles")
     .update({
@@ -115,6 +151,7 @@ export async function updateTeamUser(
       status_label: parsed.data.statusLabel,
       permissions: parsed.data.permissions,
       is_superadmin: parsed.data.isSuperAdmin,
+      ...(changingEmail ? { email: parsed.data.email } : {}),
     })
     .eq("id", id);
   if (error) return { error: "Could not save the changes." };
