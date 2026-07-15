@@ -12,16 +12,20 @@ export async function recordActivity(
   entityId?: string,
   detail?: string,
 ): Promise<void> {
-  const admin = createSupabaseAdminClient();
-  const { error } = await admin.from("audit_log").insert({
-    actor_id: actor.id,
-    actor_name: actor.fullName,
-    action,
-    entity_type: entityType,
-    entity_id: entityId ?? null,
-    detail: detail ?? null,
-  });
-  if (error) {
-    console.error("audit_log insert failed:", error.message);
+  try {
+    const admin = createSupabaseAdminClient();
+    const { error } = await admin.from("audit_log").insert({
+      actor_id: actor.id,
+      actor_name: actor.fullName,
+      action,
+      entity_type: entityType,
+      entity_id: entityId ?? null,
+      detail: detail ?? null,
+    });
+    if (error) {
+      console.error("audit_log insert failed:", error.message);
+    }
+  } catch (err) {
+    console.error("audit_log insert failed:", err instanceof Error ? err.message : err);
   }
 }

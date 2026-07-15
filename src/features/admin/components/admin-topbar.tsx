@@ -67,7 +67,7 @@ export function AdminTopBar({ user }: { user: SessionUser }) {
             aria-hidden="true"
             className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 text-xs font-bold text-white ring-2 ring-brand-400"
           >
-            {initialsOf(user.fullName)}
+            {initialsOf(user.fullName) || "?"}
           </span>
           <form action={signOut}>
             <button
