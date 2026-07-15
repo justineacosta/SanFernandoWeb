@@ -94,6 +94,15 @@
 > encoding mutate **React session state only** (a refresh resets them); saves are
 > toast-faked like the rest of the portal.
 
+> **Updated 2026-07-15 (auth foundation):** `/admin` is now behind real Supabase Auth
+> (spec: `docs/superpowers/specs/2026-07-15-backend-integration-design.md`). Middleware
+> guard + `(portal)` route group; `/admin/login`; SuperAdmin + per-user permission
+> checkboxes (`profiles` table, unique email), team management in Settings
+> (SuperAdmin-only), and a real `audit_log` feeding Publishing Activity. Work item E1
+> is DONE. `ADMIN_USER` seed remains only where later plans replace it (applications
+> reviewer name); `ADMIN_TEAM`/`PUBLISHING_ACTIVITY` seeds are now unused. Migrations
+> live in `supabase/migrations/`; env contract in `.env.example`.
+
 ---
 
 ## 1. Current State
