@@ -22,6 +22,8 @@ export interface IconNavItem extends NavItem {
   icon: LucideIcon;
   /** Match the route exactly instead of by prefix. */
   exact?: boolean;
+  /** Render only for SuperAdmins (page is SuperAdmin-gated). */
+  superAdminOnly?: boolean;
 }
 
 /* ------------------------------------ Media ------------------------------------ */
