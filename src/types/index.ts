@@ -68,6 +68,11 @@ export interface Service {
   ctaLabel: string;
 }
 
+/** A service row as stored in the DB and rendered publicly. `id` is the slug. */
+export interface ServiceRecord extends Service {
+  isAvailable: boolean;
+}
+
 export interface WasteCollectionSlot {
   label: string;
   days: string;
