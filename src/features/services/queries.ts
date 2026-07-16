@@ -26,3 +26,35 @@ export async function listServices(): Promise<ServiceRecord[]> {
     isAvailable: row.is_available,
   }));
 }
+
+/**
+ * One service for the apply page. Returns null when the slug is unknown or the
+ * service is a `danger`-toned one — those are the complaint flow (plan 2C), not
+ * applications. An unavailable service still resolves; the page renders a
+ * "temporarily unavailable" notice rather than a 404, which reads better to a
+ * resident who followed a link.
+ */
+export async function getApplyService(slug: string): Promise<ServiceRecord | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("services")
+    .select("id, title, description, icon_name, tone, requirements_label, cta_label, requirements, department, is_available")
+    .eq("id", slug)
+    .maybeSingle();
+  if (error || !data || data.tone !== "primary") {
+    if (error) console.error("getApplyService failed:", error.message);
+    return null;
+  }
+
+  return {
+    id: data.id,
+    title: data.title,
+    description: data.description,
+    icon: resolveIcon(data.icon_name),
+    tone: data.tone as ServiceRecord["tone"],
+    requirementsLabel: data.requirements_label,
+    requirements: data.requirements,
+    ctaLabel: data.cta_label,
+    isAvailable: data.is_available,
+  };
+}
