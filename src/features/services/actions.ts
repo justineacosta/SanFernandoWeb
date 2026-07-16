@@ -5,13 +5,40 @@ import type { PublicApplicationValues, SubmitApplicationResult } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 
+// Upper bounds matter here in a way they don't on the admin forms: this is an
+// unauthenticated endpoint writing to unconstrained `text` columns, so every
+// free-text field is capped at a length a real resident would never exceed.
 const applicationSchema = z.object({
-  firstName: z.string().trim().min(2, "Enter your first name."),
-  lastName: z.string().trim().min(2, "Enter your last name."),
-  address: z.string().trim().min(4, "Enter your purok or street address."),
-  contactNumber: z.string().trim().min(7, "Enter a contact number we can reach you on."),
-  email: z.union([z.literal(""), z.string().trim().email("Enter a valid email address.")]),
-  purpose: z.string().trim().min(4, "Tell us what the document is for."),
+  firstName: z.string().trim().min(2, "Enter your first name.").max(80, "First name is too long."),
+  lastName: z.string().trim().min(2, "Enter your last name.").max(80, "Last name is too long."),
+  address: z
+    .string()
+    .trim()
+    .min(4, "Enter your purok or street address.")
+    .max(200, "Address is too long."),
+  contactNumber: z
+    .string()
+    .trim()
+    .min(7, "Enter a contact number we can reach you on.")
+    .max(30, "Contact number is too long.")
+    // Digits anywhere, not consecutively: "(077) 600-0000" is the local shape.
+    .refine(
+      (value) => (value.match(/\d/g) ?? []).length >= 7,
+      "Enter a contact number we can reach you on.",
+    ),
+  // Optional. Whitespace-only means "not given", same as empty.
+  email: z.preprocess(
+    (value) => (typeof value === "string" ? value.trim() : value),
+    z.union([
+      z.literal(""),
+      z.string().email("Enter a valid email address.").max(254, "Email address is too long."),
+    ]),
+  ),
+  purpose: z
+    .string()
+    .trim()
+    .min(4, "Tell us what the document is for.")
+    .max(500, "Please keep the purpose short."),
   consent: z.boolean().refine((value) => value === true, "Please agree to the data privacy notice."),
 });
 
@@ -50,7 +77,10 @@ export async function submitApplication(
     .select("id, is_available, tone")
     .eq("id", serviceId)
     .maybeSingle();
-  if (serviceError) return { error: "Something went wrong. Please try again.", ticketNo: null };
+  if (serviceError) {
+    console.error("submitApplication service lookup failed:", serviceError.message);
+    return { error: "Something went wrong. Please try again.", ticketNo: null };
+  }
   if (!service || service.tone !== "primary") {
     return { error: "That service is not accepting online applications.", ticketNo: null };
   }
