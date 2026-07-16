@@ -44,12 +44,20 @@ export function ServiceCard({ service }: ServiceCardProps) {
           ))}
         </ul>
         {service.isAvailable ? (
-          <Button
-            variant={isDanger ? "outline-danger" : "primary"}
-            className="mt-6 w-full"
-          >
-            {service.ctaLabel}
-          </Button>
+          isDanger ? (
+            // The complaint flow lands in plan 2C; the button stays inert until then.
+            <Button variant="outline-danger" className="mt-6 w-full">
+              {service.ctaLabel}
+            </Button>
+          ) : (
+            <Button
+              href={`/services/apply/${service.id}`}
+              variant="primary"
+              className="mt-6 w-full"
+            >
+              {service.ctaLabel}
+            </Button>
+          )
         ) : (
           <div className="mt-6">
             <Button
