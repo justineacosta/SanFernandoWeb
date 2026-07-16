@@ -6,6 +6,7 @@ import type { ServiceFormValues, ServiceTone } from "@/types";
 import { requireSuperAdmin } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { ICON_OPTIONS } from "@/lib/icon-map";
 
 export interface ActionResult {
   error: string | null;
@@ -17,7 +18,11 @@ const serviceSchema = z.object({
   department: z.string().trim().min(2, "Department is required."),
   requirements: z.string(),
   status: z.enum(["active", "inactive"]),
-  iconName: z.string().trim().min(1, "Pick an icon."),
+  // Constrained to the known icon set — an unknown name would silently fall
+  // back to a generic document icon on the public page.
+  iconName: z
+    .string()
+    .refine((value) => ICON_OPTIONS.some((option) => option.value === value), "Pick a valid icon."),
   tone: z.enum(["primary", "danger"]),
 });
 
