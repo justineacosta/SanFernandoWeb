@@ -24,6 +24,8 @@ export interface IconNavItem extends NavItem {
   exact?: boolean;
   /** Render only for SuperAdmins (page is SuperAdmin-gated). */
   superAdminOnly?: boolean;
+  /** Render only for users holding this permission (page is permission-gated). */
+  permission?: Permission;
 }
 
 /* ------------------------------------ Media ------------------------------------ */

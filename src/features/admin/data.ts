@@ -34,7 +34,7 @@ import { ORDINANCES, RESOLUTIONS } from "@/features/transparency/data";
 export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Dashboard Overview", href: "/admin", icon: LayoutDashboard, exact: true },
   { label: "Services Management", href: "/admin/services", icon: Landmark, superAdminOnly: true },
-  { label: "Applications", href: "/admin/applications", icon: Inbox },
+  { label: "Applications", href: "/admin/applications", icon: Inbox, permission: "process-applications" },
   { label: "Ordinance & Resolution", href: "/admin/legislative", icon: Scale },
   { label: "Event Calendar", href: "/admin/events", icon: CalendarDays },
   { label: "News & Announcements", href: "/admin/news", icon: Megaphone },

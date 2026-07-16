@@ -1,23 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { CheckCircle2, ClipboardList, FileText, Plus } from "lucide-react";
-import type {
-  AdminApplicationRecord,
-  ApplicationFormValues,
-  ApplicationReviewValues,
-} from "@/types";
+import type { ApplicationReviewValues, ApplicationRow, WalkInApplicationValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
 import {
-  ADMIN_APPLICATIONS,
-  ADMIN_USER,
-  CERTIFICATE_SERVICES,
-  certificateTitle,
-} from "@/features/admin/data";
+  createWalkInApplication,
+  releaseApplication,
+  reviewApplication,
+} from "@/features/admin/actions/applications";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
@@ -29,94 +24,91 @@ import { StatusChip } from "./status-chip";
 
 const PAGE_SIZE = 6;
 
-/** Today's date as a local ISO string (YYYY-MM-DD). */
-function todayIso(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
+interface ApplicationsManagerProps {
+  applications: ApplicationRow[];
+  services: { id: string; title: string }[];
 }
 
 /**
- * Certificate application queue: computed stats, filterable table, review + create
- * drawers. Records live in session state only — approvals/rejections and new
- * applications mutate React state and reset on refresh (mock; backend pending).
+ * Certificate application queue. Rows come from the server; every action is a
+ * Server Action that revalidates the page, so the list refreshes from the DB
+ * rather than from local state.
  */
-export function ApplicationsManager() {
-  const [records, setRecords] = useState<AdminApplicationRecord[]>(ADMIN_APPLICATIONS);
+export function ApplicationsManager({ applications, services }: ApplicationsManagerProps) {
   const [search, setSearch] = useState("");
   const [serviceId, setServiceId] = useState("all");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
-  const [reviewOpen, setReviewOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-  const totalCount = records.length;
-  const pendingCount = records.filter((record) => record.status === "pending").length;
-  const approvedCount = records.filter((record) => record.status === "approved").length;
+  const totalCount = applications.length;
+  const pendingCount = applications.filter((record) => record.status === "pending").length;
+  const approvedCount = applications.filter((record) => record.status === "approved").length;
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return records.filter(
+    return applications.filter(
       (record) =>
         (query === "" ||
-          record.applicantName.toLowerCase().includes(query) ||
-          record.referenceNo.toLowerCase().includes(query)) &&
+          `${record.firstName} ${record.lastName}`.toLowerCase().includes(query) ||
+          record.ticketNo.toLowerCase().includes(query)) &&
         (serviceId === "all" || record.serviceId === serviceId) &&
         (status === "all" || record.status === status),
     );
-  }, [records, search, serviceId, status]);
+  }, [applications, search, serviceId, status]);
 
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const reviewing = reviewingId
-    ? (records.find((record) => record.id === reviewingId) ?? null)
+    ? (applications.find((record) => record.id === reviewingId) ?? null)
     : null;
 
-  const openReview = (record: AdminApplicationRecord) => {
-    setReviewingId(record.id);
-    setReviewOpen(true);
+  const closeReview = () => {
+    setReviewingId(null);
+    setFormError(null);
   };
 
   const handleReview = (id: string, values: ApplicationReviewValues) => {
-    setRecords((prev) =>
-      prev.map((record) =>
-        record.id === id
-          ? {
-              ...record,
-              status: values.status,
-              remarks: values.remarks || undefined,
-              reviewedBy: ADMIN_USER.name,
-              reviewedAt: todayIso(),
-            }
-          : record,
-      ),
-    );
-    setReviewOpen(false);
-    setToast("Saved — demo only, backend pending.");
+    setFormError(null);
+    startTransition(async () => {
+      const result = await reviewApplication(id, values);
+      if (result.error) {
+        setFormError(result.error);
+        return;
+      }
+      closeReview();
+      setToast(values.status === "approved" ? "Application approved." : "Application rejected.");
+    });
   };
 
-  const handleCreate = (values: ApplicationFormValues) => {
-    const nextSequence =
-      Math.max(...records.map((record) => Number(record.referenceNo.slice(-4)) || 0)) + 1;
-    const sequence = String(nextSequence).padStart(4, "0");
-    const record: AdminApplicationRecord = {
-      id: `app-${sequence}`,
-      referenceNo: `APP-${new Date().getFullYear()}-${sequence}`,
-      applicantName: values.applicantName,
-      contactNumber: values.contactNumber,
-      email: values.email?.trim() ? values.email.trim() : undefined,
-      address: values.address,
-      serviceId: values.serviceId,
-      purpose: values.purpose,
-      dateApplied: todayIso(),
-      status: "pending",
-    };
-    setRecords((prev) => [record, ...prev]);
-    setCreateOpen(false);
-    setPage(1);
-    setToast("Saved — demo only, backend pending.");
+  const handleRelease = (id: string) => {
+    setFormError(null);
+    startTransition(async () => {
+      const result = await releaseApplication(id);
+      if (result.error) {
+        setFormError(result.error);
+        return;
+      }
+      closeReview();
+      setToast("Marked as released.");
+    });
+  };
+
+  const handleCreate = (values: WalkInApplicationValues) => {
+    setFormError(null);
+    startTransition(async () => {
+      const result = await createWalkInApplication(values);
+      if (result.error) {
+        setFormError(result.error);
+        return;
+      }
+      setCreateOpen(false);
+      setPage(1);
+      setToast("Walk-in application encoded.");
+    });
   };
 
   const clearFilters = () => {
@@ -132,7 +124,12 @@ export function ApplicationsManager() {
         title="Certificate Applications"
         description="Manage and review incoming requests for barangay certificates and clearances."
         action={
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button
+            onClick={() => {
+              setFormError(null);
+              setCreateOpen(true);
+            }}
+          >
             <Plus className="h-5 w-5" aria-hidden="true" />
             New Application
           </Button>
@@ -148,7 +145,7 @@ export function ApplicationsManager() {
         />
         <AdminStatCard
           icon={CheckCircle2}
-          label="Approved"
+          label="Ready for Pickup"
           value={approvedCount}
           tone="secondary"
         />
@@ -161,7 +158,7 @@ export function ApplicationsManager() {
             <AdminFilterBar
               search={{
                 value: search,
-                placeholder: "Search applicant name…",
+                placeholder: "Search name or ticket no…",
                 onChange: (value) => {
                   setSearch(value);
                   setPage(1);
@@ -170,14 +167,11 @@ export function ApplicationsManager() {
               selects={[
                 {
                   id: "application-service-filter",
-                  label: "Certificate type",
+                  label: "Document type",
                   value: serviceId,
                   options: [
-                    { value: "all", label: "All Certificate Types" },
-                    ...CERTIFICATE_SERVICES.map((service) => ({
-                      value: service.id,
-                      label: service.title,
-                    })),
+                    { value: "all", label: "All Document Types" },
+                    ...services.map((service) => ({ value: service.id, label: service.title })),
                   ],
                   onChange: (value) => {
                     setServiceId(value);
@@ -192,6 +186,7 @@ export function ApplicationsManager() {
                     { value: "all", label: "All Statuses" },
                     { value: "pending", label: "Pending" },
                     { value: "approved", label: "Approved" },
+                    { value: "released", label: "Released" },
                     { value: "rejected", label: "Rejected" },
                   ],
                   onChange: (value) => {
@@ -204,7 +199,14 @@ export function ApplicationsManager() {
           }
         />
         {filtered.length === 0 ? (
-          <AdminEmptyState message="No applications match your filters." onClear={clearFilters} />
+          <AdminEmptyState
+            message={
+              applications.length === 0
+                ? "No applications yet. Residents' online requests land here."
+                : "No applications match your filters."
+            }
+            onClear={clearFilters}
+          />
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -212,7 +214,7 @@ export function ApplicationsManager() {
                 <thead>
                   <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
                     <th scope="col" className="px-6 py-4">Applicant</th>
-                    <th scope="col" className="px-6 py-4">Certificate Type</th>
+                    <th scope="col" className="px-6 py-4">Document Type</th>
                     <th scope="col" className="px-6 py-4">Date Applied</th>
                     <th scope="col" className="px-6 py-4">Status</th>
                     <th scope="col" className="px-6 py-4 text-right">Actions</th>
@@ -222,21 +224,27 @@ export function ApplicationsManager() {
                   {pageItems.map((record) => (
                     <tr key={record.id} className="border-b border-ink-200/40 last:border-b-0">
                       <td className="px-6 py-4">
-                        <p className="font-semibold text-ink-900">{record.applicantName}</p>
-                        <p className="text-xs text-ink-500">{record.referenceNo}</p>
+                        <p className="font-semibold text-ink-900">
+                          {record.firstName} {record.lastName}
+                        </p>
+                        <p className="text-xs text-ink-500">
+                          {record.ticketNo}
+                          {record.source === "walk-in" ? " · walk-in" : ""}
+                        </p>
                       </td>
-                      <td className="px-6 py-4 text-ink-600">
-                        {certificateTitle(record.serviceId)}
-                      </td>
-                      <td className="px-6 py-4 text-ink-600">{formatDate(record.dateApplied)}</td>
+                      <td className="px-6 py-4 text-ink-600">{record.serviceTitle}</td>
+                      <td className="px-6 py-4 text-ink-600">{formatDate(record.submittedAt)}</td>
                       <td className="px-6 py-4">
                         <StatusChip status={record.status} />
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
                           type="button"
-                          onClick={() => openReview(record)}
-                          aria-label={`Review ${record.referenceNo}`}
+                          onClick={() => {
+                            setFormError(null);
+                            setReviewingId(record.id);
+                          }}
+                          aria-label={`Review ${record.ticketNo}`}
                           className="text-sm font-semibold text-brand-700 hover:underline"
                         >
                           Review
@@ -257,23 +265,28 @@ export function ApplicationsManager() {
           </>
         )}
       </Card>
-      <Drawer
-        open={reviewOpen}
-        onClose={() => setReviewOpen(false)}
-        title="Application Details"
-      >
-        {reviewOpen && reviewing ? (
+      <Drawer open={reviewing !== null} onClose={closeReview} title="Application Details">
+        {reviewing ? (
           <ApplicationReviewDrawer
             key={reviewing.id}
             record={reviewing}
             onReview={handleReview}
-            onCancel={() => setReviewOpen(false)}
+            onRelease={handleRelease}
+            onCancel={closeReview}
+            saving={isPending}
+            error={formError}
           />
         ) : null}
       </Drawer>
       <Drawer open={createOpen} onClose={() => setCreateOpen(false)} title="New Application">
         {createOpen ? (
-          <ApplicationForm onSubmit={handleCreate} onCancel={() => setCreateOpen(false)} />
+          <ApplicationForm
+            services={services}
+            onSubmit={handleCreate}
+            onCancel={() => setCreateOpen(false)}
+            saving={isPending}
+            error={formError}
+          />
         ) : null}
       </Drawer>
       {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}

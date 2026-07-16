@@ -1,11 +1,18 @@
 "use client";
 
 import { Menu, X } from "lucide-react";
+import type { Permission } from "@/types";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { AdminSidebar } from "@/features/admin/components/admin-sidebar";
 
 /** Hamburger + slide-in sidebar drawer for the admin portal on small screens. */
-export function AdminMobileNav({ isSuperAdmin }: { isSuperAdmin: boolean }) {
+export function AdminMobileNav({
+  isSuperAdmin,
+  permissions,
+}: {
+  isSuperAdmin: boolean;
+  permissions: Permission[];
+}) {
   const { isOpen, toggle, close } = useDisclosure();
 
   return (
@@ -28,7 +35,7 @@ export function AdminMobileNav({ isSuperAdmin }: { isSuperAdmin: boolean }) {
             className="absolute inset-0 bg-ink-900/40"
           />
           <div className="absolute left-0 top-0" onClick={close}>
-            <AdminSidebar className="shadow-xl" isSuperAdmin={isSuperAdmin} />
+            <AdminSidebar className="shadow-xl" isSuperAdmin={isSuperAdmin} permissions={permissions} />
           </div>
         </div>
       ) : null}
