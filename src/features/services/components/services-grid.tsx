@@ -1,14 +1,16 @@
 import { PhoneCall, Stethoscope, TriangleAlert } from "lucide-react";
 import { Section } from "@/components/ui/section";
 import { ServiceCard } from "@/features/services/components/service-card";
-import { EMERGENCY_ASSISTANCE, SERVICES } from "@/features/services/data";
+import { EMERGENCY_ASSISTANCE } from "@/features/services/data";
+import { listServices } from "@/features/services/queries";
 
 /** Directory grid of citizen services plus the emergency assistance card. */
-export function ServicesGrid() {
+export async function ServicesGrid() {
+  const services = await listServices();
   return (
     <Section>
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-        {SERVICES.map((service) => (
+        {services.map((service) => (
           <ServiceCard key={service.id} service={service} />
         ))}
 
