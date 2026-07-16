@@ -208,7 +208,8 @@ export type AdminContentStatus = "published" | "scheduled" | "draft" | "in-revie
 export type AdminServiceStatus = "active" | "inactive";
 export type AdminLegislativeStatus = "active" | "under-review" | "archived";
 export type AdminEventStatus = "published" | "planning";
-export type ApplicationStatus = "pending" | "approved" | "rejected";
+/** Spec §3 flow: pending → approved (ready for pickup) → released, or rejected. */
+export type ApplicationStatus = "pending" | "approved" | "released" | "rejected";
 export type EventCategory =
   | "town-hall"
   | "health-drive"
@@ -469,4 +470,73 @@ export interface UpdateMyProfileValues {
 export interface ChangePasswordValues {
   currentPassword: string;
   newPassword: string;
+}
+
+/* ── Applications flow (backend plan 2B) ─────────────────────────────── */
+
+/** The public apply form's body. `email` is optional — "" means not given. */
+export interface PublicApplicationValues {
+  firstName: string;
+  lastName: string;
+  address: string;
+  contactNumber: string;
+  email: string;
+  purpose: string;
+  /** Data Privacy Act consent — must be true to submit (persisted). */
+  consent: boolean;
+}
+
+/** Walk-in encoding adds the service the staff member picked in the drawer. */
+export interface WalkInApplicationValues extends PublicApplicationValues {
+  serviceId: string;
+}
+
+export interface SubmitApplicationResult {
+  error: string | null;
+  /** e.g. "APP-2026-00001" — present only on success. */
+  ticketNo: string | null;
+}
+
+/** A queue row for the admin manager: flat and serializable. */
+export interface ApplicationRow {
+  id: string;
+  ticketNo: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  contactNumber: string;
+  email: string | null;
+  serviceId: string;
+  serviceTitle: string;
+  purpose: string;
+  status: ApplicationStatus;
+  remarks: string | null;
+  reviewedByName: string | null;
+  releasedByName: string | null;
+  /** Manila calendar dates (YYYY-MM-DD). */
+  submittedAt: string;
+  reviewedAt: string | null;
+  releasedAt: string | null;
+  source: "online" | "walk-in";
+}
+
+/**
+ * A resident-visible ticket. Normalized on purpose: plan 2C adds appointments,
+ * complaints and assistance behind this same shape (complaints will omit the
+ * narrative — /track shows their status only).
+ */
+export interface TicketLookupResult {
+  ticketNo: string;
+  /** Human label for the ticket kind, e.g. "Certificate Application". */
+  type: string;
+  serviceTitle: string;
+  /** Shown on approval — "bring these when you claim". */
+  requirements: string[];
+  applicantName: string;
+  status: ApplicationStatus;
+  /** Manila calendar dates (YYYY-MM-DD). */
+  submittedAt: string;
+  reviewedAt: string | null;
+  releasedAt: string | null;
+  remarks: string | null;
 }

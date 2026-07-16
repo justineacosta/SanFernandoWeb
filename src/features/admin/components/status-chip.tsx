@@ -13,6 +13,7 @@ const LABELS: Record<AdminStatus, string> = {
   planning: "Planning",
   pending: "Pending",
   approved: "Approved",
+  released: "Released",
   rejected: "Rejected",
 };
 
@@ -29,6 +30,8 @@ const TONES: Record<AdminStatus, string> = {
   rejected: "bg-danger-soft text-danger-soft-fg",
   inactive: "bg-ink-100 text-ink-500",
   archived: "bg-ink-100 text-ink-500",
+  // Terminal success — a deeper amber than `approved` (there is no green token).
+  released: "bg-brand-200 text-brand-900",
 };
 
 interface StatusChipProps {
