@@ -303,8 +303,10 @@ In `LABELS`, after `approved: "Approved",`:
 In `TONES`, after `approved: "bg-brand-100 text-brand-800",`:
 ```ts
   // Terminal success — a deeper amber than `approved` (there is no green token).
-  released: "bg-brand-200 text-brand-900",
+  released: "bg-brand-200 text-brand-800",
 ```
+
+The brand scale in `src/app/globals.css` stops at `brand-800` — there is no `brand-900`. A Tailwind v4 utility naming an undeclared theme step is silently not generated, and neither typecheck nor lint catches it.
 
 - [ ] **Step 4: Verify**
 
