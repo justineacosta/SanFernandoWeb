@@ -68,6 +68,11 @@ export interface Service {
   ctaLabel: string;
 }
 
+/** A service row as stored in the DB and rendered publicly. `id` is the slug. */
+export interface ServiceRecord extends Service {
+  isAvailable: boolean;
+}
+
 export interface WasteCollectionSlot {
   label: string;
   days: string;
@@ -225,6 +230,22 @@ export interface AdminServiceRecord {
   department: string;
   status: AdminServiceStatus;
   /** ISO date of the last edit. */
+  updatedAt: string;
+}
+
+/** Serializable services row for the admin manager (client boundary: icon travels as a name string). */
+export interface AdminServiceRow {
+  id: string;
+  title: string;
+  description: string;
+  iconName: string;
+  tone: ServiceTone;
+  requirementsLabel: string;
+  ctaLabel: string;
+  requirements: string[];
+  department: string;
+  status: AdminServiceStatus;
+  /** ISO timestamp of the last edit. */
   updatedAt: string;
 }
 

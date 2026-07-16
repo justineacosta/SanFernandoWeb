@@ -4,10 +4,10 @@ import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { IconCircle } from "@/components/ui/icon-circle";
-import type { Service } from "@/types";
+import type { ServiceRecord } from "@/types";
 
 interface ServiceCardProps {
-  service: Service;
+  service: ServiceRecord;
 }
 
 /** Service directory card with an expandable requirements checklist. */
@@ -43,12 +43,27 @@ export function ServiceCard({ service }: ServiceCardProps) {
             </li>
           ))}
         </ul>
-        <Button
-          variant={isDanger ? "outline-danger" : "primary"}
-          className="mt-6 w-full"
-        >
-          {service.ctaLabel}
-        </Button>
+        {service.isAvailable ? (
+          <Button
+            variant={isDanger ? "outline-danger" : "primary"}
+            className="mt-6 w-full"
+          >
+            {service.ctaLabel}
+          </Button>
+        ) : (
+          <div className="mt-6">
+            <Button
+              variant={isDanger ? "outline-danger" : "primary"}
+              className="w-full"
+              disabled
+            >
+              {service.ctaLabel}
+            </Button>
+            <p className="mt-2 text-center text-xs font-medium text-ink-500">
+              Temporarily unavailable — please visit the barangay hall.
+            </p>
+          </div>
+        )}
       </Accordion>
     </Card>
   );

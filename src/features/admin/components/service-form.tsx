@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import type { AdminServiceRecord, ServiceFormValues } from "@/types";
+import { useState, useTransition } from "react";
+import type { AdminServiceRow, ServiceFormValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { updateService } from "@/features/admin/actions/services";
 
 const DEPARTMENTS = [
   "Office of the Barangay Secretary",
@@ -15,22 +16,25 @@ const DEPARTMENTS = [
 ];
 
 interface ServiceFormProps {
-  record: AdminServiceRecord | null;
+  record: AdminServiceRow | null;
   onSaved: () => void;
   onCancel: () => void;
 }
 
-/** Create/edit form for a citizen service. Validates, then fake-saves (no persistence). */
+/** Edit form for a citizen service. Validates, then saves via the updateService action. */
 export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
   const [values, setValues] = useState<ServiceFormValues>({
-    title: record?.service.title ?? "",
-    description: record?.service.description ?? "",
+    title: record?.title ?? "",
+    description: record?.description ?? "",
     department: record?.department ?? DEPARTMENTS[0],
-    requirements: record?.service.requirements.join("\n") ?? "",
+    requirements: record?.requirements.join("\n") ?? "",
     status: record?.status ?? "active",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof ServiceFormValues, string>>>({});
-  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  if (!record) return null;
 
   const set = <K extends keyof ServiceFormValues>(key: K, value: ServiceFormValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -43,11 +47,15 @@ export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
     if (!values.requirements.trim()) nextErrors.requirements = "List at least one requirement.";
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
-    setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    setError(null);
+    startTransition(async () => {
+      const result = await updateService(record.id, values);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
       onSaved();
-    }, 600);
+    });
   };
 
   return (
@@ -107,13 +115,18 @@ export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
             <option value="inactive">Inactive</option>
           </Select>
         </Field>
+        {error ? (
+          <p role="alert" className="text-sm font-medium text-danger">
+            {error}
+          </p>
+        ) : null}
       </div>
       <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
         <Button variant="ghost" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : record ? "Save Changes" : "Add Service"}
+        <Button type="submit" disabled={isPending}>
+          {isPending ? "Saving…" : "Save Changes"}
         </Button>
       </div>
     </form>

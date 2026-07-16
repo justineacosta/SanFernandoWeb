@@ -1,15 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Pencil, Plus } from "lucide-react";
-import type { AdminServiceRecord } from "@/types";
-import { Button } from "@/components/ui/button";
+import { useMemo, useState, useTransition } from "react";
+import { Pencil } from "lucide-react";
+import type { AdminServiceRow } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { IconCircle } from "@/components/ui/icon-circle";
 import { Toast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
-import { ADMIN_SERVICES } from "@/features/admin/data";
+import { resolveIcon } from "@/lib/icon-map";
+import { setServiceAvailable } from "@/features/admin/actions/services";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
@@ -19,44 +19,51 @@ import { StatusChip } from "./status-chip";
 
 const PAGE_SIZE = 6;
 
-/** Interactive services table: search, status filter, pagination, drawer editor (mock). */
-export function ServicesManager() {
+interface ServicesManagerProps {
+  services: AdminServiceRow[];
+}
+
+/** Interactive services table: search, status filter, pagination, drawer editor. */
+export function ServicesManager({ services }: ServicesManagerProps) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
-  const [editing, setEditing] = useState<AdminServiceRecord | null>(null);
+  const [editing, setEditing] = useState<AdminServiceRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return ADMIN_SERVICES.filter(
+    return services.filter(
       (record) =>
         (status === "all" || record.status === status) &&
         (q === "" ||
-          record.service.title.toLowerCase().includes(q) ||
+          record.title.toLowerCase().includes(q) ||
           record.department.toLowerCase().includes(q)),
     );
-  }, [search, status]);
+  }, [services, search, status]);
 
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const openCreate = () => {
-    setEditing(null);
-    setDrawerOpen(true);
-  };
-  const openEdit = (record: AdminServiceRecord) => {
+  const openEdit = (record: AdminServiceRow) => {
     setEditing(record);
     setDrawerOpen(true);
   };
   const handleSaved = () => {
     setDrawerOpen(false);
-    setToast("Saved — demo only, backend pending.");
+    setToast("Service updated.");
   };
   const clearFilters = () => {
     setSearch("");
     setStatus("all");
     setPage(1);
+  };
+  const toggleAvailability = (record: AdminServiceRow) => {
+    startTransition(async () => {
+      const result = await setServiceAvailable(record.id, record.status !== "active");
+      setToast(result.error ?? "Availability updated.");
+    });
   };
 
   return (
@@ -64,12 +71,6 @@ export function ServicesManager() {
       <AdminPageHeader
         title="Services Management"
         description="Manage and configure public services available in the portal."
-        action={
-          <Button onClick={openCreate}>
-            <Plus className="h-5 w-5" aria-hidden="true" />
-            Add New Service
-          </Button>
-        }
       />
       <Card>
         <AdminFilterBar
@@ -119,10 +120,10 @@ export function ServicesManager() {
                     <tr key={record.id} className="border-b border-ink-200/40 last:border-b-0">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <IconCircle icon={record.service.icon} tone="primary" size="sm" square />
+                          <IconCircle icon={resolveIcon(record.iconName)} tone="primary" size="sm" square />
                           <div>
-                            <p className="font-semibold text-ink-900">{record.service.title}</p>
-                            <p className="text-ink-500">{record.service.ctaLabel}</p>
+                            <p className="font-semibold text-ink-900">{record.title}</p>
+                            <p className="text-ink-500">{record.ctaLabel}</p>
                           </div>
                         </div>
                       </td>
@@ -132,14 +133,24 @@ export function ServicesManager() {
                         <StatusChip status={record.status} />
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(record)}
-                          aria-label={`Edit ${record.service.title}`}
-                          className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900"
-                        >
-                          <Pencil className="h-4 w-4" aria-hidden="true" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => toggleAvailability(record)}
+                            className="rounded-full px-3 py-1.5 text-xs font-semibold text-ink-600 transition-colors hover:bg-ink-50 disabled:opacity-40"
+                          >
+                            {record.status === "active" ? "Disable" : "Enable"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEdit(record)}
+                            aria-label={`Edit ${record.title}`}
+                            className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900"
+                          >
+                            <Pencil className="h-4 w-4" aria-hidden="true" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -156,14 +167,10 @@ export function ServicesManager() {
           </>
         )}
       </Card>
-      <Drawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        title={editing ? "Edit Service" : "Add New Service"}
-      >
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Edit Service">
         {drawerOpen ? (
           <ServiceForm
-            key={editing?.id ?? "new"}
+            key={editing?.id}
             record={editing}
             onSaved={handleSaved}
             onCancel={() => setDrawerOpen(false)}
