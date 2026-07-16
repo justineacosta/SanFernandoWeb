@@ -233,6 +233,22 @@ export interface AdminServiceRecord {
   updatedAt: string;
 }
 
+/** Serializable services row for the admin manager (client boundary: icon travels as a name string). */
+export interface AdminServiceRow {
+  id: string;
+  title: string;
+  description: string;
+  iconName: string;
+  tone: ServiceTone;
+  requirementsLabel: string;
+  ctaLabel: string;
+  requirements: string[];
+  department: string;
+  status: AdminServiceStatus;
+  /** ISO timestamp of the last edit. */
+  updatedAt: string;
+}
+
 export interface AdminEventRecord {
   id: string;
   /** The public entity has no id — the envelope provides it. */

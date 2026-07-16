@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { AdminServiceRecord, ServiceFormValues } from "@/types";
+import type { AdminServiceRow, ServiceFormValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { updateService } from "@/features/admin/actions/services";
@@ -16,7 +16,7 @@ const DEPARTMENTS = [
 ];
 
 interface ServiceFormProps {
-  record: AdminServiceRecord | null;
+  record: AdminServiceRow | null;
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -24,10 +24,10 @@ interface ServiceFormProps {
 /** Edit form for a citizen service. Validates, then saves via the updateService action. */
 export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
   const [values, setValues] = useState<ServiceFormValues>({
-    title: record?.service.title ?? "",
-    description: record?.service.description ?? "",
+    title: record?.title ?? "",
+    description: record?.description ?? "",
     department: record?.department ?? DEPARTMENTS[0],
-    requirements: record?.service.requirements.join("\n") ?? "",
+    requirements: record?.requirements.join("\n") ?? "",
     status: record?.status ?? "active",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof ServiceFormValues, string>>>({});

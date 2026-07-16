@@ -2,12 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { Pencil } from "lucide-react";
-import type { AdminServiceRecord } from "@/types";
+import type { AdminServiceRow } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { IconCircle } from "@/components/ui/icon-circle";
 import { Toast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
+import { resolveIcon } from "@/lib/icon-map";
 import { setServiceAvailable } from "@/features/admin/actions/services";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
@@ -19,7 +20,7 @@ import { StatusChip } from "./status-chip";
 const PAGE_SIZE = 6;
 
 interface ServicesManagerProps {
-  services: AdminServiceRecord[];
+  services: AdminServiceRow[];
 }
 
 /** Interactive services table: search, status filter, pagination, drawer editor. */
@@ -27,7 +28,7 @@ export function ServicesManager({ services }: ServicesManagerProps) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
-  const [editing, setEditing] = useState<AdminServiceRecord | null>(null);
+  const [editing, setEditing] = useState<AdminServiceRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -38,14 +39,14 @@ export function ServicesManager({ services }: ServicesManagerProps) {
       (record) =>
         (status === "all" || record.status === status) &&
         (q === "" ||
-          record.service.title.toLowerCase().includes(q) ||
+          record.title.toLowerCase().includes(q) ||
           record.department.toLowerCase().includes(q)),
     );
   }, [services, search, status]);
 
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const openEdit = (record: AdminServiceRecord) => {
+  const openEdit = (record: AdminServiceRow) => {
     setEditing(record);
     setDrawerOpen(true);
   };
@@ -58,7 +59,7 @@ export function ServicesManager({ services }: ServicesManagerProps) {
     setStatus("all");
     setPage(1);
   };
-  const toggleAvailability = (record: AdminServiceRecord) => {
+  const toggleAvailability = (record: AdminServiceRow) => {
     startTransition(async () => {
       const result = await setServiceAvailable(record.id, record.status !== "active");
       setToast(result.error ?? "Availability updated.");
@@ -119,10 +120,10 @@ export function ServicesManager({ services }: ServicesManagerProps) {
                     <tr key={record.id} className="border-b border-ink-200/40 last:border-b-0">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <IconCircle icon={record.service.icon} tone="primary" size="sm" square />
+                          <IconCircle icon={resolveIcon(record.iconName)} tone="primary" size="sm" square />
                           <div>
-                            <p className="font-semibold text-ink-900">{record.service.title}</p>
-                            <p className="text-ink-500">{record.service.ctaLabel}</p>
+                            <p className="font-semibold text-ink-900">{record.title}</p>
+                            <p className="text-ink-500">{record.ctaLabel}</p>
                           </div>
                         </div>
                       </td>
@@ -144,7 +145,7 @@ export function ServicesManager({ services }: ServicesManagerProps) {
                           <button
                             type="button"
                             onClick={() => openEdit(record)}
-                            aria-label={`Edit ${record.service.title}`}
+                            aria-label={`Edit ${record.title}`}
                             className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900"
                           >
                             <Pencil className="h-4 w-4" aria-hidden="true" />
