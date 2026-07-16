@@ -24,6 +24,7 @@ export async function listServiceCatalog(): Promise<AdminServiceRow[]> {
     requirements: row.requirements,
     department: row.department,
     status: row.is_available ? "active" : "inactive",
-    updatedAt: row.updated_at,
+    // formatDate() expects a bare YYYY-MM-DD; updated_at is a full timestamptz.
+    updatedAt: row.updated_at.slice(0, 10),
   }));
 }
