@@ -328,9 +328,11 @@ export interface ServiceFormValues {
   title: string;
   description: string;
   department: string;
-  /** Newline-separated list in the mock UI. */
+  /** Newline-separated in the form; split into an array server-side. */
   requirements: string;
   status: AdminServiceStatus;
+  iconName: string;
+  tone: ServiceTone;
 }
 
 export interface EventFormValues {

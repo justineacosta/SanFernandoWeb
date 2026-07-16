@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import type { AdminServiceRow, ServiceFormValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
-import { updateService } from "@/features/admin/actions/services";
+import { ICON_OPTIONS } from "@/lib/icon-map";
+import { createService, updateService } from "@/features/admin/actions/services";
 
 const DEPARTMENTS = [
   "Office of the Barangay Secretary",
@@ -16,12 +17,13 @@ const DEPARTMENTS = [
 ];
 
 interface ServiceFormProps {
+  /** null = create a new service. */
   record: AdminServiceRow | null;
   onSaved: () => void;
   onCancel: () => void;
 }
 
-/** Edit form for a citizen service. Validates, then saves via the updateService action. */
+/** Create/edit form for a citizen service. Saves via the create/update actions. */
 export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
   const [values, setValues] = useState<ServiceFormValues>({
     title: record?.title ?? "",
@@ -29,12 +31,12 @@ export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
     department: record?.department ?? DEPARTMENTS[0],
     requirements: record?.requirements.join("\n") ?? "",
     status: record?.status ?? "active",
+    iconName: record?.iconName ?? ICON_OPTIONS[0].value,
+    tone: record?.tone ?? "primary",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof ServiceFormValues, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  if (!record) return null;
 
   const set = <K extends keyof ServiceFormValues>(key: K, value: ServiceFormValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -49,7 +51,9 @@ export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
     if (Object.keys(nextErrors).length > 0) return;
     setError(null);
     startTransition(async () => {
-      const result = await updateService(record.id, values);
+      const result = record
+        ? await updateService(record.id, values)
+        : await createService(values);
       if (result.error) {
         setError(result.error);
         return;
@@ -80,6 +84,31 @@ export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
           />
           {errors.description ? <p className="text-sm text-danger">{errors.description}</p> : null}
         </Field>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field label="Icon" htmlFor="service-icon">
+            <Select
+              id="service-icon"
+              value={values.iconName}
+              onChange={(event) => set("iconName", event.target.value)}
+            >
+              {ICON_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Type" htmlFor="service-tone">
+            <Select
+              id="service-tone"
+              value={values.tone}
+              onChange={(event) => set("tone", event.target.value as ServiceFormValues["tone"])}
+            >
+              <option value="primary">Standard (Apply Online)</option>
+              <option value="danger">Urgent / Report (File Incident Report)</option>
+            </Select>
+          </Field>
+        </div>
         <Field label="Department" htmlFor="service-department">
           <Select
             id="service-department"
@@ -126,7 +155,7 @@ export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
           Cancel
         </Button>
         <Button type="submit" disabled={isPending}>
-          {isPending ? "Saving…" : "Save Changes"}
+          {isPending ? "Saving…" : record ? "Save Changes" : "Create Service"}
         </Button>
       </div>
     </form>
