@@ -132,15 +132,26 @@ export async function updateTeamUser(
 
   const admin = createSupabaseAdminClient();
 
-  // Email is editable only for OTHER users. Change auth first so a duplicate
-  // is rejected before we touch the profile row.
-  const changingEmail = !isSelf && parsed.data.email !== undefined;
-  if (changingEmail) {
-    const { error: authError } = await admin.auth.admin.updateUserById(id, {
-      email: parsed.data.email!,
-    });
-    if (authError) {
-      return { error: "That email is already in use." };
+  // Email is editable only for OTHER users, and only when it actually changes.
+  // Look up the current email so we can skip a no-op auth write and roll back
+  // the auth change if the profile write below fails (keeping the two in sync).
+  let changingEmail = false;
+  let previousEmail: string | null = null;
+  if (!isSelf && parsed.data.email !== undefined) {
+    const { data: current } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("id", id)
+      .single();
+    if (current && parsed.data.email !== current.email) {
+      changingEmail = true;
+      previousEmail = current.email;
+      const { error: authError } = await admin.auth.admin.updateUserById(id, {
+        email: parsed.data.email,
+      });
+      if (authError) {
+        return { error: "That email is already in use." };
+      }
     }
   }
 
@@ -154,7 +165,13 @@ export async function updateTeamUser(
       ...(changingEmail ? { email: parsed.data.email } : {}),
     })
     .eq("id", id);
-  if (error) return { error: "Could not save the changes." };
+  if (error) {
+    // Roll back the auth email so it can't drift from profiles.email.
+    if (changingEmail && previousEmail) {
+      await admin.auth.admin.updateUserById(id, { email: previousEmail });
+    }
+    return { error: "Could not save the changes." };
+  }
 
   await recordActivity(actor, "updated user", "team-user", id, parsed.data.fullName);
   revalidatePath("/admin/settings");

@@ -90,7 +90,9 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
               statusLabel,
               permissions,
               isSuperAdmin,
-              ...(drawer.user.id !== currentUser.id ? { email } : {}),
+              ...(drawer.user.id !== currentUser.id && email !== drawer.user.email
+                ? { email }
+                : {}),
             })
           : await createTeamUser({
               fullName,
