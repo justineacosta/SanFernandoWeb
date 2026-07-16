@@ -43,6 +43,8 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [permissions, setPermissions] = useState<Permission[]>(STATUS_PRESETS.staff);
 
+  const editingSelf = drawer?.mode === "edit" && drawer.user?.id === currentUser.id;
+
   function openCreate() {
     setFullName("");
     setEmail("");
@@ -88,6 +90,7 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
               statusLabel,
               permissions,
               isSuperAdmin,
+              ...(drawer.user.id !== currentUser.id ? { email } : {}),
             })
           : await createTeamUser({
               fullName,
@@ -116,7 +119,7 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-display text-lg font-semibold text-ink-900">Team</h3>
+        <h3 className="font-display text-lg font-semibold text-ink-900">Manage Users</h3>
         <Button variant="primary" onClick={openCreate}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           Add user
@@ -202,27 +205,31 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
                 className={`mt-1 ${inputClass}`}
               />
             </label>
+            <label className="text-sm font-semibold text-ink-700">
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={editingSelf}
+                className={`mt-1 ${inputClass} ${editingSelf ? "cursor-not-allowed opacity-60" : ""}`}
+              />
+              {editingSelf ? (
+                <span className="mt-1 block text-xs font-normal text-ink-500">
+                  You cannot change your own email.
+                </span>
+              ) : null}
+            </label>
             {drawer?.mode === "create" ? (
-              <>
-                <label className="text-sm font-semibold text-ink-700">
-                  Email
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={`mt-1 ${inputClass}`}
-                  />
-                </label>
-                <label className="text-sm font-semibold text-ink-700">
-                  Temporary password (min 10 characters)
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={`mt-1 ${inputClass}`}
-                  />
-                </label>
-              </>
+              <label className="text-sm font-semibold text-ink-700">
+                Temporary password (min 10 characters)
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={`mt-1 ${inputClass}`}
+                />
+              </label>
             ) : null}
 
             <fieldset>
@@ -252,11 +259,17 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
               <input
                 type="checkbox"
                 checked={isSuperAdmin}
+                disabled={editingSelf}
                 onChange={(e) => setIsSuperAdmin(e.target.checked)}
-                className="h-4 w-4 accent-brand-500"
+                className="h-4 w-4 accent-brand-500 disabled:opacity-50"
               />
               SuperAdmin (full power, manages users — ignores the checkboxes below)
             </label>
+            {editingSelf ? (
+              <p className="text-xs text-ink-500">
+                You cannot change your own SuperAdmin status.
+              </p>
+            ) : null}
 
             {PERMISSION_GROUPS.map((group) => (
               <fieldset key={group.title} disabled={isSuperAdmin} className="disabled:opacity-40">
