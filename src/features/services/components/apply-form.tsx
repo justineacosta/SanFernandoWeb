@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { CheckCircle2, Copy } from "lucide-react";
 import type { PublicApplicationValues } from "@/types";
@@ -32,20 +32,30 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
   const [ticketNo, setTicketNo] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
+  // `isPending` only flips once React commits, so the disabled button alone
+  // cannot stop two clicks landing in the same tick — that would file the
+  // resident two tickets for one application. This ref closes that window.
+  const submitting = useRef(false);
 
   const set = <K extends keyof PublicApplicationValues>(key: K, value: PublicApplicationValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setError(null);
     startTransition(async () => {
-      const result = await submitApplication(serviceId, values);
-      if (result.error || !result.ticketNo) {
-        setError(result.error ?? "Something went wrong. Please try again.");
-        return;
+      try {
+        const result = await submitApplication(serviceId, values);
+        if (result.error || !result.ticketNo) {
+          setError(result.error ?? "Something went wrong. Please try again.");
+          return;
+        }
+        setTicketNo(result.ticketNo);
+      } finally {
+        submitting.current = false;
       }
-      setTicketNo(result.ticketNo);
     });
   }
 
