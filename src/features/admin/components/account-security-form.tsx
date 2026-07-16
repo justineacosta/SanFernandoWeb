@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, fieldClasses } from "@/components/ui/form";
 import { PasswordInput } from "@/components/ui/password-input";
+import { PasswordStrength } from "@/components/ui/password-strength";
 import { Toast } from "@/components/ui/toast";
 import { changeMyPassword } from "@/features/admin/actions/account";
 
@@ -56,6 +57,7 @@ export function AccountSecurityForm() {
               value={next}
               onChange={(event) => setNext(event.target.value)}
             />
+            <PasswordStrength value={next} />
           </Field>
           <Field label="Confirm New Password" htmlFor="account-confirm-password">
             <PasswordInput
