@@ -81,7 +81,7 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
           Keep this ticket number. You will need it — with your last name — to check your
           status at any time.
         </p>
-        <div className="mb-6 rounded-2xl border border-brand-200 bg-brand-50 p-6 text-center">
+        <div className="mb-6 rounded-2xl border border-brand-200 bg-brand-100/50 p-6 text-center">
           <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">
             Your ticket number
           </p>
@@ -123,7 +123,7 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-8">
       {requirements.length > 0 ? (
-        <Card className="rounded-3xl border-brand-200 bg-brand-50 p-6">
+        <Card className="rounded-3xl border-brand-200 bg-brand-100/50 p-6">
           <p className="mb-3 font-semibold text-ink-900">
             Bring these when you claim your {serviceTitle}
           </p>

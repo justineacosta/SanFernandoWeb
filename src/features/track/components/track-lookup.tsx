@@ -71,7 +71,7 @@ export function TrackLookup({ initialTicket = "" }: { initialTicket?: string }) 
           </p>
           <TicketTimeline ticket={ticket} />
           {ticket.status === "approved" && ticket.requirements.length > 0 ? (
-            <div className="mt-8 rounded-2xl border border-brand-200 bg-brand-50 p-6">
+            <div className="mt-8 rounded-2xl border border-brand-200 bg-brand-100/50 p-6">
               <p className="mb-3 text-sm font-semibold text-ink-900">Bring these when you claim</p>
               <ul className="list-disc space-y-1 pl-5 text-sm text-ink-600">
                 {ticket.requirements.map((requirement) => (

@@ -35,20 +35,28 @@ export async function lookupTicket(ticketNo: string, lastName: string): Promise<
   }
 
   const admin = createSupabaseAdminClient();
+  // Fetch by ticket number alone (it is unique), then match the last name here.
+  // The name deliberately does NOT go into the query: `ilike` would read it as
+  // a LIKE pattern, so a lone "%" — or "*", which PostgREST rewrites to "%" —
+  // would match every surname and turn a guessed ticket number into a leak.
+  // A plain comparison has no pattern semantics to get wrong.
   const { data, error } = await admin
     .from("applications")
     .select(
-      "ticket_no, first_name, last_name, status, purpose, remarks, created_at, reviewed_at, released_at, services (title, requirements)",
+      "ticket_no, first_name, last_name, status, remarks, created_at, reviewed_at, released_at, services (title, requirements)",
     )
     .eq("ticket_no", ticket)
-    .ilike("last_name", surname)
     .maybeSingle();
 
   if (error) {
     console.error("lookupTicket failed:", error.message);
     return { error: "Something went wrong. Please try again.", ticket: null };
   }
-  if (!data) return { error: NOT_FOUND, ticket: null };
+  // One message for "no such ticket" and "wrong name" alike — never confirm a
+  // ticket exists to someone who cannot name its owner.
+  if (!data || data.last_name.trim().toLowerCase() !== surname.toLowerCase()) {
+    return { error: NOT_FOUND, ticket: null };
+  }
 
   const service = data.services as unknown as { title: string; requirements: string[] } | null;
 

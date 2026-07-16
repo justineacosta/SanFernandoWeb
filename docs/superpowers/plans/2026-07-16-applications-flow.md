@@ -694,7 +694,7 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
           Keep this ticket number. You will need it — with your last name — to check your
           status at any time.
         </p>
-        <div className="mb-6 rounded-2xl border border-brand-200 bg-brand-50 p-6 text-center">
+        <div className="mb-6 rounded-2xl border border-brand-200 bg-brand-100/50 p-6 text-center">
           <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">
             Your ticket number
           </p>
@@ -736,7 +736,7 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-8">
       {requirements.length > 0 ? (
-        <Card className="rounded-3xl border-brand-200 bg-brand-50 p-6">
+        <Card className="rounded-3xl border-brand-200 bg-brand-100/50 p-6">
           <p className="mb-3 font-semibold text-ink-900">
             Bring these when you claim your {serviceTitle}
           </p>
@@ -1028,20 +1028,28 @@ export async function lookupTicket(ticketNo: string, lastName: string): Promise<
   }
 
   const admin = createSupabaseAdminClient();
+  // Fetch by ticket number alone (it is unique), then match the last name here.
+  // The name deliberately does NOT go into the query: `ilike` would read it as
+  // a LIKE pattern, so a lone "%" — or "*", which PostgREST rewrites to "%" —
+  // would match every surname and turn a guessed ticket number into a leak.
+  // A plain comparison has no pattern semantics to get wrong.
   const { data, error } = await admin
     .from("applications")
     .select(
-      "ticket_no, first_name, last_name, status, purpose, remarks, created_at, reviewed_at, released_at, services (title, requirements)",
+      "ticket_no, first_name, last_name, status, remarks, created_at, reviewed_at, released_at, services (title, requirements)",
     )
     .eq("ticket_no", ticket)
-    .ilike("last_name", surname)
     .maybeSingle();
 
   if (error) {
     console.error("lookupTicket failed:", error.message);
     return { error: "Something went wrong. Please try again.", ticket: null };
   }
-  if (!data) return { error: NOT_FOUND, ticket: null };
+  // One message for "no such ticket" and "wrong name" alike — never confirm a
+  // ticket exists to someone who cannot name its owner.
+  if (!data || data.last_name.trim().toLowerCase() !== surname.toLowerCase()) {
+    return { error: NOT_FOUND, ticket: null };
+  }
 
   const service = data.services as unknown as { title: string; requirements: string[] } | null;
 
@@ -1063,7 +1071,7 @@ export async function lookupTicket(ticketNo: string, lastName: string): Promise<
 }
 ```
 
-Notes: `.ilike("last_name", surname)` with no `%` wildcards is a case-insensitive **exact** match, which is what the index supports. Never widen it to a partial match. Do not select `contact_number`, `email` or `address` — the resident already knows them and returning them turns a guessed ticket number into a data leak.
+Notes: The last name is matched in JS, never in the query: PostgREST reads `ilike` values as LIKE patterns (and rewrites `*` to `%`), so a lone wildcard would match every surname. Do not select `contact_number`, `email` or `address` — the resident already knows them and returning them turns a guessed ticket number into a data leak.
 
 - [ ] **Step 2: Write the timeline**
 
@@ -1241,7 +1249,7 @@ export function TrackLookup({ initialTicket = "" }: { initialTicket?: string }) 
           </p>
           <TicketTimeline ticket={ticket} />
           {ticket.status === "approved" && ticket.requirements.length > 0 ? (
-            <div className="mt-8 rounded-2xl border border-brand-200 bg-brand-50 p-6">
+            <div className="mt-8 rounded-2xl border border-brand-200 bg-brand-100/50 p-6">
               <p className="mb-3 text-sm font-semibold text-ink-900">Bring these when you claim</p>
               <ul className="list-disc space-y-1 pl-5 text-sm text-ink-600">
                 {ticket.requirements.map((requirement) => (
