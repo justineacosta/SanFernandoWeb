@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-const fieldClasses =
+export const fieldClasses =
   "w-full rounded-2xl border border-ink-200 bg-white px-4 py-3 text-base text-ink-900 shadow-sm transition-colors placeholder:text-ink-400 focus:outline-none focus-visible:border-brand-400 focus-visible:ring-4 focus-visible:ring-brand-400/20 focus:border-brand-400 focus:ring-4 focus:ring-brand-400/20";
 
 interface FieldProps {
