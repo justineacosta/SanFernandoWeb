@@ -5,7 +5,7 @@ import { useDisclosure } from "@/hooks/use-disclosure";
 import { AdminSidebar } from "@/features/admin/components/admin-sidebar";
 
 /** Hamburger + slide-in sidebar drawer for the admin portal on small screens. */
-export function AdminMobileNav() {
+export function AdminMobileNav({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const { isOpen, toggle, close } = useDisclosure();
 
   return (
@@ -28,7 +28,7 @@ export function AdminMobileNav() {
             className="absolute inset-0 bg-ink-900/40"
           />
           <div className="absolute left-0 top-0" onClick={close}>
-            <AdminSidebar className="shadow-xl" />
+            <AdminSidebar className="shadow-xl" isSuperAdmin={isSuperAdmin} />
           </div>
         </div>
       ) : null}

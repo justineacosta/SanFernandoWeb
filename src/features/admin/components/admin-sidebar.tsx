@@ -9,10 +9,13 @@ import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
 interface AdminSidebarProps {
   /** Extra classes on the aside — used to control overlay vs. fixed rendering. */
   className?: string;
+  /** Gates SuperAdmin-only nav items (e.g. Services Management). */
+  isSuperAdmin: boolean;
 }
 
 /** Fixed left navigation rail for the admin portal. */
-export function AdminSidebar({ className }: AdminSidebarProps) {
+export function AdminSidebar({ className, isSuperAdmin }: AdminSidebarProps) {
+  const navItems = ADMIN_NAV_ITEMS.filter((item) => !item.superAdminOnly || isSuperAdmin);
   return (
     <aside
       aria-label="Admin navigation"
@@ -45,7 +48,7 @@ export function AdminSidebar({ className }: AdminSidebarProps) {
         </div>
       </div>
       <nav className="relative flex flex-1 flex-col gap-2 px-2">
-        {ADMIN_NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink

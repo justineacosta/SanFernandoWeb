@@ -22,6 +22,8 @@ export interface IconNavItem extends NavItem {
   icon: LucideIcon;
   /** Match the route exactly instead of by prefix. */
   exact?: boolean;
+  /** Render only for SuperAdmins (page is SuperAdmin-gated). */
+  superAdminOnly?: boolean;
 }
 
 /* ------------------------------------ Media ------------------------------------ */
@@ -326,9 +328,11 @@ export interface ServiceFormValues {
   title: string;
   description: string;
   department: string;
-  /** Newline-separated list in the mock UI. */
+  /** Newline-separated in the form; split into an array server-side. */
   requirements: string;
   status: AdminServiceStatus;
+  iconName: string;
+  tone: ServiceTone;
 }
 
 export interface EventFormValues {

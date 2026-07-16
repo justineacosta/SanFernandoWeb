@@ -6,6 +6,8 @@ import type { Permission, SessionUser, StaffStatusLabel, TeamUser } from "@/type
 import { PERMISSION_GROUPS, PERMISSION_LABELS, STATUS_PRESETS } from "@/constants/permissions";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
+import { PasswordInput } from "@/components/ui/password-input";
+import { PasswordStrength } from "@/components/ui/password-strength";
 import { Toast } from "@/components/ui/toast";
 import {
   archiveTeamUser,
@@ -225,12 +227,14 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
             {drawer?.mode === "create" ? (
               <label className="text-sm font-semibold text-ink-700">
                 Temporary password (min 10 characters)
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`mt-1 ${inputClass}`}
-                />
+                <div className="mt-1">
+                  <PasswordInput
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <PasswordStrength value={password} />
               </label>
             ) : null}
 

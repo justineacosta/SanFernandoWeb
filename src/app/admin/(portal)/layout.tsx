@@ -13,7 +13,7 @@ export default async function AdminPortalLayout({
 
   return (
     <div className="flex min-h-screen bg-white">
-      <AdminSidebar className="fixed left-0 top-0 hidden md:flex" />
+      <AdminSidebar className="fixed left-0 top-0 hidden md:flex" isSuperAdmin={user.isSuperAdmin} />
       <div className="flex min-h-screen w-full flex-1 flex-col md:ml-64">
         <AdminTopBar user={user} />
         <main className="mx-auto w-full max-w-(--container-page) flex-1 p-4 md:p-8">

@@ -17,7 +17,7 @@ export function AdminTopBar({ user }: { user: SessionUser }) {
   return (
     <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-ink-200/70 bg-white px-4 md:px-8">
       <div className="flex items-center gap-2">
-        <AdminMobileNav />
+        <AdminMobileNav isSuperAdmin={user.isSuperAdmin} />
         <h1 className="text-lg font-semibold tracking-tight text-ink-900 md:text-xl">
           San Fernando Admin
         </h1>

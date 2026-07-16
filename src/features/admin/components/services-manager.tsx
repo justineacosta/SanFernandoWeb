@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import type { AdminServiceRow } from "@/types";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { IconCircle } from "@/components/ui/icon-circle";
@@ -46,13 +47,18 @@ export function ServicesManager({ services }: ServicesManagerProps) {
 
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const openCreate = () => {
+    setEditing(null);
+    setDrawerOpen(true);
+  };
   const openEdit = (record: AdminServiceRow) => {
     setEditing(record);
     setDrawerOpen(true);
   };
   const handleSaved = () => {
+    const wasEditing = editing !== null;
     setDrawerOpen(false);
-    setToast("Service updated.");
+    setToast(wasEditing ? "Service updated." : "Service created.");
   };
   const clearFilters = () => {
     setSearch("");
@@ -71,6 +77,12 @@ export function ServicesManager({ services }: ServicesManagerProps) {
       <AdminPageHeader
         title="Services Management"
         description="Manage and configure public services available in the portal."
+        action={
+          <Button onClick={openCreate}>
+            <Plus className="h-5 w-5" aria-hidden="true" />
+            Add New Service
+          </Button>
+        }
       />
       <Card>
         <AdminFilterBar
@@ -167,10 +179,14 @@ export function ServicesManager({ services }: ServicesManagerProps) {
           </>
         )}
       </Card>
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title="Edit Service">
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={editing ? "Edit Service" : "Add New Service"}
+      >
         {drawerOpen ? (
           <ServiceForm
-            key={editing?.id}
+            key={editing?.id ?? "new"}
             record={editing}
             onSaved={handleSaved}
             onCancel={() => setDrawerOpen(false)}
