@@ -38,3 +38,12 @@ export function formatCount(n: number): string {
 export function toManilaDate(timestamp: string): string {
   return new Date(timestamp).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 }
+
+/**
+ * Today's calendar date in Manila (YYYY-MM-DD). Postgres and the Node runtime
+ * are both UTC; a complaint filed at 7am Manila must not be read as yesterday,
+ * and an appointment for "today" must not be rejected as past.
+ */
+export function manilaToday(): string {
+  return toManilaDate(new Date().toISOString());
+}
