@@ -105,9 +105,9 @@ export function AppointmentForm() {
         <div className="mb-6 mt-6 rounded-2xl border border-ink-200 bg-ink-50 p-6">
           <p className="mb-2 text-sm font-semibold text-ink-900">What happens next</p>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-ink-600">
-            <li>Barangay staff log and review your request.</li>
-            <li>The Lupong Tagapamayapa may contact you to arrange mediation.</li>
-            <li>Track your ticket number anytime to see its status.</li>
+            <li>Barangay staff check the schedule you asked for.</li>
+            <li>They confirm it, or propose a different date and time.</li>
+            <li>Track your ticket number anytime to see your confirmed schedule.</li>
           </ol>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -186,7 +186,7 @@ export function AppointmentForm() {
           />
         </Field>
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Preferred Date" htmlFor="appointment-preferred-date">
+          <Field label="Preferred date" htmlFor="appointment-preferred-date">
             <Input
               id="appointment-preferred-date"
               type="date"
@@ -195,7 +195,7 @@ export function AppointmentForm() {
               onChange={(event) => set("preferredDate", event.target.value)}
             />
           </Field>
-          <Field label="Preferred Time" htmlFor="appointment-preferred-period">
+          <Field label="Preferred time" htmlFor="appointment-preferred-period">
             <Select
               id="appointment-preferred-period"
               value={values.preferredPeriod}

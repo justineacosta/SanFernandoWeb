@@ -1679,11 +1679,20 @@ double-submit ref guard, same receipt panel and copy button. Deltas:
 | Field id prefix | `complaint-` | `appointment-` |
 | Privacy note on receipt | complaint-specific note | **omit** |
 
-Labels: "What is the appointment about?"
-(`placeholder="e.g. Consultation with the Punong Barangay"`), "Preferred Date", "Preferred Time".
-The period `Select` has exactly two options: `am` → "Morning (8:00 AM – 12:00 NN)", `pm` →
-"Afternoon (1:00 PM – 5:00 PM)". Initial values: `preferredDate: manilaToday()`,
+Labels — **sentence case, like every other label on the three public forms**: "What is the
+appointment about?" (`placeholder="e.g. Consultation with the Punong Barangay"`), "Preferred date",
+"Preferred time". The period `Select` has exactly two options: `am` → "Morning (8:00 AM – 12:00 NN)",
+`pm` → "Afternoon (1:00 PM – 5:00 PM)". Initial values: `preferredDate: manilaToday()`,
 `preferredPeriod: "am"`.
+
+Mirror the receipt's "What happens next" block but **rewrite its steps** — the complaint form's
+mention the Lupong Tagapamayapa and mediation, which have nothing to do with an appointment:
+
+```
+1. Barangay staff check the schedule you asked for.
+2. They confirm it, or propose a different date and time.
+3. Track your ticket number anytime to see your confirmed schedule.
+```
 
 Add this line under the receipt's ticket number, replacing the complaint form's privacy note:
 
@@ -2098,9 +2107,19 @@ Create `src/features/assistance/components/assistance-form.tsx` mirroring
 `categories`, initial `categories[0]?.id ?? ""`) and `details` (Textarea, `rows={5}`); submit label
 "Submit request"; receipt heading "Request filed"; id prefix `assistance-`; no privacy note.
 
-Labels: "What kind of assistance?" and "Tell us about your situation"
-(`placeholder="Explain what you need and why, in your own words."`). Consent copy: "I agree to the
-barangay recording these details to assess this request (Data Privacy Act of 2012)."
+Labels — sentence case, matching the other two public forms: "What kind of assistance?" and "Tell us
+about your situation" (`placeholder="Explain what you need and why, in your own words."`). Consent
+copy: "I agree to the barangay recording these details to assess this request (Data Privacy Act of
+2012)."
+
+Mirror the receipt's "What happens next" block but **rewrite its steps** — do not carry over the
+complaint form's mediation wording:
+
+```
+1. Barangay staff log and review your request.
+2. The Barangay Social Welfare Desk assesses it and may contact you.
+3. Track your ticket number anytime to see its status.
+```
 
 - [ ] **Step 4: Barrel and route**
 

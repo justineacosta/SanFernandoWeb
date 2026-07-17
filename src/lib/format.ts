@@ -48,7 +48,15 @@ export function manilaToday(): string {
   return toManilaDate(new Date().toISOString());
 }
 
-/** One year from today in Manila (YYYY-MM-DD) — the far bound for a requested date. */
+/**
+ * One year from today in Manila (YYYY-MM-DD) — the far bound for a requested date.
+ *
+ * Only ever compared with `<=` against another zero-padded YYYY-MM-DD string, so
+ * lexicographic ordering is the whole contract; the result is never parsed as a
+ * Date. That is why bumping the year alone is safe: on 29 Feb it yields a
+ * calendar-invalid "YYYY-02-29", which still sorts correctly and merely narrows
+ * the window by a day.
+ */
 export function manilaTodayNextYear(): string {
   const [year, month, day] = manilaToday().split("-");
   return `${Number(year) + 1}-${month}-${day}`;
