@@ -15,21 +15,38 @@ const LABELS: Record<AdminStatus, string> = {
   approved: "Approved",
   released: "Released",
   rejected: "Rejected",
+  confirmed: "Confirmed",
+  completed: "Completed",
+  declined: "Declined",
+  received: "Received",
+  resolved: "Resolved",
+  dismissed: "Dismissed",
+  granted: "Granted",
 };
 
 const TONES: Record<AdminStatus, string> = {
   published: "bg-brand-100 text-brand-800",
   active: "bg-brand-100 text-brand-800",
   approved: "bg-brand-100 text-brand-800",
+  // Stage-1 positives sit with `approved`; terminal successes are the deeper
+  // amber `released` already uses (there is no green token).
+  confirmed: "bg-brand-100 text-brand-800",
   // Terminal success — a deeper amber than `approved` (there is no green token).
   released: "bg-brand-200 text-brand-800",
+  completed: "bg-brand-200 text-brand-800",
+  resolved: "bg-brand-200 text-brand-800",
+  granted: "bg-brand-200 text-brand-800",
   scheduled: "bg-ink-100 text-ink-700",
   pending: "bg-ink-100 text-ink-700",
+  // Untouched intake, like `pending`.
+  received: "bg-ink-100 text-ink-700",
   draft: "bg-ink-100 text-ink-600",
   planning: "bg-ink-100 text-ink-600",
   "in-review": "bg-danger-soft text-danger-soft-fg",
   "under-review": "bg-danger-soft text-danger-soft-fg",
   rejected: "bg-danger-soft text-danger-soft-fg",
+  declined: "bg-danger-soft text-danger-soft-fg",
+  dismissed: "bg-danger-soft text-danger-soft-fg",
   inactive: "bg-ink-100 text-ink-500",
   archived: "bg-ink-100 text-ink-500",
 };

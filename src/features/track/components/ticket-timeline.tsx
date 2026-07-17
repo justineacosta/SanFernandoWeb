@@ -42,7 +42,7 @@ function buildSteps(ticket: TicketLookupResult): Step[] {
             detail: released
               ? "Claimed at the barangay hall."
               : "Bring a valid ID to the barangay hall to claim your document.",
-            date: ticket.releasedAt,
+            date: ticket.closedAt,
             state: released ? ("done" as const) : ("todo" as const),
           },
         ]),

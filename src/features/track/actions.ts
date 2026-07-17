@@ -75,6 +75,7 @@ export async function lookupTicket(ticketNo: string, lastName: string): Promise<
   return {
     error: null,
     ticket: {
+      kind: "application",
       ticketNo: data.ticket_no,
       type: "Certificate Application",
       serviceTitle: service?.title ?? "Barangay document",
@@ -83,8 +84,9 @@ export async function lookupTicket(ticketNo: string, lastName: string): Promise<
       status: data.status as TicketLookupResult["status"],
       submittedAt: toManilaDate(data.created_at),
       reviewedAt: data.reviewed_at ? toManilaDate(data.reviewed_at) : null,
-      releasedAt: data.released_at ? toManilaDate(data.released_at) : null,
+      closedAt: data.released_at ? toManilaDate(data.released_at) : null,
       remarks: data.remarks,
+      scheduleNote: null,
     },
   };
 }
