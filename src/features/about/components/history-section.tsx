@@ -41,7 +41,7 @@ export function HistorySection() {
                   aria-hidden="true"
                 />
                 <div className="w-full md:w-1/2">
-                  <div className="h-48 overflow-hidden rounded-2xl border border-ink-200 bg-brand-50">
+                  <div className="h-48 overflow-hidden rounded-2xl border border-ink-200 bg-brand-100/50">
                     <Image
                       src={entry.image}
                       alt={entry.imageAlt}

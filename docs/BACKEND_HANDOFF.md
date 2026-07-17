@@ -113,6 +113,37 @@
 > admin API, unique constraint enforced). Photo upload is still deferred to the media plan
 > (initials badge + "coming soon"). Mock 2FA toggle removed.
 
+> **Updated 2026-07-17 (applications flow):** residents can now apply online for a
+> certificate/clearance and track it — the whole loop is DB-backed end to end (plan:
+> `docs/superpowers/plans/2026-07-16-applications-flow.md`). New `applications` table
+> (`supabase/migrations/0005_applications.sql`) plus `next_ticket_number(prefix)`, a
+> per-prefix, per-year counter serialized through `INSERT .. ON CONFLICT DO UPDATE` so
+> concurrent submissions can't collide; tickets read **`APP-2026-00001`** (Asia/Manila
+> calendar year, 5-digit zero-padded sequence — plan 2C reuses the same function for
+> APT-/CMP-/AST- prefixes). `/services/apply/[slug]` is the public application form,
+> DB-backed via `getApplyService()`; the routing rule is **tone-based** — only services
+> with `tone === "primary"` route here, `tone === "danger"` (currently only
+> `blotter-complaints`) is the **complaint** flow deferred to plan 2C and its CTA stays
+> inert. `/track` looks up a ticket by number + last name; the last name is deliberately
+> matched in JS rather than in the query — PostgREST reads an `ilike` value as a LIKE
+> pattern, so a stray `%` (or `*`, which PostgREST rewrites to `%`) would have matched
+> every surname and turned a guessed ticket number into a privacy leak. `/admin/applications`
+> now reads and writes the same table: **approve → release**, or **reject** (both actions
+> attributed to the acting user; rejecting requires remarks), plus **walk-in encoding**
+> into the same queue. `applications` has RLS enabled with **no policies at all** — neither
+> anon nor authenticated can touch it directly; every read and write, public and admin,
+> goes through the service-role client after an explicit permission check in code, so the
+> privacy gate lives in one reviewable place rather than in a row policy. The public
+> endpoints share `src/lib/rate-limit.ts`, an in-memory sliding-window limiter — a real
+> speed bump against naive enumeration, but explicitly a placeholder for the hardening
+> plan (spec §12 step 8) to replace with a durable store. Now that the DB owns both
+> catalogs, the mocks it replaced were deleted: `ADMIN_APPLICATIONS`, `CERTIFICATE_SERVICES`,
+> `certificateTitle()` (this plan) and `ADMIN_SERVICES`/`MOCK_SERVICES` (dead since the
+> services-catalog-DB plan, cleaned up in the same sweep) from `features/admin/data.ts`,
+> plus the `AdminApplicationRecord`, `ApplicationFormValues`, and `AdminServiceRecord`
+> types they used from `src/types/index.ts`. `ApplicationReviewValues` remains — the
+> review actions and drawer still use it.
+
 ---
 
 ## 1. Current State
@@ -135,6 +166,8 @@
 | `/about` | About Us | `MissionVisionSection`, `CaptainMessageSection`, `HistorySection`, `MilestonesSection`, `JoinCommunitySection` |
 | `/officials` | Officials directory | `LeadershipDirectory`, `ActionCenterBanner` |
 | `/services` | Services directory | `ServicesGrid` (accordion requirements), `WasteScheduleSection`, `HelpSection` |
+| `/services/apply/[slug]` | Certificate application form | `ApplyForm` (DB-backed via `getApplyService()`); `tone === "primary"` services only — `tone === "danger"` (`blotter-complaints`) renders `ApplyUnavailable` and stays inert until plan 2C's complaint flow |
+| `/track` | Ticket status lookup | `TrackLookup` — ticket number + last name, DB-backed via `lookupTicket()` |
 | `/announcements` | News & Announcements | `NewsFeed`, `NewsSidebar` (announcements, hotlines, newsletter) |
 | `/transparency` | Transparency portal | `TransparencyHero`, `DisclosureGrid`, `LatestUploadsSection`, `LegislativeSection`, `FoiSection` |
 | `/contact` | Contact | `ContactDetails`, `InquiryForm`, `MapSection` |
@@ -153,13 +186,16 @@
 
 Admin mock data lives in `src/features/admin/data.ts`: hub constants (`ADMIN_NAV_ITEMS`,
 `ADMIN_USER`, `CONTENT_TYPE_ACTIONS`, `RECENT_DRAFTS`, `PUBLISHING_ACTIVITY`) plus one seed
-array per section — `ADMIN_SERVICES`, `ADMIN_APPLICATIONS` (with `CERTIFICATE_SERVICES` /
-`certificateTitle()` derived from the public catalog), `ADMIN_LEGISLATIVE`, `ADMIN_EVENTS`,
-`ADMIN_NEWS`, `ADMIN_TEAM` — and label maps (`EVENT_CATEGORY_LABELS`, `TEAM_ROLE_LABELS`,
-`DRAFT_STATUS_LABELS`). Admin entity types in `src/types/index.ts`: `ContentDraft`
-(status: `draft | in-review`), `PublishingActivityEntry`, `ContentTypeAction`, plus the
-envelope/record and `*FormValues` contract types listed in §2. Public routes sit in the
-`app/(public)` route group; admin has its own `app/admin/layout.tsx`.
+array per section still on mocks — `ADMIN_LEGISLATIVE`, `ADMIN_EVENTS`, `ADMIN_NEWS`,
+`ADMIN_TEAM` — and label maps (`EVENT_CATEGORY_LABELS`, `TEAM_ROLE_LABELS`,
+`DRAFT_STATUS_LABELS`). Services and applications are now DB-backed (see the Routes table
+and §2); their old mocks (`ADMIN_SERVICES`, `MOCK_SERVICES`, `ADMIN_APPLICATIONS`,
+`CERTIFICATE_SERVICES`, `certificateTitle()`) and the `AdminServiceRecord` /
+`AdminApplicationRecord` / `ApplicationFormValues` types they used were deleted once the
+DB queries replaced every consumer. Admin entity types in `src/types/index.ts`:
+`ContentDraft` (status: `draft | in-review`), `PublishingActivityEntry`, `ContentTypeAction`,
+plus the envelope/record and `*FormValues` contract types listed in §2. Public routes sit in
+the `app/(public)` route group; admin has its own `app/admin/layout.tsx`.
 
 ### Folder architecture
 
@@ -205,8 +241,9 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | `TimelineEntry`, `Milestone`, `ValueItem` | About page | Mostly CMS-style static content; `TimelineEntry.image` is `string \| StaticImageData` + optional `imageFit: "cover" \| "contain"` — an API should return URLs |
 | `WasteCollectionSlot` | Services waste schedule | `days`/`note` are display strings; same icon caveat |
 | `Hotline`, `ContactChannel`, `NavItem`, `SocialLink` | Site-wide | Live in `constants/site.ts` |
-| `AdminServiceRecord`, `AdminEventRecord`, `AdminNewsRecord`, `AdminLegislativeRecord`, `AdminTeamMember`, `*FormValues` | Admin portal sections | Envelope types wrapping the public entities + drawer-form body shapes — the write-side API contract; statuses (`AdminContentStatus`, `AdminServiceStatus`, `AdminLegislativeStatus`, `AdminEventStatus`) map to content-workflow columns |
-| `AdminApplicationRecord`, `ApplicationStatus`, `ApplicationFormValues`, `ApplicationReviewValues` | Admin applications queue | First-class transactional entity (not an envelope): references `Service` by `serviceId` FK; status flow `pending → approved \| rejected`; form values = submission POST body, review values = review PATCH body |
+| `AdminEventRecord`, `AdminNewsRecord`, `AdminLegislativeRecord`, `AdminTeamMember`, `*FormValues` (events/news/legislative) | Admin portal sections still on mock data | Envelope types wrapping the public entities + drawer-form body shapes — the write-side API contract; statuses (`AdminContentStatus`, `AdminLegislativeStatus`, `AdminEventStatus`) map to content-workflow columns |
+| `AdminServiceRow` | `/admin/services` | DB-backed (`services` table, `supabase/migrations/0004_services.sql`) — replaced the old `AdminServiceRecord` mock envelope; icon travels as `iconName` |
+| `ApplicationRow`, `ApplicationStatus`, `PublicApplicationValues`, `WalkInApplicationValues`, `ApplicationReviewValues`, `TicketLookupResult` | `/services/apply/[slug]`, `/track`, `/admin/applications` | DB-backed (`applications` table, `supabase/migrations/0005_applications.sql`) — replaced the old `AdminApplicationRecord`/`ApplicationFormValues` mocks; status flow `pending → approved → released`, or `pending → rejected`; `PublicApplicationValues`/`WalkInApplicationValues` are the submission bodies (online vs. walk-in), `ApplicationReviewValues` is the approve/reject PATCH body |
 
 ⚠️ **Icon fields**: several types carry `icon: LucideIcon` (a React component). An API can't
 return components — return an icon name (e.g. `"file-text"`) and add a small
@@ -278,24 +315,35 @@ The admin **UI now exists in full** (`/admin` content hub + interactive mock scr
    `LegislativeManager`, `EventsManager`, `NewsManager`, each with typed `*FormValues`
    contracts) under `/admin/*`; the backend wires them to real endpoints in (C) instead of
    building forms from scratch.
-5. **Application processing** — `/admin/applications` models the certificate-request
-   queue end-to-end: `POST /api/applications` (`ApplicationFormValues`) for walk-in or
-   citizen submissions and `PATCH /api/applications/:id/review`
-   (`ApplicationReviewValues`) for approve/reject with remarks (remarks required on
-   rejection). Status flow: `pending → approved | rejected`. The mock mutates session
-   state only; the reviewer identity comes from `ADMIN_USER` pending real auth (item 1).
+5. **Application processing** — ~~`/admin/applications` models the certificate-request
+   queue end-to-end~~ **BUILT 2026-07-17 — see the applications-flow changelog entry above.**
+   Delivered as Server Actions rather than the REST sketch proposed here: residents apply at
+   `/services/apply/[slug]`, track at `/track`, staff approve → release / reject and encode
+   walk-ins. Status flow is `pending → approved → released`, or `rejected` — a `released`
+   step this item did not anticipate. Remarks are required on rejection as proposed, and the
+   reviewer identity is the real signed-in user, not `ADMIN_USER`.
 
 Citizen accounts are **not** required by any current UI.
 
 ### Dangling CTAs that imply future endpoints
-"Apply Online" per service, "Set an Appointment", "File a Complaint" (blotter),
-"Subscribe to Alerts", "Register as Resident", "Submit FOI Request", "Download All Forms",
-per-article "Read More". All currently link to `/services`, `/contact`, or `#`. Each is a
-candidate feature — none has UI beyond the button.
+~~"Apply Online" per service~~ (**live since 2026-07-17** — links to `/services/apply/[slug]`
+on `tone === "primary"` services), "Set an Appointment", "File a Complaint" (blotter — the
+`tone === "danger"` CTA, now rendered **disabled** with a "file in person" note until plan 2C
+builds the flow), "Subscribe to Alerts", "Register as Resident", "Submit FOI Request",
+"Download All Forms", per-article "Read More". The rest still link to `/services`,
+`/contact`, or `#`. Each is a candidate feature — none has UI beyond the button.
 
 ---
 
 ## 4. Suggested API Surface (v1)
+
+> **Superseded in part.** This was sketched before the backend existed. The build went with
+> **Server Actions + Server Components, not a REST API** (see the changelog entries above),
+> so the rows below are a statement of the *data* each surface needs, not endpoints to build.
+> Already delivered against the DB: `/api/services` (migration 0004) and the three
+> applications rows (migration 0005) — the latter reference `AdminApplicationRecord` /
+> `ApplicationFormValues`, types that no longer exist; their live equivalents are
+> `ApplicationRow` / `PublicApplicationValues` / `WalkInApplicationValues` in §2.
 
 ```
 GET  /api/announcements?page=&limit=      → Announcement[]

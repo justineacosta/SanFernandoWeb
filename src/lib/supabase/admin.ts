@@ -2,7 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * Service-role client — bypasses RLS and can call the auth admin API.
- * Server-only; callers MUST verify SuperAdmin/permission first (lib/auth.ts).
+ * Server-only. Callers MUST verify SuperAdmin/permission first (lib/auth.ts),
+ * unless they are a deliberately-public action that gates in code instead — see
+ * `submitApplication` and `lookupTicket`, which are unauthenticated by design
+ * and carry their own validation, rate limiting, and privacy checks.
  */
 export function createSupabaseAdminClient() {
   return createClient(

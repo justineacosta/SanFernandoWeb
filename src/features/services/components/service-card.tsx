@@ -30,8 +30,8 @@ export function ServiceCard({ service }: ServiceCardProps) {
         triggerClassName={isDanger ? "text-danger" : "text-ink-900"}
       >
         <ul className="space-y-2 text-sm text-ink-600">
-          {service.requirements.map((requirement) => (
-            <li key={requirement} className="flex items-start gap-2">
+          {service.requirements.map((requirement, index) => (
+            <li key={`${index}-${requirement}`} className="flex items-start gap-2">
               <RequirementIcon
                 className={cn(
                   "mt-0.5 h-4 w-4 shrink-0",
@@ -44,12 +44,27 @@ export function ServiceCard({ service }: ServiceCardProps) {
           ))}
         </ul>
         {service.isAvailable ? (
-          <Button
-            variant={isDanger ? "outline-danger" : "primary"}
-            className="mt-6 w-full"
-          >
-            {service.ctaLabel}
-          </Button>
+          isDanger ? (
+            // The complaint flow lands in plan 2C. Disabled rather than merely
+            // inert: now that "Apply Online" navigates, a live-looking button
+            // that does nothing reads as broken.
+            <div className="mt-6">
+              <Button variant="outline-danger" className="w-full" disabled>
+                {service.ctaLabel}
+              </Button>
+              <p className="mt-2 text-center text-xs font-medium text-ink-500">
+                Please file this in person at the barangay hall.
+              </p>
+            </div>
+          ) : (
+            <Button
+              href={`/services/apply/${service.id}`}
+              variant="primary"
+              className="mt-6 w-full"
+            >
+              {service.ctaLabel}
+            </Button>
+          )
         ) : (
           <div className="mt-6">
             <Button

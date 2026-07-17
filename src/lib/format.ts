@@ -29,3 +29,12 @@ export function toTelHref(phone: string): string {
 export function formatCount(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(n);
 }
+
+/**
+ * The Asia/Manila calendar date (YYYY-MM-DD) for a UTC timestamp. Postgres
+ * timestamptz values are UTC; slicing them would show the wrong day for
+ * anything filed after 4pm Manila. Feed the result to formatDate().
+ */
+export function toManilaDate(timestamp: string): string {
+  return new Date(timestamp).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+}

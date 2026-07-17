@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Siren } from "lucide-react";
+import type { Permission } from "@/types";
 import { cn } from "@/lib/utils";
 import { SITE } from "@/constants/site";
 import { Button } from "@/components/ui/button";
@@ -11,11 +12,17 @@ interface AdminSidebarProps {
   className?: string;
   /** Gates SuperAdmin-only nav items (e.g. Services Management). */
   isSuperAdmin: boolean;
+  /** Gates permission-scoped nav items. Ignored for SuperAdmins, who hold everything. */
+  permissions: Permission[];
 }
 
 /** Fixed left navigation rail for the admin portal. */
-export function AdminSidebar({ className, isSuperAdmin }: AdminSidebarProps) {
-  const navItems = ADMIN_NAV_ITEMS.filter((item) => !item.superAdminOnly || isSuperAdmin);
+export function AdminSidebar({ className, isSuperAdmin, permissions }: AdminSidebarProps) {
+  const navItems = ADMIN_NAV_ITEMS.filter(
+    (item) =>
+      (!item.superAdminOnly || isSuperAdmin) &&
+      (!item.permission || isSuperAdmin || permissions.includes(item.permission)),
+  );
   return (
     <aside
       aria-label="Admin navigation"

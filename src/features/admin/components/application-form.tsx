@@ -1,64 +1,66 @@
 "use client";
 
 import { useState } from "react";
-import type { ApplicationFormValues } from "@/types";
+import type { WalkInApplicationValues } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select, Textarea } from "@/components/ui/form";
-import { CERTIFICATE_SERVICES } from "@/features/admin/data";
+import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
 
 interface ApplicationFormProps {
-  onSubmit: (values: ApplicationFormValues) => void;
+  services: { id: string; title: string }[];
+  onSubmit: (values: WalkInApplicationValues) => void;
   onCancel: () => void;
+  saving: boolean;
+  error: string | null;
 }
 
-/** Walk-in application encoding form. Validates, then fake-saves as a pending record. */
-export function ApplicationForm({ onSubmit, onCancel }: ApplicationFormProps) {
-  const [values, setValues] = useState<ApplicationFormValues>({
-    applicantName: "",
+/** Walk-in application encoding. Validation lives in the action; this is the fast feedback. */
+export function ApplicationForm({
+  services,
+  onSubmit,
+  onCancel,
+  saving,
+  error,
+}: ApplicationFormProps) {
+  const [values, setValues] = useState<WalkInApplicationValues>({
+    firstName: "",
+    lastName: "",
+    address: "",
     contactNumber: "",
     email: "",
-    address: "",
-    serviceId: CERTIFICATE_SERVICES[0]?.id ?? "",
     purpose: "",
+    serviceId: services[0]?.id ?? "",
+    consent: false,
   });
-  const [errors, setErrors] = useState<Partial<Record<keyof ApplicationFormValues, string>>>({});
-  const [saving, setSaving] = useState(false);
 
-  const set = <K extends keyof ApplicationFormValues>(key: K, value: ApplicationFormValues[K]) =>
-    setValues((prev) => ({ ...prev, [key]: value }));
+  const set = <K extends keyof WalkInApplicationValues>(
+    key: K,
+    value: WalkInApplicationValues[K],
+  ) => setValues((prev) => ({ ...prev, [key]: value }));
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    const nextErrors: typeof errors = {};
-    if (!values.applicantName.trim()) nextErrors.applicantName = "Applicant name is required.";
-    if (!values.contactNumber.trim()) nextErrors.contactNumber = "Contact number is required.";
-    if (values.email?.trim() && !/^\S+@\S+\.\S+$/.test(values.email.trim()))
-      nextErrors.email = "Enter a valid email address.";
-    if (!values.address.trim()) nextErrors.address = "Address is required.";
-    if (!values.purpose.trim()) nextErrors.purpose = "Purpose is required.";
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-    setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      onSubmit(values);
-    }, 600);
+    onSubmit(values);
   };
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
-        <Field label="Applicant Name" htmlFor="application-name">
-          <Input
-            id="application-name"
-            value={values.applicantName}
-            onChange={(event) => set("applicantName", event.target.value)}
-            aria-invalid={Boolean(errors.applicantName)}
-          />
-          {errors.applicantName ? (
-            <p className="text-sm text-danger">{errors.applicantName}</p>
-          ) : null}
-        </Field>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field label="First Name" htmlFor="application-first-name">
+            <Input
+              id="application-first-name"
+              value={values.firstName}
+              onChange={(event) => set("firstName", event.target.value)}
+            />
+          </Field>
+          <Field label="Last Name" htmlFor="application-last-name">
+            <Input
+              id="application-last-name"
+              value={values.lastName}
+              onChange={(event) => set("lastName", event.target.value)}
+            />
+          </Field>
+        </div>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Contact Number" htmlFor="application-contact">
             <Input
@@ -67,21 +69,15 @@ export function ApplicationForm({ onSubmit, onCancel }: ApplicationFormProps) {
               placeholder="(077) 600-0000"
               value={values.contactNumber}
               onChange={(event) => set("contactNumber", event.target.value)}
-              aria-invalid={Boolean(errors.contactNumber)}
             />
-            {errors.contactNumber ? (
-              <p className="text-sm text-danger">{errors.contactNumber}</p>
-            ) : null}
           </Field>
           <Field label="Email (optional)" htmlFor="application-email">
             <Input
               id="application-email"
               type="email"
-              value={values.email ?? ""}
+              value={values.email}
               onChange={(event) => set("email", event.target.value)}
-              aria-invalid={Boolean(errors.email)}
             />
-            {errors.email ? <p className="text-sm text-danger">{errors.email}</p> : null}
           </Field>
         </div>
         <Field label="Address" htmlFor="application-address">
@@ -90,17 +86,15 @@ export function ApplicationForm({ onSubmit, onCancel }: ApplicationFormProps) {
             placeholder="Purok 1, Barangay San Fernando"
             value={values.address}
             onChange={(event) => set("address", event.target.value)}
-            aria-invalid={Boolean(errors.address)}
           />
-          {errors.address ? <p className="text-sm text-danger">{errors.address}</p> : null}
         </Field>
-        <Field label="Certificate Type" htmlFor="application-service">
+        <Field label="Document Type" htmlFor="application-service">
           <Select
             id="application-service"
             value={values.serviceId}
             onChange={(event) => set("serviceId", event.target.value)}
           >
-            {CERTIFICATE_SERVICES.map((service) => (
+            {services.map((service) => (
               <option key={service.id} value={service.id}>
                 {service.title}
               </option>
@@ -113,17 +107,31 @@ export function ApplicationForm({ onSubmit, onCancel }: ApplicationFormProps) {
             rows={4}
             value={values.purpose}
             onChange={(event) => set("purpose", event.target.value)}
-            aria-invalid={Boolean(errors.purpose)}
           />
-          {errors.purpose ? <p className="text-sm text-danger">{errors.purpose}</p> : null}
         </Field>
+        <label className="flex items-start gap-3 text-sm text-ink-600">
+          <Checkbox
+            checked={values.consent}
+            onChange={(event) => set("consent", event.target.checked)}
+            className="mt-0.5 shrink-0"
+          />
+          <span>
+            The applicant consented to the barangay recording these details for this request
+            (Data Privacy Act of 2012).
+          </span>
+        </label>
+        {error ? (
+          <p role="alert" className="text-sm font-medium text-danger">
+            {error}
+          </p>
+        ) : null}
       </div>
       <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
-        <Button variant="ghost" onClick={onCancel}>
+        <Button variant="ghost" type="button" onClick={onCancel}>
           Cancel
         </Button>
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save"}
+          {saving ? "Saving…" : "Encode application"}
         </Button>
       </div>
     </form>

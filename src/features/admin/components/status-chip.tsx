@@ -13,6 +13,7 @@ const LABELS: Record<AdminStatus, string> = {
   planning: "Planning",
   pending: "Pending",
   approved: "Approved",
+  released: "Released",
   rejected: "Rejected",
 };
 
@@ -20,6 +21,8 @@ const TONES: Record<AdminStatus, string> = {
   published: "bg-brand-100 text-brand-800",
   active: "bg-brand-100 text-brand-800",
   approved: "bg-brand-100 text-brand-800",
+  // Terminal success — a deeper amber than `approved` (there is no green token).
+  released: "bg-brand-200 text-brand-800",
   scheduled: "bg-ink-100 text-ink-700",
   pending: "bg-ink-100 text-ink-700",
   draft: "bg-ink-100 text-ink-600",
