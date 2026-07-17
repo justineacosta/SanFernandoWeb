@@ -94,10 +94,6 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
             <span aria-live="polite">{copied ? "Copied" : "Copy number"}</span>
           </button>
         </div>
-        <p className="mt-4 text-sm text-ink-600">
-          Keep this number safe. Tracking a request shows its status only — never the
-          details you wrote here.
-        </p>
         <div className="mb-6 mt-6 rounded-2xl border border-ink-200 bg-ink-50 p-6">
           <p className="mb-2 text-sm font-semibold text-ink-900">What happens next</p>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-ink-600">
