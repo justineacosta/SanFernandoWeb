@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { ServiceRecord } from "@/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveIcon } from "@/lib/icon-map";
@@ -33,8 +34,11 @@ export async function listServices(): Promise<ServiceRecord[]> {
  * applications. An unavailable service still resolves; the page renders a
  * "temporarily unavailable" notice rather than a 404, which reads better to a
  * resident who followed a link.
+ *
+ * Cached per request: generateMetadata and the page body both call this, and
+ * without it that is two round-trips for the same row.
  */
-export async function getApplyService(slug: string): Promise<ServiceRecord | null> {
+export const getApplyService = cache(async (slug: string): Promise<ServiceRecord | null> => {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("services")
@@ -57,4 +61,4 @@ export async function getApplyService(slug: string): Promise<ServiceRecord | nul
     ctaLabel: data.cta_label,
     isAvailable: data.is_available,
   };
-}
+});

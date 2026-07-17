@@ -2388,6 +2388,22 @@ Report pass/fail per numbered check with screenshots. Do not commit anything in 
 
 ---
 
+## Carried forward (found by the final whole-branch review, deliberately not fixed here)
+
+1. **`listApplications()` is unbounded.** It selects the whole table and passes every row to
+   the `"use client"` manager, which paginates client-side at 6. That was right for the
+   9-row mock it replaced; it is now the first unbounded table rendered this way. At ~200
+   certificates/month that is ~2,400 rows/year of resident PII in the RSC payload on every
+   `/admin/applications` load, growing forever. Not a leak (staff are authorized) and fine
+   for month one, but it needs server-side pagination before the archive grows. **2C should
+   not copy this shape for its three queues.**
+2. **Rate-limit thresholds vs. Philippine CGNAT.** `apply:${ip}` at 10/hour and
+   `track:${ip}` at 10/10min assume one IP ≈ one household. Globe/Smart mobile CGNAT puts
+   thousands of subscribers behind a single public IP, and that is how most residents here
+   will reach the site. The in-memory store currently masks this (each instance counts
+   separately) — it will start biting exactly when the hardening plan makes the store
+   durable. That plan must revisit the **thresholds**, not just the storage.
+
 ## Handoff to plan 2C
 
 2C mirrors this structure for appointments, complaints and assistance:

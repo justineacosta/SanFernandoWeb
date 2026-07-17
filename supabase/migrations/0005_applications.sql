@@ -64,8 +64,9 @@ create table public.applications (
   updated_at timestamptz not null default now()
 );
 
--- /track matches ticket number + last name, case-insensitively.
-create index applications_lookup_idx on public.applications (ticket_no, lower(last_name));
+-- ticket_no already has a unique index from its constraint, which is what the
+-- /track lookup filters on; the last name is matched in application code, so no
+-- index covers it.
 create index applications_created_at_idx on public.applications (created_at desc);
 create index applications_status_idx on public.applications (status);
 

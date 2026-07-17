@@ -26,9 +26,11 @@ function buildSteps(ticket: TicketLookupResult): Step[] {
       title: rejected ? "Not approved" : "Reviewed",
       detail: rejected
         ? (ticket.remarks ?? "This request was not approved.")
-        : reviewed
-          ? "Approved — your document is ready to claim."
-          : "Barangay staff are reviewing your request.",
+        : released
+          ? "Approved by barangay staff."
+          : reviewed
+            ? "Approved — your document is ready to claim."
+            : "Barangay staff are reviewing your request.",
       date: ticket.reviewedAt,
       state: rejected ? "failed" : reviewed ? "done" : "current",
     },

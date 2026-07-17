@@ -45,10 +45,17 @@ export function ServiceCard({ service }: ServiceCardProps) {
         </ul>
         {service.isAvailable ? (
           isDanger ? (
-            // The complaint flow lands in plan 2C; the button stays inert until then.
-            <Button variant="outline-danger" className="mt-6 w-full">
-              {service.ctaLabel}
-            </Button>
+            // The complaint flow lands in plan 2C. Disabled rather than merely
+            // inert: now that "Apply Online" navigates, a live-looking button
+            // that does nothing reads as broken.
+            <div className="mt-6">
+              <Button variant="outline-danger" className="w-full" disabled>
+                {service.ctaLabel}
+              </Button>
+              <p className="mt-2 text-center text-xs font-medium text-ink-500">
+                Please file this in person at the barangay hall.
+              </p>
+            </div>
           ) : (
             <Button
               href={`/services/apply/${service.id}`}

@@ -315,24 +315,35 @@ The admin **UI now exists in full** (`/admin` content hub + interactive mock scr
    `LegislativeManager`, `EventsManager`, `NewsManager`, each with typed `*FormValues`
    contracts) under `/admin/*`; the backend wires them to real endpoints in (C) instead of
    building forms from scratch.
-5. **Application processing** — `/admin/applications` models the certificate-request
-   queue end-to-end: `POST /api/applications` (`ApplicationFormValues`) for walk-in or
-   citizen submissions and `PATCH /api/applications/:id/review`
-   (`ApplicationReviewValues`) for approve/reject with remarks (remarks required on
-   rejection). Status flow: `pending → approved | rejected`. The mock mutates session
-   state only; the reviewer identity comes from `ADMIN_USER` pending real auth (item 1).
+5. **Application processing** — ~~`/admin/applications` models the certificate-request
+   queue end-to-end~~ **BUILT 2026-07-17 — see the applications-flow changelog entry above.**
+   Delivered as Server Actions rather than the REST sketch proposed here: residents apply at
+   `/services/apply/[slug]`, track at `/track`, staff approve → release / reject and encode
+   walk-ins. Status flow is `pending → approved → released`, or `rejected` — a `released`
+   step this item did not anticipate. Remarks are required on rejection as proposed, and the
+   reviewer identity is the real signed-in user, not `ADMIN_USER`.
 
 Citizen accounts are **not** required by any current UI.
 
 ### Dangling CTAs that imply future endpoints
-"Apply Online" per service, "Set an Appointment", "File a Complaint" (blotter),
-"Subscribe to Alerts", "Register as Resident", "Submit FOI Request", "Download All Forms",
-per-article "Read More". All currently link to `/services`, `/contact`, or `#`. Each is a
-candidate feature — none has UI beyond the button.
+~~"Apply Online" per service~~ (**live since 2026-07-17** — links to `/services/apply/[slug]`
+on `tone === "primary"` services), "Set an Appointment", "File a Complaint" (blotter — the
+`tone === "danger"` CTA, now rendered **disabled** with a "file in person" note until plan 2C
+builds the flow), "Subscribe to Alerts", "Register as Resident", "Submit FOI Request",
+"Download All Forms", per-article "Read More". The rest still link to `/services`,
+`/contact`, or `#`. Each is a candidate feature — none has UI beyond the button.
 
 ---
 
 ## 4. Suggested API Surface (v1)
+
+> **Superseded in part.** This was sketched before the backend existed. The build went with
+> **Server Actions + Server Components, not a REST API** (see the changelog entries above),
+> so the rows below are a statement of the *data* each surface needs, not endpoints to build.
+> Already delivered against the DB: `/api/services` (migration 0004) and the three
+> applications rows (migration 0005) — the latter reference `AdminApplicationRecord` /
+> `ApplicationFormValues`, types that no longer exist; their live equivalents are
+> `ApplicationRow` / `PublicApplicationValues` / `WalkInApplicationValues` in §2.
 
 ```
 GET  /api/announcements?page=&limit=      → Announcement[]
