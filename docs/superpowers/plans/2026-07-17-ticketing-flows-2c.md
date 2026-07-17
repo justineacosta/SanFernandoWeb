@@ -925,12 +925,28 @@ and `aria-live="polite"`, and its token usage. These deltas apply:
 | Receipt heading | "Application filed" | "Report filed" |
 | Field id prefix | `apply-` | `complaint-` |
 
-Field labels and placeholders, in order: "First Name", "Last Name", "Contact Number"
-(`type="tel"`, `placeholder="(077) 600-0000"`), "Email (optional)", "Address"
-(`placeholder="Purok 1, Barangay San Fernando"`), "Person complained about (optional)"
-(`placeholder="Leave blank if you would rather not say"`), "Date of Incident", "Where it happened"
-(`placeholder="e.g. Purok 2 basketball court"`), "What happened"
+Field labels and placeholders, in order — **match `apply-form.tsx`'s existing order and its
+sentence-case labels exactly**; the two public forms sit one click apart and must not differ in
+casing or field order: "First name", "Last name" (side-by-side grid), "Purok / street address"
+(`placeholder="Purok 1, Barangay San Fernando"`), then a grid of "Contact number" (`type="tel"`,
+`placeholder="(077) 600-0000"`) and "Email (optional)". Then the complaint-specific fields: "Person
+complained about (optional)" (`placeholder="Leave blank if you would rather not say"`), "Date of
+incident", "Where it happened" (`placeholder="e.g. Purok 2 basketball court"`), "What happened"
 (`placeholder="Describe the incident in your own words."`).
+
+Note the address sits **between** the name grid and the contact grid — that is `apply-form.tsx`'s
+real layout. (An earlier draft of this plan took the order from the *admin* walk-in form, which
+differs; the public form is the one to mirror.)
+
+`apply-form.tsx`'s receipt also carries a "What happens next" numbered list. Mirror the block, but
+**not** its wording — its steps are about pickup and requirements, which do not exist for a
+complaint. Use:
+
+```
+1. Barangay staff log and review your report.
+2. The Lupong Tagapamayapa may contact you to arrange mediation.
+3. Track your ticket number anytime to see its status.
+```
 
 Consent checkbox copy:
 

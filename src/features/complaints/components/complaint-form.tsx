@@ -130,7 +130,7 @@ export function ComplaintForm() {
     <form onSubmit={handleSubmit} noValidate className="space-y-8">
       <Card className="space-y-5 rounded-3xl p-8">
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="First Name" htmlFor="complaint-first-name">
+          <Field label="First name" htmlFor="complaint-first-name">
             <Input
               id="complaint-first-name"
               value={values.firstName}
@@ -138,7 +138,7 @@ export function ComplaintForm() {
               autoComplete="given-name"
             />
           </Field>
-          <Field label="Last Name" htmlFor="complaint-last-name">
+          <Field label="Last name" htmlFor="complaint-last-name">
             <Input
               id="complaint-last-name"
               value={values.lastName}
@@ -147,8 +147,17 @@ export function ComplaintForm() {
             />
           </Field>
         </div>
+        <Field label="Purok / street address" htmlFor="complaint-address">
+          <Input
+            id="complaint-address"
+            placeholder="Purok 1, Barangay San Fernando"
+            value={values.address}
+            onChange={(event) => set("address", event.target.value)}
+            autoComplete="street-address"
+          />
+        </Field>
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Contact Number" htmlFor="complaint-contact">
+          <Field label="Contact number" htmlFor="complaint-contact">
             <Input
               id="complaint-contact"
               type="tel"
@@ -168,15 +177,6 @@ export function ComplaintForm() {
             />
           </Field>
         </div>
-        <Field label="Address" htmlFor="complaint-address">
-          <Input
-            id="complaint-address"
-            placeholder="Purok 1, Barangay San Fernando"
-            value={values.address}
-            onChange={(event) => set("address", event.target.value)}
-            autoComplete="street-address"
-          />
-        </Field>
         <Field label="Person complained about (optional)" htmlFor="complaint-respondent">
           <Input
             id="complaint-respondent"
@@ -185,7 +185,7 @@ export function ComplaintForm() {
             onChange={(event) => set("respondent", event.target.value)}
           />
         </Field>
-        <Field label="Date of Incident" htmlFor="complaint-incident-date">
+        <Field label="Date of incident" htmlFor="complaint-incident-date">
           <Input
             id="complaint-incident-date"
             type="date"
