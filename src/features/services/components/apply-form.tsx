@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { CheckCircle2, Copy } from "lucide-react";
 import type { PublicApplicationValues } from "@/types";
@@ -36,6 +36,7 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
   // cannot stop two clicks landing in the same tick — that would file the
   // resident two tickets for one application. This ref closes that window.
   const submitting = useRef(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const set = <K extends keyof PublicApplicationValues>(key: K, value: PublicApplicationValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -59,12 +60,15 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
     });
   }
 
+  useEffect(() => () => clearTimeout(copyTimer.current), []);
+
   async function copyTicket() {
     if (!ticketNo) return;
     try {
       await navigator.clipboard.writeText(ticketNo);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard permission denied — the number is on screen to copy by hand.
     }
@@ -94,7 +98,7 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
             className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-brand-700 hover:underline"
           >
             <Copy className="h-4 w-4" aria-hidden="true" />
-            {copied ? "Copied" : "Copy number"}
+            <span aria-live="polite">{copied ? "Copied" : "Copy number"}</span>
           </button>
         </div>
         <div className="mb-6 rounded-2xl border border-ink-200 bg-ink-50 p-6">
@@ -128,8 +132,8 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
             Bring these when you claim your {serviceTitle}
           </p>
           <ul className="space-y-2 text-sm text-ink-600">
-            {requirements.map((requirement) => (
-              <li key={requirement} className="flex items-start gap-2">
+            {requirements.map((requirement, index) => (
+              <li key={`${index}-${requirement}`} className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" aria-hidden="true" />
                 <span>{requirement}</span>
               </li>

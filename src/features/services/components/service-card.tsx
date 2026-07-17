@@ -30,8 +30,8 @@ export function ServiceCard({ service }: ServiceCardProps) {
         triggerClassName={isDanger ? "text-danger" : "text-ink-900"}
       >
         <ul className="space-y-2 text-sm text-ink-600">
-          {service.requirements.map((requirement) => (
-            <li key={requirement} className="flex items-start gap-2">
+          {service.requirements.map((requirement, index) => (
+            <li key={`${index}-${requirement}`} className="flex items-start gap-2">
               <RequirementIcon
                 className={cn(
                   "mt-0.5 h-4 w-4 shrink-0",

@@ -18,6 +18,18 @@ const LOOKUP_WINDOW_MS = 10 * 60 * 1000;
 const NOT_FOUND = "We could not find that ticket. Check the number and the last name you used.";
 
 /**
+ * Compare surnames the way a resident expects: case- and whitespace-insensitive,
+ * and NFC-normalised. That last part is not academic here — "Peña" and "Nuñez"
+ * are ordinary Ilocano surnames, and an ñ typed on one keyboard can arrive
+ * decomposed (n + combining tilde) while the stored one is composed. The two are
+ * the same name and must match; without normalising, the real owner is locked out.
+ */
+function sameSurname(a: string, b: string): boolean {
+  const normalize = (value: string) => value.trim().normalize("NFC").toLocaleLowerCase("en-US");
+  return normalize(a) === normalize(b);
+}
+
+/**
  * Public ticket lookup. Requires the ticket number AND a matching last name
  * (spec §3) — the number alone is guessable. Rate-limited against enumeration.
  * Plan 2C: query the tickets_view union here instead and widen `type`.
@@ -54,7 +66,7 @@ export async function lookupTicket(ticketNo: string, lastName: string): Promise<
   }
   // One message for "no such ticket" and "wrong name" alike — never confirm a
   // ticket exists to someone who cannot name its owner.
-  if (!data || data.last_name.trim().toLowerCase() !== surname.toLowerCase()) {
+  if (!data || !sameSurname(data.last_name, surname)) {
     return { error: NOT_FOUND, ticket: null };
   }
 
