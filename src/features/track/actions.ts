@@ -1,8 +1,8 @@
 "use server";
 
-import type { TicketLookupResult } from "@/types";
+import type { TicketKind, TicketLookupResult, TicketStatus } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { toManilaDate } from "@/lib/format";
+import { formatDate, toManilaDate } from "@/lib/format";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 
 export interface LookupResult {
@@ -32,7 +32,9 @@ function sameSurname(a: string, b: string): boolean {
 /**
  * Public ticket lookup. Requires the ticket number AND a matching last name
  * (spec §3) — the number alone is guessable. Rate-limited against enumeration.
- * Plan 2C: query the tickets_view union here instead and widen `type`.
+ * Plan 2C: resolves all four ticket kinds through the `tickets_view` union;
+ * each kind's extras are loaded separately by `loadExtras` so a complaint's
+ * narrative, respondent and location can never leak into the public result.
  */
 export async function lookupTicket(ticketNo: string, lastName: string): Promise<LookupResult> {
   const ip = await requestIp();
@@ -47,16 +49,13 @@ export async function lookupTicket(ticketNo: string, lastName: string): Promise<
   }
 
   const admin = createSupabaseAdminClient();
-  // Fetch by ticket number alone (it is unique), then match the last name here.
-  // The name deliberately does NOT go into the query: `ilike` would read it as
-  // a LIKE pattern, so a lone "%" — or "*", which PostgREST rewrites to "%" —
-  // would match every surname and turn a guessed ticket number into a leak.
-  // A plain comparison has no pattern semantics to get wrong.
+  // Resolve the ticket through the union view: the prefix already tells the kinds
+  // apart, and this keeps one round-trip for the privacy gate regardless of type.
+  // Fetch by ticket number alone (it is unique), then match the last name here —
+  // see the note above sameSurname for why the name never goes into the query.
   const { data, error } = await admin
-    .from("applications")
-    .select(
-      "ticket_no, first_name, last_name, status, remarks, created_at, reviewed_at, released_at, services (title, requirements)",
-    )
+    .from("tickets_view")
+    .select("ticket_no, kind, first_name, last_name, status, remarks, created_at, reviewed_at, closed_at")
     .eq("ticket_no", ticket)
     .maybeSingle();
 
@@ -64,29 +63,93 @@ export async function lookupTicket(ticketNo: string, lastName: string): Promise<
     console.error("lookupTicket failed:", error.message);
     return { error: "Something went wrong. Please try again.", ticket: null };
   }
-  // One message for "no such ticket" and "wrong name" alike — never confirm a
-  // ticket exists to someone who cannot name its owner.
+  // One message for "no such ticket" and "wrong name" alike.
   if (!data || !sameSurname(data.last_name, surname)) {
     return { error: NOT_FOUND, ticket: null };
   }
 
-  const service = data.services as unknown as { title: string; requirements: string[] } | null;
+  const kind = data.kind as TicketKind;
+  const base = {
+    kind,
+    ticketNo: data.ticket_no,
+    applicantName: `${data.first_name} ${data.last_name}`,
+    status: data.status as TicketStatus,
+    submittedAt: toManilaDate(data.created_at),
+    reviewedAt: data.reviewed_at ? toManilaDate(data.reviewed_at) : null,
+    closedAt: data.closed_at ? toManilaDate(data.closed_at) : null,
+    remarks: data.remarks,
+    requirements: [] as string[],
+    scheduleNote: null as string | null,
+  };
 
-  return {
-    error: null,
-    ticket: {
-      kind: "application",
-      ticketNo: data.ticket_no,
-      type: "Certificate Application",
-      serviceTitle: service?.title ?? "Barangay document",
-      requirements: service?.requirements ?? [],
-      applicantName: `${data.first_name} ${data.last_name}`,
-      status: data.status as TicketLookupResult["status"],
-      submittedAt: toManilaDate(data.created_at),
-      reviewedAt: data.reviewed_at ? toManilaDate(data.reviewed_at) : null,
-      closedAt: data.released_at ? toManilaDate(data.released_at) : null,
-      remarks: data.remarks,
+  const extras = await loadExtras(admin, kind, ticket);
+  return { error: null, ticket: { ...base, ...extras } };
+}
+
+type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
+
+/**
+ * Per-kind extras for a ticket that has already passed the surname gate.
+ * Complaints get NOTHING beyond their label: the narrative, respondent and
+ * location must never reach a public page (spec §3 — complaints show status
+ * only). That is enforced by this function not asking for them.
+ */
+async function loadExtras(
+  admin: AdminClient,
+  kind: TicketKind,
+  ticketNo: string,
+): Promise<Pick<TicketLookupResult, "type" | "serviceTitle" | "requirements" | "scheduleNote">> {
+  if (kind === "complaint") {
+    return {
+      type: "Incident Report",
+      serviceTitle: "Incident report",
+      requirements: [],
       scheduleNote: null,
-    },
+    };
+  }
+
+  if (kind === "appointment") {
+    const { data } = await admin
+      .from("appointments")
+      .select("purpose, confirmed_date, confirmed_period")
+      .eq("ticket_no", ticketNo)
+      .maybeSingle();
+    return {
+      type: "Appointment",
+      serviceTitle: data?.purpose ?? "Appointment",
+      requirements: [],
+      scheduleNote:
+        data?.confirmed_date && data.confirmed_period
+          ? `${formatDate(data.confirmed_date)} · ${data.confirmed_period === "am" ? "Morning (8:00 AM – 12:00 NN)" : "Afternoon (1:00 PM – 5:00 PM)"}`
+          : null,
+    };
+  }
+
+  if (kind === "assistance") {
+    const { data } = await admin
+      .from("assistance_requests")
+      .select("assistance_categories (label)")
+      .eq("ticket_no", ticketNo)
+      .maybeSingle();
+    const category = data?.assistance_categories as unknown as { label: string } | null;
+    return {
+      type: "Assistance Request",
+      serviceTitle: category?.label ?? "Assistance request",
+      requirements: [],
+      scheduleNote: null,
+    };
+  }
+
+  const { data } = await admin
+    .from("applications")
+    .select("services (title, requirements)")
+    .eq("ticket_no", ticketNo)
+    .maybeSingle();
+  const service = data?.services as unknown as { title: string; requirements: string[] } | null;
+  return {
+    type: "Certificate Application",
+    serviceTitle: service?.title ?? "Barangay document",
+    requirements: service?.requirements ?? [],
+    scheduleNote: null,
   };
 }
