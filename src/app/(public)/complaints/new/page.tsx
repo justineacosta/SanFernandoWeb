@@ -27,7 +27,10 @@ export default async function NewComplaintPage() {
           </div>
         </Section>
       ) : (
-        <ApplyUnavailable title="Incident reports" />
+        <ApplyUnavailable
+          title="Online incident reporting"
+          body="The barangay is not accepting incident reports online right now. You can still file one in person at the barangay hall, where the Lupong Tagapamayapa can take your report directly."
+        />
       )}
     </>
   );

@@ -2140,12 +2140,20 @@ export default async function NewAssistancePage() {
           </div>
         </Section>
       ) : (
-        <ApplyUnavailable title="Assistance requests" />
+        <ApplyUnavailable
+          title="Requesting assistance"
+          body="The barangay is not accepting assistance requests online right now. You can still make one in person at the barangay hall."
+        />
       )}
     </>
   );
 }
 ```
+
+`ApplyUnavailable`'s `title` is the subject of "… is temporarily unavailable", so it must read as a
+singular phrase — "Assistance requests is temporarily unavailable" is why the wording above is
+"Requesting assistance". Its `body` prop (added in Task 3) overrides copy that otherwise talks about
+applying for a document, which does not fit this flow.
 
 - [ ] **Step 5: Verify**
 
