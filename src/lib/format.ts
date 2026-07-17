@@ -47,3 +47,9 @@ export function toManilaDate(timestamp: string): string {
 export function manilaToday(): string {
   return toManilaDate(new Date().toISOString());
 }
+
+/** One year from today in Manila (YYYY-MM-DD) — the far bound for a requested date. */
+export function manilaTodayNextYear(): string {
+  const [year, month, day] = manilaToday().split("-");
+  return `${Number(year) + 1}-${month}-${day}`;
+}
