@@ -144,6 +144,43 @@
 > types they used from `src/types/index.ts`. `ApplicationReviewValues` remains — the
 > review actions and drawer still use it.
 
+> **Updated 2026-07-17 (ticketing flows):** three more resident request flows join
+> applications as DB-backed end to end (plan:
+> `docs/superpowers/plans/2026-07-17-ticketing-flows-2c.md`). New tables
+> (`supabase/migrations/0006_ticketing_flows.sql`): **`appointments`** (`APT-` prefix),
+> **`complaints`** (`CMP-`), **`assistance_requests`** (`AST-`, referencing a new
+> **`assistance_categories`** SuperAdmin-managed picker seeded with medical/financial/
+> burial/calamity/other). All three reuse `next_ticket_number()` and, like
+> `applications`, have RLS enabled with **no policies at all** — every read and write
+> goes through the service-role client after an explicit permission check in code. A
+> new **`tickets_view`** (`union all` over all four ticket tables, common columns
+> only — a complaint's narrative, respondent, and location are structurally absent
+> from it, not merely filtered) backs `/track`; it is declared
+> `with (security_invoker = true)` because a default Postgres view runs with its
+> owner's privileges and would bypass the tables' RLS, handing anon every ticket in
+> the barangay — `security_invoker` makes it run as the querying role instead, so
+> the no-policy RLS keeps denying anon and authenticated (a `revoke` from both is
+> belt-and-braces on top). Three new public routes: `/appointments/new` (preferred
+> date + AM/PM only — there is no slot calendar, so staff confirm that slot or
+> propose a different one), `/complaints/new` (its own form, gated by the
+> `blotter-complaints` service row's `is_available` toggle — the same row whose
+> `tone === "danger"` already routed its service-card CTA away from
+> `/services/apply/[slug]`), and `/assistance/new` (category picker
+> sourced from `assistance_categories`; shows an unavailable notice if every
+> category is retired). Each ends in an on-screen ticket-number receipt only —
+> **no email is sent** (that remains plan 2D, blocked on a Resend account). Three
+> new admin queues mirror `/admin/applications`'s pattern: `/admin/appointments`
+> (confirm/reschedule/decline, then mark completed; permission
+> `process-appointments`), `/admin/complaints` (take up for mediation, then resolve
+> or dismiss; permission `handle-complaints`), `/admin/assistance` (take up for
+> review, then grant or decline; permission `handle-assistance`) — all three also
+> support walk-in encoding. A new **SuperAdmin category editor**
+> (`AssistanceCategoriesPanel`) sits at the bottom of `/admin/services`: add,
+> rename, reorder, and retire categories via `is_active` (never delete — past
+> requests keep their category label). `/track` now resolves all four ticket kinds
+> through `tickets_view`; a complaint result shows **status only** — its narrative,
+> respondent, and location never reach the public page.
+
 ---
 
 ## 1. Current State
@@ -166,8 +203,11 @@
 | `/about` | About Us | `MissionVisionSection`, `CaptainMessageSection`, `HistorySection`, `MilestonesSection`, `JoinCommunitySection` |
 | `/officials` | Officials directory | `LeadershipDirectory`, `ActionCenterBanner` |
 | `/services` | Services directory | `ServicesGrid` (accordion requirements), `WasteScheduleSection`, `HelpSection` |
-| `/services/apply/[slug]` | Certificate application form | `ApplyForm` (DB-backed via `getApplyService()`); `tone === "primary"` services only — `tone === "danger"` (`blotter-complaints`) renders `ApplyUnavailable` and stays inert until plan 2C's complaint flow |
-| `/track` | Ticket status lookup | `TrackLookup` — ticket number + last name, DB-backed via `lookupTicket()` |
+| `/services/apply/[slug]` | Certificate application form | `ApplyForm` (DB-backed via `getApplyService()`); serves `tone === "primary"` services only — `getApplyService()` returns `null` for `tone === "danger"` (`blotter-complaints`), so this route 404s for it; its service-card CTA now links straight to `/complaints/new` (plan 2C) instead |
+| `/appointments/new` | Appointment request form | `AppointmentForm` — preferred date + AM/PM, DB-backed; ends in an on-screen ticket receipt |
+| `/complaints/new` | Incident report form | `ComplaintForm`, gated by the `blotter-complaints` service row's `is_available` toggle; renders `ApplyUnavailable` when off |
+| `/assistance/new` | Social-service assistance form | `AssistanceForm` — category picker sourced from `assistance_categories`; renders `ApplyUnavailable` if every category is retired |
+| `/track` | Ticket status lookup | `TrackLookup` — ticket number + last name, DB-backed via `lookupTicket()`; resolves all four ticket kinds through `tickets_view` (a complaint result shows status only) |
 | `/announcements` | News & Announcements | `NewsFeed`, `NewsSidebar` (announcements, hotlines, newsletter) |
 | `/transparency` | Transparency portal | `TransparencyHero`, `DisclosureGrid`, `LatestUploadsSection`, `LegislativeSection`, `FoiSection` |
 | `/contact` | Contact | `ContactDetails`, `InquiryForm`, `MapSection` |
@@ -177,8 +217,11 @@
 | Route | Page | Composed from |
 | --- | --- | --- |
 | `/admin` | Create Content hub | `ContentHub` → `ContentTypeCard` ×3, `RecentDrafts`, `PublishingActivity` |
-| `/admin/services` | Services Management | `ServicesManager` (table + drawer editor) |
+| `/admin/services` | Services Management | `ServicesManager` (table + drawer editor) + `AssistanceCategoriesPanel` (SuperAdmin add/rename/reorder/retire the assistance category picker) |
 | `/admin/applications` | Certificate Applications | `ApplicationsManager` (stat cards + queue + review/create drawers) |
+| `/admin/appointments` | Appointments | `AppointmentsManager` (confirm/reschedule/decline, mark completed, walk-in encoding) |
+| `/admin/complaints` | Incident Reports | `ComplaintsManager` (take up for mediation, resolve/dismiss, walk-in encoding) |
+| `/admin/assistance` | Assistance Requests | `AssistanceManager` (take up for review, grant/decline, walk-in encoding) |
 | `/admin/legislative` | Ordinance & Resolution | `LegislativeManager` (stat cards + directory + drawer) |
 | `/admin/events` | Event Calendar | `EventsManager` (schedule + `MiniCalendar` + engagement) |
 | `/admin/news` | News & Announcements | `NewsManager` (card grid + filters + drawer) |
@@ -244,6 +287,7 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | `AdminEventRecord`, `AdminNewsRecord`, `AdminLegislativeRecord`, `AdminTeamMember`, `*FormValues` (events/news/legislative) | Admin portal sections still on mock data | Envelope types wrapping the public entities + drawer-form body shapes — the write-side API contract; statuses (`AdminContentStatus`, `AdminLegislativeStatus`, `AdminEventStatus`) map to content-workflow columns |
 | `AdminServiceRow` | `/admin/services` | DB-backed (`services` table, `supabase/migrations/0004_services.sql`) — replaced the old `AdminServiceRecord` mock envelope; icon travels as `iconName` |
 | `ApplicationRow`, `ApplicationStatus`, `PublicApplicationValues`, `WalkInApplicationValues`, `ApplicationReviewValues`, `TicketLookupResult` | `/services/apply/[slug]`, `/track`, `/admin/applications` | DB-backed (`applications` table, `supabase/migrations/0005_applications.sql`) — replaced the old `AdminApplicationRecord`/`ApplicationFormValues` mocks; status flow `pending → approved → released`, or `pending → rejected`; `PublicApplicationValues`/`WalkInApplicationValues` are the submission bodies (online vs. walk-in), `ApplicationReviewValues` is the approve/reject PATCH body |
+| `AppointmentRow`/`ComplaintRow`/`AssistanceRow`, `AssistanceCategoryRow`, `Public*Values`/`WalkIn*Values`, `*ReviewValues`/`ComplaintCloseValues`/`AssistanceDecisionValues`, `TicketKind` | `/appointments/new`, `/complaints/new`, `/assistance/new`, `/admin/appointments`, `/admin/complaints`, `/admin/assistance`, `/admin/services`, `/track` | DB-backed (`appointments`/`complaints`/`assistance_requests`/`assistance_categories` tables, `supabase/migrations/0006_ticketing_flows.sql`) — no mock precursor, built directly against the DB; status flows are `pending/received → confirmed/under-review → completed/resolved/dismissed/granted`, each with a `declined`/`rejected`-style negative branch; `TicketLookupResult` (shared with applications, see the row above) is what `/track` renders — a complaint's `narrative`/`respondent`/`location` are never loaded into it |
 
 ⚠️ **Icon fields**: several types carry `icon: LucideIcon` (a React component). An API can't
 return components — return an icon name (e.g. `"file-text"`) and add a small
@@ -322,14 +366,24 @@ The admin **UI now exists in full** (`/admin` content hub + interactive mock scr
    walk-ins. Status flow is `pending → approved → released`, or `rejected` — a `released`
    step this item did not anticipate. Remarks are required on rejection as proposed, and the
    reviewer identity is the real signed-in user, not `ADMIN_USER`.
+6. **Appointment / complaint / assistance processing** — ~~`/admin/appointments`,
+   `/admin/complaints`, and `/admin/assistance` model the remaining three ticket
+   queues end-to-end~~ **BUILT 2026-07-17 — see the ticketing-flows changelog entry
+   above.** Same pattern as (5): Server Actions, service-role client, walk-in
+   encoding, real reviewer identity. **Still outstanding: emailing residents their
+   ticket number or a status update** — that is plan 2D, blocked on a Resend
+   account; today every flow ends in an on-screen receipt only.
 
 Citizen accounts are **not** required by any current UI.
 
 ### Dangling CTAs that imply future endpoints
 ~~"Apply Online" per service~~ (**live since 2026-07-17** — links to `/services/apply/[slug]`
-on `tone === "primary"` services), "Set an Appointment", "File a Complaint" (blotter — the
-`tone === "danger"` CTA, now rendered **disabled** with a "file in person" note until plan 2C
-builds the flow), "Subscribe to Alerts", "Register as Resident", "Submit FOI Request",
+on `tone === "primary"` services), ~~"Set an Appointment"~~ (**live since 2026-07-17** —
+links to `/appointments/new`), ~~"File a Complaint"~~ (**live since 2026-07-17** — the
+blotter `tone === "danger"` CTA now links to `/complaints/new`, gated by the
+`blotter-complaints` service row's `is_available` toggle), ~~"Social Services
+Assistance"~~ / ~~"Request Assistance"~~ (**live since 2026-07-17** — links to
+`/assistance/new`), "Subscribe to Alerts", "Register as Resident", "Submit FOI Request",
 "Download All Forms", per-article "Read More". The rest still link to `/services`,
 `/contact`, or `#`. Each is a candidate feature — none has UI beyond the button.
 
