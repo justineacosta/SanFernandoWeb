@@ -1680,7 +1680,11 @@ git commit -m "feat(admin): photo upload actions (gallery cap-3 + single image) 
 
 ---
 
-## Task 11: Admin news page — News/Announcements tabs, editors, uploader, categories panel
+## Task 12: Admin news page — News/Announcements tabs, editors, uploader, categories panel
+
+> **Numbering note:** executed as Task 12, after announcements (Task 11 below), because the
+> Announcements tab depends on the announcement actions. The section order in this file is
+> unchanged; only the numbers were corrected to match execution.
 
 This is the largest task; it wires Tasks 8–10 into UI. Split into the uploader (client), the two forms, the manager, and the page.
 
@@ -1697,7 +1701,7 @@ This is the largest task; it wires Tasks 8–10 into UI. Split into the uploader
 - Consumes: everything from Tasks 8–10; `getNewsArticleForEdit`; `listAnnouncements`/announcement actions (Task 12 — **dependency**, see note); `Drawer`, `Toast`, `Field`/`Input`/`Select`/`Textarea`/`Checkbox`, `StatusChip`, `AdminPagination`, `ToggleSwitch`.
 - Produces: the fully DB-backed `/admin/news` with News and Announcements tabs + the SuperAdmin `NewsCategoriesPanel`.
 
-> **Ordering note:** the Announcements tab needs Task 12's `announcement-form.tsx` + actions/queries. Reorder if executing strictly: do **Task 12 before Task 11's Announcements tab**. The News tab and page shell depend only on Tasks 8–10. A reviewer may accept Task 11 in two commits (News tab, then Announcements tab after Task 12).
+> **Ordering note (resolved):** the Announcements tab needs the announcement actions/queries, so those were executed FIRST as Task 11; this page assembly is Task 12. The News tab and page shell depend only on Tasks 8–10.
 
 - [ ] **Step 1: `news-photo-uploader.tsx` (client).** A client component taking `articleId: string` and initial `photos: NewsPhoto[]`. Renders a drag-drop dropzone (`onDragOver`/`onDrop` + a hidden `<input type="file" accept="image/*" multiple>`), thumbnail previews for existing photos with **Remove** and **move up/down** buttons, client-side validation (type in `ALLOWED_IMAGE_TYPES`, size ≤ `MAX_IMAGE_BYTES`, count ≤ 3) with a human message, and calls `uploadNewsPhotos`/`reorderNewsPhotos`/`removeNewsPhoto` via `useTransition`. On upload success it replaces local state with the returned `photos`. Full code:
 
@@ -1922,7 +1926,7 @@ export function SingleImageUploader({
 }
 ```
 
-- [ ] **Step 3: `announcement-form.tsx`** — a sibling drawer editor for announcements: `Field`s for title, date (`type="date"`), excerpt, an `urgent` `Checkbox`, a `<SingleImageUploader folder="announcements" …/>` bound to `imageSrc`/`imageAlt`, and the same status controls calling Task 12's announcement actions. The uploaded `src` is persisted by `saveAnnouncement` when the form submits.
+- [ ] **Step 3: `announcement-form.tsx`** — a sibling drawer editor for announcements: `Field`s for title, date (`type="date"`), excerpt, an `urgent` `Checkbox`, a `<SingleImageUploader folder="announcements" …/>` bound to `imageSrc`/`imageAlt`, and the same status controls calling Task 11's announcement actions. The uploaded `src` is persisted by `saveAnnouncement` when the form submits.
 
 - [ ] **Step 4: Rewrite `news-manager.tsx`** to be DB-backed and tabbed. It takes `articles: AdminNewsArticleRow[]`, `announcements: AdminAnnouncementRow[]`, `categories: NewsCategoryRow[]`. A tab switch (`News` / `Announcements`) selects which list renders; keep the existing card grid, search, and `AdminPagination` (client-side, `PAGE_SIZE = 8`, per 2C decision 8 — low volume). The status filter gains `In Review` and `Archived` options. The drawer hosts `NewsForm` or `AnnouncementForm` by active tab. Replace the fake-save toast with the real action results (error → toast the message; success → close drawer, toast "Saved"). Cards read `record.status`, `record.coverSrc`, `record.category`, etc. from the new row types.
 
@@ -1973,7 +1977,7 @@ git commit -m "feat(admin): DB-backed news/announcements manager with photo uplo
 
 ---
 
-## Task 12: Announcements — admin queries & actions
+## Task 11: Announcements — admin queries & actions
 
 **Files:**
 - Create: `src/features/admin/queries/announcements.ts`
@@ -2009,7 +2013,7 @@ git commit -m "feat(admin): announcement queries and workflow actions"
 **Interfaces:**
 - Produces: `listEvents(): Promise<AdminEventRow[]>`, `getEventForEdit(id)`, actions `saveEvent(id, values)` + the four transitions; DB-backed `EventsManager`, `EventForm`, and events page.
 
-**Context:** Mirror Tasks 9/11 for events. `EventValues` already defined (Task 2). The `event-form.tsx` keeps its current fields (title, category via `EVENT_CATEGORY_LABELS`, date, start/end time, venue, capacity, description) and adds `<SingleImageUploader folder="events" …/>` bound to `coverSrc`/`coverAlt` (the same component the announcement form uses, from Task 11). `EventsManager` mirrors the tabbed news manager's DB list + status filter/transitions (single list, no tabs). The events page gates `manage-news` and passes `listEvents()`.
+**Context:** Mirror Tasks 9/11 for events. `EventValues` already defined (Task 2). The `event-form.tsx` keeps its current fields (title, category via `EVENT_CATEGORY_LABELS`, date, start/end time, venue, capacity, description) and adds `<SingleImageUploader folder="events" …/>` bound to `coverSrc`/`coverAlt` (the same component the announcement form uses, from Task 12). `EventsManager` mirrors the tabbed news manager's DB list + status filter/transitions (single list, no tabs). The events page gates `manage-news` and passes `listEvents()`.
 
 - [ ] **Step 1: Write `queries/events.ts`** (select all event columns, map to `AdminEventRow`; `coverSrc = cover_src ? photoUrl(cover_src) : null`).
 - [ ] **Step 2: Write `actions/events.ts`** (mirror `actions/news.ts`: `saveEvent` upsert with zod `{ title min 3, category enum, eventDate min 1, startTime min 1, venue min 1, endTime string, capacity number nullable, description string, coverSrc nullable, coverAlt string }`; the four transitions + `publishEvent` requiring title/date/start/venue and setting `published_at` on first publish). Permission `"manage-news"`; entity `"event"`; revalidate `/admin/events`, `/`.
