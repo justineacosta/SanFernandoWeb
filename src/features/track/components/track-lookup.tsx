@@ -69,6 +69,14 @@ export function TrackLookup({ initialTicket = "" }: { initialTicket?: string }) 
           <p className="mb-8 text-ink-600">
             {ticket.serviceTitle} · {ticket.applicantName}
           </p>
+          {ticket.scheduleNote ? (
+            <div className="mb-6 rounded-2xl bg-brand-100/50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">
+                Your confirmed schedule
+              </p>
+              <p className="mt-1 font-semibold text-ink-900">{ticket.scheduleNote}</p>
+            </div>
+          ) : null}
           <TicketTimeline ticket={ticket} />
           {ticket.status === "approved" && ticket.requirements.length > 0 ? (
             <div className="mt-8 rounded-2xl border border-brand-200 bg-brand-100/50 p-6">

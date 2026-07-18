@@ -8,3 +8,6 @@ export { ServicesManager } from "./components/services-manager";
 export { EventsManager } from "./components/events-manager";
 export { SettingsPanel } from "./components/settings-panel";
 export { ApplicationsManager } from "./components/applications-manager";
+export { ComplaintsManager } from "./components/complaints-manager";
+export { AppointmentsManager } from "./components/appointments-manager";
+export { AssistanceManager } from "./components/assistance-manager";

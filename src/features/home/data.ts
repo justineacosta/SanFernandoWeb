@@ -52,13 +52,13 @@ export const HERO_SLIDES: HeroSlide[] = [
 export const QUICK_SERVICES: QuickService[] = [
   { title: "Barangay Clearance", ctaLabel: "Apply Online", href: "/services", icon: FileText },
   { title: "Certificate Requests", ctaLabel: "Request Now", href: "/services", icon: FileBadge },
-  { title: "Set an Appointment", ctaLabel: "Book Now", href: "/contact", icon: CalendarDays },
-  { title: "File a Complaint", ctaLabel: "Submit Online", href: "/services", icon: FileEdit },
+  { title: "Set an Appointment", ctaLabel: "Book Now", href: "/appointments/new", icon: CalendarDays },
+  { title: "File a Complaint", ctaLabel: "Submit Online", href: "/complaints/new", icon: FileEdit },
   { title: "Business Permit", ctaLabel: "Apply Now", href: "/services", icon: Store },
   {
     title: "Social Services Assistance",
-    ctaLabel: "Learn More",
-    href: "/services",
+    ctaLabel: "Request Now",
+    href: "/assistance/new",
     icon: HeartHandshake,
   },
 ];

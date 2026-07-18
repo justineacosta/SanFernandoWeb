@@ -212,6 +212,20 @@ export type AdminLegislativeStatus = "active" | "under-review" | "archived";
 export type AdminEventStatus = "published" | "planning";
 /** Spec §3 flow: pending → approved (ready for pickup) → released, or rejected. */
 export type ApplicationStatus = "pending" | "approved" | "released" | "rejected";
+/** Spec §3 flow: pending → confirmed (final date/time) → completed, or declined. */
+export type AppointmentStatus = "pending" | "confirmed" | "completed" | "declined";
+/** Spec §3 flow: received → under review → resolved, or dismissed. */
+export type ComplaintStatus = "received" | "under-review" | "resolved" | "dismissed";
+/** Spec §3 flow: pending → under review → granted, or declined. */
+export type AssistanceStatus = "pending" | "under-review" | "granted" | "declined";
+/** Any status a ticket of any kind can hold. */
+export type TicketStatus =
+  | ApplicationStatus
+  | AppointmentStatus
+  | ComplaintStatus
+  | AssistanceStatus;
+/** Which table a ticket number belongs to. Matches `tickets_view.kind`. */
+export type TicketKind = "application" | "appointment" | "complaint" | "assistance";
 export type EventCategory =
   | "town-hall"
   | "health-drive"
@@ -226,7 +240,10 @@ export type AdminStatus =
   | AdminServiceStatus
   | AdminLegislativeStatus
   | AdminEventStatus
-  | ApplicationStatus;
+  | ApplicationStatus
+  | AppointmentStatus
+  | ComplaintStatus
+  | AssistanceStatus;
 
 /** Serializable services row for the admin manager (client boundary: icon travels as a name string). */
 export interface AdminServiceRow {
@@ -474,22 +491,183 @@ export interface ApplicationRow {
 }
 
 /**
- * A resident-visible ticket. Normalized on purpose: plan 2C adds appointments,
- * complaints and assistance behind this same shape (complaints will omit the
- * narrative — /track shows their status only).
+ * A resident-visible ticket, normalized across all four kinds. Everything here
+ * is safe to render publicly — in particular a complaint's narrative and
+ * respondent are NEVER loaded into this shape (spec §3: complaints show status
+ * only). `closedAt` is the stage-2 timestamp under whatever each table calls it
+ * (released_at / completed_at / closed_at / decided_at).
  */
 export interface TicketLookupResult {
+  kind: TicketKind;
   ticketNo: string;
   /** Human label for the ticket kind, e.g. "Certificate Application". */
   type: string;
+  /** The service, category, or flow name shown under the ticket number. */
   serviceTitle: string;
-  /** Shown on approval — "bring these when you claim". */
+  /** Applications only — "bring these when you claim". Empty for other kinds. */
   requirements: string[];
   applicantName: string;
-  status: ApplicationStatus;
+  status: TicketStatus;
   /** Manila calendar dates (YYYY-MM-DD). */
   submittedAt: string;
   reviewedAt: string | null;
-  releasedAt: string | null;
+  closedAt: string | null;
   remarks: string | null;
+  /** Appointments only: the confirmed schedule once staff set it, e.g. "20 July 2026, morning". */
+  scheduleNote: string | null;
+}
+
+/* ── Ticketing flows 2C: appointments, complaints, assistance ─────────── */
+
+/** Fields every public ticket form collects (spec §3 "common form fields"). */
+export interface PublicTicketValues {
+  firstName: string;
+  lastName: string;
+  address: string;
+  contactNumber: string;
+  email: string;
+  /** Data Privacy Act consent — must be true to submit (persisted). */
+  consent: boolean;
+}
+
+export type AppointmentPeriod = "am" | "pm";
+
+export interface PublicAppointmentValues extends PublicTicketValues {
+  purpose: string;
+  /** Manila calendar date (YYYY-MM-DD) from a native date input. */
+  preferredDate: string;
+  preferredPeriod: AppointmentPeriod;
+}
+export type WalkInAppointmentValues = PublicAppointmentValues;
+
+export interface PublicComplaintValues extends PublicTicketValues {
+  /** Optional — a resident may report an incident without naming anyone. */
+  respondent: string;
+  incidentDate: string;
+  location: string;
+  narrative: string;
+}
+export type WalkInComplaintValues = PublicComplaintValues;
+
+export interface PublicAssistanceValues extends PublicTicketValues {
+  categoryId: string;
+  details: string;
+}
+export type WalkInAssistanceValues = PublicAssistanceValues;
+
+/** Every public ticket action returns this. Mirrors SubmitApplicationResult. */
+export interface SubmitTicketResult {
+  error: string | null;
+  /** e.g. "CMP-2026-00001" — present only on success. */
+  ticketNo: string | null;
+}
+
+/** Queue row for the appointments manager: flat and serializable. */
+export interface AppointmentRow {
+  id: string;
+  ticketNo: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  contactNumber: string;
+  email: string | null;
+  purpose: string;
+  /** Manila calendar dates (YYYY-MM-DD). */
+  preferredDate: string;
+  preferredPeriod: AppointmentPeriod;
+  confirmedDate: string | null;
+  confirmedPeriod: AppointmentPeriod | null;
+  status: AppointmentStatus;
+  remarks: string | null;
+  reviewedByName: string | null;
+  completedByName: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+  completedAt: string | null;
+  source: "online" | "walk-in";
+}
+
+/** Queue row for the complaints manager. Staff-only: carries the narrative. */
+export interface ComplaintRow {
+  id: string;
+  ticketNo: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  contactNumber: string;
+  email: string | null;
+  respondent: string | null;
+  incidentDate: string;
+  location: string;
+  narrative: string;
+  status: ComplaintStatus;
+  remarks: string | null;
+  reviewedByName: string | null;
+  closedByName: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+  closedAt: string | null;
+  source: "online" | "walk-in";
+}
+
+/** Queue row for the assistance manager. */
+export interface AssistanceRow {
+  id: string;
+  ticketNo: string;
+  firstName: string;
+  lastName: string;
+  address: string;
+  contactNumber: string;
+  email: string | null;
+  categoryId: string;
+  categoryLabel: string;
+  details: string;
+  status: AssistanceStatus;
+  remarks: string | null;
+  reviewedByName: string | null;
+  decidedByName: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+  decidedAt: string | null;
+  source: "online" | "walk-in";
+}
+
+/** Staff decision bodies. Remarks are required on every negative outcome. */
+export interface AppointmentReviewValues {
+  status: "confirmed" | "declined";
+  /**
+   * Required when confirming, "" when declining — staff may confirm a slot other
+   * than the one the resident asked for. The action nulls both columns on a
+   * decline, so a declined row never carries a phantom schedule.
+   */
+  confirmedDate: string;
+  confirmedPeriod: AppointmentPeriod | "";
+  remarks: string;
+}
+export interface ComplaintReviewValues {
+  status: "under-review" | "dismissed";
+  remarks: string;
+}
+export interface ComplaintCloseValues {
+  status: "resolved" | "dismissed";
+  remarks: string;
+}
+export interface AssistanceReviewValues {
+  status: "under-review" | "declined";
+  remarks: string;
+}
+export interface AssistanceDecisionValues {
+  status: "granted" | "declined";
+  remarks: string;
+}
+
+/** SuperAdmin-managed picker list backing the assistance form. */
+export interface AssistanceCategoryRow {
+  id: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+export interface AssistanceCategoryValues {
+  label: string;
 }

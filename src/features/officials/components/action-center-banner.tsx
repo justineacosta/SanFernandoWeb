@@ -28,7 +28,7 @@ export function ActionCenterBanner() {
               <Phone className="h-5 w-5" aria-hidden="true" />
               Emergency Hotline: 911
             </Button>
-            <Button href="/contact" variant="outline-white" size="lg">
+            <Button href="/assistance/new" variant="outline-white" size="lg">
               Request Assistance
             </Button>
           </div>
