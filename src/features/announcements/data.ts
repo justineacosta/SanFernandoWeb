@@ -56,6 +56,6 @@ export const SIDEBAR_ANNOUNCEMENTS: Announcement[] = [
 
 export const SIDEBAR_HOTLINES = [
   { label: "National Emergency", number: "911", tone: "danger" as const },
-  { label: "Barangay Police", number: "(02) 8888-0000", tone: "secondary" as const },
-  { label: "Health Center", number: "(02) 8888-1111", tone: "secondary" as const },
+  { label: "Barangay Police", number: "(077) 888 0000", tone: "secondary" as const },
+  { label: "Health Center", number: "(077) 888 1111", tone: "secondary" as const },
 ];
