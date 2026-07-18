@@ -97,6 +97,23 @@ export async function reorderNewsPhotos(
   return { error: null };
 }
 
+export async function updateNewsPhotoAlt(photoId: string, alt: string): Promise<ActionResult> {
+  const actor = await requirePermission("manage-news");
+  const admin = createSupabaseAdminClient();
+  const { data: photo, error: readErr } = await admin
+    .from("news_photos")
+    .select("id, article_id")
+    .eq("id", photoId)
+    .maybeSingle();
+  if (readErr) return { error: "Could not update the photo description." };
+  if (!photo) return { error: "Could not update the photo description." };
+  const { error } = await admin.from("news_photos").update({ alt }).eq("id", photoId);
+  if (error) return { error: "Could not update the photo description." };
+  await recordActivity(actor, "updated news photo description", "news article", photo.article_id);
+  revalidate();
+  return { error: null };
+}
+
 export async function removeNewsPhoto(photoId: string): Promise<ActionResult> {
   const actor = await requirePermission("manage-news");
   const admin = createSupabaseAdminClient();

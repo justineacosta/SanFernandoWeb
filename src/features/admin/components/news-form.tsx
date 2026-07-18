@@ -23,7 +23,9 @@ export interface NewsEditRecord {
 interface NewsFormProps {
   record: NewsEditRecord | null;
   categories: NewsCategoryRow[];
-  onSaved: (message: string) => void;
+  /** `keepOpen` is true right after a brand-new post is first saved, so the drawer
+   * stays open and reveals the photo uploader instead of closing on the user. */
+  onSaved: (message: string, keepOpen?: boolean) => void;
   onCancel: () => void;
 }
 
@@ -85,7 +87,7 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
       }
       const wasNew = id === null;
       if (result.id) setId(result.id);
-      onSaved(wasNew ? "Draft saved." : "Post updated.");
+      onSaved(wasNew ? "Draft saved." : "Post updated.", wasNew);
     });
   }
 

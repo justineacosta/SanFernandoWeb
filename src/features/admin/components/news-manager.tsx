@@ -92,33 +92,41 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
   const openEditNews = (row: AdminNewsArticleRow) => {
     setLoadingEditId(row.id);
     startTransition(async () => {
-      const detail = await getNewsArticleForEditAction(row.id);
-      setLoadingEditId(null);
-      if (!detail) {
-        setToast("Could not load that post.");
-        return;
+      try {
+        const detail = await getNewsArticleForEditAction(row.id);
+        if (!detail) {
+          setToast("Could not load that post.");
+          return;
+        }
+        setEditingNews({ id: row.id, values: detail.values, status: detail.status, photos: detail.photos });
+        setDrawerOpen(true);
+      } finally {
+        setLoadingEditId(null);
       }
-      setEditingNews({ id: row.id, values: detail.values, status: detail.status, photos: detail.photos });
-      setDrawerOpen(true);
     });
   };
 
   const openEditAnnouncement = (row: AdminAnnouncementRow) => {
     setLoadingEditId(row.id);
     startTransition(async () => {
-      const detail = await getAnnouncementForEditAction(row.id);
-      setLoadingEditId(null);
-      if (!detail) {
-        setToast("Could not load that announcement.");
-        return;
+      try {
+        const detail = await getAnnouncementForEditAction(row.id);
+        if (!detail) {
+          setToast("Could not load that announcement.");
+          return;
+        }
+        setEditingAnnouncement({ id: row.id, values: detail.values, status: detail.status });
+        setDrawerOpen(true);
+      } finally {
+        setLoadingEditId(null);
       }
-      setEditingAnnouncement({ id: row.id, values: detail.values, status: detail.status });
-      setDrawerOpen(true);
     });
   };
 
-  const handleSaved = (message: string) => {
-    setDrawerOpen(false);
+  // Creating a new post must keep the drawer open so the photo uploader (which
+  // needs an article id) becomes reachable in place; editing still closes as before.
+  const handleSaved = (message: string, keepOpen = false) => {
+    if (!keepOpen) setDrawerOpen(false);
     setToast(message);
   };
 
