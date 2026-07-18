@@ -10,7 +10,6 @@ export const FEATURED_ARTICLE: NewsArticle = {
   imageAlt: "Medical professionals providing checkups during a community health mission",
   dateLabel: "Oct 24, 2024",
   author: "Admin Office",
-  featured: true,
 };
 
 export const NEWS_ARTICLES: NewsArticle[] = [
