@@ -13,7 +13,6 @@ import {
   Settings,
 } from "lucide-react";
 import type {
-  AdminEventRecord,
   AdminLegislativeRecord,
   AdminNewsRecord,
   AdminTeamMember,
@@ -24,7 +23,6 @@ import type {
   PublishingActivityEntry,
   TeamRole,
 } from "@/types";
-import { UPCOMING_EVENTS } from "@/features/home/data";
 import { FEATURED_ARTICLE, NEWS_ARTICLES } from "@/features/announcements/data";
 import { ORDINANCES, RESOLUTIONS } from "@/features/transparency/data";
 
@@ -133,37 +131,6 @@ export const EVENT_CATEGORY_LABELS: Record<EventCategory, string> = {
   environment: "Environment",
   community: "Community",
 };
-
-const EVENT_META: Record<
-  string,
-  Pick<AdminEventRecord, "category" | "registered" | "capacity" | "volunteers">
-> = {
-  "Medical & Dental Mission": { category: "health-drive", registered: 120, capacity: 200 },
-  "Youth Leadership Seminar": { category: "youth", registered: 45, capacity: 60 },
-  "Environment Clean-up Drive": { category: "environment", volunteers: 30 },
-  "Senior Citizens Gathering": { category: "community", registered: 80, capacity: 100 },
-};
-
-export const ADMIN_EVENTS: AdminEventRecord[] = [
-  ...UPCOMING_EVENTS.map((event, index) => ({
-    id: `evt-${index + 1}`,
-    event,
-    status: "published" as const,
-    ...(EVENT_META[event.title] ?? { category: "community" as const }),
-  })),
-  {
-    id: "evt-fiesta-2025",
-    event: {
-      title: "San Fernando Grand Fiesta 2025",
-      date: "2025-08-28",
-      time: "All Day",
-      venue: "Entire Barangay Jurisdiction",
-    },
-    category: "festival",
-    status: "planning",
-    note: "Registration opens August 1st",
-  },
-];
 
 export const ADMIN_NEWS: AdminNewsRecord[] = [
   {
