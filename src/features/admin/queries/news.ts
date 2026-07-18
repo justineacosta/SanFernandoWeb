@@ -4,6 +4,13 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { photoUrl } from "@/lib/storage";
 import { formatDate, toManilaDate } from "@/lib/format";
 
+interface NewsPhotoRow {
+  id: string;
+  src: string;
+  alt: string;
+  sort_order: number;
+}
+
 interface Row {
   id: string;
   slug: string;
@@ -14,7 +21,7 @@ interface Row {
   published_at: string | null;
   updated_at: string;
   news_categories: { label: string } | null;
-  news_photos: { id: string; src: string; alt: string; sort_order: number }[];
+  news_photos: NewsPhotoRow[];
 }
 
 /** All news articles for the admin manager grid, most recently updated first. */
@@ -57,7 +64,7 @@ export async function getNewsArticleForEdit(
     .eq("id", id)
     .maybeSingle();
   if (error || !data) return null;
-  const photos = ([...(data.news_photos ?? [])] as { id: string; src: string; alt: string; sort_order: number }[])
+  const photos = ([...(data.news_photos ?? [])] as NewsPhotoRow[])
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((p) => ({ id: p.id, src: photoUrl(p.src), alt: p.alt }));
   return {
