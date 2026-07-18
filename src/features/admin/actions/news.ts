@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { NewsArticleValues, SessionUser } from "@/types";
+import type { ContentStatus, NewsArticleValues, NewsPhoto, SessionUser } from "@/types";
 import { requirePermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getNewsArticleForEdit } from "@/features/admin/queries/news";
 
 export interface ActionResult {
   error: string | null;
@@ -49,6 +50,19 @@ async function uniqueSlug(
     const candidate = `${base}-${n}`;
     if (!taken.has(candidate)) return { slug: candidate, error: null };
   }
+}
+
+/**
+ * Client-callable counterpart to `getNewsArticleForEdit` (which is `server-only`
+ * and so cannot be imported into the "use client" manager). The manager fetches
+ * full editable detail — including `body` and the photo list, neither of which
+ * travels in the list rows — only when a drawer is opened for editing.
+ */
+export async function getNewsArticleForEditAction(
+  id: string,
+): Promise<{ values: NewsArticleValues; status: ContentStatus; photos: NewsPhoto[] } | null> {
+  await requirePermission("manage-news");
+  return getNewsArticleForEdit(id);
 }
 
 export async function saveNewsArticle(

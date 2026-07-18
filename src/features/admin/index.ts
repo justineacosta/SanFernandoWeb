@@ -11,3 +11,6 @@ export { ApplicationsManager } from "./components/applications-manager";
 export { ComplaintsManager } from "./components/complaints-manager";
 export { AppointmentsManager } from "./components/appointments-manager";
 export { AssistanceManager } from "./components/assistance-manager";
+export { NewsCategoriesPanel } from "./components/news-categories-panel";
+export { AnnouncementForm } from "./components/announcement-form";
+export { SingleImageUploader } from "./components/single-image-uploader";

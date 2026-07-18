@@ -36,8 +36,8 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Appointments", href: "/admin/appointments", icon: CalendarClock, permission: "process-appointments" },
   { label: "Assistance Requests", href: "/admin/assistance", icon: HeartHandshake, permission: "handle-assistance" },
   { label: "Ordinance & Resolution", href: "/admin/legislative", icon: Scale },
-  { label: "Event Calendar", href: "/admin/events", icon: CalendarDays },
-  { label: "News & Announcements", href: "/admin/news", icon: Megaphone },
+  { label: "Event Calendar", href: "/admin/events", icon: CalendarDays, permission: "manage-news" },
+  { label: "News & Announcements", href: "/admin/news", icon: Megaphone, permission: "manage-news" },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

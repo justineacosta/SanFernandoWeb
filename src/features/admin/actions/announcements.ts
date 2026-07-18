@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { AnnouncementValues, SessionUser } from "@/types";
+import type { AnnouncementValues, ContentStatus, SessionUser } from "@/types";
 import { requirePermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getAnnouncementForEdit } from "@/features/admin/queries/announcements";
 
 export interface ActionResult {
   error: string | null;
@@ -28,6 +29,18 @@ function revalidate() {
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
   revalidatePath("/");
+}
+
+/**
+ * Client-callable counterpart to `getAnnouncementForEdit` (which is `server-only`
+ * and so cannot be imported into the "use client" manager). The manager fetches
+ * full editable detail only when a drawer is opened for editing.
+ */
+export async function getAnnouncementForEditAction(
+  id: string,
+): Promise<{ values: AnnouncementValues; status: ContentStatus } | null> {
+  await requirePermission("manage-news");
+  return getAnnouncementForEdit(id);
 }
 
 export async function saveAnnouncement(
