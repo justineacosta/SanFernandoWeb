@@ -258,10 +258,10 @@
 | Framework | Next.js 16 (App Router, Turbopack), React 19, TypeScript strict |
 | Styling | Tailwind CSS v4 — amber + ink design tokens (`brand-*`, `ink-*`, `danger*`) in `src/app/globals.css` (`@theme`); Space Grotesk headings + Inter body |
 | Rendering | 100% Server Components except a handful of client islands (see §5) |
-| Build | `npm run build` ✅ — all routes prerender static |
-| Backend | **None.** All data is hardcoded in `src/features/*/data.ts` and `src/constants/site.ts`; both forms fake their submission client-side |
-| Auth | None yet — an **admin portal UI shell exists at `/admin`** (unprotected, mock data, `noindex`); it needs auth before any write capability ships |
-| Images | Mostly hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — must move to owned storage. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), all 12 officials' portraits (`src/images/officials/`), About history-timeline images (seal + carousel photo) |
+| Build | `npm run build` ✅ — static where possible; DB-backed routes (services, tickets, news/announcements/events, `/admin/*`) render dynamically |
+| Backend | **Supabase** (Postgres + Auth + Storage), reached through Server Actions and server-only query modules. Services, the four ticket flows, and news/announcements/events are DB-backed. Still hardcoded: `src/constants/site.ts` and the remaining `src/features/*/data.ts` (officials, transparency, about, home stats) |
+| Auth | **Supabase Auth**, live. `/admin` is protected; pages gate on `requirePermission(<permission>)` or `requireSuperAdmin()` (`src/lib/auth.ts`), with per-user permission checkboxes and a SuperAdmin role. Portal stays `noindex` |
+| Images | News/announcement/event uploads go to Supabase Storage (public bucket `public-media`, 2MB, JPEG/PNG/WebP). Seed rows and the rest of the site are still hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — moving those to owned storage is outstanding. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), all 12 officials' portraits (`src/images/officials/`), About history-timeline images (seal + carousel photo) |
 
 ### Routes
 
