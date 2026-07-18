@@ -58,6 +58,9 @@ export async function uploadSingleImage(
 export async function removeStoredImage(src: string): Promise<ActionResult> {
   await requirePermission("manage-news");
   if (/^https?:\/\//i.test(src)) return { error: null };
+  if (!/^(announcements|events)\//.test(src)) {
+    return { error: "That image cannot be removed." };
+  }
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove([src]);
   if (error) return { error: "Could not remove the image." };

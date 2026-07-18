@@ -1,10 +1,5 @@
 import "server-only";
-import type {
-  Announcement,
-  NewsArticleDetail,
-  NewsArticleListItem,
-  NewsCategoryRow,
-} from "@/types";
+import type { Announcement, NewsArticleDetail, NewsArticleListItem } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { photoUrl } from "@/lib/storage";
 import { formatDate, toManilaDate } from "@/lib/format";
@@ -108,15 +103,4 @@ export async function listPublishedAnnouncements(limit = 3): Promise<Announcemen
     urgent: r.urgent,
     isNew: isWithin7Days(r.published_at),
   }));
-}
-
-export async function listActiveNewsCategories(): Promise<NewsCategoryRow[]> {
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("news_categories")
-    .select("id, label, sort_order, is_active")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
-  if (error || !data) return [];
-  return data.map((r) => ({ id: r.id, label: r.label, sortOrder: r.sort_order, isActive: r.is_active }));
 }

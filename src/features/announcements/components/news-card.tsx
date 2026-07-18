@@ -30,6 +30,11 @@ export function FeaturedNewsCard({ article }: NewsCardProps) {
           <Badge variant="accent" className="absolute left-4 top-4">
             Featured
           </Badge>
+          {article.isNew ? (
+            <Badge variant="new" className="absolute right-4 top-4">
+              New
+            </Badge>
+          ) : null}
         </div>
         <div className="flex flex-col justify-center p-8">
           <Badge variant="soft" className="mb-2 w-fit">
@@ -45,7 +50,7 @@ export function FeaturedNewsCard({ article }: NewsCardProps) {
                 <User className="h-5 w-5 text-ink-900" aria-hidden="true" />
               </span>
               <span className="flex flex-col">
-                <span className="text-sm font-semibold">{article.author}</span>
+                <span className="text-sm font-semibold">{article.author ?? "Barangay San Fernando"}</span>
                 <span className="text-xs text-ink-600">{article.dateLabel}</span>
               </span>
             </div>
@@ -85,7 +90,14 @@ export function NewsCard({ article }: NewsCardProps) {
         <Badge variant="soft" className="mb-2 w-fit">
           {article.category}
         </Badge>
-        <h3 className="mb-3 text-xl font-semibold">{article.title}</h3>
+        <h3 className="mb-3 text-xl font-semibold">
+          {article.isNew ? (
+            <Badge variant="new" className="mr-1 px-1.5 text-[10px]">
+              New
+            </Badge>
+          ) : null}
+          {article.title}
+        </h3>
         <p className="mb-4 line-clamp-2 text-sm text-ink-600">{article.excerpt}</p>
         <div className="mt-auto flex items-center justify-between border-t border-ink-200 pt-4">
           <Badge variant="neutral">{article.dateLabel}</Badge>
