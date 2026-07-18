@@ -369,31 +369,6 @@ export interface AdminServiceRow {
   updatedAt: string;
 }
 
-export interface AdminEventRecord {
-  id: string;
-  /** The public entity has no id — the envelope provides it. */
-  event: CommunityEvent;
-  category: EventCategory;
-  status: AdminEventStatus;
-  registered?: number;
-  capacity?: number;
-  volunteers?: number;
-  /** Free-form footnote for planning-stage events, e.g. "Registration opens August 1st". */
-  note?: string;
-}
-
-export interface AdminNewsRecord {
-  id: string;
-  article: NewsArticle;
-  status: AdminContentStatus;
-  /** Published posts only. */
-  views?: number;
-  /** ISO datetime; scheduled posts only. */
-  scheduledFor?: string;
-  /** ISO date of the last edit. */
-  updatedAt: string;
-}
-
 export interface AdminLegislativeRecord {
   id: string;
   document: LegislativeDocument;
@@ -422,28 +397,6 @@ export interface ServiceFormValues {
   status: AdminServiceStatus;
   iconName: string;
   tone: ServiceTone;
-}
-
-export interface EventFormValues {
-  title: string;
-  category: EventCategory;
-  /** ISO date. */
-  date: string;
-  startTime: string;
-  endTime: string;
-  venue: string;
-  capacity?: number;
-  description: string;
-}
-
-export interface NewsPostFormValues {
-  title: string;
-  category: string;
-  excerpt: string;
-  body: string;
-  status: AdminContentStatus;
-  /** Required when status is "scheduled". */
-  scheduledFor?: string;
 }
 
 export interface LegislativeFormValues {

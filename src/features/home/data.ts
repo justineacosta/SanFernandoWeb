@@ -13,14 +13,7 @@ import {
   Store,
   Users,
 } from "lucide-react";
-import type {
-  Announcement,
-  CommunityEvent,
-  HeroSlide,
-  QuickService,
-  Stat,
-  ValueItem,
-} from "@/types";
+import type { HeroSlide, QuickService, Stat, ValueItem } from "@/types";
 import certificate from "@/images/carousel/Certificate.jpg";
 import organizationGroupPicture from "@/images/carousel/OrganizationGroupPicture.jpg";
 import cleaningOperation from "@/images/carousel/CleaningOperation.jpg";
@@ -60,61 +53,6 @@ export const QUICK_SERVICES: QuickService[] = [
     ctaLabel: "Request Now",
     href: "/assistance/new",
     icon: HeartHandshake,
-  },
-];
-
-export const LATEST_ANNOUNCEMENTS: Announcement[] = [
-  {
-    title: "Schedule of Barangay Assembly Meeting",
-    date: "2025-05-20",
-    excerpt: "Please be informed that the monthly barangay assembly meeting will be...",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuAKfX6kI2fekmRPUd1kE_O3EyuEA3gJBN7KbNJDLjXz1PYGsNn8myyZZFhbbGnpIeJy711seRjFGNjzfgJJdN1_4JCKTETETxt_Qey4QEJ8cyiyPU2l9b_qB-HLlkwi9reMFdSd0b8LbCrY5AkFxFJvPLTHF-UpjNkyazbr4gVeTVo71J3OEJEqVDi46slsj_oc8JcjUShpuGlDyHCccCPsQAkf0lEW4spWv-w4YL9D0fJp_v3CXRVXoSwVDPQWzMXvMg6jDS_CObk",
-    imageAlt: "Residents gathered for a barangay assembly",
-    isNew: true,
-  },
-  {
-    title: "Free Medical Mission this May 25, 2025",
-    date: "2025-05-18",
-    excerpt: "The barangay will conduct a free medical and dental mission for all...",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuBQMEWS1CFwllE8d9raqgMitrZe3lxxzWXQ3Bcl2I1HXP7eHqHEK-hqYJgyWkH3UD0brZRExGSa6WZnAViKeIXMh8s0B4saCQjR7DrQUVlkYtWz7hleSkf5wufO4vDDEmqkDlv8z6bMCyl0t04YwZws14Lx0jGXLoOWgFmGq-2O9kHlhu5ab9-ojY4N96RIQVx5QlNdldjOaujdC7lDoqUfEQxtEysVrhbjng7EVEHi9Z_d91NIpXXDZFAILNbLfieTKvuefXZDugY",
-    imageAlt: "Health workers during a medical mission",
-  },
-  {
-    title: "Payment Reminder: Real Property Taxes",
-    date: "2025-05-15",
-    excerpt: "Reminder to all residents to pay your real property taxes on or before...",
-    image:
-      "https://lh3.googleusercontent.com/aida-public/AB6AXuA-F-YU1-cDY2RfHTUjhpq3Z6g64xVXM3PiijdiMf612o4vIWHDAOnMGuIjt7eHS6XFdN_kB61vI0lXAiAdpr0nU030Osnu9LSFNDomIdj-S-p-NoVr_hIM_nPyucGj5Xy59GtevG5n8sPFZAI8CPjcDN6xBX--UCUk6DFKJbLzomdlPAhx2u9RwSfme4hphzokaq-WUNUv-DO5wj1Adt5qRoE0zOpBonYTgfxt-ArNZxQblc8jnMHOjP5iMweyuy9gLvafVzQ0mF8",
-    imageAlt: "Tax documents and a calculator",
-  },
-];
-
-export const UPCOMING_EVENTS: CommunityEvent[] = [
-  {
-    title: "Medical & Dental Mission",
-    date: "2025-05-25",
-    time: "8:00 AM - 3:00 PM",
-    venue: "Barangay Covered Court",
-  },
-  {
-    title: "Youth Leadership Seminar",
-    date: "2025-05-30",
-    time: "9:00 AM - 12:00 PM",
-    venue: "Barangay Hall",
-  },
-  {
-    title: "Environment Clean-up Drive",
-    date: "2025-06-05",
-    time: "6:00 AM - 10:00 AM",
-    venue: "Barangay San Fernando",
-  },
-  {
-    title: "Senior Citizens Gathering",
-    date: "2025-06-12",
-    time: "1:00 PM - 5:00 PM",
-    venue: "Barangay Hall",
   },
 ];
 
