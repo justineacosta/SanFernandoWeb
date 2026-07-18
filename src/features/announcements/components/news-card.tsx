@@ -1,10 +1,11 @@
 import Image from "next/image";
-import { ArrowRight, User } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, ImageIcon, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { NewsArticle } from "@/types";
+import type { NewsArticleListItem } from "@/types";
 
 interface NewsCardProps {
-  article: NewsArticle;
+  article: NewsArticleListItem;
 }
 
 /** Featured article card: side-by-side image and copy with author byline. */
@@ -13,13 +14,19 @@ export function FeaturedNewsCard({ article }: NewsCardProps) {
     <article className="group overflow-hidden rounded-3xl border border-ink-200 bg-white transition-all duration-300 hover:shadow-lg">
       <div className="grid md:grid-cols-2">
         <div className="relative h-64 overflow-hidden rounded-2xl md:h-full">
-          <Image
-            src={article.image}
-            alt={article.imageAlt}
-            fill
-            sizes="(min-width: 768px) 33vw, 100vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+          {article.coverSrc ? (
+            <Image
+              src={article.coverSrc}
+              alt={article.coverAlt}
+              fill
+              sizes="(min-width: 768px) 33vw, 100vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-ink-100 text-ink-400">
+              <ImageIcon className="h-10 w-10" aria-hidden="true" />
+            </div>
+          )}
           <Badge variant="accent" className="absolute left-4 top-4">
             Featured
           </Badge>
@@ -42,12 +49,12 @@ export function FeaturedNewsCard({ article }: NewsCardProps) {
                 <span className="text-xs text-ink-600">{article.dateLabel}</span>
               </span>
             </div>
-            <a
-              href="#"
+            <Link
+              href={`/announcements/${article.slug}`}
               className="flex items-center gap-1 text-sm font-semibold uppercase text-ink-900 transition-all hover:gap-2"
             >
               Read More <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -60,13 +67,19 @@ export function NewsCard({ article }: NewsCardProps) {
   return (
     <article className="flex flex-col overflow-hidden rounded-3xl border border-ink-200 bg-white transition-colors hover:border-ink-900">
       <div className="relative h-48 overflow-hidden rounded-2xl">
-        <Image
-          src={article.image}
-          alt={article.imageAlt}
-          fill
-          sizes="(min-width: 768px) 33vw, 100vw"
-          className="object-cover"
-        />
+        {article.coverSrc ? (
+          <Image
+            src={article.coverSrc}
+            alt={article.coverAlt}
+            fill
+            sizes="(min-width: 768px) 33vw, 100vw"
+            className="object-cover"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-ink-100 text-ink-400">
+            <ImageIcon className="h-10 w-10" aria-hidden="true" />
+          </div>
+        )}
       </div>
       <div className="flex flex-1 flex-col p-4">
         <Badge variant="soft" className="mb-2 w-fit">
@@ -76,9 +89,12 @@ export function NewsCard({ article }: NewsCardProps) {
         <p className="mb-4 line-clamp-2 text-sm text-ink-600">{article.excerpt}</p>
         <div className="mt-auto flex items-center justify-between border-t border-ink-200 pt-4">
           <Badge variant="neutral">{article.dateLabel}</Badge>
-          <a href="#" className="text-sm font-semibold uppercase text-ink-900 hover:underline">
+          <Link
+            href={`/announcements/${article.slug}`}
+            className="text-sm font-semibold uppercase text-ink-900 hover:underline"
+          >
             Details
-          </a>
+          </Link>
         </div>
       </div>
     </article>
