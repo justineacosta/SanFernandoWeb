@@ -14,6 +14,11 @@ export function formatDateApproved(iso: string | null): string {
   return iso ? formatDate(iso) : "Pending Approval";
 }
 
+/** Format an optional release/effectivity date, showing "Undated" when unset. */
+export function formatOptionalDate(iso: string | null): string {
+  return iso ? formatDate(iso) : "Undated";
+}
+
 /** Split an ISO date into calendar-tile parts, e.g. { month: "MAY", day: "25" }. */
 export function toCalendarParts(iso: string): { month: string; day: string } {
   const date = new Date(`${iso}T00:00:00`);

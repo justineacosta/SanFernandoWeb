@@ -286,6 +286,31 @@ export interface TransparencyProjectItem {
   progress: number;
 }
 
+/** A file attached to a document or project (public, resolved for download). */
+export interface TransparencyFile {
+  id: string;
+  url: string;
+  /** Display label, e.g. the original-ish "Document 1" or a page label. */
+  label: string;
+  mime: string;
+  sizeBytes: number;
+}
+
+export type UploadBrowseType = "legislative" | "document" | "project";
+
+/** One row in the unified /transparency/uploads browse. */
+export interface UploadBrowseItem {
+  key: string; // `${type}:${id}`
+  type: UploadBrowseType;
+  title: string;
+  date: string | null;
+  /** Detail link for legislative; null for document/project (files render inline). */
+  href: string | null;
+  files: TransparencyFile[];
+  /** Projects only, else null. */
+  progress: number | null;
+}
+
 export interface TransparencyCategoryRow {
   id: string;
   label: string;
