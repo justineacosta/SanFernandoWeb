@@ -88,7 +88,18 @@ export async function saveTransparencyDocument(
   }
 
   async function fail(error: string): Promise<SaveResult> {
-    if (uploadedPath) await removeStoredDocument(uploadedPath);
+    if (uploadedPath) {
+      const removed = await removeStoredDocument(uploadedPath);
+      // The compensating delete failing is a second, independent failure —
+      // the caller must still see `error` (the original save failure), not
+      // this one. But silently swallowing it means the orphan it leaves
+      // behind is invisible to everyone. Log the path so a human can find
+      // and clean it up; this is a storage-cleanup fault, not a user
+      // action, so it doesn't belong in the user-facing audit_log.
+      if (removed.error) {
+        console.error(`Orphaned storage object (compensating delete failed): ${uploadedPath}`);
+      }
+    }
     return { error, id: null };
   }
 
@@ -112,7 +123,7 @@ export async function saveTransparencyDocument(
         ? null
         : (existing.file_size_bytes as number | null);
 
-    const { error } = await admin
+    let query = admin
       .from("transparency_documents")
       .update({
         title: parsed.data.title,
@@ -122,7 +133,35 @@ export async function saveTransparencyDocument(
         file_size_bytes: finalSize,
       })
       .eq("id", id);
-    if (error) return fail("Could not save the document.");
+    // Optimistic lock on file_path — only when THIS save is uploading a new
+    // file. Two admins editing only text fields must keep last-write-wins,
+    // exactly as before; but if both replace the PDF, both uploads succeed
+    // and both UPDATEs would otherwise match the row, so the second write
+    // silently overwrites the first's file_path and orphans the first
+    // upload. Require the row to still show the file_path this action read.
+    // PostgREST's .eq() never matches NULL, so a currently-fileless row
+    // needs .is() instead — get this branch wrong and every attach-to-a-
+    // fileless-document save fails.
+    if (uploadedPath) {
+      const existingFilePath = existing.file_path as string | null;
+      query =
+        existingFilePath === null
+          ? query.is("file_path", null)
+          : query.eq("file_path", existingFilePath);
+      const { data: updated, error } = await query.select("id").maybeSingle();
+      if (error) return fail("Could not save the document.");
+      // Zero rows means another admin changed this document's file between
+      // this action's read and this write. Report that explicitly instead
+      // of falling through to recordActivity/revalidate, which would log
+      // and announce a save that never happened; fail() deletes the file
+      // this save just uploaded so it doesn't outlive the row.
+      if (!updated) {
+        return fail("Someone else changed this document's file. Reopen it and try again.");
+      }
+    } else {
+      const { error } = await query;
+      if (error) return fail("Could not save the document.");
+    }
 
     // Deferred delete: only once the row no longer references the old file.
     const oldPath = existing.file_path as string | null;
