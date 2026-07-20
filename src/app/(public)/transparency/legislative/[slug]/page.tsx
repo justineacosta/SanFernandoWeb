@@ -15,9 +15,12 @@ export async function generateMetadata({
   const { slug } = await params;
   const doc = await getPublishedLegislativeBySlug(slug);
   if (!doc) return { title: "Document not found" };
+  const description = doc.summary.trim()
+    ? doc.summary.slice(0, 160)
+    : `${doc.number}: ${doc.title}`.slice(0, 160);
   return {
     title: `${doc.number} — ${doc.title}`,
-    description: doc.summary.slice(0, 160),
+    description,
   };
 }
 

@@ -29,9 +29,7 @@ export function PdfViewer({
       >
         <DocumentDownloadCard fileUrl={fileUrl} title={title} fileSizeBytes={fileSizeBytes} />
       </object>
-      <div className="md:hidden">
-        <DocumentDownloadCard fileUrl={fileUrl} title={title} fileSizeBytes={fileSizeBytes} />
-      </div>
+      <DocumentDownloadCard fileUrl={fileUrl} title={title} fileSizeBytes={fileSizeBytes} />
     </div>
   );
 }
