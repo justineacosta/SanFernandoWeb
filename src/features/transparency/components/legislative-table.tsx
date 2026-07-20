@@ -4,7 +4,7 @@ import { Fragment, useId } from "react";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/format";
+import { formatDateApproved } from "@/lib/format";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import type { LegislativeDetail } from "@/types";
 
@@ -83,7 +83,7 @@ function LegislativeRow({ doc }: { doc: LegislativeDetail }) {
         <td className="whitespace-nowrap px-6 py-4 font-medium text-ink-900">{doc.number}</td>
         <td className="px-6 py-4 text-ink-900">{doc.title}</td>
         <td className="whitespace-nowrap px-6 py-4 text-ink-600">
-          {formatDate(doc.dateApproved)}
+          {formatDateApproved(doc.dateApproved)}
         </td>
         <td className="px-6 py-4 text-right">
           <span className="flex items-center justify-end gap-4">

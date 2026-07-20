@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
-import { formatDate } from "@/lib/format";
+import { formatDateApproved } from "@/lib/format";
 import { getLegislativeForEditAction } from "@/features/admin/actions/legislative";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
@@ -186,7 +186,9 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
                           {record.docType === "ordinance" ? "Ordinance" : "Resolution"}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 text-ink-600">{formatDate(record.dateApproved)}</td>
+                      <td className="px-6 py-4 text-ink-600">
+                        {formatDateApproved(record.dateApproved)}
+                      </td>
                       <td className="px-6 py-4">
                         <StatusChip status={record.status} />
                       </td>

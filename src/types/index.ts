@@ -255,8 +255,8 @@ export interface LegislativeListItem {
   docType: LegislativeType;
   number: string;
   title: string;
-  /** ISO date approved. */
-  dateApproved: string;
+  /** ISO date approved, or null when the document is pending approval. */
+  dateApproved: string | null;
   /** Resolved public URL, or null when no PDF is attached yet. */
   fileUrl: string | null;
   fileSizeBytes: number | null;
@@ -302,7 +302,7 @@ export interface AdminLegislativeRow {
   docType: LegislativeType;
   number: string;
   title: string;
-  dateApproved: string;
+  dateApproved: string | null;
   status: ContentStatus;
   hasFile: boolean;
   fileUrl: string | null;
@@ -333,7 +333,9 @@ export interface LegislativeValues {
   docType: LegislativeType;
   number: string;
   title: string;
-  dateApproved: string;
+  /** ISO date, or null while pending approval. The action stores an empty
+   *  string from the date input as SQL NULL. */
+  dateApproved: string | null;
   summary: string;
   /** Storage object path, or null. Set by the uploader, persisted by the action. */
   filePath: string | null;

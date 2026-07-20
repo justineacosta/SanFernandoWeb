@@ -325,6 +325,21 @@
 >    imperfect; documented in `src/features/transparency/queries.ts`.
 > 6. Seeded transparency content is placeholder, same caveat as the Plan 3 seed
 >    content — still needs real PDFs attached and an editorial pass.
+> 7. **`date_approved` is optional (migration `0010_legislative_date_approved_optional.sql`,
+>    unapplied as of 2026-07-21 — the repo owner applies migrations herself).** An
+>    ordinance/resolution can be uploaded before it's approved: the draft PDF, number,
+>    and title exist ahead of the approval date. `LegislativeListItem`/`LegislativeDetail`/
+>    `AdminLegislativeRow`/`LegislativeValues` all carry `dateApproved: string | null`;
+>    the save action converts an empty form value to SQL `NULL` explicitly
+>    (`normalizeDateApproved` in `src/features/admin/actions/legislative.ts`) so "pending"
+>    has one representation, not two. Every list/table shows **"Pending Approval"** in
+>    place of a date (`formatDateApproved()` in `src/lib/format.ts`). **Pending documents
+>    sort first**, above approved ones — an explicit product decision, not just the
+>    Postgres NULLS-FIRST-on-DESC default: every `.order("date_approved", ...)` call
+>    (`listRecentLegislative`/`searchLegislative` in `features/transparency/queries.ts`,
+>    `listAdminLegislative` in `features/admin/queries/transparency.ts`) now passes
+>    `{ ascending: false, nullsFirst: true }`, and the two `date_approved desc` indexes
+>    from `0009_transparency.sql` are recreated with `nulls first` in migration 0010.
 > Mocks and dead types deleted this plan: `src/features/transparency/data.ts` in full
 > (`HERO_IMAGE`, `BUDGET_DOCUMENTS`, `PROJECTS`, `LATEST_UPLOADS`, `ORDINANCES`,
 > `RESOLUTIONS` — `HERO_IMAGE`'s value moved inline into `TransparencyHero`),

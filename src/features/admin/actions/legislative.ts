@@ -21,11 +21,21 @@ const schema = z.object({
   docType: z.enum(["ordinance", "resolution"]),
   number: z.string().trim().min(3, "Enter the official document number."),
   title: z.string().trim().min(3, "Enter a title."),
-  dateApproved: z.string().trim().min(1, "Pick the date approved."),
+  // Date approved is optional — a document can exist (and be uploaded) before
+  // it's approved. An empty string means "not yet approved"; it is converted
+  // to SQL NULL below rather than stored as "", which would give "pending"
+  // two different representations and break the display logic.
+  dateApproved: z.string().nullable(),
   summary: z.string(),
   filePath: z.string().nullable(),
   fileSizeBytes: z.number().nullable(),
 });
+
+/** Empty string (or null) from the form means "not yet approved" → SQL NULL. */
+function normalizeDateApproved(value: string | null): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed.length > 0 ? trimmed : null;
+}
 
 // Server Actions are public HTTP endpoints — `ContentStatus` only constrains
 // callers that go through TypeScript. A direct POST can send any string, so
@@ -158,7 +168,7 @@ export async function saveLegislative(
         doc_type: parsed.data.docType,
         number: parsed.data.number,
         title: parsed.data.title,
-        date_approved: parsed.data.dateApproved,
+        date_approved: normalizeDateApproved(parsed.data.dateApproved),
         summary: parsed.data.summary,
         file_path: finalPath,
         file_size_bytes: finalSize,
@@ -229,7 +239,7 @@ export async function saveLegislative(
       doc_type: parsed.data.docType,
       number: parsed.data.number,
       title: parsed.data.title,
-      date_approved: parsed.data.dateApproved,
+      date_approved: normalizeDateApproved(parsed.data.dateApproved),
       summary: parsed.data.summary,
       file_path: uploadedPath,
       file_size_bytes: uploadedPath ? uploadedSize : null,

@@ -54,7 +54,9 @@ export default async function LegislativeDetailPage({
       <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
         {doc.title}
       </h1>
-      <p className="mt-2 text-ink-500">Approved {formatDate(doc.dateApproved)}</p>
+      <p className="mt-2 text-ink-500">
+        {doc.dateApproved ? `Approved ${formatDate(doc.dateApproved)}` : "Pending Approval"}
+      </p>
 
       {doc.summary ? (
         <div className="mt-8 max-w-3xl">

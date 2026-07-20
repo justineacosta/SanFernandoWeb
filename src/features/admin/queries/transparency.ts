@@ -16,7 +16,10 @@ export async function listAdminLegislative(): Promise<AdminLegislativeRow[]> {
   const { data, error } = await admin
     .from("legislative_documents")
     .select("id, slug, doc_type, number, title, date_approved, status, file_path")
-    .order("date_approved", { ascending: false });
+    // Pending (undated) documents sort first — the repo owner's explicit
+    // call, stated explicitly rather than relying on Postgres's NULLS FIRST
+    // default for DESC (see 0010 migration).
+    .order("date_approved", { ascending: false, nullsFirst: true });
 
   if (error || !data) return [];
   return data.map((row) => ({
@@ -25,7 +28,7 @@ export async function listAdminLegislative(): Promise<AdminLegislativeRow[]> {
     docType: row.doc_type as LegislativeType,
     number: row.number as string,
     title: row.title as string,
-    dateApproved: row.date_approved as string,
+    dateApproved: row.date_approved as string | null,
     status: row.status as ContentStatus,
     hasFile: Boolean(row.file_path),
     fileUrl: row.file_path ? documentUrl(row.file_path as string) : null,
@@ -48,7 +51,7 @@ export async function getLegislativeForEdit(
       docType: data.doc_type as LegislativeType,
       number: data.number as string,
       title: data.title as string,
-      dateApproved: data.date_approved as string,
+      dateApproved: data.date_approved as string | null,
       summary: (data.summary as string) ?? "",
       filePath: (data.file_path as string) ?? null,
       fileSizeBytes: (data.file_size_bytes as number) ?? null,

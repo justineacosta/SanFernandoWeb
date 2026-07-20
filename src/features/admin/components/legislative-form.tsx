@@ -126,14 +126,17 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
             minLength={3}
           />
         </Field>
-        <Field label="Date Approved" htmlFor="legislative-date">
+        <Field label="Date Approved (optional)" htmlFor="legislative-date">
           <Input
             id="legislative-date"
             type="date"
-            value={values.dateApproved}
+            value={values.dateApproved ?? ""}
             onChange={(event) => set("dateApproved", event.target.value)}
-            required
           />
+          <p className="text-xs text-ink-500">
+            Leave this blank to upload the document before it&rsquo;s approved — it will show as
+            &ldquo;Pending Approval&rdquo; until a date is entered.
+          </p>
         </Field>
         <Field label="Summary" htmlFor="legislative-summary">
           <Textarea

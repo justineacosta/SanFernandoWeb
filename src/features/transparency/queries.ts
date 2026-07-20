@@ -20,7 +20,7 @@ interface LegislativeRow {
   doc_type: LegislativeType;
   number: string;
   title: string;
-  date_approved: string;
+  date_approved: string | null;
   summary?: string;
   file_path: string | null;
   file_size_bytes: number | null;
@@ -82,7 +82,10 @@ export async function listRecentLegislative(
     .select(`${LIST_COLUMNS}, summary`)
     .eq("status", "published")
     .eq("doc_type", docType)
-    .order("date_approved", { ascending: false })
+    // Pending (undated) documents sort first — the repo owner's explicit
+    // call. Postgres puts NULLs first on a DESC order by default, but say so
+    // explicitly rather than lean on that default (see 0010 migration).
+    .order("date_approved", { ascending: false, nullsFirst: true })
     .limit(limit);
 
   if (error || !data) return [];
@@ -120,7 +123,8 @@ export async function searchLegislative({
   }
 
   const { data, count, error } = await query
-    .order("date_approved", { ascending: false })
+    // Pending (undated) documents sort first — see listRecentLegislative.
+    .order("date_approved", { ascending: false, nullsFirst: true })
     .range(from, from + LEGISLATIVE_PAGE_SIZE - 1);
 
   if (error || !data) return { items: [], total: 0, pageSize: LEGISLATIVE_PAGE_SIZE };

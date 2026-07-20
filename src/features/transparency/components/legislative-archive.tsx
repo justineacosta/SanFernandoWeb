@@ -4,7 +4,7 @@ import type { LegislativeType } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/form";
 import { Section } from "@/components/ui/section";
-import { formatDate } from "@/lib/format";
+import { formatDateApproved } from "@/lib/format";
 import { searchLegislative } from "@/features/transparency/queries";
 
 const TYPE_TABS: { value: LegislativeType | "all"; label: string }[] = [
@@ -93,7 +93,7 @@ export async function LegislativeArchive({
             <li key={doc.id} className="rounded-2xl border border-ink-200 p-6 transition-colors hover:border-brand-400">
               <Link href={`/transparency/legislative/${doc.slug}`} className="block">
                 <p className="text-sm font-semibold uppercase tracking-wider text-ink-500">
-                  {doc.number} · {formatDate(doc.dateApproved)}
+                  {doc.number} · {formatDateApproved(doc.dateApproved)}
                 </p>
                 <h3 className="mt-1 font-display text-xl font-semibold tracking-tight text-ink-900">
                   {doc.title}
