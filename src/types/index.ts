@@ -280,6 +280,120 @@ export interface ProjectStatus {
   progress: number;
 }
 
+/* ── Transparency (Plan 4) ───────────────────────────────────────────────── */
+
+export type LegislativeType = "ordinance" | "resolution";
+
+/** A published ordinance/resolution as the public tables and archive render it. */
+export interface LegislativeListItem {
+  id: string;
+  slug: string;
+  docType: LegislativeType;
+  number: string;
+  title: string;
+  /** ISO date approved. */
+  dateApproved: string;
+  /** Resolved public URL, or null when no PDF is attached yet. */
+  fileUrl: string | null;
+  fileSizeBytes: number | null;
+}
+
+/** Detail-page shape: the list item plus the expanded summary. */
+export interface LegislativeDetail extends LegislativeListItem {
+  summary: string;
+}
+
+/** A published document in the disclosure/latest-uploads tables. */
+export interface TransparencyDocumentItem {
+  id: string;
+  title: string;
+  categoryLabel: string;
+  /** Icon name string — resolve with resolveIcon(); never store a component. */
+  categoryIconName: string;
+  /** ISO date released. */
+  dateReleased: string;
+  fileUrl: string | null;
+  fileSizeBytes: number | null;
+}
+
+export interface TransparencyProjectItem {
+  id: string;
+  name: string;
+  progress: number;
+}
+
+export interface TransparencyCategoryRow {
+  id: string;
+  label: string;
+  iconName: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+/* Admin rows (serializable — cross the client boundary into the manager). */
+
+export interface AdminLegislativeRow {
+  id: string;
+  slug: string;
+  docType: LegislativeType;
+  number: string;
+  title: string;
+  dateApproved: string;
+  status: ContentStatus;
+  hasFile: boolean;
+  fileUrl: string | null;
+}
+
+export interface AdminTransparencyDocumentRow {
+  id: string;
+  title: string;
+  categoryId: string;
+  categoryLabel: string;
+  dateReleased: string;
+  status: ContentStatus;
+  hasFile: boolean;
+  fileUrl: string | null;
+}
+
+export interface AdminTransparencyProjectRow {
+  id: string;
+  name: string;
+  progress: number;
+  sortOrder: number;
+  status: ContentStatus;
+}
+
+/* Drawer-form body shapes (the write-side contract). */
+
+export interface LegislativeValues {
+  docType: LegislativeType;
+  number: string;
+  title: string;
+  dateApproved: string;
+  summary: string;
+  /** Storage object path, or null. Set by the uploader, persisted by the action. */
+  filePath: string | null;
+  fileSizeBytes: number | null;
+}
+
+export interface TransparencyDocumentValues {
+  title: string;
+  categoryId: string;
+  dateReleased: string;
+  filePath: string | null;
+  fileSizeBytes: number | null;
+}
+
+export interface TransparencyProjectValues {
+  name: string;
+  progress: number;
+}
+
+export interface TransparencyCategoryValues {
+  label: string;
+  iconName: string;
+}
+
 /* ------------------------------------- Admin ------------------------------------ */
 
 export type DraftStatus = "draft" | "in-review";
