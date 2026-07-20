@@ -13,9 +13,7 @@ import {
   Settings,
 } from "lucide-react";
 import type {
-  AdminEventRecord,
   AdminLegislativeRecord,
-  AdminNewsRecord,
   AdminTeamMember,
   ContentDraft,
   ContentTypeAction,
@@ -24,8 +22,6 @@ import type {
   PublishingActivityEntry,
   TeamRole,
 } from "@/types";
-import { UPCOMING_EVENTS } from "@/features/home/data";
-import { FEATURED_ARTICLE, NEWS_ARTICLES } from "@/features/announcements/data";
 import { ORDINANCES, RESOLUTIONS } from "@/features/transparency/data";
 
 export const ADMIN_NAV_ITEMS: IconNavItem[] = [
@@ -36,8 +32,8 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Appointments", href: "/admin/appointments", icon: CalendarClock, permission: "process-appointments" },
   { label: "Assistance Requests", href: "/admin/assistance", icon: HeartHandshake, permission: "handle-assistance" },
   { label: "Ordinance & Resolution", href: "/admin/legislative", icon: Scale },
-  { label: "Event Calendar", href: "/admin/events", icon: CalendarDays },
-  { label: "News & Announcements", href: "/admin/news", icon: Megaphone },
+  { label: "Event Calendar", href: "/admin/events", icon: CalendarDays, permission: "manage-news" },
+  { label: "News & Announcements", href: "/admin/news", icon: Megaphone, permission: "manage-news" },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
@@ -133,90 +129,6 @@ export const EVENT_CATEGORY_LABELS: Record<EventCategory, string> = {
   environment: "Environment",
   community: "Community",
 };
-
-const EVENT_META: Record<
-  string,
-  Pick<AdminEventRecord, "category" | "registered" | "capacity" | "volunteers">
-> = {
-  "Medical & Dental Mission": { category: "health-drive", registered: 120, capacity: 200 },
-  "Youth Leadership Seminar": { category: "youth", registered: 45, capacity: 60 },
-  "Environment Clean-up Drive": { category: "environment", volunteers: 30 },
-  "Senior Citizens Gathering": { category: "community", registered: 80, capacity: 100 },
-};
-
-export const ADMIN_EVENTS: AdminEventRecord[] = [
-  ...UPCOMING_EVENTS.map((event, index) => ({
-    id: `evt-${index + 1}`,
-    event,
-    status: "published" as const,
-    ...(EVENT_META[event.title] ?? { category: "community" as const }),
-  })),
-  {
-    id: "evt-fiesta-2025",
-    event: {
-      title: "San Fernando Grand Fiesta 2025",
-      date: "2025-08-28",
-      time: "All Day",
-      venue: "Entire Barangay Jurisdiction",
-    },
-    category: "festival",
-    status: "planning",
-    note: "Registration opens August 1st",
-  },
-];
-
-export const ADMIN_NEWS: AdminNewsRecord[] = [
-  {
-    id: "news-health-mission",
-    article: FEATURED_ARTICLE,
-    status: "published",
-    views: 3400,
-    updatedAt: "2024-10-24",
-  },
-  {
-    id: "news-q4-town-hall",
-    article: NEWS_ARTICLES[0],
-    status: "published",
-    views: 1200,
-    updatedAt: "2024-10-22",
-  },
-  {
-    id: "news-tree-planting",
-    article: NEWS_ARTICLES[1],
-    status: "published",
-    views: 860,
-    updatedAt: "2024-10-20",
-  },
-  {
-    id: "news-fiesta-schedule-draft",
-    article: {
-      title: "Annual Barangay Fiesta Schedule and Guidelines",
-      category: "Events",
-      excerpt: "",
-      image: "",
-      imageAlt: "",
-      dateLabel: "",
-    },
-    status: "draft",
-    updatedAt: "2024-10-25",
-  },
-  {
-    id: "news-anti-rabies-drive",
-    article: {
-      title: "Free Anti-Rabies Vaccination Drive for Pets",
-      category: "Public Health",
-      excerpt:
-        "Details regarding the upcoming free anti-rabies vaccination drive for dogs and cats, in coordination with the Municipal Agriculture Office.",
-      image:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuBQMEWS1CFwllE8d9raqgMitrZe3lxxzWXQ3Bcl2I1HXP7eHqHEK-hqYJgyWkH3UD0brZRExGSa6WZnAViKeIXMh8s0B4saCQjR7DrQUVlkYtWz7hleSkf5wufO4vDDEmqkDlv8z6bMCyl0t04YwZws14Lx0jGXLoOWgFmGq-2O9kHlhu5ab9-ojY4N96RIQVx5QlNdldjOaujdC7lDoqUfEQxtEysVrhbjng7EVEHi9Z_d91NIpXXDZFAILNbLfieTKvuefXZDugY",
-      imageAlt: "Health workers preparing vaccines at an outdoor station",
-      dateLabel: "Oct 26, 2024",
-    },
-    status: "scheduled",
-    scheduledFor: "2024-10-26T08:00:00",
-    updatedAt: "2024-10-23",
-  },
-];
 
 export const ADMIN_LEGISLATIVE: AdminLegislativeRecord[] = [
   ...ORDINANCES.map((document, index) => ({

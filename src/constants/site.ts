@@ -21,7 +21,7 @@ export const SITE = {
     "We are committed to providing transparent, efficient, and citizen-centered services for a stronger and united community.",
   address: "Barangay San Fernando, San Nicolas, Ilocos Norte, Philippines",
   addressLines: ["Barangay San Fernando,", "San Nicolas, Ilocos Norte, Philippines"],
-  phone: "(077) 123 4567",
+  phone: "(077) 600 1082",
   email: "info@brgy-sanfernando.gov.ph",
   officeHours: "Mon - Fri: 8:00 AM - 5:00 PM",
   sealImage: barangaySealLogo,
@@ -39,7 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 export const EMERGENCY_HOTLINES: Hotline[] = [
-  { label: "Barangay Hotline", number: "(077) 123 4567", icon: PhoneCall },
+  { label: "Barangay Hotline", number: "(077) 600 1082", icon: PhoneCall },
   { label: "Tanod / Security", number: "0998 765 4321", icon: ShieldAlert },
   { label: "Health Center", number: "(077) 987 6543", icon: PlusSquare },
   { label: "Fire Department", number: "(077) 112 3456", icon: Flame },

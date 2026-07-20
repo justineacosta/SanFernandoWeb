@@ -6,11 +6,9 @@ import { Section } from "@/components/ui/section";
 import { AnnouncementCard } from "@/components/shared/announcement-card";
 import { EventCard } from "@/components/shared/event-card";
 import { StatCard } from "@/components/shared/stat-card";
-import {
-  GLANCE_STATS,
-  LATEST_ANNOUNCEMENTS,
-  UPCOMING_EVENTS,
-} from "@/features/home/data";
+import { GLANCE_STATS } from "@/features/home/data";
+import { listPublishedAnnouncements } from "@/features/announcements/queries";
+import { listUpcomingEvents } from "@/features/events/queries";
 
 function ViewAllLink({ label, href }: { label: string; href: string }) {
   return (
@@ -24,7 +22,11 @@ function ViewAllLink({ label, href }: { label: string; href: string }) {
 }
 
 /** Three-column dashboard: announcements, upcoming events, and barangay statistics. */
-export function CommunityPulseSection() {
+export async function CommunityPulseSection() {
+  const [announcements, events] = await Promise.all([
+    listPublishedAnnouncements(3),
+    listUpcomingEvents(4),
+  ]);
   return (
     <Section tone="muted">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -35,7 +37,7 @@ export function CommunityPulseSection() {
             action={<ViewAllLink label="View All" href="/announcements" />}
           />
           <div className="space-y-6">
-            {LATEST_ANNOUNCEMENTS.map((announcement) => (
+            {announcements.map((announcement) => (
               <AnnouncementCard key={announcement.title} announcement={announcement} />
             ))}
           </div>
@@ -51,7 +53,7 @@ export function CommunityPulseSection() {
             action={<ViewAllLink label="View Calendar" href="/announcements" />}
           />
           <div className="space-y-6">
-            {UPCOMING_EVENTS.map((event) => (
+            {events.map((event) => (
               <EventCard key={event.title} event={event} />
             ))}
           </div>

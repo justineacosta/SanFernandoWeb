@@ -1,51 +1,95 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Clock, HeartHandshake, MapPin, Plus, TrendingUp, Users } from "lucide-react";
-import type { AdminEventRecord } from "@/types";
+import { useMemo, useState, useTransition } from "react";
+import Image from "next/image";
+import { Clock, MapPin, Plus } from "lucide-react";
+import type { AdminEventRow } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
-import { IconCircle } from "@/components/ui/icon-circle";
 import { Toast } from "@/components/ui/toast";
 import { toCalendarParts } from "@/lib/format";
-import { ADMIN_EVENTS, EVENT_CATEGORY_LABELS } from "@/features/admin/data";
+import { EVENT_CATEGORY_LABELS } from "@/features/admin/data";
+import { getEventForEditAction } from "@/features/admin/actions/events";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
-import { EventForm } from "./event-form";
+import { AdminPagination } from "./admin-pagination";
+import { EventForm, type EventEditRecord } from "./event-form";
 import { MiniCalendar } from "./mini-calendar";
 import { StatusChip } from "./status-chip";
 
-/** Event schedule with category filter, mini calendar, engagement panel, drawer editor. */
-export function EventsManager() {
+const PAGE_SIZE = 8;
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "All Statuses" },
+  { value: "draft", label: "Draft" },
+  { value: "in-review", label: "In Review" },
+  { value: "published", label: "Published" },
+  { value: "archived", label: "Archived" },
+];
+
+interface EventsManagerProps {
+  events: AdminEventRow[];
+}
+
+/** Event schedule: single DB-backed list, category/status filters, mini calendar, drawer editor. */
+export function EventsManager({ events }: EventsManagerProps) {
+  const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
-  const [editing, setEditing] = useState<AdminEventRecord | null>(null);
+  const [status, setStatus] = useState("all");
+  const [page, setPage] = useState(1);
+
+  const [editing, setEditing] = useState<EventEditRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
-  const filtered = useMemo(
-    () => ADMIN_EVENTS.filter((record) => category === "all" || record.category === category),
-    [category],
-  );
+  const resetPage = () => setPage(1);
 
-  const totalRegistered = ADMIN_EVENTS.reduce((sum, r) => sum + (r.registered ?? 0), 0);
-  const totalCapacity = ADMIN_EVENTS.reduce((sum, r) => sum + (r.capacity ?? 0), 0);
-  const fillPct =
-    totalCapacity > 0 ? Math.min(100, Math.round((totalRegistered / totalCapacity) * 100)) : 0;
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return events.filter(
+      (record) =>
+        (category === "all" || record.category === category) &&
+        (status === "all" || record.status === status) &&
+        (q === "" || record.title.toLowerCase().includes(q)),
+    );
+  }, [events, search, category, status]);
+
+  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const openCreate = () => {
     setEditing(null);
     setDrawerOpen(true);
   };
-  const openEdit = (record: AdminEventRecord) => {
-    setEditing(record);
-    setDrawerOpen(true);
+
+  const openEdit = (row: AdminEventRow) => {
+    setLoadingEditId(row.id);
+    startTransition(async () => {
+      const detail = await getEventForEditAction(row.id);
+      setLoadingEditId(null);
+      if (!detail) {
+        setToast("Could not load that event.");
+        return;
+      }
+      setEditing({ id: row.id, values: detail.values, status: detail.status });
+      setDrawerOpen(true);
+    });
   };
-  const handleSaved = () => {
+
+  const handleSaved = (message: string) => {
     setDrawerOpen(false);
-    setToast("Saved — demo only, backend pending.");
+    setToast(message);
+  };
+
+  const clearFilters = () => {
+    setSearch("");
+    setCategory("all");
+    setStatus("all");
+    setPage(1);
   };
 
   return (
@@ -62,11 +106,16 @@ export function EventsManager() {
       />
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div>
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <h3 className="font-display text-lg font-semibold tracking-tight text-ink-900">
-              Upcoming Schedule
-            </h3>
+          <Card className="mb-4 p-5">
             <AdminFilterBar
+              search={{
+                value: search,
+                placeholder: "Search events...",
+                onChange: (value) => {
+                  setSearch(value);
+                  resetPage();
+                },
+              }}
               selects={[
                 {
                   id: "event-category-filter",
@@ -74,132 +123,109 @@ export function EventsManager() {
                   value: category,
                   options: [
                     { value: "all", label: "All Categories" },
-                    ...Object.entries(EVENT_CATEGORY_LABELS).map(([value, label]) => ({
-                      value,
-                      label,
-                    })),
+                    ...Object.entries(EVENT_CATEGORY_LABELS).map(([value, label]) => ({ value, label })),
                   ],
-                  onChange: setCategory,
+                  onChange: (value) => {
+                    setCategory(value);
+                    resetPage();
+                  },
+                },
+                {
+                  id: "event-status-filter",
+                  label: "Status",
+                  value: status,
+                  options: STATUS_OPTIONS,
+                  onChange: (value) => {
+                    setStatus(value);
+                    resetPage();
+                  },
                 },
               ]}
             />
-          </div>
+          </Card>
           {filtered.length === 0 ? (
             <Card>
-              <AdminEmptyState
-                message="No events in this category."
-                onClear={() => setCategory("all")}
-              />
+              <AdminEmptyState message="No events match your filters." onClear={clearFilters} />
             </Card>
           ) : (
-            <div className="space-y-4">
-              {filtered.map((record) => {
-                const { month, day } = toCalendarParts(record.event.date);
-                return (
-                  <Card key={record.id} className="p-6">
-                    <div className="flex gap-5">
-                      <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl bg-brand-100">
-                        <p className="text-xs font-bold uppercase text-brand-800">{month}</p>
-                        <p className="font-display text-2xl font-bold leading-none text-ink-900">
-                          {day}
-                        </p>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                          <Badge variant="neutral">
-                            {EVENT_CATEGORY_LABELS[record.category]}
-                          </Badge>
-                          {record.status === "planning" ? (
-                            <StatusChip status="planning" />
-                          ) : null}
-                          <span className="flex items-center gap-1 text-sm text-ink-500">
-                            <Clock className="h-4 w-4" aria-hidden="true" />
-                            {record.event.time}
-                          </span>
+            <>
+              <div className="space-y-4">
+                {pageItems.map((record) => {
+                  const { month, day } = toCalendarParts(record.eventDate);
+                  return (
+                    <Card key={record.id} className="p-6">
+                      <div className="flex gap-5">
+                        <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-2xl bg-brand-100">
+                          <p className="text-xs font-bold uppercase text-brand-800">{month}</p>
+                          <p className="font-display text-2xl font-bold leading-none text-ink-900">{day}</p>
                         </div>
-                        <h4 className="mb-1 font-display text-lg font-semibold tracking-tight text-ink-900">
-                          {record.event.title}
-                        </h4>
-                        <p className="flex items-center gap-1 text-sm text-ink-600">
-                          <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
-                          {record.event.venue}
-                        </p>
+                        {record.coverSrc ? (
+                          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-ink-100">
+                            <Image
+                              src={record.coverSrc}
+                              alt={record.coverAlt}
+                              fill
+                              sizes="64px"
+                              className="object-cover"
+                            />
+                          </div>
+                        ) : null}
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                            <Badge variant="neutral">{EVENT_CATEGORY_LABELS[record.category]}</Badge>
+                            <StatusChip status={record.status} />
+                            <span className="flex items-center gap-1 text-sm text-ink-500">
+                              <Clock className="h-4 w-4" aria-hidden="true" />
+                              {record.startTime}
+                              {record.endTime ? ` - ${record.endTime}` : ""}
+                            </span>
+                          </div>
+                          <h4 className="mb-1 font-display text-lg font-semibold tracking-tight text-ink-900">
+                            {record.title}
+                          </h4>
+                          <p className="flex items-center gap-1 text-sm text-ink-600">
+                            <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+                            {record.venue}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 pt-4">
-                      <div className="flex flex-wrap items-center gap-4">
-                        {record.registered != null ? (
-                          <span className="flex items-center gap-1.5 text-sm text-ink-600">
-                            <Users className="h-4 w-4" aria-hidden="true" />
-                            {record.registered} Registered
-                          </span>
-                        ) : null}
-                        {record.capacity != null ? (
-                          <span className="text-sm text-ink-600">Cap: {record.capacity}</span>
-                        ) : null}
-                        {record.volunteers != null ? (
-                          <span className="flex items-center gap-1.5 text-sm text-ink-600">
-                            <HeartHandshake className="h-4 w-4" aria-hidden="true" />
-                            {record.volunteers} Volunteers
-                          </span>
-                        ) : null}
-                        {record.note ? (
-                          <span className="text-sm italic text-ink-500">{record.note}</span>
-                        ) : null}
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 pt-4">
+                        <div className="flex flex-wrap items-center gap-4">
+                          {record.capacity != null ? (
+                            <span className="text-sm text-ink-600">Cap: {record.capacity}</span>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => openEdit(record)}
+                          disabled={loadingEditId === record.id}
+                          className="text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800 disabled:opacity-40"
+                        >
+                          Manage
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => openEdit(record)}
-                        className="text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800"
-                      >
-                        {record.status === "planning" ? "Edit Details" : "Manage"}
-                      </button>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
+                    </Card>
+                  );
+                })}
+              </div>
+              <AdminPagination
+                page={page}
+                pageSize={PAGE_SIZE}
+                total={filtered.length}
+                onPageChange={setPage}
+                className="mt-6"
+              />
+            </>
           )}
         </div>
         <div className="space-y-6">
-          <MiniCalendar eventDates={ADMIN_EVENTS.map((record) => record.event.date)} />
-          <Card className="p-6">
-            <h3 className="mb-4 font-display text-lg font-semibold tracking-tight text-ink-900">
-              Engagement Overview
-            </h3>
-            <div className="mb-1 flex items-baseline justify-between gap-2">
-              <p className="text-sm text-ink-600">Total Event Registrations (YTD)</p>
-              <p className="font-display text-xl font-bold text-brand-700">
-                {totalRegistered.toLocaleString("en-PH")}
-              </p>
-            </div>
-            <div className="mb-6 h-2 rounded-full bg-ink-100">
-              <div
-                className="h-2 rounded-full bg-brand-500"
-                style={{ width: `${fillPct}%` }}
-                aria-hidden="true"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <IconCircle icon={TrendingUp} tone="primary" size="sm" />
-              <div>
-                <p className="text-sm font-semibold text-ink-900">Attendance Rate</p>
-                <p className="text-sm text-ink-600">
-                  88% <span className="font-medium text-brand-700">+2% from last year</span>
-                </p>
-              </div>
-            </div>
-          </Card>
+          <MiniCalendar eventDates={events.map((record) => record.eventDate)} />
         </div>
       </div>
-      <Drawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        title={editing ? "Edit Event" : "Create Event"}
-      >
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editing ? "Edit Event" : "Create Event"}>
         {drawerOpen ? (
           <EventForm
-            key={editing?.id ?? "new"}
+            key={editing?.id ?? "new-event"}
             record={editing}
             onSaved={handleSaved}
             onCancel={() => setDrawerOpen(false)}

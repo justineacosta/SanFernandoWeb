@@ -10,7 +10,14 @@ export const metadata: Metadata = {
     "The latest announcements, public notices, and community highlights from Barangay San Fernando.",
 };
 
-export default function AnnouncementsPage() {
+export default async function AnnouncementsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page } = await searchParams;
+  const current = Number(page) > 0 ? Number(page) : 1;
+
   return (
     <>
       <PageHero
@@ -30,7 +37,7 @@ export default function AnnouncementsPage() {
       <Container className="py-12 md:py-16">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
           <div className="lg:col-span-8">
-            <NewsFeed />
+            <NewsFeed page={current} />
           </div>
           <div className="lg:col-span-4">
             <NewsSidebar />

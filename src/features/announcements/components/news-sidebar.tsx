@@ -3,9 +3,15 @@ import { cn } from "@/lib/utils";
 import { toCalendarParts, toTelHref } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { NewsletterForm } from "@/features/announcements/components/newsletter-form";
-import { SIDEBAR_ANNOUNCEMENTS, SIDEBAR_HOTLINES } from "@/features/announcements/data";
+import { listPublishedAnnouncements } from "@/features/announcements/queries";
+import { EMERGENCY_HOTLINES } from "@/constants/site";
+import type { Announcement } from "@/types";
 
-function AnnouncementsWidget() {
+interface AnnouncementsWidgetProps {
+  announcements: Announcement[];
+}
+
+function AnnouncementsWidget({ announcements }: AnnouncementsWidgetProps) {
   return (
     <div className="overflow-hidden rounded-3xl border border-ink-200 bg-white">
       <div className="flex items-center gap-3 bg-danger-deep p-4">
@@ -13,7 +19,7 @@ function AnnouncementsWidget() {
         <h3 className="text-lg font-semibold text-white">Latest Announcements</h3>
       </div>
       <div className="space-y-4 p-4">
-        {SIDEBAR_ANNOUNCEMENTS.map((announcement) => {
+        {announcements.map((announcement) => {
           const { month, day } = toCalendarParts(announcement.date);
           return (
             <div
@@ -61,23 +67,18 @@ function HotlinesWidget() {
           <h3 className="font-display text-lg font-semibold tracking-tight">Emergency Hotlines</h3>
         </div>
         <div className="space-y-4 p-6">
-          {SIDEBAR_HOTLINES.map((hotline) => (
+          {EMERGENCY_HOTLINES.map(({ label, number, icon: Icon }) => (
             <a
-              key={hotline.label}
-              href={toTelHref(hotline.number)}
-              className={cn(
-                "group flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3 transition-colors",
-                hotline.tone === "danger" ? "hover:border-danger-bright" : "hover:border-brand-400/40",
-              )}
+              key={label}
+              href={toTelHref(number)}
+              className="group flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-3 transition-colors hover:border-brand-400/40"
             >
-              <span className="font-semibold text-ink-300">{hotline.label}</span>
-              <span
-                className={cn(
-                  "font-semibold group-hover:underline",
-                  hotline.tone === "danger" ? "text-danger-bright" : "text-brand-300",
-                )}
-              >
-                {hotline.number}
+              <span className="flex items-center gap-2 font-semibold text-ink-300">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {label}
+              </span>
+              <span className="font-semibold text-brand-300 transition-colors group-hover:underline">
+                {number}
               </span>
             </a>
           ))}
@@ -91,10 +92,11 @@ function HotlinesWidget() {
 }
 
 /** Right rail: urgent announcements, hotlines, and newsletter signup. */
-export function NewsSidebar() {
+export async function NewsSidebar() {
+  const announcements = await listPublishedAnnouncements(3);
   return (
     <aside className="space-y-8">
-      <AnnouncementsWidget />
+      <AnnouncementsWidget announcements={announcements} />
       <HotlinesWidget />
       <NewsletterForm />
     </aside>

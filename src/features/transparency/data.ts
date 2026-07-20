@@ -60,7 +60,7 @@ export const ORDINANCES: LegislativeDocument[] = [
     title: "Anti-Illegal Parking on Barangay Roads",
     date: "2023-11-08",
     summary:
-      "An ordinance prohibiting the parking of motor vehicles on designated barangay road sections that obstruct traffic flow or emergency access, establishing towing and impounding procedures in coordination with the city traffic office, and imposing graduated fines starting at ₱1,000.",
+      "An ordinance prohibiting the parking of motor vehicles on designated barangay road sections that obstruct traffic flow or emergency access, establishing towing and impounding procedures in coordination with the municipal traffic office, and imposing graduated fines starting at ₱1,000.",
     fileUrl: "#",
   },
 ];

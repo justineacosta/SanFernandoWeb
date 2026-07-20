@@ -119,6 +119,9 @@ export interface CommunityEvent {
   date: string;
   time: string;
   venue: string;
+  /** Resolved public URL of the optional cover image. */
+  image?: string;
+  imageAlt?: string;
 }
 
 export interface NewsArticle {
@@ -130,7 +133,115 @@ export interface NewsArticle {
   /** ISO date or a relative label like "2 days ago" */
   dateLabel: string;
   author?: string;
-  featured?: boolean;
+}
+
+/* ── News content management (backend plan 3) ─────────────────────────── */
+
+export type ContentStatus = "draft" | "in-review" | "published" | "archived";
+
+export interface NewsCategoryRow {
+  id: string;
+  label: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+export interface NewsCategoryValues {
+  label: string;
+}
+
+export interface NewsPhoto {
+  id: string;
+  src: string; // raw reference; resolve with photoUrl() at render
+  alt: string;
+}
+
+/** Public news card / feed item. */
+export interface NewsArticleListItem {
+  id: string;
+  slug: string;
+  title: string;
+  category: string;
+  excerpt: string;
+  coverSrc: string | null;
+  coverAlt: string;
+  dateLabel: string;
+  isNew: boolean;
+  author: string | null;
+}
+/** Public news detail (slug page). */
+export interface NewsArticleDetail extends NewsArticleListItem {
+  body: string;
+  photos: NewsPhoto[];
+}
+
+/** Admin list rows. */
+export interface AdminNewsArticleRow {
+  id: string;
+  slug: string;
+  title: string;
+  category: string;
+  categoryId: string;
+  excerpt: string;
+  status: ContentStatus;
+  coverSrc: string | null;
+  coverAlt: string;
+  photoCount: number;
+  updatedLabel: string;
+  publishedLabel: string | null;
+}
+export interface AdminAnnouncementRow {
+  id: string;
+  title: string;
+  date: string;
+  excerpt: string;
+  urgent: boolean;
+  status: ContentStatus;
+  imageSrc: string | null;
+  imageAlt: string;
+  updatedLabel: string;
+}
+export interface AdminEventRow {
+  id: string;
+  title: string;
+  category: EventCategory;
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+  venue: string;
+  capacity: number | null;
+  description: string;
+  status: ContentStatus;
+  coverSrc: string | null;
+  coverAlt: string;
+}
+
+/** Drawer form values. */
+export interface NewsArticleValues {
+  title: string;
+  slug: string;
+  categoryId: string;
+  excerpt: string;
+  body: string;
+}
+export interface AnnouncementValues {
+  title: string;
+  date: string;
+  excerpt: string;
+  urgent: boolean;
+  imageSrc: string | null;
+  imageAlt: string;
+}
+export interface EventValues {
+  title: string;
+  category: EventCategory;
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+  venue: string;
+  capacity: number | null;
+  description: string;
+  coverSrc: string | null;
+  coverAlt: string;
 }
 
 /* ---------------------------------- Statistics ---------------------------------- */
@@ -261,31 +372,6 @@ export interface AdminServiceRow {
   updatedAt: string;
 }
 
-export interface AdminEventRecord {
-  id: string;
-  /** The public entity has no id — the envelope provides it. */
-  event: CommunityEvent;
-  category: EventCategory;
-  status: AdminEventStatus;
-  registered?: number;
-  capacity?: number;
-  volunteers?: number;
-  /** Free-form footnote for planning-stage events, e.g. "Registration opens August 1st". */
-  note?: string;
-}
-
-export interface AdminNewsRecord {
-  id: string;
-  article: NewsArticle;
-  status: AdminContentStatus;
-  /** Published posts only. */
-  views?: number;
-  /** ISO datetime; scheduled posts only. */
-  scheduledFor?: string;
-  /** ISO date of the last edit. */
-  updatedAt: string;
-}
-
 export interface AdminLegislativeRecord {
   id: string;
   document: LegislativeDocument;
@@ -314,28 +400,6 @@ export interface ServiceFormValues {
   status: AdminServiceStatus;
   iconName: string;
   tone: ServiceTone;
-}
-
-export interface EventFormValues {
-  title: string;
-  category: EventCategory;
-  /** ISO date. */
-  date: string;
-  startTime: string;
-  endTime: string;
-  venue: string;
-  capacity?: number;
-  description: string;
-}
-
-export interface NewsPostFormValues {
-  title: string;
-  category: string;
-  excerpt: string;
-  body: string;
-  status: AdminContentStatus;
-  /** Required when status is "scheduled". */
-  scheduledFor?: string;
 }
 
 export interface LegislativeFormValues {
