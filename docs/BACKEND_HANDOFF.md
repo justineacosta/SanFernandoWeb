@@ -249,6 +249,109 @@
 > to owned `public-media` storage is future work, same as every other still-hotlinked
 > image on the site (§3D, §6).
 
+> **Updated 2026-07-20 (transparency documents):** every content block on
+> `/transparency` — ordinances & resolutions, budget/financial documents, and project
+> monitoring — is now DB-backed end to end (plan:
+> `docs/superpowers/plans/2026-07-20-transparency-documents.md`; spec:
+> `docs/superpowers/specs/2026-07-20-transparency-documents-design.md`). New migration
+> **`0009_transparency.sql`** adds four tables — **`legislative_documents`**,
+> **`transparency_documents`**, **`transparency_projects`**, and a SuperAdmin-managed
+> **`transparency_categories`** picker (financials/legislative/projects/awards, retired
+> via `is_active` like `news_categories`/`assistance_categories`) — all RLS-enabled with
+> **no policies at all**, same pattern as every other content table: every read and
+> write goes through the service-role client after an explicit permission check in code.
+> A second public Storage bucket, **`public-documents`**, holds PDFs separately from
+> `public-media` because the size caps differ — **10MB** per PDF (`MAX_PDF_BYTES` in
+> `src/lib/storage.ts`) vs. 2MB for images — and keeping them in one bucket's upload
+> actions invited applying the wrong limit. Two new public routes:
+> **`/transparency/legislative`** (searchable, paginated archive with type filter —
+> `LegislativeArchive`) and **`/transparency/legislative/[slug]`** (detail page with an
+> inline `PdfViewer`, falls back to a "available at the barangay hall" note when no PDF
+> is attached yet); `/transparency` itself is unchanged as a route but every section
+> (`DisclosureGrid`, `LatestUploadsSection`, `LegislativeSection`) now reads live instead
+> of `features/transparency/data.ts` constants. The admin surface moved from
+> **`/admin/legislative` to a tabbed `/admin/transparency`** (`TransparencyManager` —
+> Legislative / Public Documents / Projects tabs, the legislative tab reusing
+> `LegislativeManager` against real `AdminLegislativeRow` data; a `TransparencyCategoriesPanel`
+> renders beneath it for SuperAdmins only), gated by a new **`manage-transparency`**
+> permission (its own nav entry in `ADMIN_NAV_ITEMS`, replacing the old ungated
+> `/admin/legislative` entry). Notable implementation details:
+> 1. **Next.js caps Server Action bodies at 1MB by default**, which silently
+>    pre-empted the app's own 10MB PDF check. `next.config.ts` now sets
+>    `experimental.serverActions.bodySizeLimit: "12mb"` to make the check reachable.
+>    **This limit is global** — it also raises the accepted body size for every other
+>    Server Action, including the public, unauthenticated contact/application/
+>    appointment/complaint/assistance endpoints, which sit behind only the in-memory
+>    placeholder rate limiter (`src/lib/rate-limit.ts`). Follow-up for the hardening
+>    plan (build-order step 8): move PDF upload to a dedicated Route Handler with its
+>    own limit so the other actions return to the 1MB default. `MAX_PDF_BYTES` in
+>    `src/lib/storage.ts` and `bodySizeLimit` in `next.config.ts` must move together —
+>    nothing in `storage.ts` points back at the config, so raising the constant alone
+>    would silently reintroduce the original unreachable-cap bug.
+> 2. **Middleware was truncating large upload bodies — fixed.** Uploads over ~10MB used
+>    to fail with a crash screen ("Unexpected end of form") instead of the app's own
+>    "The PDF must be 10 MB or smaller." message. The cause was **`proxyClientMaxBodySize`**
+>    (10MB default): because `middleware.ts` matched `/admin/:path*`, Next buffered and
+>    **silently truncated** the request body for admin Server Action POSTs, corrupting the
+>    multipart stream before the action's own parser — and its own size check — ever ran.
+>    It reproduced in a production build; it was never a dev-server artifact.
+>    The matcher now excludes Server Action POSTs via the `Next-Action` header:
+>    `[{ source: "/admin/:path*", missing: [{ type: "header", key: "next-action" }] }]`.
+>    **This does not weaken auth.** Middleware only ever did two things — redirect
+>    unauthenticated users and refresh the Supabase session — and neither is lost:
+>    every admin page and every admin Server Action independently calls
+>    `requirePermission(...)` / `requireSuperAdmin()` (`src/lib/auth.ts`), and because
+>    `cookies()` is mutable inside a Server Action (unlike a Server Component), the
+>    action's own Supabase client refreshes the session when it calls `getUser()`.
+>    A forged `Next-Action` header therefore skips only the redirect convenience, never
+>    the real gate. Header matching is case-insensitive (verified in Next 16.2.10's
+>    `matchHas`), so the lowercase matcher key is correct.
+>    *Not evaluated:* raising `proxyClientMaxBodySize` explicitly may be a simpler
+>    config-only alternative — worth revisiting if the matcher exclusion ever causes
+>    trouble. Note this fix is more general than the Route Handler follow-up in (1):
+>    it protects every admin Server Action with a large payload, not just PDF upload.
+> 3. **Uploads are deferred to Save.** `PdfUploader` is a pure file picker making no
+>    network calls; the save Server Actions upload server-side and compensating-delete
+>    the storage object if the row write fails, so "a storage object exists only if a
+>    row references it" holds by construction. This replaced an earlier design that
+>    uploaded on file-select and orphaned an object every time a drawer was cancelled.
+> 4. **Optimistic locking on `file_path`** guards concurrent file replacements — applied
+>    only when a new file is uploaded, so ordinary simultaneous text edits are
+>    unaffected.
+> 5. **Search-term escaping quirk:** PostgREST substitutes `*` for `%` in `ilike`
+>    values even when the `*` is backslash-escaped, so a searched `*` matches a literal
+>    `%` rather than a literal asterisk. Safe — no user input can expand into a
+>    match-everything wildcard, verified against the live database — but semantically
+>    imperfect; documented in `src/features/transparency/queries.ts`.
+> 6. Seeded transparency content is placeholder, same caveat as the Plan 3 seed
+>    content — still needs real PDFs attached and an editorial pass.
+> 7. **`date_approved` is optional (migration `0010_legislative_date_approved_optional.sql`,
+>    unapplied as of 2026-07-21 — the repo owner applies migrations herself).** An
+>    ordinance/resolution can be uploaded before it's approved: the draft PDF, number,
+>    and title exist ahead of the approval date. `LegislativeListItem`/`LegislativeDetail`/
+>    `AdminLegislativeRow`/`LegislativeValues` all carry `dateApproved: string | null`;
+>    the save action converts an empty form value to SQL `NULL` explicitly
+>    (`normalizeDateApproved` in `src/features/admin/actions/legislative.ts`) so "pending"
+>    has one representation, not two. Every list/table shows **"Pending Approval"** in
+>    place of a date (`formatDateApproved()` in `src/lib/format.ts`). **Pending documents
+>    sort first**, above approved ones — an explicit product decision, not just the
+>    Postgres NULLS-FIRST-on-DESC default: every `.order("date_approved", ...)` call
+>    (`listRecentLegislative`/`searchLegislative` in `features/transparency/queries.ts`,
+>    `listAdminLegislative` in `features/admin/queries/transparency.ts`) now passes
+>    `{ ascending: false, nullsFirst: true }`, and the two `date_approved desc` indexes
+>    from `0009_transparency.sql` are recreated with `nulls first` in migration 0010.
+> Mocks and dead types deleted this plan: `src/features/transparency/data.ts` in full
+> (`HERO_IMAGE`, `BUDGET_DOCUMENTS`, `PROJECTS`, `LATEST_UPLOADS`, `ORDINANCES`,
+> `RESOLUTIONS` — `HERO_IMAGE`'s value moved inline into `TransparencyHero`),
+> `ADMIN_LEGISLATIVE` from `features/admin/data.ts`, and from `src/types/index.ts`:
+> `LegislativeDocument`, `TransparencyDocument`, `ProjectStatus`, `AdminLegislativeRecord`,
+> `AdminLegislativeStatus`, `LegislativeFormValues`, and the long-dead `NewsArticle`
+> interface flagged in the Plan 3 entry above. `AdminLegislativeStatus` is also gone from
+> the `StatusChip` status union (`AdminStatus`) — its values (`active`/`under-review`/
+> `archived`) are already covered by `AdminServiceStatus`, `ComplaintStatus`/
+> `AssistanceStatus`, and the newly-added `ContentStatus` respectively, so `AdminStatus`
+> now unions in `ContentStatus` directly.
+
 ---
 
 ## 1. Current State
@@ -259,9 +362,9 @@
 | Styling | Tailwind CSS v4 — amber + ink design tokens (`brand-*`, `ink-*`, `danger*`) in `src/app/globals.css` (`@theme`); Space Grotesk headings + Inter body |
 | Rendering | 100% Server Components except a handful of client islands (see §5) |
 | Build | `npm run build` ✅ — static where possible; DB-backed routes (services, tickets, news/announcements/events, `/admin/*`) render dynamically |
-| Backend | **Supabase** (Postgres + Auth + Storage), reached through Server Actions and server-only query modules. Services, the four ticket flows, and news/announcements/events are DB-backed. Still hardcoded: `src/constants/site.ts` and the remaining `src/features/*/data.ts` (officials, transparency, about, home stats) |
+| Backend | **Supabase** (Postgres + Auth + Storage), reached through Server Actions and server-only query modules. Services, the four ticket flows, news/announcements/events, and transparency documents (ordinances & resolutions, budget/financial documents, projects) are DB-backed. Still hardcoded: `src/constants/site.ts` and the remaining `src/features/*/data.ts` (officials, about, home stats) |
 | Auth | **Supabase Auth**, live. `/admin` is protected; pages gate on `requirePermission(<permission>)` or `requireSuperAdmin()` (`src/lib/auth.ts`), with per-user permission checkboxes and a SuperAdmin role. Portal stays `noindex` |
-| Images | News/announcement/event uploads go to Supabase Storage (public bucket `public-media`, 2MB, JPEG/PNG/WebP). Seed rows and the rest of the site are still hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — moving those to owned storage is outstanding. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), all 12 officials' portraits (`src/images/officials/`), About history-timeline images (seal + carousel photo) |
+| Images | News/announcement/event uploads go to Supabase Storage (public bucket `public-media`, 2MB, JPEG/PNG/WebP). Transparency PDFs go to a separate public bucket `public-documents` (10MB cap). Seed rows and the rest of the site are still hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — moving those to owned storage is outstanding. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), all 12 officials' portraits (`src/images/officials/`), About history-timeline images (seal + carousel photo) |
 
 ### Routes
 
@@ -278,7 +381,9 @@
 | `/track` | Ticket status lookup | `TrackLookup` — ticket number + last name, DB-backed via `lookupTicket()`; resolves all four ticket kinds through `tickets_view` (a complaint result shows status only) |
 | `/announcements` | News & Announcements | `NewsFeed` (DB-backed via `listPublishedArticles()`; 1 featured + 6/page, real link-based pagination), `NewsSidebar` (DB-backed via `listPublishedAnnouncements()`; hotlines, newsletter) |
 | `/announcements/[slug]` | News article detail | `getPublishedArticleBySlug()`; article body + `NewsGallery` (count-based layout, lightbox) for its 0–3 `news_photos`; 404s for a non-existent or non-published slug |
-| `/transparency` | Transparency portal | `TransparencyHero`, `DisclosureGrid`, `LatestUploadsSection`, `LegislativeSection`, `FoiSection` |
+| `/transparency` | Transparency portal | `TransparencyHero`, `DisclosureGrid`, `LatestUploadsSection`, `LegislativeSection`, `FoiSection` — all DB-backed since 2026-07-20 |
+| `/transparency/legislative` | Ordinances & resolutions archive | `LegislativeArchive` — searchable (`q`), type-filtered, paginated (`LEGISLATIVE_PAGE_SIZE = 10`) |
+| `/transparency/legislative/[slug]` | Ordinance/resolution detail | `getPublishedLegislativeBySlug()`; summary + `PdfViewer` (falls back to an "available at the barangay hall" note when no PDF is attached); 404s for a non-existent or non-published slug |
 | `/contact` | Contact | `ContactDetails`, `InquiryForm`, `MapSection` |
 
 **Admin portal** (from `stitch/barangay_admin_create_content_hub`; own layout — sidebar + app bar, no public chrome, `robots: noindex`):
@@ -291,25 +396,28 @@
 | `/admin/appointments` | Appointments | `AppointmentsManager` (confirm/reschedule/decline, mark completed, walk-in encoding) |
 | `/admin/complaints` | Incident Reports | `ComplaintsManager` (take up for mediation, resolve/dismiss, walk-in encoding) |
 | `/admin/assistance` | Assistance Requests | `AssistanceManager` (take up for review, grant/decline, walk-in encoding) |
-| `/admin/legislative` | Ordinance & Resolution | `LegislativeManager` (stat cards + directory + drawer) |
+| `/admin/transparency` | Transparency | `TransparencyManager` (tabbed: Legislative — `LegislativeManager`, stat cards + directory + drawer; Public Documents; Projects) + `TransparencyCategoriesPanel` (SuperAdmin add/rename/reorder/retire the transparency category picker); permission `manage-transparency`. DB-backed, renamed from `/admin/legislative` 2026-07-20 |
 | `/admin/events` | Event Calendar | `EventsManager` (DB-backed — schedule + category/status filters + `MiniCalendar` + drawer editor with cover-image upload); permission `manage-news` |
 | `/admin/news` | News & Announcements | `NewsManager` (DB-backed — tabbed News / Announcements card grids + filters + drawer editors + photo uploader) + `NewsCategoriesPanel` (SuperAdmin add/rename/reorder/retire the news category picker); permission `manage-news` |
 | `/admin/settings` | Settings | `SettingsPanel` (profile, security, preferences, team) |
 
 Admin mock data lives in `src/features/admin/data.ts`: hub constants (`ADMIN_NAV_ITEMS`,
 `ADMIN_USER`, `CONTENT_TYPE_ACTIONS`, `RECENT_DRAFTS`, `PUBLISHING_ACTIVITY`) plus one seed
-array per section still on mocks — `ADMIN_LEGISLATIVE`, `ADMIN_TEAM` — and label maps
-(`EVENT_CATEGORY_LABELS`, `TEAM_ROLE_LABELS`, `DRAFT_STATUS_LABELS`; `EVENT_CATEGORY_LABELS`
-is still a mock-era label map but is now used to label the DB-backed `events.category`
-enum, not a mock field). Services, applications, news, announcements, and events are now
-DB-backed (see the Routes table
+array still on mocks — `ADMIN_TEAM` — and label maps (`EVENT_CATEGORY_LABELS`,
+`TEAM_ROLE_LABELS`, `DRAFT_STATUS_LABELS`; `EVENT_CATEGORY_LABELS` is still a mock-era label
+map but is now used to label the DB-backed `events.category` enum, not a mock field).
+Services, applications, news, announcements, events, and (as of 2026-07-20) transparency
+documents are now DB-backed (see the Routes table
 and §2); their old mocks (`ADMIN_SERVICES`, `MOCK_SERVICES`, `ADMIN_APPLICATIONS`,
-`CERTIFICATE_SERVICES`, `certificateTitle()`, `ADMIN_NEWS`, `ADMIN_EVENTS`) and the
-`AdminServiceRecord` / `AdminApplicationRecord` / `ApplicationFormValues` /
-`AdminNewsRecord` / `AdminEventRecord` / `NewsFormValues` / `EventFormValues` types they
+`CERTIFICATE_SERVICES`, `certificateTitle()`, `ADMIN_NEWS`, `ADMIN_EVENTS`, `ADMIN_LEGISLATIVE`)
+and the `AdminServiceRecord` / `AdminApplicationRecord` / `ApplicationFormValues` /
+`AdminNewsRecord` / `AdminEventRecord` / `NewsFormValues` / `EventFormValues` /
+`AdminLegislativeRecord` / `LegislativeFormValues` / `AdminLegislativeStatus` types they
 used were deleted once the DB queries replaced every consumer — as was the whole
 `src/features/announcements/data.ts` file (only `queries.ts` and `components/` remain in
-that feature) and the announcements/events seed arrays in `src/features/home/data.ts`.
+that feature), `src/features/transparency/data.ts` (deleted outright — only `queries.ts`
+and `components/` remain in that feature too), and the announcements/events seed arrays in
+`src/features/home/data.ts`.
 Admin entity types in `src/types/index.ts`:
 `ContentDraft` (status: `draft | in-review`), `PublishingActivityEntry`, `ContentTypeAction`,
 plus the envelope/record and `*FormValues` contract types listed in §2. Public routes sit in
@@ -350,7 +458,6 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | --- | --- | --- |
 | `Announcement` | Home pulse column, news sidebar | `date` is ISO `YYYY-MM-DD`; flags: `isNew`, `urgent`. DB-backed since Plan 3 — `listPublishedAnnouncements()` reads the `announcements` table (`supabase/migrations/0007_news_content.sql`) |
 | `CommunityEvent` | Home events column | `date` ISO + `time` + `venue` strings. DB-backed since Plan 3 — `listUpcomingEvents()` reads the `events` table, filtered `event_date >= today` |
-| ~~`NewsArticle`~~ | *(dead — unused)* | Superseded by `NewsArticleListItem`/`NewsArticleDetail` below when the news feed went DB-backed in Plan 3; the type declaration is still in `src/types/index.ts` but nothing imports it — safe to delete in a follow-up |
 | `NewsCategoryRow`, `NewsPhoto`, `NewsArticleListItem`, `NewsArticleDetail` | `/announcements`, `/announcements/[slug]`, news sidebar | Public read shapes (`src/features/announcements/queries.ts`), DB-backed since Plan 3 (`news_articles`/`news_photos`/`news_categories` tables). `NewsArticleDetail extends NewsArticleListItem` with `body` + full `photos: NewsPhoto[]`; `coverSrc`/`NewsPhoto.src` are resolved through `photoUrl()`, which passes a full `http(s)` URL through unchanged or builds a `public-media` storage URL from a bare object path |
 | `ContentStatus` | News/announcements/events workflow | `"draft" \| "in-review" \| "published" \| "archived"` — no `scheduled` status; `published_at` is set once, on first transition into `published` |
 | `AdminNewsArticleRow`, `AdminAnnouncementRow`, `AdminEventRow`, `NewsArticleValues`, `AnnouncementValues`, `NewsCategoryValues` | `/admin/news`, `/admin/events` | DB-backed admin list rows + drawer-form body shapes (replaced the deleted `AdminNewsRecord`/`AdminEventRecord`/`NewsFormValues`/`EventFormValues` mock envelopes) |
@@ -359,13 +466,13 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | `QuickService` | Home quick-services grid | Same icon caveat |
 | `Stat` | Home "At a Glance" | value/note are display strings |
 | `HeroSlide` | Home hero carousel | `src` is a bundled static image import from `src/images/carousel/` (real photos); an API should return image URLs from owned storage instead |
-| `TransparencyDocument` | Transparency table | Needs a real `fileUrl` field (currently `#`) |
-| `LegislativeDocument` | Ordinances & resolutions tables | Needs real `fileUrl` from file upload; `summary` (expanded row content) comes from CMS |
-| `ProjectStatus` | Transparency project monitoring | `progress: number` (0–100) |
+| `LegislativeType`, `LegislativeListItem`, `LegislativeDetail` | `/transparency`, `/transparency/legislative`, `/transparency/legislative/[slug]` | Public read shapes (`src/features/transparency/queries.ts`), DB-backed since 2026-07-20 (`legislative_documents` table). `LegislativeDetail extends LegislativeListItem` with `summary`; `fileUrl` is resolved through `documentUrl()` (null when no PDF is attached yet) |
+| `TransparencyDocumentItem`, `TransparencyProjectItem`, `TransparencyCategoryRow` | `/transparency` (`DisclosureGrid`, `LatestUploadsSection`) | Public read shapes, DB-backed since 2026-07-20 (`transparency_documents`/`transparency_projects`/`transparency_categories` tables); `categoryIconName` is an icon name string, resolved via `resolveIcon()` |
+| `AdminLegislativeRow`, `AdminTransparencyDocumentRow`, `AdminTransparencyProjectRow`, `LegislativeValues`, `TransparencyDocumentValues`, `TransparencyProjectValues`, `TransparencyCategoryValues` | `/admin/transparency` | DB-backed admin list rows + drawer-form body shapes (replaced the deleted `AdminLegislativeRecord`/`LegislativeFormValues` mock envelopes); `status: ContentStatus` on every row |
 | `TimelineEntry`, `Milestone`, `ValueItem` | About page | Mostly CMS-style static content; `TimelineEntry.image` is `string \| StaticImageData` + optional `imageFit: "cover" \| "contain"` — an API should return URLs |
 | `WasteCollectionSlot` | Services waste schedule | `days`/`note` are display strings; same icon caveat |
 | `Hotline`, `ContactChannel`, `NavItem`, `SocialLink` | Site-wide | Live in `constants/site.ts` |
-| `AdminLegislativeRecord`, `AdminTeamMember`, `LegislativeFormValues` | Admin portal sections still on mock data (`/admin/legislative`, team management in Settings) | Envelope types wrapping the public entities + drawer-form body shapes — the write-side API contract; `AdminLegislativeStatus` maps to a future content-workflow column. `AdminEventRecord`/`AdminNewsRecord`/`NewsFormValues`/`EventFormValues` (and the `AdminEventStatus` values they implied) are **gone** — events and news are DB-backed now, see the `ContentStatus`/`AdminNewsArticleRow` rows above |
+| `AdminTeamMember` | Team management in Settings, still on mock data | Envelope type wrapping team roster — the write-side API contract |
 | `AdminServiceRow` | `/admin/services` | DB-backed (`services` table, `supabase/migrations/0004_services.sql`) — replaced the old `AdminServiceRecord` mock envelope; icon travels as `iconName` |
 | `ApplicationRow`, `ApplicationStatus`, `PublicApplicationValues`, `WalkInApplicationValues`, `ApplicationReviewValues`, `TicketLookupResult` | `/services/apply/[slug]`, `/track`, `/admin/applications` | DB-backed (`applications` table, `supabase/migrations/0005_applications.sql`) — replaced the old `AdminApplicationRecord`/`ApplicationFormValues` mocks; status flow `pending → approved → released`, or `pending → rejected`; `PublicApplicationValues`/`WalkInApplicationValues` are the submission bodies (online vs. walk-in), `ApplicationReviewValues` is the approve/reject PATCH body |
 | `AppointmentRow`/`ComplaintRow`/`AssistanceRow`, `AssistanceCategoryRow`, `Public*Values`/`WalkIn*Values`, `*ReviewValues`/`ComplaintCloseValues`/`AssistanceDecisionValues`, `TicketKind` | `/appointments/new`, `/complaints/new`, `/assistance/new`, `/admin/appointments`, `/admin/complaints`, `/admin/assistance`, `/admin/services`, `/track` | DB-backed (`appointments`/`complaints`/`assistance_requests`/`assistance_categories` tables, `supabase/migrations/0006_ticketing_flows.sql`) — no mock precursor, built directly against the DB; status flows are `pending/received → confirmed/under-review → completed/resolved/dismissed/granted`, each with a `declined`/`rejected`-style negative branch; `TicketLookupResult` (shared with applications, see the row above) is what `/track` renders — a complaint's `narrative`/`respondent`/`location` are never loaded into it |
@@ -383,7 +490,7 @@ return components — return an icon name (e.g. `"file-text"`) and add a small
 | `src/features/officials/data.ts` | 12 officials incl. photos/contacts, `TERM_LABEL`, `getOfficialsByGroup()` — all real names with bundled portraits from `src/images/officials/`; emails/phones placeholder-shaped |
 | `src/features/services/data.ts` | 4 services with requirements, emergency-assistance block, waste collection schedule (real days from the BDP) |
 | ~~`src/features/announcements/data.ts`~~ | **Deleted in Plan 3.** News articles, announcements, and events are all DB-backed now — reads go through `src/features/announcements/queries.ts` (`import "server-only"`) and `src/features/events/queries.ts` against `news_articles`/`news_photos`/`announcements`/`events` (`supabase/migrations/0007_news_content.sql`); content is edited exclusively through `/admin/news` and `/admin/events` |
-| `src/features/transparency/data.ts` | Budget docs, 2 projects, 4 latest uploads, 3 ordinances + 3 resolutions |
+| ~~`src/features/transparency/data.ts`~~ | **Deleted 2026-07-20.** Ordinances/resolutions, budget/financial documents, and projects are all DB-backed now — reads go through `src/features/transparency/queries.ts` (`import "server-only"`) against `legislative_documents`/`transparency_documents`/`transparency_projects`/`transparency_categories` (`supabase/migrations/0009_transparency.sql`); content is edited exclusively through `/admin/transparency` |
 | `src/features/contact/data.ts` | Contact channels, inquiry subject options, map image |
 | `src/constants/site.ts` | Site identity, address/phone/email/hours, nav, 5 emergency hotlines, social + government + legal links |
 
@@ -417,10 +524,15 @@ Replace the `data.ts` constants, roughly in order of how often the content chang
    real link-based pagination (not a "load more" button), photo uploads to a new
    `public-media` Storage bucket, and a `draft → in-review → published → archived`
    workflow (no scheduling). `/announcements/[slug]` article detail pages exist now.
-2. **Transparency documents** (changes monthly) — document entity with real file storage
+2. ~~**Transparency documents** (changes monthly) — document entity with real file storage
    (S3-style bucket), categories, and the ordinance **search** endpoint
    (`disclosure-grid.tsx` has a search form pointing at `#`). Ordinances/resolutions
-   (`LegislativeDocument`) additionally carry a `summary` shown in the expandable table rows.
+   (`LegislativeDocument`) additionally carry a `summary` shown in the expandable table rows.~~
+   **BUILT 2026-07-20 — see the transparency-documents changelog entry above.**
+   `legislative_documents`/`transparency_documents`/`transparency_projects`/
+   `transparency_categories` tables, PDF upload to the new `public-documents` Storage
+   bucket (10MB cap), a real searchable `/transparency/legislative` archive (type filter +
+   pagination), and slug detail pages with an inline PDF viewer.
 3. **Officials** (changes per term) — CRUD + photo upload.
 4. **Services** (rarely changes) — CRUD with requirements list.
 5. **Site settings** (hotlines, hours, socials) — key-value settings table.
@@ -437,12 +549,14 @@ site (hero-adjacent CTA image, transparency uploads, etc.) remains to be moved. 
 in `src/lib/storage.ts` already handles both a full remote URL and a bare `public-media`
 object path, so migrating a field is a data change, not a code change.
 `next.config.ts` `images.remotePatterns` already allow-lists both `lh3.googleusercontent.com`
-and the Supabase storage host. Transparency PDFs still need upload + download endpoints —
+and the Supabase storage host. ~~Transparency PDFs still need upload + download endpoints —
 `public-media` is images-only today (the upload actions reject anything outside
-`image/jpeg|png|webp`).
+`image/jpeg|png|webp`).~~ **BUILT 2026-07-20** — a second bucket, **`public-documents`**,
+now handles PDF upload + download (10MB cap), separate from `public-media` precisely
+because it needed a different type/size policy than images.
 
 ### E. Admin panel + auth
-The admin **UI now exists in full** (`/admin` content hub + sections for services, certificate applications, appointments, complaints, assistance requests, ordinances & resolutions, events, news, and settings) and sits behind real auth. Services, applications, the three ticket queues, news, announcements, and events are all DB-backed now; only ordinances & resolutions (`/admin/legislative`), team management (in Settings), and the "Recent Drafts" hub widget remain on mock data (`ADMIN_LEGISLATIVE`, `ADMIN_TEAM`, `RECENT_DRAFTS` in `features/admin/data.ts`). Remaining backend work, in order:
+The admin **UI now exists in full** (`/admin` content hub + sections for services, certificate applications, appointments, complaints, assistance requests, transparency documents, events, news, and settings) and sits behind real auth. Services, applications, the three ticket queues, news, announcements, events, and (as of 2026-07-20) transparency documents are all DB-backed now; only team management (in Settings) and the "Recent Drafts" hub widget remain on mock data (`ADMIN_TEAM`, `RECENT_DRAFTS` in `features/admin/data.ts`). Remaining backend work, in order:
 
 1. ~~**Auth first** — the `/admin` tree must sit behind a login (middleware guard + session);
    `ADMIN_USER` in `features/admin/data.ts` is the placeholder for the session user.~~
@@ -462,9 +576,9 @@ The admin **UI now exists in full** (`/admin` content hub + sections for service
 4. **Editors** — ~~the create/edit forms already exist as drawer UIs (`ServicesManager`,
    `LegislativeManager`, `EventsManager`, `NewsManager`, each with typed `*FormValues`
    contracts) under `/admin/*`; the backend wires them to real endpoints in (C) instead of
-   building forms from scratch.~~ Done for `ServicesManager`, `NewsManager`, and
-   `EventsManager` — all three are wired to real Server Actions now. `LegislativeManager`
-   is the one editor still waiting on this.
+   building forms from scratch.~~ Done for `ServicesManager`, `NewsManager`,
+   `EventsManager`, and (as of 2026-07-20) `LegislativeManager` and the rest of the
+   `TransparencyManager` tabs — every admin section is now wired to real Server Actions.
 5. **Application processing** — ~~`/admin/applications` models the certificate-request
    queue end-to-end~~ **BUILT 2026-07-17 — see the applications-flow changelog entry above.**
    Delivered as Server Actions rather than the REST sketch proposed here: residents apply at
@@ -509,9 +623,14 @@ Each is a candidate feature — none has UI beyond the button.
 > (migration 0007) as query functions, not routes: `listPublishedAnnouncements()` /
 > `listUpcomingEvents()` / `listPublishedArticles()` + `getPublishedArticleBySlug()` in
 > `src/features/announcements/queries.ts` and `src/features/events/queries.ts`. The
-> `NewsArticle[]` return type shown for `/api/news` is stale — that type is dead code now;
-> the live shapes are `NewsArticleListItem[]` (list) and `NewsArticleDetail` (single, by
-> slug) in §2.
+> `/api/documents` and `/api/legislative` rows are likewise delivered (migration 0009) as
+> query functions against `transparency_documents`/`legislative_documents`, including the
+> search — `listRecentLegislative()` / `getPublishedLegislativeBySlug()` and friends in
+> `src/features/transparency/queries.ts`. The `NewsArticle[]`, `TransparencyDocument[]`,
+> and `LegislativeDocument[]` return types shown below are all stale — those types were
+> deleted outright (2026-07-20) as dead code; the live shapes are `NewsArticleListItem[]`/
+> `NewsArticleDetail`, `TransparencyDocumentItem[]`, and `LegislativeListItem[]`/
+> `LegislativeDetail` in §2.
 
 ```
 GET  /api/announcements?page=&limit=      → Announcement[]
@@ -571,16 +690,23 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
 1. ~~`NewsArticle.dateLabel` mixes real dates and relative strings — normalize when backend
    lands.~~ Resolved by Plan 3: `NewsArticleListItem.dateLabel` is now always derived from
    the real `published_at` timestamp via `formatDate(toManilaDate(...))` — no relative
-   strings. The dead `NewsArticle` type itself is unrelated leftover cleanup (see §2).
+   strings. ~~The dead `NewsArticle` type itself is unrelated leftover cleanup (see §2).~~
+   **Deleted 2026-07-20** along with the rest of the transparency mock cleanup — see the
+   transparency-documents changelog entry above.
 2. Icon-as-component in data types (see §2 caveat).
 3. Most images are still Google-hosted and can break at any time (§3D). Plan 3 stood up
-   owned storage (`public-media`) and news/announcement photo uploads now write there, but
-   the seed news/announcement images and every other still-hotlinked image on the site
-   (transparency uploads, the home CTA image, etc.) haven't been migrated onto it yet.
+   owned storage (`public-media`) and news/announcement photo uploads now write there;
+   transparency documents got their own bucket (`public-documents`) in the 2026-07-20 plan.
+   The seed news/announcement images and every other still-hotlinked image on the site
+   (the home CTA image, etc.) haven't been migrated onto owned storage yet.
 4. ~~Placeholder `#` hrefs: legal links, FOI guide, get-directions, article detail pages
    (no `/announcements/[slug]` route yet — needed once news is dynamic).~~
    `/announcements/[slug]` shipped in Plan 3 with a photo gallery + lightbox; legal links,
-   the FOI guide, and get-directions are still `#`.
+   the FOI guide, and get-directions are still `#`. ~~Document `fileUrl`s were also `#`
+   placeholders (the old mock `LegislativeDocument`/`TransparencyDocument` types).~~
+   **Resolved 2026-07-20** — every document link now resolves through `documentUrl()`
+   against the real `file_path` column, `null` (not `#`) when no PDF is attached yet, with
+   a graceful "available at the barangay hall" fallback in the UI.
 5. No tests yet — when the backend lands, add integration tests around the two forms and
    the document search first.
 6. `CAPTAIN.message` on the About page is invented placeholder text presented as direct quotes
@@ -589,6 +715,9 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
    drag-and-drop — a deliberate choice (§ Plan 3 changelog above) to avoid adding a
    drag-and-drop dependency, not an oversight; revisit only if editors ask for it.
 8. Seeded demo content still needs a real editorial pass: the three news articles, three
-   announcements, and four events inserted by migration 0007 (and re-dated by 0008) are
-   placeholder barangay content, not verified real posts — same caveat as the rest of the
-   site's placeholder-shaped data (see the top-of-file summary).
+   announcements, and four events inserted by migration 0007 (and re-dated by 0008), and
+   the six legislative documents, six transparency documents, and two projects inserted by
+   migration 0009, are all placeholder barangay content, not verified real posts — same
+   caveat as the rest of the site's placeholder-shaped data (see the top-of-file summary).
+   The migration 0009 seed rows additionally have no PDFs attached (`file_path` is `null`)
+   — real documents still need to be uploaded through `/admin/transparency`.

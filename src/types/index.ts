@@ -124,17 +124,6 @@ export interface CommunityEvent {
   imageAlt?: string;
 }
 
-export interface NewsArticle {
-  title: string;
-  category: string;
-  excerpt: string;
-  image: string;
-  imageAlt: string;
-  /** ISO date or a relative label like "2 days ago" */
-  dateLabel: string;
-  author?: string;
-}
-
 /* ── News content management (backend plan 3) ─────────────────────────── */
 
 export type ContentStatus = "draft" | "in-review" | "published" | "archived";
@@ -255,29 +244,120 @@ export interface Stat {
 
 /* --------------------------------- Transparency --------------------------------- */
 
-export interface TransparencyDocument {
-  title: string;
-  category: string;
-  /** ISO date */
-  date: string;
-  icon: LucideIcon;
-}
+/* ── Transparency (Plan 4) ───────────────────────────────────────────────── */
 
-export interface LegislativeDocument {
-  /** e.g. "Ordinance No. 05-2024" */
+export type LegislativeType = "ordinance" | "resolution";
+
+/** A published ordinance/resolution as the public tables and archive render it. */
+export interface LegislativeListItem {
+  id: string;
+  slug: string;
+  docType: LegislativeType;
   number: string;
   title: string;
-  /** ISO date approved */
-  date: string;
-  /** Content shown when the row is expanded. Placeholder until CMS/backend. */
-  summary: string;
-  /** Link to the uploaded PDF/raw file. "#" placeholder until backend upload exists. */
-  fileUrl: string;
+  /** ISO date approved, or null when the document is pending approval. */
+  dateApproved: string | null;
+  /** Resolved public URL, or null when no PDF is attached yet. */
+  fileUrl: string | null;
+  fileSizeBytes: number | null;
 }
 
-export interface ProjectStatus {
+/** Detail-page shape: the list item plus the expanded summary. */
+export interface LegislativeDetail extends LegislativeListItem {
+  summary: string;
+}
+
+/** A published document in the disclosure/latest-uploads tables. */
+export interface TransparencyDocumentItem {
+  id: string;
+  title: string;
+  categoryLabel: string;
+  /** Icon name string — resolve with resolveIcon(); never store a component. */
+  categoryIconName: string;
+  /** ISO date released. */
+  dateReleased: string;
+  fileUrl: string | null;
+  fileSizeBytes: number | null;
+}
+
+export interface TransparencyProjectItem {
+  id: string;
   name: string;
   progress: number;
+}
+
+export interface TransparencyCategoryRow {
+  id: string;
+  label: string;
+  iconName: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+/* Admin rows (serializable — cross the client boundary into the manager). */
+
+export interface AdminLegislativeRow {
+  id: string;
+  slug: string;
+  docType: LegislativeType;
+  number: string;
+  title: string;
+  dateApproved: string | null;
+  status: ContentStatus;
+  hasFile: boolean;
+  fileUrl: string | null;
+}
+
+export interface AdminTransparencyDocumentRow {
+  id: string;
+  title: string;
+  categoryId: string;
+  categoryLabel: string;
+  dateReleased: string;
+  status: ContentStatus;
+  hasFile: boolean;
+  fileUrl: string | null;
+}
+
+export interface AdminTransparencyProjectRow {
+  id: string;
+  name: string;
+  progress: number;
+  sortOrder: number;
+  status: ContentStatus;
+}
+
+/* Drawer-form body shapes (the write-side contract). */
+
+export interface LegislativeValues {
+  docType: LegislativeType;
+  number: string;
+  title: string;
+  /** ISO date, or null while pending approval. The action stores an empty
+   *  string from the date input as SQL NULL. */
+  dateApproved: string | null;
+  summary: string;
+  /** Storage object path, or null. Set by the uploader, persisted by the action. */
+  filePath: string | null;
+  fileSizeBytes: number | null;
+}
+
+export interface TransparencyDocumentValues {
+  title: string;
+  categoryId: string;
+  dateReleased: string;
+  filePath: string | null;
+  fileSizeBytes: number | null;
+}
+
+export interface TransparencyProjectValues {
+  name: string;
+  progress: number;
+}
+
+export interface TransparencyCategoryValues {
+  label: string;
+  iconName: string;
 }
 
 /* ------------------------------------- Admin ------------------------------------ */
@@ -319,7 +399,6 @@ export interface ContentTypeAction {
 
 export type AdminContentStatus = "published" | "scheduled" | "draft" | "in-review";
 export type AdminServiceStatus = "active" | "inactive";
-export type AdminLegislativeStatus = "active" | "under-review" | "archived";
 export type AdminEventStatus = "published" | "planning";
 /** Spec §3 flow: pending → approved (ready for pickup) → released, or rejected. */
 export type ApplicationStatus = "pending" | "approved" | "released" | "rejected";
@@ -348,8 +427,8 @@ export type EventCategory =
 /** Every status a StatusChip can render. */
 export type AdminStatus =
   | AdminContentStatus
+  | ContentStatus
   | AdminServiceStatus
-  | AdminLegislativeStatus
   | AdminEventStatus
   | ApplicationStatus
   | AppointmentStatus
@@ -372,14 +451,6 @@ export interface AdminServiceRow {
   updatedAt: string;
 }
 
-export interface AdminLegislativeRecord {
-  id: string;
-  document: LegislativeDocument;
-  /** The public data splits by array; the envelope makes the type explicit. */
-  type: "ordinance" | "resolution";
-  status: AdminLegislativeStatus;
-}
-
 export type TeamRole = "super-admin" | "editor" | "viewer";
 
 export interface AdminTeamMember {
@@ -400,17 +471,6 @@ export interface ServiceFormValues {
   status: AdminServiceStatus;
   iconName: string;
   tone: ServiceTone;
-}
-
-export interface LegislativeFormValues {
-  type: "ordinance" | "resolution";
-  /** e.g. "Ordinance No. 05-2024". */
-  number: string;
-  title: string;
-  /** ISO date. */
-  datePassed: string;
-  summary: string;
-  status: AdminLegislativeStatus;
 }
 
 /** The future review-action (PATCH) body. */

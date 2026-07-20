@@ -26,3 +26,36 @@ export function extForType(type: string): string {
   if (type === "image/webp") return "webp";
   return "jpg";
 }
+
+export const PUBLIC_DOCUMENTS_BUCKET = "public-documents";
+
+export const ALLOWED_PDF_TYPES = ["application/pdf"] as const;
+export const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10 MB (spec §4 — scanned ordinances run big)
+
+/**
+ * Resolve a stored document reference to a public URL. Mirrors photoUrl()'s
+ * contract: a full remote URL passes through unchanged, a bare object path
+ * resolves against the documents bucket.
+ */
+export function documentUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${SUPABASE_URL}/storage/v1/object/public/${PUBLIC_DOCUMENTS_BUCKET}/${path}`;
+}
+
+/** Storage object path for a legislative PDF: `legislative/<id>/<uuid>.pdf`. */
+export function legislativePdfPath(documentId: string): string {
+  return `legislative/${documentId}/${crypto.randomUUID()}.pdf`;
+}
+
+/** Storage object path for a transparency document PDF: `documents/<id>/<uuid>.pdf`. */
+export function documentPdfPath(documentId: string): string {
+  return `documents/${documentId}/${crypto.randomUUID()}.pdf`;
+}
+
+/** Human-readable file size for download affordances, e.g. "2.4 MB". */
+export function formatFileSize(bytes: number | null): string {
+  if (!bytes || bytes <= 0) return "";
+  const mb = bytes / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}

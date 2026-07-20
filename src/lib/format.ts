@@ -9,6 +9,11 @@ export function formatDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("en-PH", DATE_FORMAT);
 }
 
+/** Format a date-approved value, showing "Pending Approval" when not yet set. */
+export function formatDateApproved(iso: string | null): string {
+  return iso ? formatDate(iso) : "Pending Approval";
+}
+
 /** Split an ISO date into calendar-tile parts, e.g. { month: "MAY", day: "25" }. */
 export function toCalendarParts(iso: string): { month: string; day: string } {
   const date = new Date(`${iso}T00:00:00`);
