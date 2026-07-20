@@ -15,3 +15,7 @@ export { NewsCategoriesPanel } from "./components/news-categories-panel";
 export { AnnouncementForm } from "./components/announcement-form";
 export { SingleImageUploader } from "./components/single-image-uploader";
 export { PdfUploader } from "./components/pdf-uploader";
+export { TransparencyManager } from "./components/transparency-manager";
+export { TransparencyDocumentForm } from "./components/transparency-document-form";
+export { TransparencyProjectsPanel } from "./components/transparency-projects-panel";
+export { TransparencyCategoriesPanel } from "./components/transparency-categories-panel";

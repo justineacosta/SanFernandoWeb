@@ -1,52 +1,64 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, FileClock, FileText, Pencil, Plus, ScrollText } from "lucide-react";
-import type { AdminLegislativeRecord } from "@/types";
+import type { AdminLegislativeRow } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
-import { ADMIN_LEGISLATIVE } from "@/features/admin/data";
+import { getLegislativeForEditAction } from "@/features/admin/actions/legislative";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
 import { AdminPagination } from "./admin-pagination";
 import { AdminStatCard } from "./admin-stat-card";
-import { LegislativeForm } from "./legislative-form";
+import { LegislativeForm, type LegislativeEditRecord } from "./legislative-form";
 import { StatusChip } from "./status-chip";
 
 const PAGE_SIZE = 6;
 
-/** Ordinance & resolution directory: stat cards, filterable table, drawer editor (mock). */
-export function LegislativeManager() {
+const STATUS_OPTIONS = [
+  { value: "all", label: "All Statuses" },
+  { value: "draft", label: "Draft" },
+  { value: "in-review", label: "In Review" },
+  { value: "published", label: "Published" },
+  { value: "archived", label: "Archived" },
+];
+
+interface LegislativeManagerProps {
+  documents: AdminLegislativeRow[];
+}
+
+/** Ordinance & resolution directory: stat cards, filterable table, drawer editor backed by real actions. */
+export function LegislativeManager({ documents }: LegislativeManagerProps) {
+  const router = useRouter();
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
-  const [editing, setEditing] = useState<AdminLegislativeRecord | null>(null);
+  const [editing, setEditing] = useState<LegislativeEditRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
-  // Directory numbers stay stable regardless of active filters.
-  const indexById = useMemo(
-    () => new Map(ADMIN_LEGISLATIVE.map((record, index) => [record.id, index + 1])),
-    [],
-  );
-
-  const totalOrdinances = ADMIN_LEGISLATIVE.filter((r) => r.type === "ordinance").length;
-  const totalResolutions = ADMIN_LEGISLATIVE.filter((r) => r.type === "resolution").length;
-  const underReview = ADMIN_LEGISLATIVE.filter((r) => r.status === "under-review").length;
+  const totalOrdinances = documents.filter((r) => r.docType === "ordinance").length;
+  const totalResolutions = documents.filter((r) => r.docType === "resolution").length;
+  const draftsAndInReview = documents.filter(
+    (r) => r.status === "draft" || r.status === "in-review",
+  ).length;
 
   const filtered = useMemo(
     () =>
-      ADMIN_LEGISLATIVE.filter(
+      documents.filter(
         (record) =>
-          (type === "all" || record.type === type) &&
+          (type === "all" || record.docType === type) &&
           (status === "all" || record.status === status),
       ),
-    [type, status],
+    [documents, type, status],
   );
 
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -55,14 +67,30 @@ export function LegislativeManager() {
     setEditing(null);
     setDrawerOpen(true);
   };
-  const openEdit = (record: AdminLegislativeRecord) => {
-    setEditing(record);
-    setDrawerOpen(true);
+
+  const openEdit = (row: AdminLegislativeRow) => {
+    setLoadingEditId(row.id);
+    startTransition(async () => {
+      try {
+        const detail = await getLegislativeForEditAction(row.id);
+        if (!detail) {
+          setToast("Could not load that document.");
+          return;
+        }
+        setEditing({ id: row.id, values: detail.values, status: detail.status, fileUrl: detail.fileUrl });
+        setDrawerOpen(true);
+      } finally {
+        setLoadingEditId(null);
+      }
+    });
   };
-  const handleSaved = () => {
+
+  const handleSaved = (message: string) => {
     setDrawerOpen(false);
-    setToast("Saved — demo only, backend pending.");
+    setToast(message);
+    router.refresh();
   };
+
   const clearFilters = () => {
     setType("all");
     setStatus("all");
@@ -89,7 +117,12 @@ export function LegislativeManager() {
           value={totalResolutions}
           tone="secondary"
         />
-        <AdminStatCard icon={FileClock} label="Under Review" value={underReview} tone="danger" />
+        <AdminStatCard
+          icon={FileClock}
+          label="Drafts & In Review"
+          value={draftsAndInReview}
+          tone="danger"
+        />
       </div>
       <Card>
         <CardHeader
@@ -116,12 +149,7 @@ export function LegislativeManager() {
                   id: "legislative-status-filter",
                   label: "Status",
                   value: status,
-                  options: [
-                    { value: "all", label: "All Status" },
-                    { value: "active", label: "Active" },
-                    { value: "under-review", label: "Under Review" },
-                    { value: "archived", label: "Archived" },
-                  ],
+                  options: STATUS_OPTIONS,
                   onChange: (value) => {
                     setStatus(value);
                     setPage(1);
@@ -140,42 +168,41 @@ export function LegislativeManager() {
                 <thead>
                   <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
                     <th scope="col" className="px-6 py-4">#</th>
-                    <th scope="col" className="px-6 py-4">Title / Description</th>
+                    <th scope="col" className="px-6 py-4">Title / Number</th>
                     <th scope="col" className="px-6 py-4">Type</th>
-                    <th scope="col" className="px-6 py-4">Date Passed</th>
+                    <th scope="col" className="px-6 py-4">Date Approved</th>
                     <th scope="col" className="px-6 py-4">Status</th>
+                    <th scope="col" className="px-6 py-4">File</th>
                     <th scope="col" className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pageItems.map((record) => (
+                  {pageItems.map((record, index) => (
                     <tr key={record.id} className="border-b border-ink-200/40 last:border-b-0">
                       <td className="px-6 py-4 font-semibold text-ink-500">
-                        {String(indexById.get(record.id)).padStart(3, "0")}
+                        {String((page - 1) * PAGE_SIZE + index + 1).padStart(3, "0")}
                       </td>
                       <td className="max-w-90 px-6 py-4">
-                        <p className="font-semibold text-ink-900">{record.document.title}</p>
-                        <p className="truncate text-ink-500">{record.document.summary}</p>
+                        <p className="font-semibold text-ink-900">{record.title}</p>
+                        <p className="truncate text-ink-500">{record.number}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <Badge variant={record.type === "ordinance" ? "soft" : "neutral"}>
-                          {record.type === "ordinance" ? "Ordinance" : "Resolution"}
+                        <Badge variant={record.docType === "ordinance" ? "soft" : "neutral"}>
+                          {record.docType === "ordinance" ? "Ordinance" : "Resolution"}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 text-ink-600">
-                        {record.status === "under-review"
-                          ? "Pending"
-                          : formatDate(record.document.date)}
-                      </td>
+                      <td className="px-6 py-4 text-ink-600">{formatDate(record.dateApproved)}</td>
                       <td className="px-6 py-4">
                         <StatusChip status={record.status} />
                       </td>
+                      <td className="px-6 py-4 text-ink-600">{record.hasFile ? "PDF" : "—"}</td>
                       <td className="px-6 py-4 text-right">
                         <button
                           type="button"
                           onClick={() => openEdit(record)}
-                          aria-label={`${record.status === "archived" ? "View" : "Edit"} ${record.document.number}`}
-                          className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900"
+                          disabled={loadingEditId === record.id}
+                          aria-label={`${record.status === "archived" ? "View" : "Edit"} ${record.number}`}
+                          className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
                         >
                           {record.status === "archived" ? (
                             <Eye className="h-4 w-4" aria-hidden="true" />

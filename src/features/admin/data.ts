@@ -1,6 +1,7 @@
 import {
   CalendarClock,
   CalendarDays,
+  FileStack,
   Gavel,
   HeartHandshake,
   Inbox,
@@ -31,7 +32,7 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Incident Reports", href: "/admin/complaints", icon: Scale, permission: "handle-complaints" },
   { label: "Appointments", href: "/admin/appointments", icon: CalendarClock, permission: "process-appointments" },
   { label: "Assistance Requests", href: "/admin/assistance", icon: HeartHandshake, permission: "handle-assistance" },
-  { label: "Ordinance & Resolution", href: "/admin/legislative", icon: Scale },
+  { label: "Transparency", href: "/admin/transparency", icon: FileStack, permission: "manage-transparency" },
   { label: "Event Calendar", href: "/admin/events", icon: CalendarDays, permission: "manage-news" },
   { label: "News & Announcements", href: "/admin/news", icon: Megaphone, permission: "manage-news" },
   { label: "Settings", href: "/admin/settings", icon: Settings },
@@ -50,7 +51,7 @@ export const CONTENT_TYPE_ACTIONS: ContentTypeAction[] = [
   {
     title: "Ordinance / Resolution",
     description: "Draft official local laws, resolutions, and policy documents for public review.",
-    href: "/admin/legislative",
+    href: "/admin/transparency",
     icon: Gavel,
     tone: "primary",
   },

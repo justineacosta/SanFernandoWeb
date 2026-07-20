@@ -1,52 +1,72 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { ContentStatus, LegislativeValues } from "@/types";
+import type { ContentStatus, TransparencyCategoryRow, TransparencyDocumentValues } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select, Textarea } from "@/components/ui/form";
-import { deleteLegislative, saveLegislative, setLegislativeStatus } from "@/features/admin/actions/legislative";
+import { Field, Input, Select } from "@/components/ui/form";
+import {
+  deleteTransparencyDocument,
+  saveTransparencyDocument,
+  setTransparencyDocumentStatus,
+} from "@/features/admin/actions/transparency-documents";
 import { PdfUploader } from "./pdf-uploader";
 
-export interface LegislativeEditRecord {
+export interface TransparencyDocumentEditRecord {
   id: string;
-  values: LegislativeValues;
+  values: TransparencyDocumentValues;
   status: ContentStatus;
   fileUrl: string | null;
 }
 
-interface LegislativeFormProps {
-  record: LegislativeEditRecord | null;
+interface TransparencyDocumentFormProps {
+  record: TransparencyDocumentEditRecord | null;
+  categories: TransparencyCategoryRow[];
   onSaved: (message: string) => void;
   onCancel: () => void;
 }
 
-const EMPTY_VALUES: LegislativeValues = {
-  docType: "ordinance",
-  number: "",
+const EMPTY_VALUES: TransparencyDocumentValues = {
   title: "",
-  dateApproved: "",
-  summary: "",
+  categoryId: "",
+  dateReleased: "",
   filePath: null,
   fileSizeBytes: null,
 };
 
-/** Create/edit form for an ordinance or resolution. Saves via `saveLegislative`; workflow buttons drive status transitions. */
-export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormProps) {
+/** Create/edit form for a public transparency document. Mirrors legislative-form.tsx. */
+export function TransparencyDocumentForm({
+  record,
+  categories,
+  onSaved,
+  onCancel,
+}: TransparencyDocumentFormProps) {
   const [id, setId] = useState<string | null>(record?.id ?? null);
   const [status, setStatus] = useState<ContentStatus>(record?.status ?? "draft");
-  const [values, setValues] = useState<LegislativeValues>(record?.values ?? EMPTY_VALUES);
+  const [values, setValues] = useState<TransparencyDocumentValues>(() => {
+    if (record) return record.values;
+    const firstActive = categories.find((c) => c.isActive);
+    return { ...EMPTY_VALUES, categoryId: firstActive?.id ?? "" };
+  });
   const [previewUrl, setPreviewUrl] = useState<string | null>(record?.fileUrl ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const set = <K extends keyof LegislativeValues>(key: K, value: LegislativeValues[K]) =>
-    setValues((prev) => ({ ...prev, [key]: value }));
+  // Active categories only for new documents; editing keeps the current category
+  // selectable even if it has since been retired.
+  const categoryOptions = categories.filter(
+    (c) => c.isActive || c.id === record?.values.categoryId,
+  );
+
+  const set = <K extends keyof TransparencyDocumentValues>(
+    key: K,
+    value: TransparencyDocumentValues[K],
+  ) => setValues((prev) => ({ ...prev, [key]: value }));
 
   function handleSave(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveLegislative(id, values);
+      const result = await saveTransparencyDocument(id, values);
       if (result.error) {
         setError(result.error);
         return;
@@ -61,7 +81,7 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
     if (!currentId) return;
     setError(null);
     startTransition(async () => {
-      const result = await setLegislativeStatus(currentId, nextStatus);
+      const result = await setTransparencyDocumentStatus(currentId, nextStatus);
       if (result.error) {
         setError(result.error);
         return;
@@ -77,7 +97,7 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
     if (!window.confirm("Delete this document? This cannot be undone.")) return;
     setError(null);
     startTransition(async () => {
-      const result = await deleteLegislative(currentId);
+      const result = await deleteTransparencyDocument(currentId);
       if (result.error) {
         setError(result.error);
         return;
@@ -89,56 +109,43 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
-        <Field label="Type" htmlFor="legislative-type">
-          <Select
-            id="legislative-type"
-            value={values.docType}
-            onChange={(event) => set("docType", event.target.value as LegislativeValues["docType"])}
-          >
-            <option value="ordinance">Ordinance</option>
-            <option value="resolution">Resolution</option>
-          </Select>
-        </Field>
-        <Field label="Document Number" htmlFor="legislative-number">
+        <Field label="Title" htmlFor="transparency-doc-title">
           <Input
-            id="legislative-number"
-            placeholder="e.g. Ordinance No. 01-2025"
-            value={values.number}
-            onChange={(event) => set("number", event.target.value)}
-            required
-            minLength={3}
-          />
-        </Field>
-        <Field label="Title" htmlFor="legislative-title">
-          <Input
-            id="legislative-title"
+            id="transparency-doc-title"
             value={values.title}
             onChange={(event) => set("title", event.target.value)}
             required
             minLength={3}
           />
         </Field>
-        <Field label="Date Approved" htmlFor="legislative-date">
-          <Input
-            id="legislative-date"
-            type="date"
-            value={values.dateApproved}
-            onChange={(event) => set("dateApproved", event.target.value)}
-            required
-          />
+        <Field label="Category" htmlFor="transparency-doc-category">
+          <Select
+            id="transparency-doc-category"
+            value={values.categoryId}
+            onChange={(event) => set("categoryId", event.target.value)}
+          >
+            {categoryOptions.length === 0 ? <option value="">No categories available</option> : null}
+            {categoryOptions.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.label}
+                {category.isActive ? "" : " (retired)"}
+              </option>
+            ))}
+          </Select>
         </Field>
-        <Field label="Summary" htmlFor="legislative-summary">
-          <Textarea
-            id="legislative-summary"
-            rows={5}
-            value={values.summary}
-            onChange={(event) => set("summary", event.target.value)}
+        <Field label="Date Released" htmlFor="transparency-doc-date">
+          <Input
+            id="transparency-doc-date"
+            type="date"
+            value={values.dateReleased}
+            onChange={(event) => set("dateReleased", event.target.value)}
+            required
           />
         </Field>
         <div>
           <h3 className="mb-2 text-sm font-medium text-ink-700">Document PDF</h3>
           <PdfUploader
-            folder="legislative"
+            folder="documents"
             path={values.filePath}
             sizeBytes={values.fileSizeBytes}
             previewUrl={previewUrl}
