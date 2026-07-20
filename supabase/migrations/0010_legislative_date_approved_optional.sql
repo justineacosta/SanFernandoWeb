@@ -7,14 +7,15 @@
 -- No backfill needed: every existing row already has a date_approved value,
 -- so relaxing the NOT NULL constraint changes nothing for current data.
 --
--- Ordering: `legislative_documents_status_date_idx` and
--- `legislative_documents_type_status_date_idx` (0009_transparency.sql) are
--- `(..., date_approved desc)`. Postgres already sorts NULLs first on a DESC
--- index by default, which matches the product decision that pending
--- (undated) documents sort above approved ones — but the app code now states
--- that explicitly via `nullsFirst` rather than relying on the default, so
--- these indexes need `nulls first` too for the planner to use them for that
--- exact ordering.
+-- Ordering: pending (undated) documents sort above approved ones. Postgres
+-- already defaults a DESC index — and a DESC `ORDER BY` — to NULLS FIRST, so
+-- the original 0009 indexes (`(..., date_approved desc)`) already serve this
+-- exact ordering; the app query's explicit `desc nulls first` matches what the
+-- default already does. The indexes are recreated with an explicit `nulls
+-- first` below purely so the index definition mirrors the query verbatim and
+-- the null-ordering intent is stated rather than inherited — it is NOT a
+-- correctness fix (the physical index is unchanged) and could be dropped
+-- without affecting the plan.
 alter table public.legislative_documents
   alter column date_approved drop not null;
 
