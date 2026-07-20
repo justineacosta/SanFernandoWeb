@@ -27,6 +27,11 @@ const schema = z.object({
   fileSizeBytes: z.number().nullable(),
 });
 
+// Server Actions are public HTTP endpoints — `ContentStatus` only constrains
+// callers that go through TypeScript. A direct POST can send any string, so
+// validate at runtime before it reaches the update patch.
+const statusSchema = z.enum(["draft", "in-review", "published", "archived"]);
+
 function slugify(value: string): string {
   return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
@@ -123,8 +128,21 @@ export async function saveLegislative(
     if (!wasPublished) {
       query = query.in("status", ["draft", "in-review", "archived"]);
     }
-    const { error } = await query;
+    const { data: updated, error } = await query.select("id").maybeSingle();
     if (error) return { error: "Could not save the document.", id: null };
+    // A non-published row re-asserts status in the WHERE above, so a zero-row
+    // result here means someone published it out from under this edit — the
+    // UPDATE matched nothing and nothing changed. Report that explicitly
+    // instead of falling through to recordActivity/revalidate, which would
+    // log and announce a save that never happened.
+    if (!updated) {
+      return {
+        error: wasPublished
+          ? "Document not found."
+          : "This document was published while you were editing. Reopen it and try again.",
+        id: null,
+      };
+    }
 
     // Deferred delete: only once the row no longer references the old file.
     const oldPath = existing.file_path as string | null;
@@ -177,6 +195,13 @@ export async function setLegislativeStatus(
   status: ContentStatus,
 ): Promise<ActionResult> {
   const actor = await requirePermission("manage-transparency");
+
+  const statusResult = statusSchema.safeParse(status);
+  if (!statusResult.success) {
+    return { error: statusResult.error.issues[0]?.message ?? "Invalid status." };
+  }
+  const nextStatus = statusResult.data;
+
   const admin = createSupabaseAdminClient();
 
   const { data: existing, error: readErr } = await admin
@@ -186,8 +211,8 @@ export async function setLegislativeStatus(
     .maybeSingle();
   if (readErr || !existing) return { error: "Document not found." };
 
-  const patch: Record<string, unknown> = { status };
-  if (status === "published" && !existing.published_at) {
+  const patch: Record<string, unknown> = { status: nextStatus };
+  if (nextStatus === "published" && !existing.published_at) {
     patch.published_at = new Date().toISOString();
   }
 
@@ -196,7 +221,7 @@ export async function setLegislativeStatus(
 
   await recordActivity(
     actor,
-    `${status} document`,
+    `${nextStatus} document`,
     "legislative document",
     id,
     existing.number as string,
