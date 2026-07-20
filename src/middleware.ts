@@ -53,5 +53,18 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  // Server Action POSTs (identified by the `Next-Action` header) are excluded:
+  // Next.js buffers/clones the request body for any matched route
+  // (`proxyClientMaxBodySize`, 10MB default) before it reaches the action's
+  // own multipart parser, silently truncating large PDF uploads and causing
+  // an unhandled "Unexpected end of form" crash instead of the app's own
+  // 10MB validation message. Skipping middleware here is safe: every
+  // transparency (and other admin) Server Action independently re-checks
+  // auth via requirePermission()/requireSuperAdmin(), and — unlike Server
+  // Components — cookies() is mutable inside a Server Action, so the
+  // Supabase server client (src/lib/supabase/server.ts) refreshes the
+  // session cookie itself when the action calls getUser(). Page navigations
+  // (GET requests, no Next-Action header) still go through middleware and
+  // get the redirect-to-login / redirect-to-/admin convenience.
+  matcher: [{ source: "/admin/:path*", missing: [{ type: "header", key: "next-action" }] }],
 };
