@@ -119,6 +119,9 @@ export interface CommunityEvent {
   date: string;
   time: string;
   venue: string;
+  /** Resolved public URL of the optional cover image. */
+  image?: string;
+  imageAlt?: string;
 }
 
 export interface NewsArticle {
