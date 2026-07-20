@@ -42,7 +42,10 @@ export default async function ArticlePage({ params }: PageProps) {
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to News
         </Link>
-        <Badge variant="soft" className="mb-3 w-fit">{article.category}</Badge>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Badge variant="soft" className="w-fit">{article.category}</Badge>
+          {article.isNew ? <Badge variant="new">New</Badge> : null}
+        </div>
         <h1 className="mb-4 font-display text-3xl font-bold tracking-tight text-ink-900 md:text-4xl">
           {article.title}
         </h1>
