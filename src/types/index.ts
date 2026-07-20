@@ -124,17 +124,6 @@ export interface CommunityEvent {
   imageAlt?: string;
 }
 
-export interface NewsArticle {
-  title: string;
-  category: string;
-  excerpt: string;
-  image: string;
-  imageAlt: string;
-  /** ISO date or a relative label like "2 days ago" */
-  dateLabel: string;
-  author?: string;
-}
-
 /* ── News content management (backend plan 3) ─────────────────────────── */
 
 export type ContentStatus = "draft" | "in-review" | "published" | "archived";
@@ -254,31 +243,6 @@ export interface Stat {
 }
 
 /* --------------------------------- Transparency --------------------------------- */
-
-export interface TransparencyDocument {
-  title: string;
-  category: string;
-  /** ISO date */
-  date: string;
-  icon: LucideIcon;
-}
-
-export interface LegislativeDocument {
-  /** e.g. "Ordinance No. 05-2024" */
-  number: string;
-  title: string;
-  /** ISO date approved */
-  date: string;
-  /** Content shown when the row is expanded. Placeholder until CMS/backend. */
-  summary: string;
-  /** Link to the uploaded PDF/raw file. "#" placeholder until backend upload exists. */
-  fileUrl: string;
-}
-
-export interface ProjectStatus {
-  name: string;
-  progress: number;
-}
 
 /* ── Transparency (Plan 4) ───────────────────────────────────────────────── */
 
@@ -433,7 +397,6 @@ export interface ContentTypeAction {
 
 export type AdminContentStatus = "published" | "scheduled" | "draft" | "in-review";
 export type AdminServiceStatus = "active" | "inactive";
-export type AdminLegislativeStatus = "active" | "under-review" | "archived";
 export type AdminEventStatus = "published" | "planning";
 /** Spec §3 flow: pending → approved (ready for pickup) → released, or rejected. */
 export type ApplicationStatus = "pending" | "approved" | "released" | "rejected";
@@ -462,8 +425,8 @@ export type EventCategory =
 /** Every status a StatusChip can render. */
 export type AdminStatus =
   | AdminContentStatus
+  | ContentStatus
   | AdminServiceStatus
-  | AdminLegislativeStatus
   | AdminEventStatus
   | ApplicationStatus
   | AppointmentStatus
@@ -486,14 +449,6 @@ export interface AdminServiceRow {
   updatedAt: string;
 }
 
-export interface AdminLegislativeRecord {
-  id: string;
-  document: LegislativeDocument;
-  /** The public data splits by array; the envelope makes the type explicit. */
-  type: "ordinance" | "resolution";
-  status: AdminLegislativeStatus;
-}
-
 export type TeamRole = "super-admin" | "editor" | "viewer";
 
 export interface AdminTeamMember {
@@ -514,17 +469,6 @@ export interface ServiceFormValues {
   status: AdminServiceStatus;
   iconName: string;
   tone: ServiceTone;
-}
-
-export interface LegislativeFormValues {
-  type: "ordinance" | "resolution";
-  /** e.g. "Ordinance No. 05-2024". */
-  number: string;
-  title: string;
-  /** ISO date. */
-  datePassed: string;
-  summary: string;
-  status: AdminLegislativeStatus;
 }
 
 /** The future review-action (PATCH) body. */

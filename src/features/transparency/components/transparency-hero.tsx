@@ -3,7 +3,9 @@ import { FileText, HelpCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
-import { HERO_IMAGE } from "@/features/transparency/data";
+
+const HERO_IMAGE =
+  "https://lh3.googleusercontent.com/aida-public/AB6AXuCP9JMh18k0w9QqfcGgqjh02z3qWVaW3pGR7c0EIUk8-z6uj417G2VD5fpvYeA_b4y8ibNZFFjoG1ojbK0I0YLyHcCUyio6GTmsJKQm1lPsFq3uYgf0Bl28lyjuwMKhPvOvnea215p7hEw_8YfzJ3uPoud_Z43F9eEENKpafgTAA3q-OZVuFHSVJ4_z8QXGyuUgmw4d9tYJ9ocQVt_XowodloaflafnS9h-h105TVfROngXdxzW8o_bJNDSnVuDuCb2WwJfBpDPU0Q";
 
 /** Light page-level hero for the transparency portal with photo and document shortcuts. */
 export function TransparencyHero() {

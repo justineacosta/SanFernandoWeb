@@ -14,7 +14,6 @@ import {
   Settings,
 } from "lucide-react";
 import type {
-  AdminLegislativeRecord,
   AdminTeamMember,
   ContentDraft,
   ContentTypeAction,
@@ -23,7 +22,6 @@ import type {
   PublishingActivityEntry,
   TeamRole,
 } from "@/types";
-import { ORDINANCES, RESOLUTIONS } from "@/features/transparency/data";
 
 export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Dashboard Overview", href: "/admin", icon: LayoutDashboard, exact: true },
@@ -130,47 +128,6 @@ export const EVENT_CATEGORY_LABELS: Record<EventCategory, string> = {
   environment: "Environment",
   community: "Community",
 };
-
-export const ADMIN_LEGISLATIVE: AdminLegislativeRecord[] = [
-  ...ORDINANCES.map((document, index) => ({
-    id: `ord-${index + 1}`,
-    document,
-    type: "ordinance" as const,
-    status: "active" as const,
-  })),
-  ...RESOLUTIONS.map((document, index) => ({
-    id: `res-${index + 1}`,
-    document,
-    type: "resolution" as const,
-    status: "active" as const,
-  })),
-  {
-    id: "ord-draft-anti-littering",
-    document: {
-      number: "Ordinance No. 01-2025",
-      title: "Barangay Anti-Littering and Public Cleanliness Code",
-      date: "2025-02-10",
-      summary:
-        "Draft ordinance consolidating anti-littering rules, sidewalk obstruction penalties, and purok-level cleanliness inspections into a single code. Under committee review.",
-      fileUrl: "#",
-    },
-    type: "ordinance",
-    status: "under-review",
-  },
-  {
-    id: "res-old-traffic-routing",
-    document: {
-      number: "Resolution No. 02-2019",
-      title: "Old Traffic Routing Scheme for Fiesta Season",
-      date: "2019-01-15",
-      summary:
-        "Previous one-way routing scheme for the fiesta season, superseded by Resolution No. 04-2024.",
-      fileUrl: "#",
-    },
-    type: "resolution",
-    status: "archived",
-  },
-];
 
 export const TEAM_ROLE_LABELS: Record<TeamRole, string> = {
   "super-admin": "Super Admin",
