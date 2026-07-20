@@ -46,6 +46,17 @@ function toListItem(row: LegislativeRow): LegislativeListItem {
  *  1. LIKE pattern chars — `%` and `_` are wildcards, `\` is the escape
  *     character. An unescaped `%` matches everything, which is how the same
  *     mistake in /track's surname lookup would have leaked every ticket.
+ *     PostgREST *also* treats a bare `*` as an alias for `%` in ilike/like
+ *     filter values (its own quoting layer, on top of Postgres LIKE), so `*`
+ *     must be escaped here too or a search like `Res*2024` silently becomes
+ *     a wildcard search. Empirically verified against a live Supabase
+ *     project (2026-07-20): an unescaped `*` in the value is rewritten to
+ *     `%` and matches everything in between (`Res*2024` matched all three
+ *     seeded resolutions); backslash-escaping it as `\*` suppresses the
+ *     PostgREST rewrite *and* Postgres LIKE (default ESCAPE '\') decodes
+ *     `\*` back to a literal asterisk, so a search for a title that doesn't
+ *     actually contain "Res*2024" correctly returns zero rows instead of
+ *     matching every resolution.
  *  2. PostgREST filter grammar — `,` `.` `(` `)` and `"` are structural inside
  *     an or() expression. Wrapping the value in double quotes makes them
  *     literal; the quote and backslash themselves then need escaping.
@@ -53,7 +64,7 @@ function toListItem(row: LegislativeRow): LegislativeListItem {
 function ilikePattern(raw: string): string {
   const escaped = raw
     .replace(/\\/g, "\\\\")
-    .replace(/[%_]/g, (char) => `\\${char}`);
+    .replace(/[%_*]/g, (char) => `\\${char}`);
   return `%${escaped}%`;
 }
 
