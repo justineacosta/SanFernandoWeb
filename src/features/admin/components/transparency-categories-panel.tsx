@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Pencil, Plus } from "lucide-react";
 import type { TransparencyCategoryRow } from "@/types";
 import { Card } from "@/components/ui/card";
@@ -22,6 +23,7 @@ interface TransparencyCategoriesPanelProps {
 
 /** SuperAdmin editor for the transparency document form's category picker. Direct port of news-categories-panel.tsx with an icon picker. */
 export function TransparencyCategoriesPanel({ categories }: TransparencyCategoriesPanelProps) {
+  const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editIcon, setEditIcon] = useState(ICON_OPTIONS[0].value);
@@ -56,6 +58,7 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
       setEditingId(null);
       setEditLabel("");
       setToast("Category renamed.");
+      router.refresh();
     });
   }
 
@@ -83,6 +86,7 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
       setCreating(false);
       setNewLabel("");
       setToast("Category added.");
+      router.refresh();
     });
   }
 
@@ -96,6 +100,7 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
         return;
       }
       setToast(nextActive ? "Category restored." : "Category retired.");
+      router.refresh();
     });
   }
 
@@ -108,6 +113,7 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
         return;
       }
       setToast("Categories reordered.");
+      router.refresh();
     });
   }
 

@@ -181,16 +181,12 @@ export function TransparencyManager({
 
       {tab === "documents" ? (
         <>
-          <AdminPageHeader
-            title="Public Documents"
-            description="Budgets, reports, and other disclosure documents for the transparency page."
-            action={
-              <Button onClick={openCreateDocument}>
-                <Plus className="h-5 w-5" aria-hidden="true" />
-                Add New Document
-              </Button>
-            }
-          />
+          <div className="mb-6 flex justify-end">
+            <Button onClick={openCreateDocument}>
+              <Plus className="h-5 w-5" aria-hidden="true" />
+              Add New Document
+            </Button>
+          </div>
           <Card>
             <CardHeader
               title="Document Directory"

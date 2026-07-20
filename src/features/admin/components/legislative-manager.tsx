@@ -13,7 +13,6 @@ import { formatDate } from "@/lib/format";
 import { getLegislativeForEditAction } from "@/features/admin/actions/legislative";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
-import { AdminPageHeader } from "./admin-page-header";
 import { AdminPagination } from "./admin-pagination";
 import { AdminStatCard } from "./admin-stat-card";
 import { LegislativeForm, type LegislativeEditRecord } from "./legislative-form";
@@ -99,16 +98,12 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
 
   return (
     <>
-      <AdminPageHeader
-        title="Ordinance & Resolution"
-        description="Manage and publish official local laws and policy documents."
-        action={
-          <Button onClick={openCreate}>
-            <Plus className="h-5 w-5" aria-hidden="true" />
-            Add New Document
-          </Button>
-        }
-      />
+      <div className="mb-6 flex justify-end">
+        <Button onClick={openCreate}>
+          <Plus className="h-5 w-5" aria-hidden="true" />
+          Add New Document
+        </Button>
+      </div>
       <div className="mb-6 grid gap-6 sm:grid-cols-3">
         <AdminStatCard icon={FileText} label="Total Ordinances" value={totalOrdinances} />
         <AdminStatCard

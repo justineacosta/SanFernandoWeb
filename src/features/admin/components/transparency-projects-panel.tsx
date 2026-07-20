@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import type { AdminTransparencyProjectRow } from "@/types";
 import { Card } from "@/components/ui/card";
@@ -21,6 +22,7 @@ interface TransparencyProjectsPanelProps {
 
 /** Monitored-projects editor: name, 0-100 progress, publish/archive, reorder. Modeled on assistance-categories-panel.tsx. */
 export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPanelProps) {
+  const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editProgress, setEditProgress] = useState(0);
@@ -57,6 +59,7 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
       setEditName("");
       setEditProgress(0);
       setToast("Project updated.");
+      router.refresh();
     });
   }
 
@@ -86,6 +89,7 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
       setNewName("");
       setNewProgress(0);
       setToast("Project added.");
+      router.refresh();
     });
   }
 
@@ -98,6 +102,7 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
         return;
       }
       setToast(nextStatus === "published" ? "Project published." : "Project archived.");
+      router.refresh();
     });
   }
 
@@ -110,6 +115,7 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
         return;
       }
       setToast("Projects reordered.");
+      router.refresh();
     });
   }
 
@@ -123,6 +129,7 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
         return;
       }
       setToast("Project deleted.");
+      router.refresh();
     });
   }
 
