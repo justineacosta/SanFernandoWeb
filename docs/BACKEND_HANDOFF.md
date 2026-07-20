@@ -288,11 +288,28 @@
 >    `src/lib/storage.ts` and `bodySizeLimit` in `next.config.ts` must move together —
 >    nothing in `storage.ts` points back at the config, so raising the constant alone
 >    would silently reintroduce the original unreachable-cap bug.
-> 2. **Known unresolved bug:** uploads over ~10MB fail with a crash screen rather than
->    the app's graceful "The PDF must be 10 MB or smaller." message. Traced to
->    `middleware.ts` matching `/admin/:path*`, where Next 16's proxy layer applies its
->    own separate body cap independent of `next.config.ts`. Reproduces in a production
->    build — not a dev-server artifact. Under-10MB uploads work correctly.
+> 2. **Middleware was truncating large upload bodies — fixed.** Uploads over ~10MB used
+>    to fail with a crash screen ("Unexpected end of form") instead of the app's own
+>    "The PDF must be 10 MB or smaller." message. The cause was **`proxyClientMaxBodySize`**
+>    (10MB default): because `middleware.ts` matched `/admin/:path*`, Next buffered and
+>    **silently truncated** the request body for admin Server Action POSTs, corrupting the
+>    multipart stream before the action's own parser — and its own size check — ever ran.
+>    It reproduced in a production build; it was never a dev-server artifact.
+>    The matcher now excludes Server Action POSTs via the `Next-Action` header:
+>    `[{ source: "/admin/:path*", missing: [{ type: "header", key: "next-action" }] }]`.
+>    **This does not weaken auth.** Middleware only ever did two things — redirect
+>    unauthenticated users and refresh the Supabase session — and neither is lost:
+>    every admin page and every admin Server Action independently calls
+>    `requirePermission(...)` / `requireSuperAdmin()` (`src/lib/auth.ts`), and because
+>    `cookies()` is mutable inside a Server Action (unlike a Server Component), the
+>    action's own Supabase client refreshes the session when it calls `getUser()`.
+>    A forged `Next-Action` header therefore skips only the redirect convenience, never
+>    the real gate. Header matching is case-insensitive (verified in Next 16.2.10's
+>    `matchHas`), so the lowercase matcher key is correct.
+>    *Not evaluated:* raising `proxyClientMaxBodySize` explicitly may be a simpler
+>    config-only alternative — worth revisiting if the matcher exclusion ever causes
+>    trouble. Note this fix is more general than the Route Handler follow-up in (1):
+>    it protects every admin Server Action with a large payload, not just PDF upload.
 > 3. **Uploads are deferred to Save.** `PdfUploader` is a pure file picker making no
 >    network calls; the save Server Actions upload server-side and compensating-delete
 >    the storage object if the row write fails, so "a storage object exists only if a
