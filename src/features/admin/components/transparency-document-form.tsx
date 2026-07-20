@@ -47,7 +47,12 @@ export function TransparencyDocumentForm({
     const firstActive = categories.find((c) => c.isActive);
     return { ...EMPTY_VALUES, categoryId: firstActive?.id ?? "" };
   });
-  const [previewUrl, setPreviewUrl] = useState<string | null>(record?.fileUrl ?? null);
+  const [previewUrl] = useState<string | null>(record?.fileUrl ?? null);
+  // Pending PDF picked in this drawer session — not uploaded until Save. See
+  // pdf-uploader.tsx and saveTransparencyDocument for why: nothing touches
+  // storage until the row write actually happens.
+  const [file, setFile] = useState<File | null>(null);
+  const [removeFile, setRemoveFile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -66,7 +71,10 @@ export function TransparencyDocumentForm({
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveTransparencyDocument(id, values);
+      const fd = new FormData();
+      if (file) fd.append("file", file);
+      if (removeFile) fd.append("removeFile", "1");
+      const result = await saveTransparencyDocument(id, values, fd);
       if (result.error) {
         setError(result.error);
         return;
@@ -145,15 +153,13 @@ export function TransparencyDocumentForm({
         <div>
           <h3 className="mb-2 text-sm font-medium text-ink-700">Document PDF</h3>
           <PdfUploader
-            folder="documents"
-            path={values.filePath}
-            sizeBytes={values.fileSizeBytes}
-            previewUrl={previewUrl}
-            onChange={(next) => {
-              set("filePath", next.path);
-              set("fileSizeBytes", next.sizeBytes);
-              setPreviewUrl(next.previewUrl);
-            }}
+            existingPath={values.filePath}
+            existingSizeBytes={values.fileSizeBytes}
+            existingPreviewUrl={previewUrl}
+            file={file}
+            onFileChange={setFile}
+            removeExisting={removeFile}
+            onRemoveExistingChange={setRemoveFile}
           />
         </div>
         {error ? (

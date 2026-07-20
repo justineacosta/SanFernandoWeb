@@ -7,7 +7,7 @@ import { requirePermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTransparencyDocumentForEdit } from "@/features/admin/queries/transparency";
-import { removeStoredDocument } from "./documents";
+import { removeStoredDocument, uploadDocumentPdf } from "./documents";
 
 export interface ActionResult {
   error: string | null;
@@ -52,6 +52,7 @@ export async function getTransparencyDocumentForEditAction(id: string) {
 export async function saveTransparencyDocument(
   id: string | null,
   values: TransparencyDocumentValues,
+  fileForm: FormData,
 ): Promise<SaveResult> {
   const actor = await requirePermission("manage-transparency");
   const parsed = schema.safeParse(values);
@@ -70,14 +71,46 @@ export async function saveTransparencyDocument(
   if (catErr) return { error: "Could not save the document. Try again.", id: null };
   if (!cat) return { error: "Pick a valid category.", id: null };
 
+  // Upload a newly chosen file (if any) up front — this is the only side
+  // effect in this action before the row write below, so every failure past
+  // this point must delete the object it just created. `fail()` does that.
+  const incomingFile = fileForm.get("file");
+  const removeFile = fileForm.get("removeFile") === "1";
+  let uploadedPath: string | null = null;
+  let uploadedSize: number | null = null;
+  if (incomingFile instanceof File && incomingFile.size > 0) {
+    const uploadFd = new FormData();
+    uploadFd.append("file", incomingFile);
+    const uploadResult = await uploadDocumentPdf("documents", uploadFd);
+    if (uploadResult.error) return { error: uploadResult.error, id: null };
+    uploadedPath = uploadResult.path;
+    uploadedSize = uploadResult.sizeBytes;
+  }
+
+  async function fail(error: string): Promise<SaveResult> {
+    if (uploadedPath) await removeStoredDocument(uploadedPath);
+    return { error, id: null };
+  }
+
   if (id) {
     const { data: existing, error: readErr } = await admin
       .from("transparency_documents")
-      .select("file_path")
+      .select("file_path, file_size_bytes")
       .eq("id", id)
       .maybeSingle();
-    if (readErr) return { error: "Could not save the document.", id: null };
-    if (!existing) return { error: "Document not found.", id: null };
+    if (readErr) return fail("Could not save the document.");
+    if (!existing) return fail("Document not found.");
+
+    // The final file reference: a newly uploaded file wins, otherwise the
+    // user's removal request, otherwise whatever was already on the row.
+    // Never trust the client's belief of the current path — it hasn't
+    // uploaded anything since this drawer opened.
+    const finalPath = uploadedPath ?? (removeFile ? null : (existing.file_path as string | null));
+    const finalSize = uploadedPath
+      ? uploadedSize
+      : removeFile
+        ? null
+        : (existing.file_size_bytes as number | null);
 
     const { error } = await admin
       .from("transparency_documents")
@@ -85,15 +118,15 @@ export async function saveTransparencyDocument(
         title: parsed.data.title,
         category_id: parsed.data.categoryId,
         date_released: parsed.data.dateReleased,
-        file_path: parsed.data.filePath,
-        file_size_bytes: parsed.data.fileSizeBytes,
+        file_path: finalPath,
+        file_size_bytes: finalSize,
       })
       .eq("id", id);
-    if (error) return { error: "Could not save the document.", id: null };
+    if (error) return fail("Could not save the document.");
 
     // Deferred delete: only once the row no longer references the old file.
     const oldPath = existing.file_path as string | null;
-    if (oldPath && oldPath !== parsed.data.filePath) {
+    if (oldPath && oldPath !== finalPath) {
       await removeStoredDocument(oldPath);
     }
 
@@ -108,12 +141,12 @@ export async function saveTransparencyDocument(
       title: parsed.data.title,
       category_id: parsed.data.categoryId,
       date_released: parsed.data.dateReleased,
-      file_path: parsed.data.filePath,
-      file_size_bytes: parsed.data.fileSizeBytes,
+      file_path: uploadedPath,
+      file_size_bytes: uploadedPath ? uploadedSize : null,
     })
     .select("id")
     .single();
-  if (error || !data) return { error: "Could not create the document.", id: null };
+  if (error || !data) return fail("Could not create the document.");
 
   await recordActivity(
     actor,

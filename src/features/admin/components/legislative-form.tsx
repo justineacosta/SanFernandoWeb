@@ -35,7 +35,12 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
   const [id, setId] = useState<string | null>(record?.id ?? null);
   const [status, setStatus] = useState<ContentStatus>(record?.status ?? "draft");
   const [values, setValues] = useState<LegislativeValues>(record?.values ?? EMPTY_VALUES);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(record?.fileUrl ?? null);
+  const [previewUrl] = useState<string | null>(record?.fileUrl ?? null);
+  // Pending PDF picked in this drawer session — not uploaded until Save. See
+  // pdf-uploader.tsx and saveLegislative for why: nothing touches storage
+  // until the row write actually happens.
+  const [file, setFile] = useState<File | null>(null);
+  const [removeFile, setRemoveFile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -46,7 +51,10 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveLegislative(id, values);
+      const fd = new FormData();
+      if (file) fd.append("file", file);
+      if (removeFile) fd.append("removeFile", "1");
+      const result = await saveLegislative(id, values, fd);
       if (result.error) {
         setError(result.error);
         return;
@@ -138,15 +146,13 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
         <div>
           <h3 className="mb-2 text-sm font-medium text-ink-700">Document PDF</h3>
           <PdfUploader
-            folder="legislative"
-            path={values.filePath}
-            sizeBytes={values.fileSizeBytes}
-            previewUrl={previewUrl}
-            onChange={(next) => {
-              set("filePath", next.path);
-              set("fileSizeBytes", next.sizeBytes);
-              setPreviewUrl(next.previewUrl);
-            }}
+            existingPath={values.filePath}
+            existingSizeBytes={values.fileSizeBytes}
+            existingPreviewUrl={previewUrl}
+            file={file}
+            onFileChange={setFile}
+            removeExisting={removeFile}
+            onRemoveExistingChange={setRemoveFile}
           />
         </div>
         {error ? (

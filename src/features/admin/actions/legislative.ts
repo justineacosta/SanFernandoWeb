@@ -7,7 +7,7 @@ import { requirePermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getLegislativeForEdit } from "@/features/admin/queries/transparency";
-import { removeStoredDocument } from "./documents";
+import { removeStoredDocument, uploadDocumentPdf } from "./documents";
 
 export interface ActionResult {
   error: string | null;
@@ -78,6 +78,7 @@ export async function getLegislativeForEditAction(id: string) {
 export async function saveLegislative(
   id: string | null,
   values: LegislativeValues,
+  fileForm: FormData,
 ): Promise<SaveResult> {
   const actor = await requirePermission("manage-transparency");
   const parsed = schema.safeParse(values);
@@ -89,14 +90,35 @@ export async function saveLegislative(
   const base = slugify(`${parsed.data.number} ${parsed.data.title}`);
   if (!base) return { error: "Enter a number and title with letters or numbers.", id: null };
 
+  // Upload a newly chosen file (if any) up front — this is the only side
+  // effect in this action before the row write below, so every failure past
+  // this point must delete the object it just created. `fail()` does that.
+  const incomingFile = fileForm.get("file");
+  const removeFile = fileForm.get("removeFile") === "1";
+  let uploadedPath: string | null = null;
+  let uploadedSize: number | null = null;
+  if (incomingFile instanceof File && incomingFile.size > 0) {
+    const uploadFd = new FormData();
+    uploadFd.append("file", incomingFile);
+    const uploadResult = await uploadDocumentPdf("legislative", uploadFd);
+    if (uploadResult.error) return { error: uploadResult.error, id: null };
+    uploadedPath = uploadResult.path;
+    uploadedSize = uploadResult.sizeBytes;
+  }
+
+  async function fail(error: string): Promise<SaveResult> {
+    if (uploadedPath) await removeStoredDocument(uploadedPath);
+    return { error, id: null };
+  }
+
   if (id) {
     const { data: existing, error: readErr } = await admin
       .from("legislative_documents")
-      .select("status, slug, file_path")
+      .select("status, slug, file_path, file_size_bytes")
       .eq("id", id)
       .maybeSingle();
-    if (readErr) return { error: "Could not save the document.", id: null };
-    if (!existing) return { error: "Document not found.", id: null };
+    if (readErr) return fail("Could not save the document.");
+    if (!existing) return fail("Document not found.");
 
     // Lock the slug once published — a published URL must not move under
     // anyone who has already shared or bookmarked it.
@@ -104,9 +126,20 @@ export async function saveLegislative(
     let slug = existing.slug as string;
     if (!wasPublished) {
       const slugResult = await uniqueSlug(admin, base, id);
-      if (!slugResult.ok) return { error: slugResult.error, id: null };
+      if (!slugResult.ok) return fail(slugResult.error);
       slug = slugResult.slug;
     }
+
+    // The final file reference: a newly uploaded file wins, otherwise the
+    // user's removal request, otherwise whatever was already on the row.
+    // Never trust the client's belief of the current path — it hasn't
+    // uploaded anything since this drawer opened.
+    const finalPath = uploadedPath ?? (removeFile ? null : (existing.file_path as string | null));
+    const finalSize = uploadedPath
+      ? uploadedSize
+      : removeFile
+        ? null
+        : (existing.file_size_bytes as number | null);
 
     let query = admin
       .from("legislative_documents")
@@ -116,8 +149,8 @@ export async function saveLegislative(
         title: parsed.data.title,
         date_approved: parsed.data.dateApproved,
         summary: parsed.data.summary,
-        file_path: parsed.data.filePath,
-        file_size_bytes: parsed.data.fileSizeBytes,
+        file_path: finalPath,
+        file_size_bytes: finalSize,
         slug,
       })
       .eq("id", id);
@@ -129,24 +162,24 @@ export async function saveLegislative(
       query = query.in("status", ["draft", "in-review", "archived"]);
     }
     const { data: updated, error } = await query.select("id").maybeSingle();
-    if (error) return { error: "Could not save the document.", id: null };
+    if (error) return fail("Could not save the document.");
     // A non-published row re-asserts status in the WHERE above, so a zero-row
     // result here means someone published it out from under this edit — the
     // UPDATE matched nothing and nothing changed. Report that explicitly
     // instead of falling through to recordActivity/revalidate, which would
-    // log and announce a save that never happened.
+    // log and announce a save that never happened. A freshly uploaded file
+    // must not survive this: fail() deletes it.
     if (!updated) {
-      return {
-        error: wasPublished
+      return fail(
+        wasPublished
           ? "Document not found."
           : "This document was published while you were editing. Reopen it and try again.",
-        id: null,
-      };
+      );
     }
 
     // Deferred delete: only once the row no longer references the old file.
     const oldPath = existing.file_path as string | null;
-    if (oldPath && oldPath !== parsed.data.filePath) {
+    if (oldPath && oldPath !== finalPath) {
       await removeStoredDocument(oldPath);
     }
 
@@ -156,7 +189,7 @@ export async function saveLegislative(
   }
 
   const slugResult = await uniqueSlug(admin, base, null);
-  if (!slugResult.ok) return { error: slugResult.error, id: null };
+  if (!slugResult.ok) return fail(slugResult.error);
 
   const { data, error } = await admin
     .from("legislative_documents")
@@ -167,12 +200,12 @@ export async function saveLegislative(
       title: parsed.data.title,
       date_approved: parsed.data.dateApproved,
       summary: parsed.data.summary,
-      file_path: parsed.data.filePath,
-      file_size_bytes: parsed.data.fileSizeBytes,
+      file_path: uploadedPath,
+      file_size_bytes: uploadedPath ? uploadedSize : null,
     })
     .select("id")
     .single();
-  if (error || !data) return { error: "Could not create the document.", id: null };
+  if (error || !data) return fail("Could not create the document.");
 
   await recordActivity(
     actor,
