@@ -48,15 +48,14 @@ function toListItem(row: LegislativeRow): LegislativeListItem {
  *     mistake in /track's surname lookup would have leaked every ticket.
  *     PostgREST *also* treats a bare `*` as an alias for `%` in ilike/like
  *     filter values (its own quoting layer, on top of Postgres LIKE), so `*`
- *     must be escaped here too or a search like `Res*2024` silently becomes
- *     a wildcard search. Empirically verified against a live Supabase
- *     project (2026-07-20): an unescaped `*` in the value is rewritten to
- *     `%` and matches everything in between (`Res*2024` matched all three
- *     seeded resolutions); backslash-escaping it as `\*` suppresses the
- *     PostgREST rewrite *and* Postgres LIKE (default ESCAPE '\') decodes
- *     `\*` back to a literal asterisk, so a search for a title that doesn't
- *     actually contain "Res*2024" correctly returns zero rows instead of
- *     matching every resolution.
+ *     must be escaped to prevent wildcard expansion. When escaped as `\*`,
+ *     PostgREST substitutes it to `\%` regardless of the backslash, and
+ *     Postgres LIKE (default ESCAPE '\') decodes this as a literal percent
+ *     sign. Thus a user searching for a literal `*` matches records with
+ *     literal `%` instead—an accepted limitation. The essential property is
+ *     that user input cannot expand into a match-everything wildcard, and
+ *     this has been verified empirically against the live Supabase project
+ *     (2026-07-20).
  *  2. PostgREST filter grammar — `,` `.` `(` `)` and `"` are structural inside
  *     an or() expression. Wrapping the value in double quotes makes them
  *     literal; the quote and backslash themselves then need escaping.
