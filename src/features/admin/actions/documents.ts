@@ -33,6 +33,12 @@ export async function uploadDocumentPdf(
 ): Promise<UploadDocumentResult> {
   await requirePermission("manage-transparency");
 
+  // Validate folder at runtime; TypeScript unions erase at runtime and Server Actions
+  // are public HTTP endpoints, so a direct caller could pass any string.
+  if (!["legislative", "documents"].includes(folder)) {
+    return { error: "Upload failed. Try again.", path: null, url: null, sizeBytes: null };
+  }
+
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Choose a PDF.", path: null, url: null, sizeBytes: null };
@@ -58,8 +64,17 @@ export async function uploadDocumentPdf(
 /** Delete an owned storage object. A remote URL is left alone. */
 export async function removeStoredDocument(path: string): Promise<ActionResult> {
   await requirePermission("manage-transparency");
+  // Pass through remote URLs as no-op (seeded content, nothing to remove locally).
   if (/^https?:\/\//i.test(path)) return { error: null };
+  // Require path to start with a valid folder prefix.
   if (!/^(legislative|documents)\//.test(path)) {
+    return { error: "That file cannot be removed." };
+  }
+  // Reject paths containing .. segments to prevent directory traversal. Check both
+  // the literal substring .. with path delimiters (covering /../ and /.. at end) and
+  // at the start. This prevents legislative/../../../etc/passwd while allowing
+  // legitimate filenames like report..final.pdf (dots within a filename segment).
+  if (path.split("/").some((segment) => segment === "..")) {
     return { error: "That file cannot be removed." };
   }
   const admin = createSupabaseAdminClient();
