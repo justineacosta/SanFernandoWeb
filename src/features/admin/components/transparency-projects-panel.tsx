@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { Archive, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import type { AdminTransparencyProjectRow } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -191,9 +191,15 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
                   <div className="flex shrink-0 items-center gap-1">
                     <StatusChip status={project.status} />
                     {project.status === "published" ? (
-                      <Button variant="outline-danger" size="sm" onClick={() => setStatus(project, "archived")} disabled={isPending}>
-                        Archive
-                      </Button>
+                      <button
+                        type="button"
+                        aria-label={`Archive ${project.name}`}
+                        disabled={isPending}
+                        onClick={() => setStatus(project, "archived")}
+                        className="rounded-full p-2 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
+                      >
+                        <Archive className="h-4 w-4" aria-hidden="true" />
+                      </button>
                     ) : (
                       <Button variant="accent" size="sm" onClick={() => setStatus(project, "published")} disabled={isPending}>
                         Publish

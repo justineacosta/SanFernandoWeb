@@ -17,7 +17,7 @@ interface LegislativeTableProps {
 /** Legislative document table where each row expands to show the document summary. */
 export function LegislativeTable({ caption, documents }: LegislativeTableProps) {
   return (
-    <div className="overflow-x-auto rounded-3xl border border-ink-200/70 bg-white">
+    <div className="relative overflow-x-auto rounded-3xl border border-ink-200/70 bg-white">
       <table className="w-full text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>

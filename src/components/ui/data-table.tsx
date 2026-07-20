@@ -20,7 +20,12 @@ interface DataTableProps<T> {
 /** Generic, accessible data table inside a scrollable bordered card. */
 export function DataTable<T>({ columns, rows, rowKey, caption, className }: DataTableProps<T>) {
   return (
-    <div className={cn("overflow-x-auto rounded-3xl border border-ink-200/70 bg-white", className)}>
+    <div
+      className={cn(
+        "relative overflow-x-auto rounded-3xl border border-ink-200/70 bg-white",
+        className,
+      )}
+    >
       <table className="w-full text-left text-sm">
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
