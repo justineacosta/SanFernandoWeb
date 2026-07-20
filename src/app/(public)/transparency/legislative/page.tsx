@@ -17,7 +17,9 @@ export default async function LegislativeArchivePage({
   const params = await searchParams;
   const docType: LegislativeType | "all" =
     params.type === "ordinance" || params.type === "resolution" ? params.type : "all";
-  const page = Number.parseInt(params.page ?? "1", 10);
+  const rawPage = Number.parseInt(params.page ?? "1", 10);
+  // Clamp page to valid range (matching safePage logic in queries.ts)
+  const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
 
   return (
     <>
@@ -28,7 +30,7 @@ export default async function LegislativeArchivePage({
       <LegislativeArchive
         q={params.q ?? ""}
         docType={docType}
-        page={Number.isFinite(page) ? page : 1}
+        page={page}
       />
     </>
   );
