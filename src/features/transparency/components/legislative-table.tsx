@@ -1,16 +1,17 @@
 "use client";
 
 import { Fragment, useId } from "react";
+import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import { useDisclosure } from "@/hooks/use-disclosure";
-import type { LegislativeDocument } from "@/types";
+import type { LegislativeDetail } from "@/types";
 
 interface LegislativeTableProps {
   /** Screen-reader caption describing the table. */
   caption: string;
-  documents: LegislativeDocument[];
+  documents: LegislativeDetail[];
 }
 
 /** Legislative document table where each row expands to show the document summary. */
@@ -46,7 +47,7 @@ export function LegislativeTable({ caption, documents }: LegislativeTableProps) 
               </td>
             </tr>
           ) : (
-            documents.map((doc) => <LegislativeRow key={doc.number} doc={doc} />)
+            documents.map((doc) => <LegislativeRow key={doc.id} doc={doc} />)
           )}
         </tbody>
       </table>
@@ -55,7 +56,7 @@ export function LegislativeTable({ caption, documents }: LegislativeTableProps) 
 }
 
 /** One document: a summary row plus a toggleable full-width detail row. */
-function LegislativeRow({ doc }: { doc: LegislativeDocument }) {
+function LegislativeRow({ doc }: { doc: LegislativeDetail }) {
   const { isOpen, toggle } = useDisclosure();
   const panelId = useId();
 
@@ -81,12 +82,32 @@ function LegislativeRow({ doc }: { doc: LegislativeDocument }) {
         </td>
         <td className="whitespace-nowrap px-6 py-4 font-medium text-ink-900">{doc.number}</td>
         <td className="px-6 py-4 text-ink-900">{doc.title}</td>
-        <td className="whitespace-nowrap px-6 py-4 text-ink-600">{formatDate(doc.date)}</td>
+        <td className="whitespace-nowrap px-6 py-4 text-ink-600">
+          {formatDate(doc.dateApproved)}
+        </td>
         <td className="px-6 py-4 text-right">
-          <a href={doc.fileUrl} className="font-semibold uppercase text-ink-900 hover:underline">
-            Download
-            <span className="sr-only"> {doc.number}</span>
-          </a>
+          <span className="flex items-center justify-end gap-4">
+            {doc.fileUrl ? (
+              <a
+                href={doc.fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold uppercase text-ink-900 hover:underline"
+              >
+                Download
+                <span className="sr-only"> {doc.number}</span>
+              </a>
+            ) : (
+              <span className="text-sm text-ink-500">At the barangay hall</span>
+            )}
+            <Link
+              href={`/transparency/legislative/${doc.slug}`}
+              className="font-semibold uppercase text-ink-900 hover:underline"
+            >
+              View
+              <span className="sr-only"> {doc.number}</span>
+            </Link>
+          </span>
         </td>
       </tr>
       <tr id={panelId} hidden={!isOpen} className="bg-ink-50/60">

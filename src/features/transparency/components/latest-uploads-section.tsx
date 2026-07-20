@@ -1,15 +1,16 @@
 import { formatDate } from "@/lib/format";
+import { resolveIcon } from "@/lib/icon-map";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { Section } from "@/components/ui/section";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { LATEST_UPLOADS } from "@/features/transparency/data";
-import type { TransparencyDocument } from "@/types";
+import { listLatestPublishedDocuments } from "@/features/transparency/queries";
+import type { TransparencyDocumentItem } from "@/types";
 
-const columns: DataTableColumn<TransparencyDocument>[] = [
+const columns: DataTableColumn<TransparencyDocumentItem>[] = [
   {
     header: "Document Title",
     cell: (doc) => {
-      const Icon = doc.icon;
+      const Icon = resolveIcon(doc.categoryIconName);
       return (
         <span className="flex items-center gap-3">
           <Icon className="h-5 w-5 shrink-0 text-ink-900" aria-hidden="true" />
@@ -18,27 +19,36 @@ const columns: DataTableColumn<TransparencyDocument>[] = [
       );
     },
   },
-  { header: "Category", cell: (doc) => doc.category },
+  { header: "Category", cell: (doc) => doc.categoryLabel },
   {
     header: "Date Released",
-    cell: (doc) => <span className="text-ink-600">{formatDate(doc.date)}</span>,
+    cell: (doc) => <span className="text-ink-600">{formatDate(doc.dateReleased)}</span>,
   },
   {
     header: "Action",
     align: "right",
-    cell: (doc) => (
-      <a href="#" className="font-semibold uppercase text-ink-900 hover:underline">
-        Download
-        <span className="sr-only"> {doc.title}</span>
-      </a>
-    ),
+    cell: (doc) =>
+      doc.fileUrl ? (
+        <a
+          href={doc.fileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold uppercase text-ink-900 hover:underline"
+        >
+          Download
+          <span className="sr-only"> {doc.title}</span>
+        </a>
+      ) : (
+        <span className="text-sm text-ink-500">At the barangay hall</span>
+      ),
   },
 ];
 
 /** Table of the most recent documents added to the portal. */
-export function LatestUploadsSection() {
+export async function LatestUploadsSection() {
+  const documents = await listLatestPublishedDocuments(4);
   return (
-    <Section tone="white" className="border-t border-ink-200">
+    <Section id="latest-uploads" tone="white" className="border-t border-ink-200">
       <SectionHeading
         title="Latest Uploads"
         description="Recent documents added to the transparency portal."
@@ -46,8 +56,8 @@ export function LatestUploadsSection() {
       <DataTable
         caption="Latest documents uploaded to the transparency portal"
         columns={columns}
-        rows={LATEST_UPLOADS}
-        rowKey={(doc) => doc.title}
+        rows={documents}
+        rowKey={(doc) => doc.id}
       />
     </Section>
   );

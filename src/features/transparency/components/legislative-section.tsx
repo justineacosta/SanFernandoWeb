@@ -1,10 +1,16 @@
+import Link from "next/link";
 import { Section } from "@/components/ui/section";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { LegislativeTable } from "@/features/transparency/components/legislative-table";
-import { ORDINANCES, RESOLUTIONS } from "@/features/transparency/data";
+import { listRecentLegislative } from "@/features/transparency/queries";
 
 /** Ordinances and resolutions of the Sangguniang Barangay, each row expandable to its summary. */
-export function LegislativeSection() {
+export async function LegislativeSection() {
+  const [ordinances, resolutions] = await Promise.all([
+    listRecentLegislative("ordinance", 5),
+    listRecentLegislative("resolution", 5),
+  ]);
+
   return (
     <Section tone="white" className="border-t border-ink-200">
       <SectionHeading
@@ -16,15 +22,20 @@ export function LegislativeSection() {
           <h3 className="mb-4 font-display text-xl font-semibold tracking-tight text-ink-900">
             Ordinances
           </h3>
-          <LegislativeTable caption="Barangay ordinances" documents={ORDINANCES} />
+          <LegislativeTable caption="Barangay ordinances" documents={ordinances} />
         </div>
         <div>
           <h3 className="mb-4 font-display text-xl font-semibold tracking-tight text-ink-900">
             Resolutions
           </h3>
-          <LegislativeTable caption="Barangay resolutions" documents={RESOLUTIONS} />
+          <LegislativeTable caption="Barangay resolutions" documents={resolutions} />
         </div>
       </div>
+      <p className="mt-8 text-center">
+        <Link href="/transparency/legislative" className="font-semibold text-ink-900 hover:underline">
+          Browse and search the full archive →
+        </Link>
+      </p>
     </Section>
   );
 }
