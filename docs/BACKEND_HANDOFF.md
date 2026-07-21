@@ -1,5 +1,12 @@
 # Backend Handoff — Barangay San Fernando Website
 
+> **Current status (2026-07-21):** backend integration is well underway on **Supabase**
+> (Postgres + Auth + Storage) — migrations `0001`–`0011` applied. Auth, the services catalog,
+> all four ticket flows, news/announcements/events, and transparency (documents + projects,
+> multi-file + optional dates) are DB-backed and merged to `main`. See **§1 Current State**
+> for the accurate live picture; the dated blockquotes below are a running changelog, and the
+> original "fully static" framing that follows describes the *starting* point, not today.
+
 > Snapshot of the frontend as of **2026-07-11**, written as the starting brief for backend
 > development. The frontend is complete, fully static, and every piece of content that the
 > backend will eventually own is isolated in typed `data.ts` files — the integration work is

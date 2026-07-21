@@ -5,17 +5,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project
 
 The official website of **Barangay San Fernando, San Nicolas, Ilocos Norte** (Philippines).
-Next.js 16 App Router + React 19 + TypeScript (strict) + Tailwind CSS v4. Frontend is
-complete and fully static; **there is no backend yet** — every piece of content the backend
-will eventually own lives in typed `data.ts` files. `docs/BACKEND_HANDOFF.md` is the
-authoritative brief for that integration (entities, mock-data inventory, suggested API
-surface, work items in priority order).
+Next.js 16 App Router + React 19 + TypeScript (strict) + Tailwind CSS v4, backed by
+**Supabase** (Postgres + Auth + Storage). The frontend was built first as a fully static
+mock; backend integration is now well underway (migrations `0001`–`0011` applied). Live and
+DB-backed: auth + account self-service, the services catalog, all four ticketing flows
+(applications / appointments / complaints / assistance), news + announcements + events, and
+transparency (legislative documents / disclosure documents / monitored projects). What
+remains static lives in typed `data.ts` files — the About, Contact, home, and officials
+content, plus the admin **Dashboard Overview** seed. `docs/BACKEND_HANDOFF.md` is the living
+integration brief; `docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan
+history. Remaining work: 2D email (Resend), officials slug pages, migrating `lh3`-hotlinked
+images to owned Storage, and a security-hardening pass.
 
 ## Commands
 
 ```bash
 npm run dev        # http://localhost:3000 — often already running; check before starting another
-npm run build      # production build (all routes prerender static)
+npm run build      # production build (mix of static + dynamic/DB-backed routes)
 npm run typecheck  # tsc --noEmit
 npm run lint       # ESLint 9 flat config (eslint.config.mjs) — `next lint` no longer exists in Next 16
 ```
@@ -29,16 +35,28 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
 - **Pages are thin.** Files in `src/app/` only compose named feature sections
   (`<TransparencyHero />`, `<LegislativeSection />`, …) — no inline layout logic or data.
   Public routes live in the `app/(public)` route group (shared header/footer chrome);
-  the admin portal has its own `app/admin/layout.tsx` (sidebar chrome, `noindex`,
-  unprotected interactive mock — six sections over typed seed data in
-  `features/admin/data.ts` — mostly wrapping the public content; applications are
-  first-class records keyed by `serviceId`; drawer editors fake-save).
+  the admin portal has its own `app/admin/layout.tsx` (sidebar chrome, `noindex`). The
+  admin portal is **auth-gated** (Supabase Auth) and **permission-gated** — every admin
+  route and Server Action goes through `requireSessionUser` / `requirePermission(...)` /
+  `requireSuperAdmin()` in `src/lib/auth.ts`. Managers are DB-backed with real
+  draft→in-review→published→archived workflows and drawer editors that **persist through
+  Server Actions**; only the **Dashboard Overview** still renders mock seed from
+  `features/admin/data.ts` (the nav is real, but `RECENT_DRAFTS` / `PUBLISHING_ACTIVITY` /
+  `ADMIN_TEAM` are placeholder).
 - **Feature modules own everything for a route:** `src/features/<name>/` =
   `data.ts` (typed mock content) + `components/` (section components) + `index.ts`
   (barrel re-exports, kept in page order). Pages import only from the barrel.
 - **Shared shapes live in `src/types/index.ts`** — the single source of entity interfaces
-  and the de-facto API contract for the future backend. Site-wide identity/nav/hotlines
-  live in `src/constants/site.ts` (`SITE` object).
+  and the de-facto API contract. Site-wide identity/nav/hotlines live in
+  `src/constants/site.ts` (`SITE` object).
+- **Writes go through Server Actions + a service-role Supabase client.** All tables have
+  **RLS enabled with zero policies** — the service-role client (`src/lib/supabase/admin.ts`)
+  behind an explicit `requirePermission(...)` code check is the *entire* auth gate, and the
+  public/published boundary is the `.eq("status","published")` filter in the query layer.
+  Server Actions are public HTTP endpoints, so every write re-validates its input with Zod
+  at runtime. Never expose the service-role key to the client. Migrations live in
+  `supabase/migrations/`; the owner applies them **manually** against live Supabase staging —
+  never assume a migration is applied without confirmation. zod is **v4** (not v3).
 - **Server Components by default.** Client components (`"use client"`) only for real
   interactivity: `SiteHeader` scroll state, mobile navs, `Accordion`, `LegislativeTable`
   (collapsible rows), inquiry + newsletter forms, and the admin portal's managers/drawer
@@ -55,11 +73,17 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
 ## Conventions and gotchas
 
 - Path alias `@/*` → `src/*`.
-- Content changes go in the feature's `data.ts`, never hardcoded in components.
-- Placeholder reality: document/download `fileUrl`s are `"#"`; phone numbers, emails, and
-  office hours are placeholder-shaped (correct names, not real contact data); most images
-  are hotlinked from `lh3.googleusercontent.com` (allow-listed in `next.config.ts`) and
-  must eventually move to owned storage. Exceptions — real assets bundled via static
+- Content changes for the **still-static** features go in that feature's `data.ts`, never
+  hardcoded in components. Content for **DB-backed** features (services, tickets, news,
+  transparency) is edited through the admin portal and lives in Supabase — not in the repo.
+- Placeholder reality: transparency documents now serve **real** Supabase-hosted PDFs/images,
+  so the old `"#"` download stubs are gone; remaining `"#"` hrefs are in-page anchors / not-
+  yet-wired links (contact map, captain message, hero CTA). The barangay hotline is **real**
+  (`(077) 600 1082` in `SITE.phone` / `EMERGENCY_HOTLINES[0]`); other phone numbers, emails,
+  and office hours are still placeholder-shaped (correct names, not real contact data). Most
+  images are hotlinked from `lh3.googleusercontent.com` (allow-listed in `next.config.ts`)
+  and must eventually move to owned Storage (`public-media` exists). Exceptions — real assets
+  bundled via static
   imports: the home hero carousel (`src/images/carousel/`, `HERO_SLIDES` in
   `src/features/home/data.ts`), the barangay seal (`src/images/logo/`, `SITE.sealImage`),
   and **all 12 officials' portraits** (`src/images/officials/`; the Punong Barangay photo
