@@ -1,5 +1,5 @@
 import "server-only";
-import type { AdminNewsArticleRow, ContentStatus, NewsArticleValues, NewsPhoto } from "@/types";
+import type { AdminNewsArticleRow, ContentStatus, NewsArticleValues, GalleryPhoto } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { photoUrl } from "@/lib/storage";
 import { formatDate, toManilaDate } from "@/lib/format";
@@ -56,7 +56,7 @@ export async function listNewsArticles(): Promise<AdminNewsArticleRow[]> {
 /** One article's editable values + status + photos, for the drawer editor. */
 export async function getNewsArticleForEdit(
   id: string,
-): Promise<{ values: NewsArticleValues; status: ContentStatus; photos: NewsPhoto[] } | null> {
+): Promise<{ values: NewsArticleValues; status: ContentStatus; photos: GalleryPhoto[] } | null> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("news_articles")

@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { ArrowDown, ArrowUp, Trash2, Upload } from "lucide-react";
-import type { NewsPhoto } from "@/types";
+import type { GalleryPhoto } from "@/types";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "@/lib/storage";
 import { Input } from "@/components/ui/form";
 import {
@@ -20,9 +20,9 @@ export function NewsPhotoUploader({
   photos: initial,
 }: {
   articleId: string;
-  photos: NewsPhoto[];
+  photos: GalleryPhoto[];
 }) {
-  const [photos, setPhotos] = useState<NewsPhoto[]>(initial);
+  const [photos, setPhotos] = useState<GalleryPhoto[]>(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);

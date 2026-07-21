@@ -176,7 +176,7 @@ export interface NewsCategoryValues {
   label: string;
 }
 
-export interface NewsPhoto {
+export interface GalleryPhoto {
   id: string;
   src: string; // raw reference; resolve with photoUrl() at render
   alt: string;
@@ -198,7 +198,7 @@ export interface NewsArticleListItem {
 /** Public news detail (slug page). */
 export interface NewsArticleDetail extends NewsArticleListItem {
   body: string;
-  photos: NewsPhoto[];
+  photos: GalleryPhoto[];
 }
 
 /** Admin list rows. */

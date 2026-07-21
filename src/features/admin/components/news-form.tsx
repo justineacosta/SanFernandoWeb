@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { ContentStatus, NewsArticleValues, NewsCategoryRow, NewsPhoto } from "@/types";
+import type { ContentStatus, NewsArticleValues, NewsCategoryRow, GalleryPhoto } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import {
@@ -17,7 +17,7 @@ export interface NewsEditRecord {
   id: string;
   values: NewsArticleValues;
   status: ContentStatus;
-  photos: NewsPhoto[];
+  photos: GalleryPhoto[];
 }
 
 interface NewsFormProps {
