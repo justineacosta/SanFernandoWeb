@@ -806,7 +806,11 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
 5. No tests yet — when the backend lands, add integration tests around the two forms and
    the document search first.
 6. `CAPTAIN.message` on the About page is invented placeholder text presented as direct quotes
-   from the real Punong Barangay — replace with his actual message before launch.
+   from the real Punong Barangay — replace with his actual message before launch. As of
+   2026-07-21, the surrounding captain block (name, role, portrait) reads live from
+   `getPublishedExecutiveOfficial()` — the officials-table row with `"group" = 'executive'` —
+   with the static `CAPTAIN` values as a fallback if that query returns null; only the quoted
+   message itself remains hardcoded, since it still isn't sourced anywhere in the database.
 7. Photo thumbnail reordering in `/admin/news` uses accessible up/down buttons rather than
    drag-and-drop — a deliberate choice (§ Plan 3 changelog above) to avoid adding a
    drag-and-drop dependency, not an oversight; revisit only if editors ask for it.

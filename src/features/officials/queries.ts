@@ -55,6 +55,26 @@ export async function listPublishedOfficials(): Promise<OfficialListItem[]> {
   return (data as unknown as OfficialRow[]).map(toListItem);
 }
 
+/**
+ * The current published executive official (the Punong Barangay) — the About
+ * page's captain block reads name/role/photo from here so an election only
+ * has to be recorded once, in the officials table.
+ */
+export async function getPublishedExecutiveOfficial(): Promise<OfficialListItem | null> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("officials")
+    .select(LIST_COLUMNS)
+    .eq("status", "published")
+    .eq('"group"', "executive")
+    .not("photo_path", "is", null)
+    .order("sort_order", { ascending: true })
+    .limit(1);
+
+  if (error || !data || data.length === 0) return null;
+  return toListItem((data as unknown as OfficialRow[])[0]);
+}
+
 export async function getPublishedOfficialBySlug(slug: string): Promise<OfficialDetail | null> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin

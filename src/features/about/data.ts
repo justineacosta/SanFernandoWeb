@@ -24,9 +24,15 @@ export const CORE_VALUES: ValueItem[] = [
   { icon: Leaf, title: "Sustainability", description: "Preserving for the future." },
 ];
 
+// Fallback values only: name/role/photo are normally read live from the
+// officials table (see getPublishedExecutiveOfficial) so an election only
+// has to be recorded once. These keep the About page correct if that query
+// ever returns null (missing migration, Supabase outage, etc). The quoted
+// message below is the sole source for the captain's message — that content
+// isn't in the officials table.
 export const CAPTAIN = {
   name: "Dominic B. Dela Cruz",
-  role: "Barangay Captain",
+  role: "Punong Barangay",
   photo: punongBarangayPhoto,
   photoAlt: "Portrait of Punong Barangay Dominic B. Dela Cruz",
   message: [
