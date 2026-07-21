@@ -78,6 +78,38 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
     });
   }
 
+  /**
+   * Publish must persist the on-screen values first: `setOfficialStatus`
+   * reads `photo_path`/`photo_alt` from the database, so an uploaded portrait
+   * that was never Saved would otherwise fail the server's portrait check
+   * even though it's visibly on screen. Reuses the `saveOfficial` path (which
+   * also handles the brand-new, no-id-yet case) and only transitions status
+   * once that save has actually succeeded.
+   */
+  function handlePublish() {
+    setError(null);
+    startTransition(async () => {
+      const saveResult = await saveOfficial(id, values);
+      if (saveResult.error) {
+        setError(saveResult.error);
+        return;
+      }
+      const officialId = saveResult.id ?? id;
+      if (saveResult.id) setId(saveResult.id);
+      if (!officialId) {
+        setError("Could not save the official.");
+        return;
+      }
+      const statusResult = await setOfficialStatus(officialId, "published");
+      if (statusResult.error) {
+        setError(statusResult.error);
+        return;
+      }
+      setStatus("published");
+      onSaved("Published.");
+    });
+  }
+
   function handleDelete() {
     const currentId = id;
     if (!currentId) return;
@@ -204,7 +236,7 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
               type="button"
               variant="accent"
               disabled={pending}
-              onClick={() => runTransition("published", "Published.")}
+              onClick={handlePublish}
             >
               Publish
             </Button>

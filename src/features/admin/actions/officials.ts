@@ -29,7 +29,13 @@ const schema = z.object({
   role: z.string().trim().min(3, "Enter their position."),
   group: z.enum(["executive", "council", "administration"]),
   badge: optionalText,
-  photoPath: z.string().nullable(),
+  // A `public-media` officials object path only — never a remote URL. Accepts
+  // both seeded paths (officials/dominic-b-dela-cruz.jpg) and uploaded paths
+  // (officials/<uuid>.<ext>); rejects anything `next/image` would 500 on.
+  photoPath: z
+    .string()
+    .regex(/^officials\/[A-Za-z0-9._-]+$/, "Invalid portrait path.")
+    .nullable(),
   photoAlt: z.string(),
   term: z.string().trim(),
   email: optionalText,
@@ -119,35 +125,36 @@ export async function saveOfficial(
   if (id) {
     const { data: existing, error: readErr } = await admin
       .from("officials")
-      .select("status, slug, photo_path")
+      .select("status, slug, photo_path, published_at")
       .eq("id", id)
       .maybeSingle();
     if (readErr) return { error: "Could not save the official.", id: null };
     if (!existing) return { error: "Official not found.", id: null };
 
-    // Lock the slug once published — a shared or bookmarked profile URL must
-    // not move under whoever holds it.
-    const wasPublished = existing.status === "published";
+    // Lock the slug once EVER published (not just currently published) — a
+    // shared or bookmarked profile URL must not move under whoever holds it,
+    // even after an archive → edit → republish round-trip.
+    const everPublished = existing.published_at !== null;
     let slug = existing.slug as string;
-    if (!wasPublished) {
+    if (!everPublished) {
       const slugResult = await uniqueSlug(admin, base, id);
       if (!slugResult.ok) return { error: slugResult.error, id: null };
       slug = slugResult.slug;
     }
 
     let query = admin.from("officials").update({ ...patch, slug }).eq("id", id);
-    // The slug was computed against the status just read. If that read saw a
-    // non-published status, re-assert it: should the official be published
+    // The slug was computed against the published_at just read. If that read
+    // saw no prior publish, re-assert it: should the official be published
     // concurrently, this update must not apply a slug computed against a now
-    // stale status.
-    if (!wasPublished) {
-      query = query.in("status", ["draft", "in-review", "archived"]);
+    // stale (unpublished) state.
+    if (!everPublished) {
+      query = query.is("published_at", null);
     }
     const { data: updated, error } = await query.select("id").maybeSingle();
     if (error) return { error: "Could not save the official.", id: null };
     if (!updated) {
       return {
-        error: wasPublished
+        error: everPublished
           ? "Official not found."
           : "This official was published while you were editing. Reopen and try again.",
         id: null,
@@ -215,7 +222,7 @@ export async function setOfficialStatus(
   const admin = createSupabaseAdminClient();
   const { data: existing, error: readErr } = await admin
     .from("officials")
-    .select("name, slug, photo_path, published_at")
+    .select("name, slug, photo_path, photo_alt, published_at")
     .eq("id", id)
     .maybeSingle();
   if (readErr || !existing) return { error: "Official not found." };
@@ -224,6 +231,12 @@ export async function setOfficialStatus(
   // without one would render a broken image on the directory.
   if (nextStatus === "published" && !existing.photo_path) {
     return { error: "Add a portrait before publishing this official." };
+  }
+  // A government site cannot ship an empty alt attribute on the portrait.
+  if (nextStatus === "published" && !(existing.photo_alt as string | null)?.trim()) {
+    return {
+      error: "Add a description (alt text) for the portrait before publishing this official.",
+    };
   }
 
   const patch: Record<string, unknown> = { status: nextStatus };

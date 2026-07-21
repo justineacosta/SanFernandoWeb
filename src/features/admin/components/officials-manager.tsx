@@ -163,7 +163,11 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
           }
         />
         {filtered.length === 0 ? (
-          <AdminEmptyState message="No officials match your filters." onClear={clearFilters} />
+          officials.length === 0 ? (
+            <AdminEmptyState message="No officials yet. Add the first one." />
+          ) : (
+            <AdminEmptyState message="No officials match your filters." onClear={clearFilters} />
+          )
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-160 text-left text-sm">
