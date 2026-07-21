@@ -1,11 +1,13 @@
 # Backend Handoff — Barangay San Fernando Website
 
 > **Current status (2026-07-21):** backend integration is well underway on **Supabase**
-> (Postgres + Auth + Storage) — migrations `0001`–`0011` applied. Auth, the services catalog,
-> all four ticket flows, news/announcements/events, and transparency (documents + projects,
-> multi-file + optional dates) are DB-backed and merged to `main`. See **§1 Current State**
-> for the accurate live picture; the dated blockquotes below are a running changelog, and the
-> original "fully static" framing that follows describes the *starting* point, not today.
+> (Postgres + Auth + Storage) — migrations `0001`–`0011` applied, `0012` applied to
+> **staging only** (production still needs it at deploy time). Auth, the services catalog,
+> all four ticket flows, news/announcements/events, transparency (documents + projects,
+> multi-file + optional dates), and the officials directory are DB-backed and merged to
+> `main`. See **§1 Current State** for the accurate live picture; the dated blockquotes
+> below are a running changelog, and the original "fully static" framing that follows
+> describes the *starting* point, not today.
 
 > Snapshot of the frontend as of **2026-07-11**, written as the starting brief for backend
 > development. The frontend is complete, fully static, and every piece of content that the
@@ -410,6 +412,29 @@
 > `?page=9999` URL shows "Page N of N" instead of "Page 9999 of N" — the query already
 > clamped internally; this was a display-only follow-up flagged in the Plan 4 review.
 
+> **Updated 2026-07-21 (officials directory):** the barangay officials directory moved
+> off the hardcoded `OFFICIALS` array onto Supabase, the last content type to make that
+> move (plan 6). New migration **`0012_officials.sql`** — **applied to staging only; still
+> needs to be applied to production at deploy time** — adds an `officials` table (RLS
+> enabled, no policies, same pattern as every other content table) seeded with all 12
+> officials (executive 1, council 8, administration 3), all `published`, `sort_order`
+> preserving the existing directory order. New public routes: `/officials` (unchanged URL,
+> now DB-backed via `listPublishedOfficials()`) and a new **`/officials/[slug]`** detail
+> page (`getPublishedOfficialBySlug()`, `src/features/officials/queries.ts`) — both exclude
+> any row without a portrait as a belt-and-braces guard, since publishing already requires
+> one. New admin surface **`/admin/officials`** (`src/app/admin/(portal)/officials/page.tsx`),
+> gated by a new **`manage-officials`** permission (`src/features/admin/queries/officials.ts`,
+> `src/features/admin/actions/officials.ts`; own `ADMIN_NAV_ITEMS` entry). The 12 portraits
+> that used to be bundled static imports now live in Supabase Storage at
+> `public-media/officials/`, uploaded by a one-time helper script
+> (`scripts/upload-official-portraits.mjs`); `src/images/officials/` stays in the repo only
+> as that script's source, not as an app dependency. **Unchanged:** the Punong Barangay's
+> portrait is still a bundled static import, used by the About page's `CAPTAIN` block — that
+> did not move. Also unchanged: all 12 officials have an **empty `bio`**, and emails/phones
+> remain placeholder-shaped, pending real content from the barangay. The achievements
+> timeline sketched in the master spec (§6) was deliberately deferred to a follow-up plan —
+> not part of this work.
+
 ---
 
 ## 1. Current State
@@ -420,9 +445,9 @@
 | Styling | Tailwind CSS v4 — amber + ink design tokens (`brand-*`, `ink-*`, `danger*`) in `src/app/globals.css` (`@theme`); Space Grotesk headings + Inter body |
 | Rendering | 100% Server Components except a handful of client islands (see §5) |
 | Build | `npm run build` ✅ — static where possible; DB-backed routes (services, tickets, news/announcements/events, `/admin/*`) render dynamically |
-| Backend | **Supabase** (Postgres + Auth + Storage), reached through Server Actions and server-only query modules. Services, the four ticket flows, news/announcements/events, and transparency documents (ordinances & resolutions, budget/financial documents, projects) are DB-backed. Still hardcoded: `src/constants/site.ts` and the remaining `src/features/*/data.ts` (officials, about, home stats) |
+| Backend | **Supabase** (Postgres + Auth + Storage), reached through Server Actions and server-only query modules. Services, the four ticket flows, news/announcements/events, transparency documents (ordinances & resolutions, budget/financial documents, projects), and the officials directory are DB-backed. Still hardcoded: `src/constants/site.ts` and the remaining `src/features/*/data.ts` (about, home stats) |
 | Auth | **Supabase Auth**, live. `/admin` is protected; pages gate on `requirePermission(<permission>)` or `requireSuperAdmin()` (`src/lib/auth.ts`), with per-user permission checkboxes and a SuperAdmin role. Portal stays `noindex` |
-| Images | News/announcement/event uploads go to Supabase Storage (public bucket `public-media`, 2MB, JPEG/PNG/WebP). Transparency PDFs go to a separate public bucket `public-documents` (10MB cap). Seed rows and the rest of the site are still hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — moving those to owned storage is outstanding. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), all 12 officials' portraits (`src/images/officials/`), About history-timeline images (seal + carousel photo) |
+| Images | News/announcement/event uploads go to Supabase Storage (public bucket `public-media`, 2MB, JPEG/PNG/WebP); the 12 official portraits also live in `public-media/officials/` now (uploaded once via `scripts/upload-official-portraits.mjs`). Transparency PDFs go to a separate public bucket `public-documents` (10MB cap). Seed rows and the rest of the site are still hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — moving those to owned storage is outstanding. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), the Punong Barangay's portrait reused by the About-page `CAPTAIN` block, About history-timeline images (seal + carousel photo) |
 
 ### Routes
 
@@ -430,7 +455,8 @@
 | --- | --- | --- |
 | `/` | Home | `HomeHero`, `QuickServicesSection`, `CommunityPulseSection`, `GetInvolvedSection` |
 | `/about` | About Us | `MissionVisionSection`, `CaptainMessageSection`, `HistorySection`, `MilestonesSection`, `JoinCommunitySection` |
-| `/officials` | Officials directory | `LeadershipDirectory`, `ActionCenterBanner` |
+| `/officials` | Officials directory | `LeadershipDirectory`, `ActionCenterBanner` — DB-backed via `listPublishedOfficials()` since 2026-07-21 |
+| `/officials/[slug]` | Official detail | `getPublishedOfficialBySlug()` (`src/features/officials/queries.ts`); 404s for a non-existent, non-published, or portrait-less slug |
 | `/services` | Services directory | `ServicesGrid` (accordion requirements), `WasteScheduleSection`, `HelpSection` |
 | `/services/apply/[slug]` | Certificate application form | `ApplyForm` (DB-backed via `getApplyService()`); serves `tone === "primary"` services only — `getApplyService()` returns `null` for `tone === "danger"` (`blotter-complaints`), so this route 404s for it; its service-card CTA now links straight to `/complaints/new` (plan 2C) instead |
 | `/appointments/new` | Appointment request form | `AppointmentForm` — preferred date + AM/PM, DB-backed; ends in an on-screen ticket receipt |
@@ -449,6 +475,7 @@
 | Route | Page | Composed from |
 | --- | --- | --- |
 | `/admin` | Create Content hub | `ContentHub` → `ContentTypeCard` ×3, `RecentDrafts`, `PublishingActivity` |
+| `/admin/officials` | Officials Directory | `OfficialsManager` (table + drawer editor, portrait upload); permission `manage-officials` |
 | `/admin/services` | Services Management | `ServicesManager` (table + drawer editor) + `AssistanceCategoriesPanel` (SuperAdmin add/rename/reorder/retire the assistance category picker) |
 | `/admin/applications` | Certificate Applications | `ApplicationsManager` (stat cards + queue + review/create drawers) |
 | `/admin/appointments` | Appointments | `AppointmentsManager` (confirm/reschedule/decline, mark completed, walk-in encoding) |
@@ -519,7 +546,8 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | `NewsCategoryRow`, `NewsPhoto`, `NewsArticleListItem`, `NewsArticleDetail` | `/announcements`, `/announcements/[slug]`, news sidebar | Public read shapes (`src/features/announcements/queries.ts`), DB-backed since Plan 3 (`news_articles`/`news_photos`/`news_categories` tables). `NewsArticleDetail extends NewsArticleListItem` with `body` + full `photos: NewsPhoto[]`; `coverSrc`/`NewsPhoto.src` are resolved through `photoUrl()`, which passes a full `http(s)` URL through unchanged or builds a `public-media` storage URL from a bare object path |
 | `ContentStatus` | News/announcements/events workflow | `"draft" \| "in-review" \| "published" \| "archived"` — no `scheduled` status; `published_at` is set once, on first transition into `published` |
 | `AdminNewsArticleRow`, `AdminAnnouncementRow`, `AdminEventRow`, `NewsArticleValues`, `AnnouncementValues`, `NewsCategoryValues` | `/admin/news`, `/admin/events` | DB-backed admin list rows + drawer-form body shapes (replaced the deleted `AdminNewsRecord`/`AdminEventRecord`/`NewsFormValues`/`EventFormValues` mock envelopes) |
-| `Official` | Officials page | `group: "executive" \| "council" \| "administration"`; optional `badge`, `email`, `phone` |
+| `OfficialGroup`, `OfficialListItem`, `OfficialDetail` | `/officials`, `/officials/[slug]` | Public read shapes (`src/features/officials/queries.ts`), DB-backed since 2026-07-21 (`officials` table, `supabase/migrations/0012_officials.sql`). `group: "executive" \| "council" \| "administration"`; `photoUrl` is always resolved (publishing requires a portrait); `OfficialDetail extends OfficialListItem` with `term` + `bio` — `bio` is empty on every seeded row today |
+| `AdminOfficialRow`, `OfficialValues` | `/admin/officials` | DB-backed admin list row + drawer-form body shape (replaces the old static `Official` array) |
 | `Service` | Services page | `requirements: string[]`, `tone: "primary" \| "danger"`; `icon` is a Lucide component — store an **icon name string** server-side and map on the client |
 | `QuickService` | Home quick-services grid | Same icon caveat |
 | `Stat` | Home "At a Glance" | value/note are display strings |
@@ -545,7 +573,7 @@ return components — return an icon name (e.g. `"file-text"`) and add a small
 | --- | --- |
 | `src/features/home/data.ts` | Quick services, 4 stats, 4 hero carousel slides (real photos, statically imported), CTA image. ~~3 announcements, 4 events~~ — removed in Plan 3; `CommunityPulseSection` now reads `listPublishedAnnouncements()` / `listUpcomingEvents()` live from the DB |
 | `src/features/about/data.ts` | Mission, vision (real, from the BDP), core values, captain message (placeholder), history timeline + community programs (real, sourced from the Ecological Profile) |
-| `src/features/officials/data.ts` | 12 officials incl. photos/contacts, `TERM_LABEL`, `getOfficialsByGroup()` — all real names with bundled portraits from `src/images/officials/`; emails/phones placeholder-shaped |
+| `src/features/officials/data.ts` | **Reduced to `TERM_LABEL` only, 2026-07-21.** The 12-official array and `getOfficialsByGroup()` are gone — reads go through `src/features/officials/queries.ts` (`import "server-only"`) against the `officials` table (`supabase/migrations/0012_officials.sql`); content is edited exclusively through `/admin/officials`. Portraits moved from bundled static imports to `public-media/officials/`, except the Punong Barangay's, still bundled for the About-page `CAPTAIN` block |
 | `src/features/services/data.ts` | 4 services with requirements, emergency-assistance block, waste collection schedule (real days from the BDP) |
 | ~~`src/features/announcements/data.ts`~~ | **Deleted in Plan 3.** News articles, announcements, and events are all DB-backed now — reads go through `src/features/announcements/queries.ts` (`import "server-only"`) and `src/features/events/queries.ts` against `news_articles`/`news_photos`/`announcements`/`events` (`supabase/migrations/0007_news_content.sql`); content is edited exclusively through `/admin/news` and `/admin/events` |
 | ~~`src/features/transparency/data.ts`~~ | **Deleted 2026-07-20.** Ordinances/resolutions, budget/financial documents, and projects are all DB-backed now — reads go through `src/features/transparency/queries.ts` (`import "server-only"`) against `legislative_documents`/`transparency_documents`/`transparency_projects`/`transparency_categories` (`supabase/migrations/0009_transparency.sql`); content is edited exclusively through `/admin/transparency` |
@@ -591,7 +619,11 @@ Replace the `data.ts` constants, roughly in order of how often the content chang
    `transparency_categories` tables, PDF upload to the new `public-documents` Storage
    bucket (10MB cap), a real searchable `/transparency/legislative` archive (type filter +
    pagination), and slug detail pages with an inline PDF viewer.
-3. **Officials** (changes per term) — CRUD + photo upload.
+3. ~~**Officials** (changes per term) — CRUD + photo upload.~~ **BUILT 2026-07-21 — see the
+   officials-directory changelog entry above.** `officials` table (migration 0012), CRUD
+   through `/admin/officials`, portraits uploaded to `public-media/officials/`. New
+   `/officials/[slug]` detail route. Bios are empty and emails/phones remain
+   placeholder-shaped pending real content from the barangay.
 4. **Services** (rarely changes) — CRUD with requirements list.
 5. **Site settings** (hotlines, hours, socials) — key-value settings table.
 6. **About-page content** (effectively static) — lowest priority; can stay in code.
@@ -754,9 +786,12 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
 2. Icon-as-component in data types (see §2 caveat).
 3. Most images are still Google-hosted and can break at any time (§3D). Plan 3 stood up
    owned storage (`public-media`) and news/announcement photo uploads now write there;
-   transparency documents got their own bucket (`public-documents`) in the 2026-07-20 plan.
-   The seed news/announcement images and every other still-hotlinked image on the site
-   (the home CTA image, etc.) haven't been migrated onto owned storage yet.
+   transparency documents got their own bucket (`public-documents`) in the 2026-07-20 plan;
+   the 12 official portraits moved off bundled static imports onto `public-media/officials/`
+   in the 2026-07-21 officials plan (the Punong Barangay's portrait is the one exception —
+   still bundled, reused by the About-page `CAPTAIN` block). What's left hotlinked from
+   `lh3.googleusercontent.com`: the home CTA image and the seeded news/announcement photos
+   from migration 0007 — neither has been migrated onto owned storage yet.
 4. ~~Placeholder `#` hrefs: legal links, FOI guide, get-directions, article detail pages
    (no `/announcements/[slug]` route yet — needed once news is dynamic).~~
    `/announcements/[slug]` shipped in Plan 3 with a photo gallery + lightbox; legal links,
@@ -779,3 +814,8 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
    caveat as the rest of the site's placeholder-shaped data (see the top-of-file summary).
    The migration 0009 seed rows additionally have no PDFs attached (`file_path` is `null`)
    — real documents still need to be uploaded through `/admin/transparency`.
+9. All 12 officials seeded by migration 0012 have an **empty `bio`**, and their emails/phones
+   remain placeholder-shaped (same caveat as every other placeholder contact field on the
+   site) — both pending real content from the barangay. The officials-page achievements
+   timeline sketched in the master spec was deliberately deferred to a follow-up plan and is
+   not tracked here as a gap in this plan's scope.
