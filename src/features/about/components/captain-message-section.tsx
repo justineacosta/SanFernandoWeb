@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { ArrowRight, Quote } from "lucide-react";
+import { Quote } from "lucide-react";
 import { Section } from "@/components/ui/section";
 import { CAPTAIN } from "@/features/about/data";
 import { getPublishedExecutiveOfficial } from "@/features/officials/queries";
@@ -31,7 +31,13 @@ export async function CaptainMessageSection() {
               className="h-full w-full object-cover"
             />
           </div>
-          <div className="absolute -bottom-6 -right-6 rounded-2xl bg-ink-900 p-6 text-white shadow-xl">
+          {/*
+            The card overhangs the portrait at md+, where the column is w-1/3 and
+            the row absorbs it. At mobile the column is full width, so -right-6
+            (24px) against Container's px-4 (16px) pushed the page 8px wide and
+            let it drag sideways — hence right-0 below the breakpoint.
+          */}
+          <div className="absolute -bottom-6 right-0 rounded-2xl bg-ink-900 p-6 text-white shadow-xl md:-right-6">
             <p className="text-xl font-semibold">{name}</p>
             <p className="text-sm uppercase tracking-wider opacity-80">{role}</p>
           </div>
@@ -45,15 +51,6 @@ export async function CaptainMessageSection() {
             {CAPTAIN.message.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ))}
-          </div>
-          <div className="mt-8 border-t border-ink-200 pt-8">
-            <a
-              href="#"
-              className="inline-flex items-center gap-2 font-bold text-ink-900 hover:underline"
-            >
-              View Executive Agenda 2024-2027
-              <ArrowRight className="h-5 w-5" aria-hidden="true" />
-            </a>
           </div>
         </div>
       </div>
