@@ -91,5 +91,7 @@ export async function getPublishedOfficialBySlug(slug: string): Promise<Official
     ...toListItem(row),
     term: row.term ?? "",
     bio: row.bio ?? "",
+    // Populated in Task 5, when the nested embed lands.
+    achievements: [],
   };
 }
