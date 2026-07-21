@@ -1,6 +1,7 @@
-import { Bell, CircleHelp, LogOut, Search } from "lucide-react";
+import { Bell, CircleHelp, LogOut } from "lucide-react";
 import type { SessionUser } from "@/types";
 import { signOut } from "@/features/admin/actions/auth";
+import { AdminGlobalSearch } from "@/features/admin/components/admin-global-search";
 import { AdminMobileNav } from "@/features/admin/components/admin-mobile-nav";
 
 function initialsOf(fullName: string): string {
@@ -23,21 +24,7 @@ export function AdminTopBar({ user }: { user: SessionUser }) {
         </h1>
       </div>
       <div className="flex items-center gap-6">
-        <div className="relative hidden sm:block">
-          <Search
-            className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-500"
-            aria-hidden="true"
-          />
-          <label htmlFor="admin-search" className="sr-only">
-            Search
-          </label>
-          <input
-            id="admin-search"
-            type="search"
-            placeholder="Search..."
-            className="w-64 rounded-full border border-ink-200 bg-ink-50 py-2 pl-10 pr-4 text-ink-900 transition-colors focus:border-ink-300 focus:outline-none focus:ring-1 focus:ring-brand-400/30"
-          />
-        </div>
+        <AdminGlobalSearch />
         <div className="flex items-center gap-2">
           <button
             type="button"

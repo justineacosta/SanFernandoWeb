@@ -186,6 +186,32 @@ transparency documents, transparency projects, and the four ticket flows. Not co
 audit log (it has its own SuperAdmin page and searching it from a global box would surface
 other people's logins in a dropdown).
 
+**The allow-list is an input to the query, not a filter on its output.** `globalSearch()`
+builds a `SearchModule[]` from `checkPermission()` / `checkSuperAdmin()` and passes it to
+`search_admin_global(p_q, p_modules, p_limit)`, whose every branch is gated on
+`'<module>' = any(p_modules)`. So the database never scans a module the viewer cannot
+open, and nothing the client sends can widen the search — only the query string crosses
+the boundary, length-capped at 200 characters and Zod-validated, because a Server Action
+is a public HTTP endpoint.
+
+Services are **SuperAdmin-only** here, matching their `superAdminOnly` entry in
+`ADMIN_NAV_ITEMS`. The global search must never surface a module whose nav entry the
+viewer cannot see.
+
+Two deliberate limits:
+
+- **Results link to the module page, not the record.** Drawer editors are client state
+  with no URL of their own, so there is nothing to deep-link to yet. The row still names
+  the record, its module, and its status, which is what makes the search useful. Proper
+  deep-linking belongs to sub-project 5, where row actions move out of the drawers.
+- **A minimum query length of 2.** `fuzzy_match` treats an empty query as "match
+  everything", and a single character reaches a large share of any table through the
+  edit-distance route. Neither is a useful list.
+
+Unlike the public search functions, `search_admin_global` deliberately does **not** filter
+on `status = 'published'` — the admin portal is where drafts and archived records are
+managed, so they have to be findable.
+
 ### 3.6 Public search behaviour is unchanged apart from matching
 
 `/transparency/legislative` and `/transparency/uploads` keep their current
@@ -225,7 +251,14 @@ Three independently shippable commits:
 - **B — public transparency.** Migration `0016`, `searchLegislative` moved onto the RPC,
   `searchUploads` moved onto `fuzzyFilter`. **Owner must apply `0016` before B is
   verifiable.**
-- **C — global topbar search.** Depends on A only.
+- **C — global topbar search.** Migration `0018` (`search_admin_global`), the
+  `globalSearch` Server Action, and `AdminGlobalSearch` replacing the stub input.
+  Depends on A only.
+
+Migration numbering drifted from the umbrella's table, as §7 anticipated: `0015` was the
+audit-log slice pulled forward into sub-project 3, `0016` is this sub-project's, `0017` is
+the wildcard fix found in verification, and `0018` is phase C. Sub-projects 6, 7 and 9
+shift accordingly.
 
 ## 6. Verification
 

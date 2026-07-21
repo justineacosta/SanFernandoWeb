@@ -2,9 +2,9 @@
 
 > **Current status (2026-07-22):** backend integration is well underway on **Supabase**
 > (Postgres + Auth + Storage) — migrations `0001`–`0013` applied to staging **and
-> production**; **`0014`–`0017` (audit log v2, audit fuzzy search, fuzzy search, the
-> `fuzzy_match` wildcard fix) are applied to staging only** and still need to reach
-> production at deploy time. Auth, the services catalog,
+> production**; **`0014`–`0018` (audit log v2, audit fuzzy search, fuzzy search, the
+> `fuzzy_match` wildcard fix, global admin search) are applied to staging only** and still
+> need to reach production at deploy time. Auth, the services catalog,
 > all four ticket flows, news/announcements/events, transparency (documents + projects,
 > multi-file + optional dates), the officials directory, and each official's achievements
 > timeline are DB-backed and merged to `main`. See **§1 Current State** for the accurate
@@ -641,6 +641,20 @@
 >    unlikely to be used (indexed expression `lower(a || ' ' || b)` vs the inlined
 >    predicate's `lower(coalesce(a || ' ' || b, ''))`), and the tables are small. Whether
 >    to drop them belongs to the hardening pass.
+> 10. **The global admin search is real** (migration `0018_admin_global_search.sql`, also
+>    staging only). `AdminTopBar`'s input had been a dead stub since the design export; it
+>    is now `AdminGlobalSearch`, a debounced type-ahead over
+>    `search_admin_global(p_q, p_modules, p_limit)` returning grouped results across
+>    twelve modules. **Permission scoping is an input to the query, not a filter on its
+>    output:** `globalSearch()` in `features/admin/actions/search.ts` builds the module
+>    allow-list from `checkPermission()`/`checkSuperAdmin()` and passes it in, so the
+>    database never scans a module the viewer cannot open and nothing the client sends can
+>    widen the search. Services are SuperAdmin-only, matching their `superAdminOnly` nav
+>    entry. Shared constants live in `features/admin/search-modules.ts` because a
+>    `"use server"` file may only export async functions. **Known limit:** results link to
+>    the module page, not the record — drawer editors are client state with no URL, so
+>    deep-linking waits for sub-project 5. Unlike the public search functions this one does
+>    **not** filter to `published`; the portal is where drafts are managed.
 
 ---
 
