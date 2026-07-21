@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ServiceFormValues, ServiceTone } from "@/types";
-import { requireSuperAdmin } from "@/lib/auth";
+import { NOT_FOUND, checkSuperAdmin } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ICON_OPTIONS } from "@/lib/icon-map";
@@ -51,7 +51,8 @@ function splitRequirements(raw: string): string[] {
 
 /** Update a service's editable fields. */
 export async function updateService(id: string, input: ServiceFormValues): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = serviceSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -83,7 +84,8 @@ export async function updateService(id: string, input: ServiceFormValues): Promi
 
 /** Create a new service. The id/slug is derived from the title (de-duplicated). */
 export async function createService(input: ServiceFormValues): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = serviceSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -129,7 +131,8 @@ export async function createService(input: ServiceFormValues): Promise<ActionRes
 
 /** Toggle availability directly (the on/off switch), without opening the editor. */
 export async function setServiceAvailable(id: string, isAvailable: boolean): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { error } = await admin.from("services").update({ is_available: isAvailable }).eq("id", id);
   if (error) return { error: "Could not update availability." };

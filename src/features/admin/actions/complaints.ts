@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ComplaintCloseValues, ComplaintReviewValues, WalkInComplaintValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { manilaToday } from "@/lib/format";
@@ -91,7 +91,8 @@ export async function reviewComplaint(
   id: string,
   values: ComplaintReviewValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("handle-complaints");
+  const actor = await checkPermission("handle-complaints");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = reviewSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid review." };
@@ -132,7 +133,8 @@ export async function closeComplaint(
   id: string,
   values: ComplaintCloseValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("handle-complaints");
+  const actor = await checkPermission("handle-complaints");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = closeSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid decision." };
@@ -170,7 +172,8 @@ export async function closeComplaint(
 
 /** Encode a walk-in complainant into the same queue (spec §3: one queue, online + office). */
 export async function createWalkInComplaint(values: WalkInComplaintValues): Promise<ActionResult> {
-  const actor = await requirePermission("handle-complaints");
+  const actor = await checkPermission("handle-complaints");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = walkInSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };

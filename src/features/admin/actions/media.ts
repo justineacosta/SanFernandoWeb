@@ -1,7 +1,7 @@
 "use server";
 
 import type { Permission } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   ALLOWED_IMAGE_TYPES,
@@ -27,7 +27,7 @@ export type ImageFolder = "announcements" | "events" | "officials";
 /**
  * Which permission owns each folder. `folder` arrives from a client component
  * over a Server Action — a public HTTP endpoint — so an unknown value must be
- * rejected rather than fed to requirePermission(). Returning null here is what
+ * rejected rather than fed to checkPermission(). Returning null here is what
  * stops a caller from inventing a folder to dodge the permission check.
  */
 function permissionForFolder(folder: string): Permission | null {
@@ -47,7 +47,7 @@ export async function uploadSingleImage(
 ): Promise<UploadResult> {
   const permission = permissionForFolder(folder);
   if (!permission) return { error: "Unknown upload folder.", src: null, url: null };
-  await requirePermission(permission);
+  if (!(await checkPermission(permission))) return { error: NOT_FOUND, src: null, url: null };
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -78,7 +78,7 @@ export async function removeStoredImage(src: string): Promise<ActionResult> {
   const folder = src.split("/")[0] ?? "";
   const permission = permissionForFolder(folder);
   if (!permission) return { error: "That image cannot be removed." };
-  await requirePermission(permission);
+  if (!(await checkPermission(permission))) return { error: NOT_FOUND };
 
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove([src]);

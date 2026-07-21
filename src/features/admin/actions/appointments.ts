@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AppointmentReviewValues, WalkInAppointmentValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { manilaToday, manilaTodayNextYear } from "@/lib/format";
@@ -90,7 +90,8 @@ export async function reviewAppointment(
   id: string,
   values: AppointmentReviewValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("process-appointments");
+  const actor = await checkPermission("process-appointments");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = reviewSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid review." };
@@ -131,7 +132,8 @@ export async function reviewAppointment(
 
 /** Mark a confirmed appointment as completed after the resident's visit. */
 export async function completeAppointment(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("process-appointments");
+  const actor = await checkPermission("process-appointments");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("appointments")
@@ -159,7 +161,8 @@ export async function completeAppointment(id: string): Promise<ActionResult> {
 export async function createWalkInAppointment(
   values: WalkInAppointmentValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("process-appointments");
+  const actor = await checkPermission("process-appointments");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = walkInSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };

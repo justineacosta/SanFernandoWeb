@@ -54,6 +54,7 @@ export const CONTENT_TYPE_ACTIONS: ContentTypeAction[] = [
     href: "/admin/transparency",
     icon: Gavel,
     tone: "primary",
+    permission: "manage-transparency",
   },
   {
     title: "Community Event",
@@ -61,6 +62,7 @@ export const CONTENT_TYPE_ACTIONS: ContentTypeAction[] = [
     href: "/admin/events",
     icon: PartyPopper,
     tone: "secondary",
+    permission: "manage-news",
   },
   {
     title: "News & Announcement",
@@ -68,6 +70,7 @@ export const CONTENT_TYPE_ACTIONS: ContentTypeAction[] = [
     href: "/admin/news",
     icon: Newspaper,
     tone: "deep",
+    permission: "manage-news",
   },
 ];
 

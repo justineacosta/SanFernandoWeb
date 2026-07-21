@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AchievementValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { PUBLIC_MEDIA_BUCKET } from "@/lib/storage";
@@ -63,7 +63,8 @@ async function officialIdFor(admin: Admin, achievementId: string): Promise<strin
  * unfinished entry cannot reach the site.
  */
 export async function createAchievement(officialId: string): Promise<CreateResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND, id: null };
   if (!idSchema.safeParse(officialId).success) {
     return { error: "Invalid official.", id: null };
   }
@@ -98,7 +99,8 @@ export async function updateAchievement(
   id: string,
   values: AchievementValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   if (!idSchema.safeParse(id).success) return { error: "Invalid achievement." };
 
   const parsed = valuesSchema.safeParse(values);
@@ -129,7 +131,8 @@ export async function setAchievementVisibility(
   id: string,
   isVisible: boolean,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   if (!idSchema.safeParse(id).success) return { error: "Invalid achievement." };
   if (typeof isVisible !== "boolean") return { error: "Invalid value." };
 
@@ -162,7 +165,8 @@ export async function reorderAchievements(
   officialId: string,
   orderedIds: string[],
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   if (!idSchema.safeParse(officialId).success) return { error: "Invalid official." };
   if (!reorderSchema.safeParse(orderedIds).success) return { error: "Invalid ordering." };
 
@@ -186,7 +190,8 @@ export async function reorderAchievements(
  * ROWS; Storage objects are invisible to Postgres and must be swept here.
  */
 export async function deleteAchievement(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   if (!idSchema.safeParse(id).success) return { error: "Invalid achievement." };
 
   const admin = createSupabaseAdminClient();

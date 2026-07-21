@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { NewsCategoryValues } from "@/types";
-import { requireSuperAdmin } from "@/lib/auth";
+import { NOT_FOUND, checkSuperAdmin } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -38,7 +38,8 @@ function slugify(title: string): string {
 export async function createNewsCategory(
   values: NewsCategoryValues,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = categorySchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -78,7 +79,8 @@ export async function renameNewsCategory(
   id: string,
   values: NewsCategoryValues,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = categorySchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -106,7 +108,8 @@ export async function setNewsCategoryActive(
   id: string,
   isActive: boolean,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { error } = await admin
     .from("news_categories")
@@ -140,7 +143,8 @@ export async function moveNewsCategory(
   id: string,
   direction: "up" | "down",
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data: rows, error: readError } = await admin
     .from("news_categories")

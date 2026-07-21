@@ -1,6 +1,6 @@
 "use server";
 
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   ALLOWED_DOC_FILE_TYPES,
@@ -34,7 +34,9 @@ export async function uploadDocumentPdf(
   folder: "legislative" | "documents",
   formData: FormData,
 ): Promise<UploadDocumentResult> {
-  await requirePermission("manage-transparency");
+  if (!(await checkPermission("manage-transparency"))) {
+    return { error: NOT_FOUND, path: null, url: null, sizeBytes: null };
+  }
 
   // Validate folder at runtime; TypeScript unions erase at runtime and Server Actions
   // are public HTTP endpoints, so a direct caller could pass any string.
@@ -80,7 +82,9 @@ export async function uploadTransparencyFile(
   folder: "documents" | "projects",
   formData: FormData,
 ): Promise<UploadFileResult> {
-  await requirePermission("manage-transparency");
+  if (!(await checkPermission("manage-transparency"))) {
+    return { error: NOT_FOUND, path: null, sizeBytes: null, mime: null };
+  }
   if (!["documents", "projects"].includes(folder)) {
     return { error: "Upload failed. Try again.", path: null, sizeBytes: null, mime: null };
   }
@@ -106,7 +110,7 @@ export async function uploadTransparencyFile(
 
 /** Delete an owned storage object. A remote URL is left alone. */
 export async function removeStoredDocument(path: string): Promise<ActionResult> {
-  await requirePermission("manage-transparency");
+  if (!(await checkPermission("manage-transparency"))) return { error: NOT_FOUND };
   // Pass through remote URLs as no-op (seeded content, nothing to remove locally).
   if (/^https?:\/\//i.test(path)) return { error: null };
   // Require path to start with a valid folder prefix.

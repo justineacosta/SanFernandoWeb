@@ -481,6 +481,13 @@ export interface ContentTypeAction {
   icon: LucideIcon;
   /** Icon housing tone. */
   tone: "primary" | "secondary" | "deep";
+  /**
+   * Gates the card the same way IconNavItem.permission gates a sidebar link.
+   * Required in practice: every card links to a permission-gated module, and
+   * those modules now 404 rather than redirect, so an ungated card would offer
+   * a staff member a dead end.
+   */
+  permission?: Permission;
 }
 
 /* ----------------------- Admin content management (mock CMS) --------------------- */

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ApplicationReviewValues, WalkInApplicationValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -64,7 +64,8 @@ export async function reviewApplication(
   id: string,
   values: ApplicationReviewValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("process-applications");
+  const actor = await checkPermission("process-applications");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = reviewSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid review." };
@@ -102,7 +103,8 @@ export async function reviewApplication(
 
 /** Mark an approved application as claimed at the hall. */
 export async function releaseApplication(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("process-applications");
+  const actor = await checkPermission("process-applications");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("applications")
@@ -128,7 +130,8 @@ export async function releaseApplication(id: string): Promise<ActionResult> {
 export async function createWalkInApplication(
   values: WalkInApplicationValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("process-applications");
+  const actor = await checkPermission("process-applications");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = walkInSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };

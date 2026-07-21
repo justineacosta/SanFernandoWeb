@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { PERMISSIONS, type Permission, type StaffStatusLabel } from "@/types";
-import { requireSuperAdmin } from "@/lib/auth";
+import { NOT_FOUND, checkSuperAdmin } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -75,7 +75,8 @@ async function wouldOrphanSuperAdmin(id: string): Promise<boolean> {
 }
 
 export async function createTeamUser(input: TeamUserInput): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = teamUserSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -113,7 +114,8 @@ export async function updateTeamUser(
   id: string,
   input: UpdateTeamUserInput,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -179,7 +181,8 @@ export async function updateTeamUser(
 }
 
 export async function setTeamUserActive(id: string, isActive: boolean): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   if (id === actor.id) {
     return { error: "You cannot change your own account's active state." };
   }
@@ -197,7 +200,8 @@ export async function setTeamUserActive(id: string, isActive: boolean): Promise<
 }
 
 export async function archiveTeamUser(id: string): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   if (id === actor.id) {
     return { error: "You cannot archive your own account." };
   }
@@ -219,7 +223,8 @@ export async function archiveTeamUser(id: string): Promise<ActionResult> {
 
 /** Hard delete — only for users with no recorded actions (spec §4). */
 export async function deleteTeamUser(id: string): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   if (id === actor.id) {
     return { error: "You cannot delete your own account." };
   }

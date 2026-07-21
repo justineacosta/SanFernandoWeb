@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { GalleryPhoto } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -38,7 +38,8 @@ export async function uploadNewsPhotos(
   articleId: string,
   formData: FormData,
 ): Promise<{ error: string | null; photos: GalleryPhoto[] }> {
-  const actor = await requirePermission("manage-news");
+  const actor = await checkPermission("manage-news");
+  if (!actor) return { error: NOT_FOUND, photos: [] };
   const admin = createSupabaseAdminClient();
 
   const files = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
@@ -82,7 +83,8 @@ export async function reorderNewsPhotos(
   articleId: string,
   orderedIds: string[],
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-news");
+  const actor = await checkPermission("manage-news");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   for (let i = 0; i < orderedIds.length; i++) {
     const { error } = await admin
@@ -98,7 +100,8 @@ export async function reorderNewsPhotos(
 }
 
 export async function updateNewsPhotoAlt(photoId: string, alt: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-news");
+  const actor = await checkPermission("manage-news");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data: photo, error: readErr } = await admin
     .from("news_photos")
@@ -115,7 +118,8 @@ export async function updateNewsPhotoAlt(photoId: string, alt: string): Promise<
 }
 
 export async function removeNewsPhoto(photoId: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-news");
+  const actor = await checkPermission("manage-news");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data: photo, error: readErr } = await admin
     .from("news_photos")

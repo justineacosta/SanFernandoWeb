@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AnnouncementValues, ContentStatus, SessionUser } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getAnnouncementForEdit } from "@/features/admin/queries/announcements";
@@ -39,7 +39,7 @@ function revalidate() {
 export async function getAnnouncementForEditAction(
   id: string,
 ): Promise<{ values: AnnouncementValues; status: ContentStatus } | null> {
-  await requirePermission("manage-news");
+  if (!(await checkPermission("manage-news"))) return null;
   return getAnnouncementForEdit(id);
 }
 
@@ -47,7 +47,8 @@ export async function saveAnnouncement(
   id: string | null,
   values: AnnouncementValues,
 ): Promise<SaveResult> {
-  const actor = await requirePermission("manage-news");
+  const actor = await checkPermission("manage-news");
+  if (!actor) return { error: NOT_FOUND, id: null };
   const parsed = schema.safeParse(values);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
 
@@ -97,7 +98,7 @@ export async function saveAnnouncement(
  * Apply a status transition. The `from` set is enforced inside the UPDATE's
  * WHERE (not a read-then-write) so a concurrent transition can't race past
  * this check. `actor` is resolved by the caller so that every exported
- * action's own first statement is the `requirePermission` gate.
+ * action's own first statement is the `checkPermission` gate.
  */
 async function applyTransition(
   actor: SessionUser,
@@ -122,17 +123,20 @@ async function applyTransition(
 }
 
 export async function submitAnnouncementForReview(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-news");
+  const actor = await checkPermission("manage-news");
+  if (!actor) return { error: NOT_FOUND };
   return applyTransition(actor, id, ["draft"], { status: "in-review" }, "submitted announcement for review");
 }
 
 export async function returnAnnouncementToDraft(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-news");
+  const actor = await checkPermission("manage-news");
+  if (!actor) return { error: NOT_FOUND };
   return applyTransition(actor, id, ["in-review"], { status: "draft" }, "returned announcement to draft");
 }
 
 export async function archiveAnnouncement(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-news");
+  const actor = await checkPermission("manage-news");
+  if (!actor) return { error: NOT_FOUND };
   return applyTransition(
     actor,
     id,
@@ -144,7 +148,8 @@ export async function archiveAnnouncement(id: string): Promise<ActionResult> {
 
 /** Publish; set published_at only on first publish so re-publishing an archived announcement doesn't bump it. */
 export async function publishAnnouncement(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-news");
+  const actor = await checkPermission("manage-news");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data: row, error: readErr } = await admin
     .from("announcements")

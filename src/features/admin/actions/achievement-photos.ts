@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { GalleryPhoto } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -56,7 +56,8 @@ export async function uploadAchievementPhotos(
   achievementId: string,
   formData: FormData,
 ): Promise<{ error: string | null; photos: GalleryPhoto[] }> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND, photos: [] };
   if (!idSchema.safeParse(achievementId).success) {
     return { error: "Invalid achievement.", photos: [] };
   }
@@ -119,7 +120,8 @@ export async function reorderAchievementPhotos(
   achievementId: string,
   orderedIds: string[],
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   if (!idSchema.safeParse(achievementId).success) return { error: "Invalid achievement." };
   if (!reorderSchema.safeParse(orderedIds).success) return { error: "Invalid ordering." };
 
@@ -142,7 +144,8 @@ export async function updateAchievementPhotoAlt(
   photoId: string,
   alt: string,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   if (!idSchema.safeParse(photoId).success) return { error: "Invalid photo." };
   if (typeof alt !== "string" || alt.length > 200) {
     return { error: "Keep the description under 200 characters." };
@@ -174,7 +177,8 @@ export async function updateAchievementPhotoAlt(
 }
 
 export async function removeAchievementPhoto(photoId: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   if (!idSchema.safeParse(photoId).success) return { error: "Invalid photo." };
 
   const admin = createSupabaseAdminClient();

@@ -7,7 +7,7 @@ import type {
   AssistanceReviewValues,
   WalkInAssistanceValues,
 } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -81,7 +81,8 @@ export async function reviewAssistance(
   id: string,
   values: AssistanceReviewValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("handle-assistance");
+  const actor = await checkPermission("handle-assistance");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = reviewSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid review." };
@@ -124,7 +125,8 @@ export async function decideAssistance(
   id: string,
   values: AssistanceDecisionValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("handle-assistance");
+  const actor = await checkPermission("handle-assistance");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = decisionSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid decision." };
@@ -164,7 +166,8 @@ export async function decideAssistance(
 export async function createWalkInAssistance(
   values: WalkInAssistanceValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("handle-assistance");
+  const actor = await checkPermission("handle-assistance");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = walkInSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };

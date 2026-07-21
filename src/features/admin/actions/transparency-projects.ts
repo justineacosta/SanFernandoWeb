@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, TransparencyProjectValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTransparencyProjectForEdit } from "@/features/admin/queries/transparency";
@@ -48,7 +48,7 @@ function revalidate() {
  * panel fetches full detail — including files — only when a drawer opens.
  */
 export async function getTransparencyProjectForEditAction(id: string) {
-  await requirePermission("manage-transparency");
+  if (!(await checkPermission("manage-transparency"))) return null;
   return getTransparencyProjectForEdit(id);
 }
 
@@ -57,7 +57,8 @@ export async function saveTransparencyProject(
   values: TransparencyProjectValues,
   formData: FormData,
 ): Promise<SaveResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND, id: null };
   const parsed = schema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
@@ -165,7 +166,8 @@ export async function setTransparencyProjectStatus(
   id: string,
   status: ContentStatus,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
 
   const statusResult = statusSchema.safeParse(status);
   if (!statusResult.success) {
@@ -203,7 +205,8 @@ export async function setTransparencyProjectStatus(
 
 /** Hard delete — for mistakes only. Archiving is the normal path for a finished project. */
 export async function deleteTransparencyProject(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
 
   const { data: existing } = await admin
@@ -256,7 +259,8 @@ export async function moveTransparencyProject(
   id: string,
   direction: "up" | "down",
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data: rows, error: readError } = await admin
     .from("transparency_projects")

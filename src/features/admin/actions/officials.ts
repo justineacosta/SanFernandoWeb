@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, OfficialValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getOfficialForEdit } from "@/features/admin/queries/officials";
@@ -97,7 +97,7 @@ async function uniqueSlug(
  * and cannot be imported into the "use client" manager).
  */
 export async function getOfficialForEditAction(id: string) {
-  await requirePermission("manage-officials");
+  if (!(await checkPermission("manage-officials"))) return null;
   return getOfficialForEdit(id);
 }
 
@@ -105,7 +105,8 @@ export async function saveOfficial(
   id: string | null,
   values: OfficialValues,
 ): Promise<SaveResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND, id: null };
   const parsed = schema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
@@ -217,7 +218,8 @@ export async function setOfficialStatus(
   id: string,
   status: ContentStatus,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
 
   const statusResult = statusSchema.safeParse(status);
   if (!statusResult.success) {
@@ -263,7 +265,8 @@ export async function setOfficialStatus(
  * departure (spec §6): the record is term history worth keeping.
  */
 export async function deleteOfficial(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
 
   const { data: existing } = await admin
@@ -321,7 +324,8 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
  * columns this partial payload omits).
  */
 export async function reorderOfficials(orderedIds: string[]): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = reorderSchema.safeParse(orderedIds);
   if (!parsed.success) return { error: "Invalid ordering." };
 

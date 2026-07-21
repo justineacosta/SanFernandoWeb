@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, TransparencyDocumentValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTransparencyDocumentForEdit } from "@/features/admin/queries/transparency";
@@ -50,7 +50,7 @@ function revalidate() {
  * manager fetches full detail — including the file — only when a drawer opens.
  */
 export async function getTransparencyDocumentForEditAction(id: string) {
-  await requirePermission("manage-transparency");
+  if (!(await checkPermission("manage-transparency"))) return null;
   return getTransparencyDocumentForEdit(id);
 }
 
@@ -59,7 +59,8 @@ export async function saveTransparencyDocument(
   values: TransparencyDocumentValues,
   formData: FormData,
 ): Promise<SaveResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND, id: null };
   const parsed = schema.safeParse(values);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
 
@@ -160,7 +161,8 @@ export async function setTransparencyDocumentStatus(
   id: string,
   status: ContentStatus,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
 
   const statusResult = statusSchema.safeParse(status);
   if (!statusResult.success) {
@@ -201,7 +203,8 @@ export async function setTransparencyDocumentStatus(
  * superseded budget or report remains part of the public record.
  */
 export async function deleteTransparencyDocument(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
 
   const { data: existing } = await admin

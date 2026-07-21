@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, LegislativeValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getLegislativeForEdit } from "@/features/admin/queries/transparency";
@@ -81,7 +81,7 @@ async function uniqueSlug(
  * a drawer opens.
  */
 export async function getLegislativeForEditAction(id: string) {
-  await requirePermission("manage-transparency");
+  if (!(await checkPermission("manage-transparency"))) return null;
   return getLegislativeForEdit(id);
 }
 
@@ -90,7 +90,8 @@ export async function saveLegislative(
   values: LegislativeValues,
   fileForm: FormData,
 ): Promise<SaveResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND, id: null };
   const parsed = schema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
@@ -268,7 +269,8 @@ export async function setLegislativeStatus(
   id: string,
   status: ContentStatus,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
 
   const statusResult = statusSchema.safeParse(status);
   if (!statusResult.success) {
@@ -309,7 +311,8 @@ export async function setLegislativeStatus(
  * a repealed ordinance is legal history and must stay readable.
  */
 export async function deleteLegislative(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
 
   const { data: existing } = await admin
