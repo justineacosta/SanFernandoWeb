@@ -2,8 +2,9 @@
 
 > **Current status (2026-07-22):** backend integration is well underway on **Supabase**
 > (Postgres + Auth + Storage) — migrations `0001`–`0013` applied to staging **and
-> production**; **`0014` (audit log v2) is applied to staging only** and still needs to
-> reach production at deploy time. Auth, the services catalog,
+> production**; **`0014`–`0016` (audit log v2, audit fuzzy search, fuzzy search) are
+> applied to staging only** and still need to reach production at deploy time. Auth, the
+> services catalog,
 > all four ticket flows, news/announcements/events, transparency (documents + projects,
 > multi-file + optional dates), the officials directory, and each official's achievements
 > timeline are DB-backed and merged to `main`. See **§1 Current State** for the accurate
@@ -570,8 +571,9 @@
 >    pattern the other eight managers use would eventually ship the whole log to the browser.
 >    Search is substring (`ilike`) for now; **sub-project 4 swaps in `pg_trgm` fuzzy matching
 >    without changing the UI** — a sequenced partial against the requirement, not an omission.
->    The PostgREST escaping helpers moved from `features/transparency/queries.ts` to a shared
->    `src/lib/postgrest.ts` so both callers use the same verified logic.
+>    *(Superseded: fuzzy search landed for the audit log in migration `0015` and everywhere
+>    else in `0016`, and `src/lib/postgrest.ts` has since been deleted — see the sub-project
+>    4 entry below.)*
 > 9. The dashboard's **Publishing Activity became Audit Logs**, and — corrected during
 >    verification — is **SuperAdmin-only**. It renders the same rows `/admin/audit` does,
 >    so showing it to every signed-in user leaked exactly what the sub-project 2 gating
@@ -583,6 +585,48 @@
 >    the two from different sources and never collide. There is also one permanent
 >    `"Migration Verification"` row from the immutability test — it cannot be deleted, by
 >    design.
+
+> **Updated 2026-07-22 (fuzzy search — sub-project 4):** every search input in the portal,
+> admin and public, now matches forgivingly. Spec:
+> `docs/superpowers/specs/2026-07-22-fuzzy-search-design.md`. Migration
+> **`0016_fuzzy_search.sql`** — **staging only so far**, and required before
+> `/transparency/legislative` search returns anything.
+>
+> 1. **One matching contract, stated once.** Split the query on whitespace; a record
+>    matches only if **every** term matches it; a term matches by substring, or by a small
+>    edit distance against an individual **word** of the record. So `cert` finds
+>    *certificate*, `offcal` finds *official*, `juan dela` narrows, and `juan banana`
+>    returns nothing.
+> 2. **`public.fuzzy_match(haystack, q)`** extracts the predicate migration `0015` inlined
+>    inside `search_audit_log`, which is rewritten to call it — one definition in the
+>    database, as the requirement covers "all future tables". It is deliberately
+>    `language sql` and a single `SELECT` so Postgres **inlines** it and the trigram
+>    indexes stay eligible; a plpgsql body would force a sequential scan.
+> 3. **`public.search_legislative_documents(...)`** backs `/transparency/legislative`,
+>    replacing the PostgREST `ilike` filter, with a trigram GIN index over
+>    `number || title || summary`. It applies `status = 'published'` itself so the public
+>    boundary stays in one place. `searchUploads()` instead uses the JS matcher — it
+>    already merges three tables into memory, so there is nothing left to push down.
+> 4. **`src/lib/fuzzy.ts`** (`fuzzyFilter`, `haystack`) is the JavaScript half, used by
+>    every admin manager and by `searchUploads`.
+> 5. **Fuse.js was installed, measured, and removed.** It scores a pattern against the
+>    whole concatenated haystack, so no threshold accepted `sanots` → *Santos* without also
+>    accepting `juan banana` → *Juan Dela Cruz*. Matching per word has no such conflict.
+>    This reverses the library choice in umbrella §3.4, not its hybrid decision.
+>    **One deliberate asymmetry:** the SQL side keeps a third `word_similarity` recall
+>    route that the JS side omits — nearly free against a GIN index, but a hand-rolled
+>    approximation of Postgres internals in JavaScript with no measured benefit.
+> 6. **Search inputs added where there were none:** officials, legislative, transparency
+>    documents, transparency projects, and users. `AdminFilterBar` now takes a
+>    per-instance `search.id` — transparency renders two bars on one page, and the
+>    hardcoded id broke the `<label for>` association for both.
+> 7. **Project reorder arrows hide while a search is active.** "Move up" means "swap with
+>    the row above"; with rows filtered out, the row above on screen is not the neighbour
+>    the action would move.
+> 8. **`src/lib/postgrest.ts` is deleted.** It was extracted three days earlier for the two
+>    `ilike` callers; both are gone and no `.ilike()`/`.or()` filter remains anywhere in
+>    `src/`. The escaping quirk it guarded is still recorded in §6 below, so the knowledge
+>    outlives the file.
 
 ---
 
