@@ -1,13 +1,13 @@
 # Backend Handoff — Barangay San Fernando Website
 
 > **Current status (2026-07-21):** backend integration is well underway on **Supabase**
-> (Postgres + Auth + Storage) — migrations `0001`–`0011` applied, `0012` applied to
-> **staging only** (production still needs it at deploy time). Auth, the services catalog,
+> (Postgres + Auth + Storage) — migrations `0001`–`0011` applied, `0012`–`0013` applied to
+> **staging only** (production still needs both at deploy time). Auth, the services catalog,
 > all four ticket flows, news/announcements/events, transparency (documents + projects,
-> multi-file + optional dates), and the officials directory are DB-backed and merged to
-> `main`. See **§1 Current State** for the accurate live picture; the dated blockquotes
-> below are a running changelog, and the original "fully static" framing that follows
-> describes the *starting* point, not today.
+> multi-file + optional dates), the officials directory, and each official's achievements
+> timeline are DB-backed and merged to `main`. See **§1 Current State** for the accurate
+> live picture; the dated blockquotes below are a running changelog, and the original
+> "fully static" framing that follows describes the *starting* point, not today.
 
 > Snapshot of the frontend as of **2026-07-11**, written as the starting brief for backend
 > development. The frontend is complete, fully static, and every piece of content that the
@@ -435,6 +435,51 @@
 > timeline sketched in the master spec (§6) was deliberately deferred to a follow-up plan —
 > not part of this work.
 
+> **Updated 2026-07-21 (officials achievements):** each official's profile page now carries
+> a lightweight achievements timeline — the piece the officials-directory entry above
+> explicitly deferred (plan: `docs/superpowers/plans/2026-07-21-officials-achievements.md`;
+> spec: `docs/superpowers/specs/2026-07-21-officials-achievements-design.md`). New migration
+> **`0013_official_achievements.sql`** — **applied to staging only; production needs both
+> `0012` and `0013` at deploy time** — adds two tables mirroring the established
+> `news_articles` → `news_photos` shape: **`official_achievements`** (`title`,
+> `description`, `date_label` — free text like "March 2024" or "Ongoing", not a real date,
+> since ordering is owned by `sort_order`, not this field; `is_visible`, `sort_order`) and
+> **`official_achievement_photos`** (`src`, `alt`, `sort_order`), cascading two hops —
+> `officials` → `official_achievements` → `official_achievement_photos`, both `on delete
+> cascade`. RLS is enabled with no policies on both tables, same pattern as everything else.
+> Photos reuse the existing `public-media` bucket under a new `achievements/<achievementId>/`
+> prefix (no new bucket), with the same 2MB/JPEG-PNG-WebP limits news photos use, capped at
+> 3 photos per achievement and 20 achievements per official. Nine new Server Actions, all
+> behind `requirePermission("manage-officials")`: `createAchievement`, `updateAchievement`,
+> `setAchievementVisibility`, `reorderAchievements`, `deleteAchievement`
+> (`src/features/admin/actions/achievements.ts`) and `uploadAchievementPhotos`,
+> `reorderAchievementPhotos`, `updateAchievementPhotoAlt`, `removeAchievementPhoto`
+> (`src/features/admin/actions/achievement-photos.ts`). The public boundary stacks on top
+> of the official's own `status = 'published'`: an achievement only reaches
+> `/officials/[slug]` when **`is_visible = true` and `title` is non-empty** — a freshly
+> "added" achievement row starts blank (the photo uploader needs a stable id to attach
+> uploads to before staff type anything), so an unfinished entry must never leak public.
+> The filter is applied twice, deliberately redundant — once in the embedded-resource
+> query and again in plain TypeScript (`src/features/officials/queries.ts`) — so a silently
+> ignored embedded filter can't publish something the barangay hid. `/admin/officials`
+> gained an achievements sub-list inside the existing drawer (`AchievementsEditor`,
+> `AchievementPhotoUploader`): each achievement is its own card — title/date/description
+> fields that save on blur, a visibility toggle, reorder arrows, delete, and its own
+> 3-photo uploader — persisting per-field immediately, the same pattern `NewsManager`
+> already uses for articles; a brand-new official shows "Save the official first to add
+> achievements." until it has an id for achievement rows to attach to. Deleting an official
+> now also sweeps its achievements' Storage photos before the row delete, for the same
+> reason Plan 3's news-article delete does — the DB cascade removes the
+> `official_achievement_photos` rows but has no idea Storage objects exist. Along the way
+> the news-article lightbox was generalized and relocated:
+> `src/features/announcements/components/news-gallery.tsx` is gone, replaced by
+> `PhotoGallery` in `src/components/shared/photo-gallery.tsx` (a `variant: "feature" |
+> "thumbs"` prop covers both the news-article grid+hero layout and the more compact
+> achievements-timeline row), and the `NewsPhoto` type in `src/types/index.ts` was renamed
+> **`GalleryPhoto`** — news and achievement photo lists now share one type. **No
+> achievement content is seeded** — migration 0013 inserts no rows — so every official's
+> timeline is empty until barangay staff add real achievements through `/admin/officials`.
+
 ---
 
 ## 1. Current State
@@ -445,9 +490,9 @@
 | Styling | Tailwind CSS v4 — amber + ink design tokens (`brand-*`, `ink-*`, `danger*`) in `src/app/globals.css` (`@theme`); Space Grotesk headings + Inter body |
 | Rendering | 100% Server Components except a handful of client islands (see §5) |
 | Build | `npm run build` ✅ — static where possible; DB-backed routes (services, tickets, news/announcements/events, `/admin/*`) render dynamically |
-| Backend | **Supabase** (Postgres + Auth + Storage), reached through Server Actions and server-only query modules. Services, the four ticket flows, news/announcements/events, transparency documents (ordinances & resolutions, budget/financial documents, projects), and the officials directory are DB-backed. Still hardcoded: `src/constants/site.ts` and the remaining `src/features/*/data.ts` (about, home stats) |
+| Backend | **Supabase** (Postgres + Auth + Storage), reached through Server Actions and server-only query modules. Services, the four ticket flows, news/announcements/events, transparency documents (ordinances & resolutions, budget/financial documents, projects), the officials directory, and each official's achievements timeline are DB-backed. Still hardcoded: `src/constants/site.ts` and the remaining `src/features/*/data.ts` (about, home stats) |
 | Auth | **Supabase Auth**, live. `/admin` is protected; pages gate on `requirePermission(<permission>)` or `requireSuperAdmin()` (`src/lib/auth.ts`), with per-user permission checkboxes and a SuperAdmin role. Portal stays `noindex` |
-| Images | News/announcement/event uploads go to Supabase Storage (public bucket `public-media`, 2MB, JPEG/PNG/WebP); the 12 official portraits also live in `public-media/officials/` now (uploaded once via `scripts/upload-official-portraits.mjs`). Transparency PDFs go to a separate public bucket `public-documents` (10MB cap). Seed rows and the rest of the site are still hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — moving those to owned storage is outstanding. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), the Punong Barangay's portrait reused by the About-page `CAPTAIN` block, About history-timeline images (seal + carousel photo) |
+| Images | News/announcement/event uploads go to Supabase Storage (public bucket `public-media`, 2MB, JPEG/PNG/WebP); the 12 official portraits also live in `public-media/officials/` now (uploaded once via `scripts/upload-official-portraits.mjs`), and each official's achievement photos live under `public-media/achievements/<achievementId>/` (same 2MB/JPEG-PNG-WebP limits, migration 0013, staging only). Transparency PDFs go to a separate public bucket `public-documents` (10MB cap). Seed rows and the rest of the site are still hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — moving those to owned storage is outstanding. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), the Punong Barangay's portrait reused by the About-page `CAPTAIN` block, About history-timeline images (seal + carousel photo) |
 
 ### Routes
 
@@ -456,7 +501,7 @@
 | `/` | Home | `HomeHero`, `QuickServicesSection`, `CommunityPulseSection`, `GetInvolvedSection` |
 | `/about` | About Us | `MissionVisionSection`, `CaptainMessageSection`, `HistorySection`, `MilestonesSection`, `JoinCommunitySection` |
 | `/officials` | Officials directory | `LeadershipDirectory`, `ActionCenterBanner` — DB-backed via `listPublishedOfficials()` since 2026-07-21 |
-| `/officials/[slug]` | Official detail | `getPublishedOfficialBySlug()` (`src/features/officials/queries.ts`); 404s for a non-existent, non-published, or portrait-less slug |
+| `/officials/[slug]` | Official detail | `getPublishedOfficialBySlug()` (`src/features/officials/queries.ts`); 404s for a non-existent, non-published, or portrait-less slug. Renders an `AchievementsTimeline` below the bio for any `is_visible` achievements with a non-empty title (empty on every official today — see the officials-achievements changelog entry) |
 | `/services` | Services directory | `ServicesGrid` (accordion requirements), `WasteScheduleSection`, `HelpSection` |
 | `/services/apply/[slug]` | Certificate application form | `ApplyForm` (DB-backed via `getApplyService()`); serves `tone === "primary"` services only — `getApplyService()` returns `null` for `tone === "danger"` (`blotter-complaints`), so this route 404s for it; its service-card CTA now links straight to `/complaints/new` (plan 2C) instead |
 | `/appointments/new` | Appointment request form | `AppointmentForm` — preferred date + AM/PM, DB-backed; ends in an on-screen ticket receipt |
@@ -475,7 +520,7 @@
 | Route | Page | Composed from |
 | --- | --- | --- |
 | `/admin` | Create Content hub | `ContentHub` → `ContentTypeCard` ×3, `RecentDrafts`, `PublishingActivity` |
-| `/admin/officials` | Officials Directory | `OfficialsManager` (table + drawer editor, portrait upload); permission `manage-officials` |
+| `/admin/officials` | Officials Directory | `OfficialsManager` (table + drawer editor, portrait upload, achievements sub-list — `AchievementsEditor` + `AchievementPhotoUploader`); permission `manage-officials` |
 | `/admin/services` | Services Management | `ServicesManager` (table + drawer editor) + `AssistanceCategoriesPanel` (SuperAdmin add/rename/reorder/retire the assistance category picker) |
 | `/admin/applications` | Certificate Applications | `ApplicationsManager` (stat cards + queue + review/create drawers) |
 | `/admin/appointments` | Appointments | `AppointmentsManager` (confirm/reschedule/decline, mark completed, walk-in encoding) |
@@ -543,11 +588,12 @@ contract — design DB tables / API responses to match (or evolve them deliberat
 | --- | --- | --- |
 | `Announcement` | Home pulse column, news sidebar | `date` is ISO `YYYY-MM-DD`; flags: `isNew`, `urgent`. DB-backed since Plan 3 — `listPublishedAnnouncements()` reads the `announcements` table (`supabase/migrations/0007_news_content.sql`) |
 | `CommunityEvent` | Home events column | `date` ISO + `time` + `venue` strings. DB-backed since Plan 3 — `listUpcomingEvents()` reads the `events` table, filtered `event_date >= today` |
-| `NewsCategoryRow`, `NewsPhoto`, `NewsArticleListItem`, `NewsArticleDetail` | `/announcements`, `/announcements/[slug]`, news sidebar | Public read shapes (`src/features/announcements/queries.ts`), DB-backed since Plan 3 (`news_articles`/`news_photos`/`news_categories` tables). `NewsArticleDetail extends NewsArticleListItem` with `body` + full `photos: NewsPhoto[]`; `coverSrc`/`NewsPhoto.src` are resolved through `photoUrl()`, which passes a full `http(s)` URL through unchanged or builds a `public-media` storage URL from a bare object path |
+| `NewsCategoryRow`, `GalleryPhoto`, `NewsArticleListItem`, `NewsArticleDetail` | `/announcements`, `/announcements/[slug]`, news sidebar | Public read shapes (`src/features/announcements/queries.ts`), DB-backed since Plan 3 (`news_articles`/`news_photos`/`news_categories` tables). `NewsArticleDetail extends NewsArticleListItem` with `body` + full `photos: GalleryPhoto[]`; `coverSrc`/`GalleryPhoto.src` are resolved through `photoUrl()`, which passes a full `http(s)` URL through unchanged or builds a `public-media` storage URL from a bare object path. `GalleryPhoto` was `NewsPhoto` until the 2026-07-21 officials-achievements plan renamed it so achievement photo lists could share the same type and the same `PhotoGallery` component (`src/components/shared/photo-gallery.tsx`, moved there from `features/announcements/components/news-gallery.tsx` in the same plan) |
 | `ContentStatus` | News/announcements/events workflow | `"draft" \| "in-review" \| "published" \| "archived"` — no `scheduled` status; `published_at` is set once, on first transition into `published` |
 | `AdminNewsArticleRow`, `AdminAnnouncementRow`, `AdminEventRow`, `NewsArticleValues`, `AnnouncementValues`, `NewsCategoryValues` | `/admin/news`, `/admin/events` | DB-backed admin list rows + drawer-form body shapes (replaced the deleted `AdminNewsRecord`/`AdminEventRecord`/`NewsFormValues`/`EventFormValues` mock envelopes) |
-| `OfficialGroup`, `OfficialListItem`, `OfficialDetail` | `/officials`, `/officials/[slug]` | Public read shapes (`src/features/officials/queries.ts`), DB-backed since 2026-07-21 (`officials` table, `supabase/migrations/0012_officials.sql`). `group: "executive" \| "council" \| "administration"`; `photoUrl` is always resolved (publishing requires a portrait); `OfficialDetail extends OfficialListItem` with `term` + `bio` — `bio` is empty on every seeded row today |
+| `OfficialGroup`, `OfficialListItem`, `OfficialDetail` | `/officials`, `/officials/[slug]` | Public read shapes (`src/features/officials/queries.ts`), DB-backed since 2026-07-21 (`officials` table, `supabase/migrations/0012_officials.sql`). `group: "executive" \| "council" \| "administration"`; `photoUrl` is always resolved (publishing requires a portrait); `OfficialDetail extends OfficialListItem` with `term`, `bio` (empty on every seeded row today), and `achievements: PublicAchievement[]` (added 2026-07-21, see the achievements row below) |
 | `AdminOfficialRow`, `OfficialValues` | `/admin/officials` | DB-backed admin list row + drawer-form body shape (replaces the old static `Official` array) |
+| `AchievementValues`, `AdminAchievement`, `PublicAchievement` | `/officials/[slug]`, `/admin/officials` | DB-backed since 2026-07-21 (`official_achievements`/`official_achievement_photos` tables, `supabase/migrations/0013_official_achievements.sql`, **staging only**) — see the officials-achievements changelog entry above. `AchievementValues` (`title`/`description`/`dateLabel`) is the shared field set; `AdminAchievement` adds `id`/`isVisible`/`photos: GalleryPhoto[]` for the drawer, `PublicAchievement` adds `id`/`photos: GalleryPhoto[]` for the profile page. Public boundary: `is_visible = true` and non-empty `title`, on top of the owning official's `status = 'published'` |
 | `Service` | Services page | `requirements: string[]`, `tone: "primary" \| "danger"`; `icon` is a Lucide component — store an **icon name string** server-side and map on the client |
 | `QuickService` | Home quick-services grid | Same icon caveat |
 | `Stat` | Home "At a Glance" | value/note are display strings |
@@ -757,11 +803,14 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
   async-ready Server Components) or in the page and passed down; don't put JSX logic in `app/`.
 - **Client islands only when interactive**: `SiteHeader` (scroll state), `MobileNav`,
   `AdminMobileNav`, `Accordion`, `LegislativeTable`, `HeroCarousel`, `InquiryForm`,
-  `NewsletterForm`, and (added by Plan 3) `NewsGallery` (the `/announcements/[slug]`
-  photo lightbox) are the only public `"use client"` files (plus `NavLink`/`useDisclosure`
-  helpers), plus the admin portal's client surface: the section managers, their
-  drawer forms and the application/ticket review drawers, `NewsPhotoUploader` and
-  `SingleImageUploader` (also Plan 3), `MiniCalendar`, `ToggleSwitch`, and the
+  `NewsletterForm`, and `PhotoGallery` (`src/components/shared/photo-gallery.tsx` — the
+  lightbox shared by the `/announcements/[slug]` gallery and, since 2026-07-21, the
+  `/officials/[slug]` achievements timeline; added by Plan 3 as `NewsGallery`, generalized
+  and relocated by the officials-achievements plan) are the only public `"use client"`
+  files (plus `NavLink`/`useDisclosure` helpers), plus the admin portal's client surface:
+  the section managers, their drawer forms and the application/ticket review drawers,
+  `NewsPhotoUploader`, `SingleImageUploader` (also Plan 3), `AchievementsEditor` and
+  `AchievementPhotoUploader` (2026-07-21), `MiniCalendar`, `ToggleSwitch`, and the
   `Drawer`/`Toast` UI primitives (see §3E). Keep new fetches out of client components.
 - **Fixed header clearance**: the header is `fixed`, not in-flow — every page's first
   section must provide generous top padding (`pt-32 md:pt-44` for text-first heroes;
@@ -823,6 +872,9 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
    — real documents still need to be uploaded through `/admin/transparency`.
 9. All 12 officials seeded by migration 0012 have an **empty `bio`**, and their emails/phones
    remain placeholder-shaped (same caveat as every other placeholder contact field on the
-   site) — both pending real content from the barangay. The officials-page achievements
-   timeline sketched in the master spec was deliberately deferred to a follow-up plan and is
-   not tracked here as a gap in this plan's scope.
+   site) — both pending real content from the barangay.
+10. The officials-page achievements timeline (migration 0013, 2026-07-21) shipped with
+    **no seeded content** — every official's timeline is empty until barangay staff add
+    real achievements through `/admin/officials`. Migration 0013 is also **staging only**
+    at time of writing; it needs to reach production alongside 0012 at deploy time (see the
+    top-of-file summary and the officials-achievements changelog entry above).
