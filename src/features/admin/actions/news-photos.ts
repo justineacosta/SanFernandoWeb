@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { NewsPhoto } from "@/types";
+import type { GalleryPhoto } from "@/types";
 import { requirePermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -37,7 +37,7 @@ async function currentPhotos(admin: ReturnType<typeof createSupabaseAdminClient>
 export async function uploadNewsPhotos(
   articleId: string,
   formData: FormData,
-): Promise<{ error: string | null; photos: NewsPhoto[] }> {
+): Promise<{ error: string | null; photos: GalleryPhoto[] }> {
   const actor = await requirePermission("manage-news");
   const admin = createSupabaseAdminClient();
 

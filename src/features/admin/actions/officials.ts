@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getOfficialForEdit } from "@/features/admin/queries/officials";
+import { PUBLIC_MEDIA_BUCKET } from "@/lib/storage";
 import { removeStoredImage } from "./media";
 
 export interface ActionResult {
@@ -271,10 +272,43 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
     .eq("id", id)
     .maybeSingle();
 
+  // Deleting the official cascades away its achievements and their photo
+  // ROWS, but Postgres knows nothing about Storage. Collect the objects while
+  // the rows still exist, or they are orphaned forever.
+  const { data: achievements } = await admin
+    .from("official_achievements")
+    .select("id")
+    .eq("official_id", id);
+  const achievementIds = (achievements ?? []).map((row) => row.id as string);
+  if (achievementIds.length > 0) {
+    const { data: photos } = await admin
+      .from("official_achievement_photos")
+      .select("src")
+      .in("achievement_id", achievementIds);
+    const paths = (photos ?? [])
+      .map((photo) => photo.src as string)
+      .filter((src) => !/^https?:\/\//i.test(src));
+    if (paths.length > 0) {
+      const { error: removeErr } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove(paths);
+      if (removeErr) {
+        // A failed cleanup must not fail the delete the user just made, but the
+        // orphans it leaves are invisible otherwise — log the paths for a human.
+        console.error(
+          `Orphaned storage objects (achievement photo cleanup failed): ${paths.join(", ")}`,
+        );
+      }
+    }
+  }
+
   const { error } = await admin.from("officials").delete().eq("id", id);
   if (error) return { error: "Could not delete the official." };
 
-  if (existing?.photo_path) await removeStoredImage(existing.photo_path as string);
+  if (existing?.photo_path) {
+    const removed = await removeStoredImage(existing.photo_path as string);
+    if (removed.error) {
+      console.error(`Orphaned storage object (portrait cleanup failed): ${existing.photo_path}`);
+    }
+  }
   await recordActivity(actor, "deleted official", "official", id, (existing?.name as string) ?? "");
   revalidate((existing?.slug as string) ?? undefined);
   return { error: null };

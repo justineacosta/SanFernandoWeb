@@ -20,6 +20,15 @@ export function newsPhotoPath(articleId: string, ext: string): string {
   return `news/${articleId}/${crypto.randomUUID()}.${ext}`;
 }
 
+/**
+ * Storage object path for an achievement photo:
+ * `achievements/<achievementId>/<uuid>.<ext>`. Mirrors newsPhotoPath so the
+ * bucket keeps one convention for "photos belonging to a record".
+ */
+export function achievementPhotoPath(achievementId: string, ext: string): string {
+  return `achievements/${achievementId}/${crypto.randomUUID()}.${ext}`;
+}
+
 /** Map an allowed image MIME type to a file extension. */
 export function extForType(type: string): string {
   if (type === "image/png") return "png";

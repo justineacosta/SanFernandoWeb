@@ -110,6 +110,7 @@ export interface OfficialListItem {
 export interface OfficialDetail extends OfficialListItem {
   term: string;
   bio: string;
+  achievements: PublicAchievement[];
 }
 
 /** Drawer editor POST/PUT body. */
@@ -136,6 +137,26 @@ export interface AdminOfficialRow {
   photoUrl: string | null;
   sortOrder: number;
   status: ContentStatus;
+}
+
+/** The three text fields of an achievement, as the drawer editor saves them. */
+export interface AchievementValues {
+  title: string;
+  description: string;
+  dateLabel: string;
+}
+
+/** One achievement row in the admin drawer editor. `photos[].src` is render-ready. */
+export interface AdminAchievement extends AchievementValues {
+  id: string;
+  isVisible: boolean;
+  photos: GalleryPhoto[];
+}
+
+/** One achievement as the public timeline renders it. `photos[].src` is render-ready. */
+export interface PublicAchievement extends AchievementValues {
+  id: string;
+  photos: GalleryPhoto[];
 }
 
 /* ------------------------------ News & announcements ---------------------------- */
@@ -176,9 +197,9 @@ export interface NewsCategoryValues {
   label: string;
 }
 
-export interface NewsPhoto {
+export interface GalleryPhoto {
   id: string;
-  src: string; // raw reference; resolve with photoUrl() at render
+  src: string; // render-ready URL — every producer resolves it with photoUrl()
   alt: string;
 }
 
@@ -198,7 +219,7 @@ export interface NewsArticleListItem {
 /** Public news detail (slug page). */
 export interface NewsArticleDetail extends NewsArticleListItem {
   body: string;
-  photos: NewsPhoto[];
+  photos: GalleryPhoto[];
 }
 
 /** Admin list rows. */

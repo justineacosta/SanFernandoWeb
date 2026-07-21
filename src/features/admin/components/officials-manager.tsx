@@ -89,6 +89,7 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
           values: detail.values,
           status: detail.status,
           photoUrl: detail.photoUrl,
+          achievements: detail.achievements,
         });
         setDrawerOpen(true);
       } finally {

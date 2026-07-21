@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Container } from "@/components/ui/container";
-import { NewsGallery } from "@/features/announcements/components/news-gallery";
+import { PhotoGallery } from "@/components/shared/photo-gallery";
 import { getPublishedArticleBySlug } from "@/features/announcements/queries";
 
 interface PageProps {
@@ -60,7 +60,7 @@ export default async function ArticlePage({ params }: PageProps) {
 
         {article.photos.length > 0 ? (
           <div className="mb-8">
-            <NewsGallery photos={article.photos} />
+            <PhotoGallery photos={article.photos} />
           </div>
         ) : null}
 

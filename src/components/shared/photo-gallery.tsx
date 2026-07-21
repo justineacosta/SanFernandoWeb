@@ -3,10 +3,22 @@
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import type { NewsPhoto } from "@/types";
+import type { GalleryPhoto } from "@/types";
 import { cn } from "@/lib/utils";
 
-export function NewsGallery({ photos }: { photos: NewsPhoto[] }) {
+export type PhotoGalleryVariant = "feature" | "thumbs";
+
+interface PhotoGalleryProps {
+  photos: GalleryPhoto[];
+  /**
+   * `feature` (default) is the news-article layout: a responsive 1/2/3-photo
+   * grid with a wide hero tile. `thumbs` is the compact row used inside an
+   * achievement entry, where the photos support the text rather than lead it.
+   */
+  variant?: PhotoGalleryVariant;
+}
+
+export function PhotoGallery({ photos, variant = "feature" }: PhotoGalleryProps) {
   const [openAt, setOpenAt] = useState<number | null>(null);
   const count = photos.length;
 
@@ -29,7 +41,10 @@ export function NewsGallery({ photos }: { photos: NewsPhoto[] }) {
 
   if (count === 0) return null;
 
-  const tile = (photo: NewsPhoto, index: number, className: string) => (
+  const tileSizes =
+    variant === "thumbs" ? "(min-width: 768px) 240px, 33vw" : "(min-width: 768px) 66vw, 100vw";
+
+  const tile = (photo: GalleryPhoto, index: number, className: string) => (
     <button
       key={photo.id}
       type="button"
@@ -41,7 +56,7 @@ export function NewsGallery({ photos }: { photos: NewsPhoto[] }) {
         src={photo.src}
         alt={photo.alt}
         fill
-        sizes="(min-width: 768px) 66vw, 100vw"
+        sizes={tileSizes}
         className="object-cover transition-transform duration-500 group-hover:scale-105"
       />
     </button>
@@ -49,22 +64,30 @@ export function NewsGallery({ photos }: { photos: NewsPhoto[] }) {
 
   return (
     <>
-      <div
-        className={cn(
-          "grid gap-3",
-          count === 1 && "grid-cols-1",
-          count === 2 && "grid-cols-1 sm:grid-cols-2",
-          count === 3 && "grid-cols-2",
-        )}
-      >
-        {count === 3
-          ? [
-              tile(photos[0], 0, "col-span-2 aspect-video"),
-              tile(photos[1], 1, "aspect-square"),
-              tile(photos[2], 2, "aspect-square"),
-            ]
-          : photos.map((photo, index) => tile(photo, index, "aspect-video"))}
-      </div>
+      {variant === "thumbs" ? (
+        // Always three columns so thumbnails stay a uniform size whether the
+        // entry has one photo or three.
+        <div className="grid grid-cols-3 gap-3">
+          {photos.map((photo, index) => tile(photo, index, "aspect-square"))}
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "grid gap-3",
+            count === 1 && "grid-cols-1",
+            count === 2 && "grid-cols-1 sm:grid-cols-2",
+            count === 3 && "grid-cols-2",
+          )}
+        >
+          {count === 3
+            ? [
+                tile(photos[0], 0, "col-span-2 aspect-video"),
+                tile(photos[1], 1, "aspect-square"),
+                tile(photos[2], 2, "aspect-square"),
+              ]
+            : photos.map((photo, index) => tile(photo, index, "aspect-video"))}
+        </div>
+      )}
 
       {openAt !== null ? (
         <div

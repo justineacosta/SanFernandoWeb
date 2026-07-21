@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { ContentStatus, NewsArticleValues, NewsPhoto, SessionUser } from "@/types";
+import type { ContentStatus, NewsArticleValues, GalleryPhoto, SessionUser } from "@/types";
 import { requirePermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -60,7 +60,7 @@ async function uniqueSlug(
  */
 export async function getNewsArticleForEditAction(
   id: string,
-): Promise<{ values: NewsArticleValues; status: ContentStatus; photos: NewsPhoto[] } | null> {
+): Promise<{ values: NewsArticleValues; status: ContentStatus; photos: GalleryPhoto[] } | null> {
   await requirePermission("manage-news");
   return getNewsArticleForEdit(id);
 }
