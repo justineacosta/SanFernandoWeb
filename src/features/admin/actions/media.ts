@@ -1,5 +1,6 @@
 "use server";
 
+import type { Permission } from "@/types";
 import { requirePermission } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -15,22 +16,38 @@ export interface ActionResult {
 }
 export interface UploadResult {
   error: string | null;
-  /** Raw storage path to persist in image_src / cover_src. */
+  /** Raw storage path to persist in image_src / cover_src / photo_path. */
   src: string | null;
   /** Resolved public URL, for immediate preview. */
   url: string | null;
 }
 
+export type ImageFolder = "announcements" | "events" | "officials";
+
 /**
- * Upload one image for a single-slot field (announcement image, event cover).
- * Persisting the returned `src` is the caller's job — this keeps the action
- * reusable across tables without a discriminator.
+ * Which permission owns each folder. `folder` arrives from a client component
+ * over a Server Action — a public HTTP endpoint — so an unknown value must be
+ * rejected rather than fed to requirePermission(). Returning null here is what
+ * stops a caller from inventing a folder to dodge the permission check.
+ */
+function permissionForFolder(folder: string): Permission | null {
+  if (folder === "announcements" || folder === "events") return "manage-news";
+  if (folder === "officials") return "manage-officials";
+  return null;
+}
+
+/**
+ * Upload one image for a single-slot field (announcement image, event cover,
+ * official portrait). Persisting the returned `src` is the caller's job — this
+ * keeps the action reusable across tables without a discriminator.
  */
 export async function uploadSingleImage(
-  folder: "announcements" | "events",
+  folder: ImageFolder,
   formData: FormData,
 ): Promise<UploadResult> {
-  await requirePermission("manage-news");
+  const permission = permissionForFolder(folder);
+  if (!permission) return { error: "Unknown upload folder.", src: null, url: null };
+  await requirePermission(permission);
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -56,11 +73,13 @@ export async function uploadSingleImage(
 
 /** Delete an owned storage object. A remote seed URL is left alone. */
 export async function removeStoredImage(src: string): Promise<ActionResult> {
-  await requirePermission("manage-news");
   if (/^https?:\/\//i.test(src)) return { error: null };
-  if (!/^(announcements|events)\//.test(src)) {
-    return { error: "That image cannot be removed." };
-  }
+
+  const folder = src.split("/")[0] ?? "";
+  const permission = permissionForFolder(folder);
+  if (!permission) return { error: "That image cannot be removed." };
+  await requirePermission(permission);
+
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove([src]);
   if (error) return { error: "Could not remove the image." };

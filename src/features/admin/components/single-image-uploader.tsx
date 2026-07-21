@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Trash2, Upload } from "lucide-react";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "@/lib/storage";
 import { Field, Input } from "@/components/ui/form";
-import { uploadSingleImage } from "@/features/admin/actions/media";
+import { uploadSingleImage, type ImageFolder } from "@/features/admin/actions/media";
 
 export function SingleImageUploader({
   folder,
@@ -14,7 +14,7 @@ export function SingleImageUploader({
   previewUrl,
   onChange,
 }: {
-  folder: "announcements" | "events";
+  folder: ImageFolder;
   src: string | null;
   alt: string;
   previewUrl: string | null;
