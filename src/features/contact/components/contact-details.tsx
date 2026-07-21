@@ -47,9 +47,9 @@ export function ContactDetails() {
         <div className="rounded-2xl border border-danger/20 bg-danger-soft p-6">
           <div className="mb-2 flex items-center gap-2 text-danger-soft-fg">
             <Siren className="h-5 w-5" aria-hidden="true" />
-            <h3 className="text-lg font-semibold tracking-tight">Emergency Hotlines</h3>
+            <h3 className="text-lg font-semibold tracking-tight">Emergency Hotline</h3>
           </div>
-          {EMERGENCY_HOTLINES.slice(0, 2).map((hotline) => (
+          {EMERGENCY_HOTLINES.slice(0, 1).map((hotline) => (
             <p key={hotline.label} className="font-bold text-danger-soft-fg">
               {hotline.label}: {hotline.number}
             </p>
