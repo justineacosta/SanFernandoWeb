@@ -790,8 +790,11 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
    the 12 official portraits moved off bundled static imports onto `public-media/officials/`
    in the 2026-07-21 officials plan (the Punong Barangay's portrait is the one exception —
    still bundled, reused by the About-page `CAPTAIN` block). What's left hotlinked from
-   `lh3.googleusercontent.com`: the home CTA image and the seeded news/announcement photos
-   from migration 0007 — neither has been migrated onto owned storage yet.
+   `lh3.googleusercontent.com` (verified 2026-07-21 by grepping `src/`): the home CTA image
+   (`features/home/data.ts`), the contact-page map (`features/contact/data.ts`), the
+   transparency hero (`features/transparency/components/transparency-hero.tsx`), the admin
+   Dashboard Overview mock avatar (`features/admin/data.ts`), and the seeded news/
+   announcement photos from migration 0007 — none migrated onto owned storage yet.
 4. ~~Placeholder `#` hrefs: legal links, FOI guide, get-directions, article detail pages
    (no `/announcements/[slug]` route yet — needed once news is dynamic).~~
    `/announcements/[slug]` shipped in Plan 3 with a photo gallery + lightbox; legal links,
