@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { ContentStatus, OfficialValues } from "@/types";
+import type { AdminAchievement, ContentStatus, OfficialValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import {
@@ -9,6 +9,7 @@ import {
   saveOfficial,
   setOfficialStatus,
 } from "@/features/admin/actions/officials";
+import { AchievementsEditor } from "./achievements-editor";
 import { SingleImageUploader } from "./single-image-uploader";
 
 export interface OfficialEditRecord {
@@ -16,6 +17,7 @@ export interface OfficialEditRecord {
   values: OfficialValues;
   status: ContentStatus;
   photoUrl: string | null;
+  achievements: AdminAchievement[];
 }
 
 interface OfficialFormProps {
@@ -223,6 +225,22 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
             Appears on the official&rsquo;s profile page. Leave blank to hide that section.
           </p>
         </Field>
+        <div>
+          <h3 className="mb-2 text-sm font-medium text-ink-700">Achievements</h3>
+          {id ? (
+            // `key` remounts the editor when a brand-new official is saved and
+            // first acquires an id.
+            <AchievementsEditor
+              key={id}
+              officialId={id}
+              achievements={record?.achievements ?? []}
+            />
+          ) : (
+            <p className="rounded-2xl border border-dashed border-ink-200 p-4 text-sm text-ink-500">
+              Save the official first to add achievements.
+            </p>
+          )}
+        </div>
         {error ? (
           <p role="alert" className="text-sm font-medium text-danger">
             {error}
