@@ -1,9 +1,8 @@
 import "server-only";
 import type { AuditActionType, AuditEntry } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { ilikePattern, quoteFilterValue } from "@/lib/postgrest";
 
-export const AUDIT_PAGE_SIZE = 25;
+export const AUDIT_PAGE_SIZE = 10;
 
 const COLUMNS =
   "id, actor_name, action_type, action, entity_type, entity_id, entity_label, detail, created_at";
@@ -67,15 +66,17 @@ export interface AuditSearchParams {
 }
 
 /**
- * Paginated, filterable audit search.
+ * Paginated fuzzy audit search, via the `search_audit_log` RPC (migration
+ * 0015).
  *
  * Server-side by necessity, not preference: this table grows without bound, so
  * the client-side filtering the eight admin managers use would eventually ship
  * the whole log to the browser.
  *
- * Matching is substring (`ilike`) for now. Sub-project 4 replaces the matcher
- * with pg_trgm similarity; the parameters, sorting, and pagination here do not
- * change when it does.
+ * The matching itself lives in SQL because it is per-term rather than per-row
+ * (every term must match, by substring OR edit distance OR trigram
+ * similarity), which PostgREST's filter grammar cannot express. See the
+ * migration for why all three routes are needed.
  */
 export async function searchAuditLog({
   q,
@@ -86,36 +87,27 @@ export async function searchAuditLog({
 }: AuditSearchParams): Promise<{ entries: AuditEntry[]; total: number; pageSize: number }> {
   const admin = createSupabaseAdminClient();
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
-  const from = (safePage - 1) * AUDIT_PAGE_SIZE;
 
-  let query = admin.from("audit_log").select(COLUMNS, { count: "exact" });
-
-  if (type !== "all") query = query.eq("action_type", type);
-
-  const term = q.trim();
-  if (term) {
-    const value = quoteFilterValue(ilikePattern(term));
-    query = query.or(
-      `actor_name.ilike.${value},entity_label.ilike.${value},` +
-        `entity_type.ilike.${value},action.ilike.${value},entity_id.ilike.${value}`,
-    );
-  }
-
-  const { data, count, error } = await query
-    .order(sort, { ascending: dir === "asc" })
-    // Stable tiebreak: two rows written in the same transaction share a
-    // created_at, and without this their relative order varies per request,
-    // which makes pagination drop or repeat rows.
-    .order("id", { ascending: false })
-    .range(from, from + AUDIT_PAGE_SIZE - 1);
+  const { data, error } = await admin.rpc("search_audit_log", {
+    p_q: q.trim(),
+    p_type: type === "all" ? null : type,
+    p_sort: sort,
+    p_dir: dir,
+    p_limit: AUDIT_PAGE_SIZE,
+    p_offset: (safePage - 1) * AUDIT_PAGE_SIZE,
+  });
 
   if (error || !data) {
     if (error) console.error("searchAuditLog failed:", error.message);
     return { entries: [], total: 0, pageSize: AUDIT_PAGE_SIZE };
   }
+
+  const rows = data as (Row & { total_count: number })[];
   return {
-    entries: (data as Row[]).map(toEntry),
-    total: count ?? 0,
+    entries: rows.map(toEntry),
+    // total_count is a window function over the full match set, so it is
+    // identical on every row; zero rows means zero matches.
+    total: rows.length > 0 ? Number(rows[0].total_count) : 0,
     pageSize: AUDIT_PAGE_SIZE,
   };
 }

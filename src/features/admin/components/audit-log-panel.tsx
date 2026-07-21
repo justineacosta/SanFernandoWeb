@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { formatAuditTimestamp } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui/card";
 import type { AuditEntry } from "@/types";
-import { AUDIT_ACTION_LABELS } from "./audit-log-manager";
+import { AUDIT_ACTION_LABELS } from "./audit-action-labels";
 
 interface AuditLogPanelProps {
   entries: AuditEntry[];

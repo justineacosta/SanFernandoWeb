@@ -1,34 +1,11 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
 import type { AuditActionType, AuditEntry } from "@/types";
-import { AUDIT_ACTIONS } from "@/types";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input, Select } from "@/components/ui/form";
 import { formatAuditTimestamp } from "@/lib/format";
 import { searchAuditLog, type AuditSortKey } from "@/features/admin/queries/audit";
 import { AdminEmptyState } from "./admin-empty-state";
-
-/** Human labels for the Action Type dropdown and the table's badge column. */
-export const AUDIT_ACTION_LABELS: Record<AuditActionType, string> = {
-  create: "Create",
-  update: "Update",
-  delete: "Delete",
-  archive: "Archive",
-  restore: "Restore",
-  publish: "Publish",
-  unpublish: "Unpublish",
-  save_draft: "Save Draft",
-  approve: "Approve",
-  reject: "Reject",
-  login: "Login",
-  logout: "Logout",
-  file_upload: "File Upload",
-  file_delete: "File Delete",
-  role_change: "Role Change",
-  password_reset: "Password Reset",
-  reorder: "Reorder",
-};
+import { AuditFilters } from "./audit-filters";
+import { AUDIT_ACTION_LABELS } from "./audit-action-labels";
 
 /** Tone per action family, so destructive entries are scannable at a glance. */
 function toneFor(type: AuditActionType): string {
@@ -119,58 +96,7 @@ export async function AuditLogManager(params: Params) {
 
   return (
     <Card className="overflow-hidden">
-      <form
-        action="/admin/audit"
-        method="get"
-        className="flex flex-wrap items-end gap-3 border-b border-ink-200/70 px-6 py-5"
-      >
-        {/* Preserve sort across a search submit; page deliberately resets to 1. */}
-        {params.sort !== "created_at" ? (
-          <input type="hidden" name="sort" value={params.sort} />
-        ) : null}
-        {params.dir !== "desc" ? <input type="hidden" name="dir" value={params.dir} /> : null}
-
-        <div className="relative min-w-56 flex-1">
-          <Search
-            className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400"
-            aria-hidden="true"
-          />
-          <label htmlFor="audit-search" className="sr-only">
-            Search audit logs
-          </label>
-          <Input
-            id="audit-search"
-            name="q"
-            type="search"
-            defaultValue={params.q}
-            placeholder="Search by user, target, or action..."
-            className="pl-12"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="audit-type" className="sr-only">
-            Action type
-          </label>
-          <Select id="audit-type" name="type" defaultValue={params.type} className="w-auto">
-            <option value="all">All Action Types</option>
-            {AUDIT_ACTIONS.map((action) => (
-              <option key={action} value={action}>
-                {AUDIT_ACTION_LABELS[action]}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        <Button type="submit" variant="primary">
-          Filter
-        </Button>
-        {filtered ? (
-          <Link href="/admin/audit" className="text-sm font-semibold text-ink-600 hover:text-ink-900">
-            Clear
-          </Link>
-        ) : null}
-      </form>
+      <AuditFilters q={params.q} type={params.type} sort={params.sort} dir={params.dir} />
 
       {entries.length === 0 ? (
         <AdminEmptyState
