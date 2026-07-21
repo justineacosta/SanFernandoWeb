@@ -64,6 +64,11 @@ function slugify(value: string): string {
 function revalidate(slug?: string) {
   revalidatePath("/admin/officials");
   revalidatePath("/officials");
+  // The About page's captain block reads the executive official from this same
+  // table (see getPublishedExecutiveOfficial), and /about is statically
+  // prerendered — without this it would serve a stale Punong Barangay until the
+  // next deploy.
+  revalidatePath("/about");
   if (slug) revalidatePath(`/officials/${slug}`);
 }
 
