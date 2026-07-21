@@ -32,6 +32,12 @@ interface ButtonBaseProps {
   href?: string;
   className?: string;
   children: React.ReactNode;
+  /**
+   * React 19 passes `ref` to function components as an ordinary prop, so no
+   * forwardRef wrapper is needed — it just has to be declared. Used by
+   * ConfirmDialog to put initial focus on Cancel.
+   */
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 type ButtonProps = ButtonBaseProps &
@@ -46,6 +52,7 @@ export function Button({
   className,
   children,
   type,
+  ref,
   ...props
 }: ButtonProps) {
   const classes = cn(
@@ -65,6 +72,7 @@ export function Button({
 
   return (
     <button
+      ref={ref}
       type={type ?? "button"}
       className={classes}
       {...(props as React.ButtonHTMLAttributes<HTMLButtonElement>)}

@@ -97,4 +97,17 @@
   ::selection {
     @apply bg-brand-100 text-brand-800;
   }
+
+  /*
+   * Baseline keyboard focus ring.
+   *
+   * Tailwind emits utilities in a later cascade layer, so anything that already
+   * declares its own focus treatment (form fields' soft brand ring, Button's
+   * outline) still wins. This only reaches controls that previously showed
+   * nothing at all — most of the admin portal's icon-only buttons.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
 }
