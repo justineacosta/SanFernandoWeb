@@ -187,7 +187,14 @@ export async function removeAchievementPhoto(photoId: string): Promise<ActionRes
 
   // Only delete an object we own, never a remote URL.
   if (!/^https?:\/\//i.test(photo.src as string)) {
-    await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove([photo.src as string]);
+    const { error: removeErr } = await admin.storage
+      .from(PUBLIC_MEDIA_BUCKET)
+      .remove([photo.src as string]);
+    if (removeErr) {
+      // A failed cleanup must not fail the removal the user just made, but the
+      // orphan it leaves is invisible otherwise — log the path for a human.
+      console.error(`Orphaned storage object (photo cleanup failed): ${photo.src as string}`);
+    }
   }
   const { error } = await admin
     .from("official_achievement_photos")

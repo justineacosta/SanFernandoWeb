@@ -207,7 +207,12 @@ export async function deleteAchievement(id: string): Promise<ActionResult> {
     .map((photo) => photo.src as string)
     .filter((src) => !/^https?:\/\//i.test(src));
   if (paths.length > 0) {
-    await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove(paths);
+    const { error: removeErr } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove(paths);
+    if (removeErr) {
+      // A failed cleanup must not fail the delete the user just made, but the
+      // orphans it leaves are invisible otherwise — log the paths for a human.
+      console.error(`Orphaned storage objects (achievement cleanup failed): ${paths.join(", ")}`);
+    }
   }
 
   const { error } = await admin.from("official_achievements").delete().eq("id", id);
