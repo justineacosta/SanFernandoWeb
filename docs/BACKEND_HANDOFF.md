@@ -480,6 +480,46 @@
 > achievement content is seeded** — migration 0013 inserts no rows — so every official's
 > timeline is empty until barangay staff add real achievements through `/admin/officials`.
 
+> **Updated 2026-07-22 (portal overhaul — sub-projects 1 & 2):** the first two slices of a
+> nine-part programme covering permission-gated 404s, fuzzy search, audit logs,
+> transactional uploads, archive/restore, autosave, a Home/About CMS, and resident-portal
+> fixes. Cross-cutting decisions and the sequence live in
+> `docs/superpowers/specs/2026-07-22-portal-overhaul-design.md`; each sub-project has its
+> own dated spec.
+> 1. **Resident portal fixes** (spec: `2026-07-22-resident-portal-fixes-design.md`). The
+>    `/announcements/[slug]` "Back to News" link was rendering *inside* the fixed
+>    `SiteHeader`'s band — not partly obscured but fully occluded at 375px and 1440px, with
+>    `elementFromPoint()` at its centre returning the header, so a mobile tap hit the site
+>    logo and navigated home. The page now uses `pt-32 md:pt-44`, the clearance convention
+>    §5 already documents and the officials/legislative detail pages already followed.
+>    Separately, an audit of all 16 public routes at 375px found **exactly one** horizontal
+>    overflow: `/about`, +8px, from the Punong Barangay name card's `-right-6` (24px)
+>    overhang against `Container`'s `px-4` (16px) gutter. Pinned to `right-0` below `md`
+>    (the overhang is deliberate and correct at `md+`, where the column is `w-1/3`). Fixed
+>    at the source — **not** with a global `overflow-x: hidden`, which would break `sticky`
+>    positioning site-wide and hide the next such bug. The dead
+>    `href="#"` "View Executive Agenda 2024-2027" stub is gone.
+> 2. **Permission-gated 404s** (spec: `2026-07-22-permission-404-gating-design.md`). A
+>    staff member without a module's permission was redirected to `/admin`, which neither
+>    looked like a missing page nor hid that the route existed. **The gates now split by
+>    execution context:** `requirePermission` / `requireSuperAdmin` call `notFound()` for
+>    page loads, rendering a new `src/app/admin/(portal)/not-found.tsx` *inside* the portal
+>    layout so the sidebar still offers the modules the user can reach. Server Actions
+>    cannot use the same gate — they are POSTs, and a thrown `notFound()` there surfaces as
+>    an unhandled digest error rather than a 404 — so new **`checkPermission` /
+>    `checkSuperAdmin`** return `null`, and all **86 gate call sites across 21 action
+>    files** return `{ error: NOT_FOUND }` in their own result shape. `tsc` verifies every
+>    one, since excess-property checks fire on direct returns. `requireSessionUser`
+>    deliberately still redirects to `/admin/login`: a signed-out visitor may hold the
+>    permission once authenticated. Also fixed a navigation leak found while mapping call
+>    sites — `ContentHub` rendered all three `CONTENT_TYPE_ACTIONS` cards unconditionally,
+>    so a user holding only `handle-complaints` saw News, Events, and Transparency cards on
+>    the dashboard they land on after login; `ContentTypeAction` gained an optional
+>    `permission` and the cards now filter on the same predicate `AdminSidebar` uses. The
+>    `PUBLISHING_ACTIVITY` mock constant is still present and still dead — sub-project 3
+>    removes it. **Note for future readers:** `src/middleware.ts` is a second auth layer
+>    over the whole `/admin` tree and is easy to miss when reasoning about admin access.
+
 ---
 
 ## 1. Current State
@@ -491,7 +531,7 @@
 | Rendering | 100% Server Components except a handful of client islands (see §5) |
 | Build | `npm run build` ✅ — static where possible; DB-backed routes (services, tickets, news/announcements/events, `/admin/*`) render dynamically |
 | Backend | **Supabase** (Postgres + Auth + Storage), reached through Server Actions and server-only query modules. Services, the four ticket flows, news/announcements/events, transparency documents (ordinances & resolutions, budget/financial documents, projects), the officials directory, and each official's achievements timeline are DB-backed. Still hardcoded: `src/constants/site.ts` and the remaining `src/features/*/data.ts` (about, home stats) |
-| Auth | **Supabase Auth**, live. `/admin` is protected; pages gate on `requirePermission(<permission>)` or `requireSuperAdmin()` (`src/lib/auth.ts`), with per-user permission checkboxes and a SuperAdmin role. Portal stays `noindex` |
+| Auth | **Supabase Auth**, live. Two layers: `src/middleware.ts` redirects unauthenticated `/admin` GETs to `/admin/login` and refreshes the session cookie (its matcher excludes Server Action POSTs via the `Next-Action` header — see the 2026-07-20 entry), and `src/lib/auth.ts` holds the real gate. Since 2026-07-22 those gates split by context: **pages** call `requirePermission(<permission>)` / `requireSuperAdmin()`, which `notFound()` so an unauthorized module is indistinguishable from a missing one; **Server Actions** call `checkPermission()` / `checkSuperAdmin()`, which return `null` so the action can hand back `{ error: NOT_FOUND }`. `requireSessionUser()` still redirects to login. Per-user permission checkboxes + a SuperAdmin role; portal stays `noindex` |
 | Images | News/announcement/event uploads go to Supabase Storage (public bucket `public-media`, 2MB, JPEG/PNG/WebP); the 12 official portraits also live in `public-media/officials/` now (uploaded once via `scripts/upload-official-portraits.mjs`), and each official's achievement photos live under `public-media/achievements/<achievementId>/` (same 2MB/JPEG-PNG-WebP limits, migration 0013, staging only). Transparency PDFs go to a separate public bucket `public-documents` (10MB cap). Seed rows and the rest of the site are still hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — moving those to owned storage is outstanding. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), the Punong Barangay's portrait reused by the About-page `CAPTAIN` block, About history-timeline images (seal + carousel photo) |
 
 ### Routes
