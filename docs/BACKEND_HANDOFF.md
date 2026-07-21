@@ -1,8 +1,9 @@
 # Backend Handoff — Barangay San Fernando Website
 
-> **Current status (2026-07-21):** backend integration is well underway on **Supabase**
-> (Postgres + Auth + Storage) — migrations `0001`–`0011` applied, `0012`–`0013` applied to
-> **staging only** (production still needs both at deploy time). Auth, the services catalog,
+> **Current status (2026-07-22):** backend integration is well underway on **Supabase**
+> (Postgres + Auth + Storage) — migrations `0001`–`0013` applied to staging **and
+> production**; **`0014` (audit log v2) is applied to staging only** and still needs to
+> reach production at deploy time. Auth, the services catalog,
 > all four ticket flows, news/announcements/events, transparency (documents + projects,
 > multi-file + optional dates), the officials directory, and each official's achievements
 > timeline are DB-backed and merged to `main`. See **§1 Current State** for the accurate
@@ -519,6 +520,69 @@
 >    `PUBLISHING_ACTIVITY` mock constant is still present and still dead — sub-project 3
 >    removes it. **Note for future readers:** `src/middleware.ts` is a second auth layer
 >    over the whole `/admin` tree and is easy to miss when reasoning about admin access.
+
+> **Updated 2026-07-22 (audit logs v2 — sub-project 3):** migration **`0014_audit_log_v2.sql`**
+> — **applied to staging by the repo owner, 2026-07-22; production still needs it** —
+> turns the append-only activity feed from migration `0001` into a real audit log
+> (spec: `docs/superpowers/specs/2026-07-22-audit-logs-v2-design.md`).
+> 1. A **`public.audit_action` enum** (17 values) backs the required Action Type dropdown;
+>    the free-text `action` column is kept alongside it as secondary human-readable detail.
+>    Existing rows were backfilled from their `action` text. `action_type` is `NOT NULL`
+>    with **no default** — `recordActivity()` is the only writer and must always classify.
+> 2. **`entity_label`** captures the target's human name at *write* time. Resolving it at
+>    read time would break exactly when the record is deleted, which is the case the trail
+>    exists for — and master spec §4's "the audit log never points at a ghost".
+> 3. **`recordActivity()` now takes an options object** (`{ type, action, entityType,
+>    entityId?, entityLabel?, detail? }`); seven positional arguments were unreadable. All
+>    **75 call sites across 20 action files** were converted, and `tsc` enforces the enum at
+>    every one. `auditTypeForStatus()` in `src/lib/audit.ts` maps a
+>    `draft → in-review → published → archived` transition to its action type for the four
+>    managers that record `${nextStatus} <entity>`.
+> 4. **Three coverage gaps closed.** `actions/auth.ts` had zero audit calls — sign-in and
+>    sign-out are now recorded (a *failed* sign-in deliberately is not: it would let anyone
+>    append rows to an append-only table). `actions/media.ts` had none — image upload and
+>    delete are now recorded. `updateTeamUser` reads the prior grant and emits
+>    **`role_change`** rather than a generic `update` when permissions or SuperAdmin status
+>    actually changed. `actions/documents.ts` is deliberately **not** audited: every function
+>    there is a step inside a larger save action that records its own entry, and
+>    `removeStoredDocument` doubles as the compensating-delete path, so an entry from there
+>    would claim a deletion for a save that failed. That reasoning is in the file.
+> 5. **Immutability is enforced, not assumed**: `REVOKE update, delete` from `anon`,
+>    `authenticated`, and `service_role`, plus `before update`/`before delete` triggers that
+>    fire even for the table owner. Verified against the live database — `service_role`
+>    itself gets `permission denied for table audit_log` on both, while INSERT still works.
+>    Deliberate escape hatch: `alter table public.audit_log disable trigger …`.
+>    **Consequence: no future migration can retro-edit audit rows without disabling the
+>    trigger first.**
+> 6. **`audit_log.actor_id`'s foreign key was dropped.** Migration `0001` declared it
+>    `references auth.users (id) on delete set null` — an UPDATE against `audit_log`, which
+>    the new trigger rejects, so deleting any staff member who had ever acted would have
+>    raised instead of succeeding. An append-only record should not be mutable by another
+>    table's lifecycle; `actor_name` is denormalised onto every row for exactly this reason.
+> 7. **RLS aligned.** Migration `0001`'s `"audit log readable by signed-in staff"` policy let
+>    any signed-in staff read the whole log via the anon key. It is dropped, and reads move
+>    to the service-role client, so `audit_log` now matches every other table: RLS enabled
+>    with no policies, the explicit code check as the entire gate.
+> 8. New **SuperAdmin-only `/admin/audit`** (`AuditLogManager`) with the required
+>    User / Action Type / Target Entity / Date & Time columns, an Action Type dropdown,
+>    sorting, and pagination. It is **server-driven via searchParams**, not a client manager
+>    holding the full dataset — the one table in the portal that grows without bound, so the
+>    pattern the other eight managers use would eventually ship the whole log to the browser.
+>    Search is substring (`ilike`) for now; **sub-project 4 swaps in `pg_trgm` fuzzy matching
+>    without changing the UI** — a sequenced partial against the requirement, not an omission.
+>    The PostgREST escaping helpers moved from `features/transparency/queries.ts` to a shared
+>    `src/lib/postgrest.ts` so both callers use the same verified logic.
+> 9. The dashboard's **Publishing Activity became Audit Logs**, and — corrected during
+>    verification — is **SuperAdmin-only**. It renders the same rows `/admin/audit` does,
+>    so showing it to every signed-in user leaked exactly what the sub-project 2 gating
+>    hides. The dead `PUBLISHING_ACTIVITY` mock and `PublishingActivityEntry` type are gone.
+> 10. **Known cosmetic wart:** the `entity_label` backfill copies `detail` without clearing
+>    it, so *historical* rows carry the same string in both columns. The table was already
+>    immutable by the time this surfaced, so `detailOf()` in `audit-log-manager.tsx`
+>    suppresses a `detail` that merely repeats the label. Rows written by the new code set
+>    the two from different sources and never collide. There is also one permanent
+>    `"Migration Verification"` row from the immutability test — it cannot be deleted, by
+>    design.
 
 ---
 
