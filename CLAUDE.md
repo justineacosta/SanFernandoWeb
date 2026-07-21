@@ -7,15 +7,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 The official website of **Barangay San Fernando, San Nicolas, Ilocos Norte** (Philippines).
 Next.js 16 App Router + React 19 + TypeScript (strict) + Tailwind CSS v4, backed by
 **Supabase** (Postgres + Auth + Storage). The frontend was built first as a fully static
-mock; backend integration is now well underway (migrations `0001`–`0011` applied). Live and
-DB-backed: auth + account self-service, the services catalog, all four ticketing flows
-(applications / appointments / complaints / assistance), news + announcements + events, and
-transparency (legislative documents / disclosure documents / monitored projects). What
-remains static lives in typed `data.ts` files — the About, Contact, home, and officials
-content, plus the admin **Dashboard Overview** seed. `docs/BACKEND_HANDOFF.md` is the living
-integration brief; `docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan
-history. Remaining work: 2D email (Resend), officials slug pages, migrating `lh3`-hotlinked
-images to owned Storage, and a security-hardening pass.
+mock; backend integration is now well underway (migrations `0001`–`0011` applied; `0012`
+applied to staging, still pending on production). Live and DB-backed: auth + account
+self-service, the services catalog, all four ticketing flows (applications / appointments /
+complaints / assistance), news + announcements + events, transparency (legislative documents
+/ disclosure documents / monitored projects), and the officials directory. What remains
+static lives in typed `data.ts` files — the About, Contact, and home content, plus the admin
+**Dashboard Overview** seed. `docs/BACKEND_HANDOFF.md` is the living integration brief;
+`docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan history. Remaining
+work: 2D email (Resend), migrating `lh3`-hotlinked images to owned Storage, and a
+security-hardening pass.
 
 ## Commands
 
@@ -75,7 +76,8 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
 - Path alias `@/*` → `src/*`.
 - Content changes for the **still-static** features go in that feature's `data.ts`, never
   hardcoded in components. Content for **DB-backed** features (services, tickets, news,
-  transparency) is edited through the admin portal and lives in Supabase — not in the repo.
+  transparency, officials) is edited through the admin portal and lives in Supabase — not in
+  the repo.
 - Placeholder reality: transparency documents now serve **real** Supabase-hosted PDFs/images,
   so the old `"#"` download stubs are gone; remaining `"#"` hrefs are in-page anchors / not-
   yet-wired links (contact map, captain message, hero CTA). The barangay hotline is **real**
@@ -85,11 +87,14 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
   and must eventually move to owned Storage (`public-media` exists). Exceptions — real assets
   bundled via static
   imports: the home hero carousel (`src/images/carousel/`, `HERO_SLIDES` in
-  `src/features/home/data.ts`), the barangay seal (`src/images/logo/`, `SITE.sealImage`),
-  and **all 12 officials' portraits** (`src/images/officials/`; the Punong Barangay photo
-  is also reused by the About-page `CAPTAIN` block). Officials' names are real; their
-  emails/phones are placeholder-shaped. The favicon `src/app/icon.png` is a 256px circular
-  crop of the seal — regenerate it if the seal changes.
+  `src/features/home/data.ts`) and the barangay seal (`src/images/logo/`, `SITE.sealImage`).
+  The other 11 officials' portraits now live in Supabase Storage (`public-media/officials/`,
+  migration `0012`); `src/images/officials/` stays in the repo only as the source for
+  `scripts/upload-official-portraits.mjs`, not as an app dependency. The **Punong Barangay's**
+  portrait is still a bundled static import, reused by the About-page `CAPTAIN` block — that
+  did not change. Officials' names are real; their bios are empty and emails/phones are
+  placeholder-shaped. The favicon `src/app/icon.png` is a 256px circular crop of the seal —
+  regenerate it if the seal changes.
 - Real content (verified against the barangay's official **Ecological Profile / Barangay
   Development Plan** PDF, 2026-07-13): mission/vision, the About history timeline (1733
   founding) and "Community Programs", home glance stats, and the Services waste-collection
