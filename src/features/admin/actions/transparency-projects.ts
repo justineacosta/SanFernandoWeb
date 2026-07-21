@@ -68,6 +68,15 @@ export async function saveTransparencyProject(
   const newFiles = formData.getAll("newFile").filter((f): f is File => f instanceof File && f.size > 0);
   const keptIds = formData.getAll("keptFileId").map(String);
 
+  // Reject over the ≤3 cap BEFORE uploading anything — a caller bypassing the
+  // client picker's limit would otherwise upload N objects only to have them
+  // compensating-deleted. keptIds and newFiles are both client-supplied, so
+  // this is a cheap pre-check; the post-upload cap check below still guards
+  // the persisted total.
+  if (keptIds.length + newFiles.length > MAX_FILES_PER_RECORD) {
+    return { error: `Up to ${MAX_FILES_PER_RECORD} files.`, id: null };
+  }
+
   // Upload every new file first; track them so any later failure deletes them.
   const uploaded: { path: string; mime: string; sizeBytes: number }[] = [];
   async function cleanupUploads() {
