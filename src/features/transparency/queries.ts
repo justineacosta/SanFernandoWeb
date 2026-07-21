@@ -6,6 +6,8 @@ import type {
   TransparencyDocumentItem,
   TransparencyFile,
   TransparencyProjectItem,
+  UploadBrowseItem,
+  UploadBrowseType,
 } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { documentUrl } from "@/lib/storage";
@@ -276,4 +278,83 @@ export async function listPublishedProjects(): Promise<TransparencyProjectItem[]
     date: r.date,
     files: files.get(r.id) ?? [],
   }));
+}
+
+/* ── Unified uploads browse (/transparency/uploads) ─────────────────────── */
+
+export const UPLOADS_PAGE_SIZE = 10;
+
+async function allUploadItems(): Promise<UploadBrowseItem[]> {
+  const admin = createSupabaseAdminClient();
+  const [leg, docs, projs] = await Promise.all([
+    admin
+      .from("legislative_documents")
+      .select("id, slug, doc_type, number, title, date_approved, file_path, file_size_bytes")
+      .eq("status", "published"),
+    admin.from("transparency_documents").select("id, title, date_released").eq("status", "published"),
+    admin.from("transparency_projects").select("id, name, progress, date").eq("status", "published"),
+  ]);
+  const docFiles = await filesByOwner(admin, "document", (docs.data ?? []).map((d) => d.id as string));
+  const projFiles = await filesByOwner(admin, "project", (projs.data ?? []).map((p) => p.id as string));
+
+  const items: UploadBrowseItem[] = [];
+  for (const r of (leg.data ?? []) as LegislativeRow[]) {
+    items.push({
+      key: `legislative:${r.id}`,
+      type: "legislative",
+      title: `${r.number} — ${r.title}`,
+      date: r.date_approved,
+      href: `/transparency/legislative/${r.slug}`,
+      files: r.file_path
+        ? [{ id: r.id, url: documentUrl(r.file_path), label: "Download PDF", mime: "application/pdf", sizeBytes: r.file_size_bytes ?? 0 }]
+        : [],
+      progress: null,
+    });
+  }
+  for (const d of (docs.data ?? []) as { id: string; title: string; date_released: string | null }[]) {
+    items.push({ key: `document:${d.id}`, type: "document", title: d.title, date: d.date_released, href: null, files: docFiles.get(d.id) ?? [], progress: null });
+  }
+  for (const p of (projs.data ?? []) as { id: string; name: string; progress: number; date: string | null }[]) {
+    items.push({ key: `project:${p.id}`, type: "project", title: p.name, date: p.date, href: null, files: projFiles.get(p.id) ?? [], progress: p.progress });
+  }
+  return items;
+}
+
+function compareItems(a: UploadBrowseItem, b: UploadBrowseItem, sort: string, dir: "asc" | "desc"): number {
+  const factor = dir === "asc" ? 1 : -1;
+  if (sort === "title") return a.title.localeCompare(b.title) * factor;
+  if (sort === "type") return a.type.localeCompare(b.type) * factor;
+  // date: nulls always first (undated pinned on top), then by date in the chosen direction.
+  if (a.date === null && b.date === null) return 0;
+  if (a.date === null) return -1;
+  if (b.date === null) return 1;
+  return a.date.localeCompare(b.date) * factor;
+}
+
+/**
+ * `q` is filtered in-memory (small dataset — legislative + documents +
+ * projects together are a handful of rows), so the ilikePattern/
+ * quoteFilterValue PostgREST-escaping helpers above are not needed here. If
+ * this ever moves to a DB `.or()`/`.ilike()` query, route the term through
+ * those helpers as searchLegislative does.
+ */
+export async function searchUploads({ q, type, sort, dir, page }: {
+  q: string; type: UploadBrowseType | "all"; sort: "date" | "title" | "type"; dir: "asc" | "desc"; page: number;
+}): Promise<{ items: UploadBrowseItem[]; total: number; pageSize: number }> {
+  let items = await allUploadItems();
+  const term = q.trim().toLowerCase();
+  if (term) items = items.filter((i) => i.title.toLowerCase().includes(term));
+  if (type !== "all") items = items.filter((i) => i.type === type);
+  items.sort((a, b) => compareItems(a, b, sort, dir));
+  const total = items.length;
+  const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+  const from = (safePage - 1) * UPLOADS_PAGE_SIZE;
+  return { items: items.slice(from, from + UPLOADS_PAGE_SIZE), total, pageSize: UPLOADS_PAGE_SIZE };
+}
+
+/** Most recent 5 uploads across all three sources — the /transparency preview. */
+export async function listLatestUploads(limit = 5): Promise<UploadBrowseItem[]> {
+  const items = await allUploadItems();
+  items.sort((a, b) => compareItems(a, b, "date", "desc"));
+  return items.slice(0, limit);
 }
