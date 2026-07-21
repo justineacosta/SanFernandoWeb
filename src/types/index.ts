@@ -88,16 +88,54 @@ export interface WasteCollectionSlot {
 
 export type OfficialGroup = "executive" | "council" | "administration";
 
-export interface Official {
+/**
+ * Public directory card. `photoUrl` is always resolved — publishing requires a
+ * portrait. `email`/`phone` belong here, not only on the detail type: the
+ * portrait card already renders mailto/tel icons today.
+ */
+export interface OfficialListItem {
+  id: string;
+  slug: string;
   name: string;
   role: string;
   group: OfficialGroup;
-  /** Bundled static portrait (preferred; imported from `src/images/officials/`) or a remote URL. */
-  photo: StaticImageData | string;
+  badge: string | null;
+  photoUrl: string;
   photoAlt: string;
-  email?: string;
-  phone?: string;
-  badge?: string;
+  email: string | null;
+  phone: string | null;
+}
+
+/** Public profile page (`/officials/[slug]`). */
+export interface OfficialDetail extends OfficialListItem {
+  term: string;
+  bio: string;
+}
+
+/** Drawer editor POST/PUT body. */
+export interface OfficialValues {
+  name: string;
+  role: string;
+  group: OfficialGroup;
+  badge: string | null;
+  photoPath: string | null;
+  photoAlt: string;
+  term: string;
+  email: string | null;
+  phone: string | null;
+  bio: string;
+}
+
+/** Admin table row. */
+export interface AdminOfficialRow {
+  id: string;
+  slug: string;
+  name: string;
+  role: string;
+  group: OfficialGroup;
+  photoUrl: string | null;
+  sortOrder: number;
+  status: ContentStatus;
 }
 
 /* ------------------------------ News & announcements ---------------------------- */

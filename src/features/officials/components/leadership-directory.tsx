@@ -1,13 +1,14 @@
 import { Section } from "@/components/ui/section";
 import { DividerHeading } from "@/components/shared/divider-heading";
 import { OfficialCard } from "@/components/shared/official-card";
-import { getOfficialsByGroup } from "@/features/officials/data";
+import { listPublishedOfficials } from "@/features/officials/queries";
 
 /** Complete officials directory: chief executive, council, and administrative staff. */
-export function LeadershipDirectory() {
-  const executive = getOfficialsByGroup("executive");
-  const council = getOfficialsByGroup("council");
-  const administration = getOfficialsByGroup("administration");
+export async function LeadershipDirectory() {
+  const officials = await listPublishedOfficials();
+  const executive = officials.filter((official) => official.group === "executive");
+  const council = officials.filter((official) => official.group === "council");
+  const administration = officials.filter((official) => official.group === "administration");
 
   return (
     <Section>
@@ -16,7 +17,7 @@ export function LeadershipDirectory() {
         <div className="flex justify-center">
           <div className="w-full max-w-md">
             {executive.map((official) => (
-              <OfficialCard key={official.name} official={official} />
+              <OfficialCard key={official.id} official={official} />
             ))}
           </div>
         </div>
@@ -27,7 +28,7 @@ export function LeadershipDirectory() {
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {council.map((official) => (
             <OfficialCard
-              key={official.name}
+              key={official.id}
               official={official}
               highlighted={Boolean(official.badge)}
             />
@@ -39,7 +40,7 @@ export function LeadershipDirectory() {
         <DividerHeading>Administration</DividerHeading>
         <div className="mx-auto flex max-w-4xl flex-wrap justify-center gap-8">
           {administration.map((official) => (
-            <div key={official.name} className="w-full md:w-[calc(50%-1rem)]">
+            <div key={official.id} className="w-full md:w-[calc(50%-1rem)]">
               <OfficialCard official={official} variant="compact" />
             </div>
           ))}
