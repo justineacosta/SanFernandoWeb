@@ -44,9 +44,15 @@ The umbrella (§3.4) locked a hybrid, and the audit work has now proved the SQL 
 engines implement the **same contract**, stated once here:
 
 > Split the query on whitespace. A record matches only if **every** term matches it.
-> A term matches if the record's haystack contains it as a substring, **or** some word in
-> the haystack is within an edit distance of 1 (terms ≤ 4 characters) or 2 (longer),
-> **or** trigram word-similarity clears 0.45.
+> A term matches if the record's haystack contains it as a **literal** substring, **or**
+> some word in the haystack is within an edit distance of 1 (terms ≤ 4 characters) or 2
+> (longer), **or** trigram word-similarity clears 0.45.
+
+"Literal" is load-bearing. `0016` implemented the substring route as
+`haystack like '%' || term || '%'`, which made `%` and `_` in a *user's query* behave as
+LIKE wildcards — a lone `_` matched every row. Migration `0017` replaces it with
+`strpos(...) > 0`, which has no pattern language to escape and is exactly what
+`String.includes` does on the JavaScript side. See §7.
 
 Substring carries `cert` → *certificate*. Edit distance carries `offcal` → *official* —
 trigram similarity alone cannot, because the two share only the trigram `off`. Term-AND
@@ -247,6 +253,19 @@ the same query as SuperAdmin does.
 - **Rewriting `search_audit_log` touches verified, shipped behaviour.** Mitigated by
   re-running the original verification script unchanged — but it is the one place in this
   sub-project where a regression would be invisible in the UI.
+- **The LIKE-wildcard defect, found in verification and fixed by `0017`.** `0016`'s
+  substring route passed the search term straight into a `LIKE` pattern, so `%` and `_`
+  were wildcards: `fuzzy_match('totally unrelated text', '_')` returned true, meaning a
+  one-character query returned the entire table, and `form_data` matched `formXdata`.
+  Not an injection — the term is a bound parameter and cannot alter the statement — but
+  wrong results, and precisely the trap `src/lib/postgrest.ts` had guarded on the
+  PostgREST side before it was deleted in the same commit. The lesson worth keeping: a
+  matcher must be tested with the *pattern language's own metacharacters* as input, not
+  only with words. `strpos` removes the class of bug rather than escaping around it.
+  Cost: a GIN trigram index can serve `LIKE '%term%'` but not `strpos`. Those indexes were
+  already unlikely to be used — the indexed expression is `lower(a || ' ' || b)` while the
+  inlined predicate produces `lower(coalesce(a || ' ' || b, ''))` — and the tables are a
+  few hundred rows. Whether to drop them belongs to the hardening pass.
 - **`audit_log` is immutable**, so nothing in `0016` may attempt to update it.
 - The trigram index on `legislative_documents` is built on a live staging table. It is
   small; `create index` (not `concurrently`) is acceptable and keeps the migration

@@ -2,9 +2,9 @@
 
 > **Current status (2026-07-22):** backend integration is well underway on **Supabase**
 > (Postgres + Auth + Storage) — migrations `0001`–`0013` applied to staging **and
-> production**; **`0014`–`0016` (audit log v2, audit fuzzy search, fuzzy search) are
-> applied to staging only** and still need to reach production at deploy time. Auth, the
-> services catalog,
+> production**; **`0014`–`0017` (audit log v2, audit fuzzy search, fuzzy search, the
+> `fuzzy_match` wildcard fix) are applied to staging only** and still need to reach
+> production at deploy time. Auth, the services catalog,
 > all four ticket flows, news/announcements/events, transparency (documents + projects,
 > multi-file + optional dates), the officials directory, and each official's achievements
 > timeline are DB-backed and merged to `main`. See **§1 Current State** for the accurate
@@ -627,6 +627,20 @@
 >    `ilike` callers; both are gone and no `.ilike()`/`.or()` filter remains anywhere in
 >    `src/`. The escaping quirk it guarded is still recorded in §6 below, so the knowledge
 >    outlives the file.
+> 9. **Migration `0017_fuzzy_match_literal_substring.sql` — also staging only.** Found
+>    while verifying `0016`: its substring route was `haystack like '%' || term || '%'`,
+>    so `%` and `_` **in the user's query** acted as LIKE wildcards.
+>    `fuzzy_match('totally unrelated text', '_')` returned true — a one-character search
+>    returned the whole table, and `form_data` matched `formXdata`. Not an injection (the
+>    term is a bound parameter), but wrong results, and the very trap
+>    `src/lib/postgrest.ts` had guarded on the PostgREST side before item 8 deleted it.
+>    Fixed with `strpos(...) > 0`: no pattern language, nothing to escape, and identical to
+>    `String.includes` in `src/lib/fuzzy.ts`, so both halves now agree character for
+>    character on that route. Only the substring route changed. **Trade-off:** a GIN
+>    trigram index can serve `LIKE '%term%'` but not `strpos`; those indexes were already
+>    unlikely to be used (indexed expression `lower(a || ' ' || b)` vs the inlined
+>    predicate's `lower(coalesce(a || ' ' || b, ''))`), and the tables are small. Whether
+>    to drop them belongs to the hardening pass.
 
 ---
 
