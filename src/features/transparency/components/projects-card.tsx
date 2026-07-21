@@ -25,7 +25,7 @@ export async function ProjectsCard() {
               <span
                 className={cn(
                   "h-2 w-2 shrink-0 rounded-full",
-                  project.progress === 100 ? "bg-green-500" : "bg-brand-500",
+                  project.progress === 100 ? "bg-brand-600" : "bg-brand-300",
                 )}
                 aria-hidden="true"
               />

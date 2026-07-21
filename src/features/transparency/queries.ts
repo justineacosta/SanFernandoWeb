@@ -251,14 +251,29 @@ export async function listLatestPublishedDocuments(
   return rows.map((r) => toDocumentItem(r, files.get(r.id) ?? []));
 }
 
+interface ProjectRow {
+  id: string;
+  name: string;
+  progress: number;
+  date: string | null;
+}
+
 export async function listPublishedProjects(): Promise<TransparencyProjectItem[]> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("transparency_projects")
-    .select("id, name, progress")
+    .select("id, name, progress, date")
     .eq("status", "published")
     .order("sort_order", { ascending: true });
 
   if (error || !data) return [];
-  return data as TransparencyProjectItem[];
+  const rows = data as unknown as ProjectRow[];
+  const files = await filesByOwner(admin, "project", rows.map((r) => r.id));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    progress: r.progress,
+    date: r.date,
+    files: files.get(r.id) ?? [],
+  }));
 }

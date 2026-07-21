@@ -283,6 +283,9 @@ export interface TransparencyProjectItem {
   id: string;
   name: string;
   progress: number;
+  /** ISO date, or null when undated. */
+  date: string | null;
+  files: TransparencyFile[];
 }
 
 /** A file attached to a document or project (public, resolved for download). */
@@ -348,6 +351,8 @@ export interface AdminTransparencyProjectRow {
   progress: number;
   sortOrder: number;
   status: ContentStatus;
+  date: string | null;
+  fileCount: number;
 }
 
 /* Drawer-form body shapes (the write-side contract). */
@@ -376,6 +381,9 @@ export interface TransparencyDocumentValues {
 export interface TransparencyProjectValues {
   name: string;
   progress: number;
+  /** ISO date, or null when undated. The action stores an empty string from
+   *  the date input as SQL NULL. */
+  date: string | null;
 }
 
 export interface TransparencyCategoryValues {
