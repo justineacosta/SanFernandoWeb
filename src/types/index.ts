@@ -274,16 +274,43 @@ export interface TransparencyDocumentItem {
   categoryLabel: string;
   /** Icon name string — resolve with resolveIcon(); never store a component. */
   categoryIconName: string;
-  /** ISO date released. */
-  dateReleased: string;
-  fileUrl: string | null;
-  fileSizeBytes: number | null;
+  /** ISO date released, or null when undated. */
+  dateReleased: string | null;
+  files: TransparencyFile[];
 }
 
 export interface TransparencyProjectItem {
   id: string;
   name: string;
   progress: number;
+  /** ISO date, or null when undated. */
+  date: string | null;
+  files: TransparencyFile[];
+}
+
+/** A file attached to a document or project (public, resolved for download). */
+export interface TransparencyFile {
+  id: string;
+  url: string;
+  /** Display label, e.g. the original-ish "Document 1" or a page label. */
+  label: string;
+  mime: string;
+  sizeBytes: number;
+}
+
+export type UploadBrowseType = "legislative" | "document" | "project";
+
+/** One row in the unified /transparency/uploads browse. */
+export interface UploadBrowseItem {
+  key: string; // `${type}:${id}`
+  type: UploadBrowseType;
+  title: string;
+  date: string | null;
+  /** Detail link for legislative; null for document/project (files render inline). */
+  href: string | null;
+  files: TransparencyFile[];
+  /** Projects only, else null. */
+  progress: number | null;
 }
 
 export interface TransparencyCategoryRow {
@@ -313,10 +340,9 @@ export interface AdminTransparencyDocumentRow {
   title: string;
   categoryId: string;
   categoryLabel: string;
-  dateReleased: string;
+  dateReleased: string | null;
   status: ContentStatus;
-  hasFile: boolean;
-  fileUrl: string | null;
+  fileCount: number;
 }
 
 export interface AdminTransparencyProjectRow {
@@ -325,6 +351,8 @@ export interface AdminTransparencyProjectRow {
   progress: number;
   sortOrder: number;
   status: ContentStatus;
+  date: string | null;
+  fileCount: number;
 }
 
 /* Drawer-form body shapes (the write-side contract). */
@@ -345,14 +373,17 @@ export interface LegislativeValues {
 export interface TransparencyDocumentValues {
   title: string;
   categoryId: string;
-  dateReleased: string;
-  filePath: string | null;
-  fileSizeBytes: number | null;
+  /** ISO date, or null when undated. The action stores an empty string from
+   *  the date input as SQL NULL. */
+  dateReleased: string | null;
 }
 
 export interface TransparencyProjectValues {
   name: string;
   progress: number;
+  /** ISO date, or null when undated. The action stores an empty string from
+   *  the date input as SQL NULL. */
+  date: string | null;
 }
 
 export interface TransparencyCategoryValues {

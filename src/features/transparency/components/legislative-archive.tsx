@@ -33,6 +33,7 @@ export async function LegislativeArchive({
 }) {
   const { items, total, pageSize } = await searchLegislative({ q, docType, page });
   const lastPage = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(1, page), lastPage);
 
   return (
     <Section tone="white">
@@ -107,16 +108,16 @@ export async function LegislativeArchive({
 
       {lastPage > 1 ? (
         <nav aria-label="Pagination" className="mt-8 flex items-center justify-center gap-4">
-          {page > 1 ? (
-            <Link href={hrefFor(q, docType, page - 1)} className="font-semibold text-ink-900 hover:underline">
+          {safePage > 1 ? (
+            <Link href={hrefFor(q, docType, safePage - 1)} className="font-semibold text-ink-900 hover:underline">
               ← Previous
             </Link>
           ) : null}
           <span className="text-sm text-ink-500">
-            Page {page} of {lastPage}
+            Page {safePage} of {lastPage}
           </span>
-          {page < lastPage ? (
-            <Link href={hrefFor(q, docType, page + 1)} className="font-semibold text-ink-900 hover:underline">
+          {safePage < lastPage ? (
+            <Link href={hrefFor(q, docType, safePage + 1)} className="font-semibold text-ink-900 hover:underline">
               Next →
             </Link>
           ) : null}

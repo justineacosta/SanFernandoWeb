@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
+import { useTableSort } from "@/components/ui/use-table-sort";
 import { formatDateApproved } from "@/lib/format";
 import { getLegislativeForEditAction } from "@/features/admin/actions/legislative";
 import { AdminEmptyState } from "./admin-empty-state";
@@ -60,7 +62,18 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
     [documents, type, status],
   );
 
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const { sorted, sortKey, sortDir, toggle } = useTableSort(
+    filtered,
+    { key: "date", dir: "desc" },
+    {
+      number: (r) => r.number,
+      title: (r) => r.title,
+      date: (r) => r.dateApproved,
+      status: (r) => r.status,
+    },
+  );
+
+  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const openCreate = () => {
     setEditing(null);
@@ -163,10 +176,10 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
                 <thead>
                   <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
                     <th scope="col" className="px-6 py-4">#</th>
-                    <th scope="col" className="px-6 py-4">Title / Number</th>
+                    <SortableTh label="Title / Number" sortKey="title" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
                     <th scope="col" className="px-6 py-4">Type</th>
-                    <th scope="col" className="px-6 py-4">Date Approved</th>
-                    <th scope="col" className="px-6 py-4">Status</th>
+                    <SortableTh label="Date Approved" sortKey="date" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
                     <th scope="col" className="px-6 py-4">File</th>
                     <th scope="col" className="px-6 py-4 text-right">Actions</th>
                   </tr>

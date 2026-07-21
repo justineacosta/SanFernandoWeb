@@ -32,6 +32,24 @@ export const PUBLIC_DOCUMENTS_BUCKET = "public-documents";
 export const ALLOWED_PDF_TYPES = ["application/pdf"] as const;
 export const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10 MB (spec §4 — scanned ordinances run big)
 
+// Documents & projects accept PDF *or* image, up to 3 files, 10 MB each (Plan 5).
+export const ALLOWED_DOC_FILE_TYPES = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+] as const;
+export const MAX_DOC_FILE_BYTES = 10 * 1024 * 1024; // 10 MB per file
+export const MAX_FILES_PER_RECORD = 3;
+
+/** File extension for an allowed document MIME type. */
+export function extForDocType(mime: string): string {
+  if (mime === "application/pdf") return "pdf";
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  return "jpg"; // image/jpeg
+}
+
 /**
  * Resolve a stored document reference to a public URL. Mirrors photoUrl()'s
  * contract: a full remote URL passes through unchanged, a bare object path
@@ -40,16 +58,6 @@ export const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10 MB (spec §4 — scanned or
 export function documentUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   return `${SUPABASE_URL}/storage/v1/object/public/${PUBLIC_DOCUMENTS_BUCKET}/${path}`;
-}
-
-/** Storage object path for a legislative PDF: `legislative/<id>/<uuid>.pdf`. */
-export function legislativePdfPath(documentId: string): string {
-  return `legislative/${documentId}/${crypto.randomUUID()}.pdf`;
-}
-
-/** Storage object path for a transparency document PDF: `documents/<id>/<uuid>.pdf`. */
-export function documentPdfPath(documentId: string): string {
-  return `documents/${documentId}/${crypto.randomUUID()}.pdf`;
 }
 
 /** Human-readable file size for download affordances, e.g. "2.4 MB". */

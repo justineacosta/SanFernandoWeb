@@ -6,91 +6,65 @@ import { Archive, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-re
 import type { AdminTransparencyProjectRow } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/form";
+import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
+import { formatOptionalDate } from "@/lib/format";
 import {
   deleteTransparencyProject,
+  getTransparencyProjectForEditAction,
   moveTransparencyProject,
-  saveTransparencyProject,
   setTransparencyProjectStatus,
 } from "@/features/admin/actions/transparency-projects";
 import { StatusChip } from "./status-chip";
+import { TransparencyProjectForm, type TransparencyProjectEditRecord } from "./transparency-project-form";
 
 interface TransparencyProjectsPanelProps {
   projects: AdminTransparencyProjectRow[];
 }
 
-/** Monitored-projects editor: name, 0-100 progress, publish/archive, reorder. Modeled on assistance-categories-panel.tsx. */
+/** Monitored-projects editor: name, progress, date, and files edited in a drawer; reorder/status/delete inline. */
 export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPanelProps) {
   const router = useRouter();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editProgress, setEditProgress] = useState(0);
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newProgress, setNewProgress] = useState(0);
+  const [editing, setEditing] = useState<TransparencyProjectEditRecord | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function startEdit(project: AdminTransparencyProjectRow) {
-    setError(null);
-    setEditingId(project.id);
-    setEditName(project.name);
-    setEditProgress(project.progress);
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setEditName("");
-    setEditProgress(0);
-    setError(null);
-  }
-
-  function saveEdit(id: string) {
-    setError(null);
-    startTransition(async () => {
-      const result = await saveTransparencyProject(id, { name: editName, progress: editProgress });
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      setEditingId(null);
-      setEditName("");
-      setEditProgress(0);
-      setToast("Project updated.");
-      router.refresh();
-    });
-  }
-
   function openCreate() {
     setError(null);
-    setCreating(true);
-    setNewName("");
-    setNewProgress(0);
+    setEditing(null);
+    setDrawerOpen(true);
   }
 
-  function cancelCreate() {
-    setCreating(false);
-    setNewName("");
-    setNewProgress(0);
+  function openEdit(project: AdminTransparencyProjectRow) {
     setError(null);
-  }
-
-  function saveCreate() {
-    setError(null);
+    setLoadingId(project.id);
     startTransition(async () => {
-      const result = await saveTransparencyProject(null, { name: newName, progress: newProgress });
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const detail = await getTransparencyProjectForEditAction(project.id);
+        if (!detail) {
+          setToast("Could not load that project.");
+          return;
+        }
+        setEditing({
+          id: project.id,
+          values: detail.values,
+          status: detail.status,
+          files: detail.files,
+        });
+        setDrawerOpen(true);
+      } finally {
+        setLoadingId(null);
       }
-      setCreating(false);
-      setNewName("");
-      setNewProgress(0);
-      setToast("Project added.");
-      router.refresh();
     });
+  }
+
+  function handleSaved(message: string) {
+    setDrawerOpen(false);
+    setToast(message);
+    router.refresh();
   }
 
   function setStatus(project: AdminTransparencyProjectRow, nextStatus: "published" | "archived") {
@@ -145,7 +119,7 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
               Projects shown on the public transparency page with a live progress bar.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={openCreate} disabled={creating}>
+          <Button variant="outline" size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4" aria-hidden="true" />
             New Project
           </Button>
@@ -158,123 +132,87 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
         <ul className="divide-y divide-ink-200/70 rounded-2xl border border-ink-200/70">
           {projects.map((project, index) => (
             <li key={project.id} className="flex items-center justify-between gap-4 p-4">
-              {editingId === project.id ? (
-                <div className="flex flex-1 flex-wrap items-center gap-3">
-                  <Input
-                    value={editName}
-                    onChange={(event) => setEditName(event.target.value)}
-                    className="flex-1"
-                    autoFocus
-                  />
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={editProgress}
-                    onChange={(event) => setEditProgress(Number(event.target.value))}
-                    className="w-24"
-                    aria-label="Progress percent"
-                  />
-                  <Button size="sm" onClick={() => saveEdit(project.id)} disabled={isPending}>
-                    Save
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-ink-900">{project.name}</p>
+                <p className="text-sm text-ink-500">
+                  {project.progress}% complete · {formatOptionalDate(project.date)}
+                  {project.fileCount > 0
+                    ? ` · ${project.fileCount} file${project.fileCount === 1 ? "" : "s"}`
+                    : ""}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <StatusChip status={project.status} />
+                {project.status === "published" ? (
+                  <button
+                    type="button"
+                    aria-label={`Archive ${project.name}`}
+                    disabled={isPending}
+                    onClick={() => setStatus(project, "archived")}
+                    className="rounded-full p-2 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
+                  >
+                    <Archive className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                ) : (
+                  <Button variant="accent" size="sm" onClick={() => setStatus(project, "published")} disabled={isPending}>
+                    Publish
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={cancelEdit} disabled={isPending}>
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-ink-900">{project.name}</p>
-                    <p className="text-sm text-ink-500">{project.progress}% complete</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <StatusChip status={project.status} />
-                    {project.status === "published" ? (
-                      <button
-                        type="button"
-                        aria-label={`Archive ${project.name}`}
-                        disabled={isPending}
-                        onClick={() => setStatus(project, "archived")}
-                        className="rounded-full p-2 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
-                      >
-                        <Archive className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    ) : (
-                      <Button variant="accent" size="sm" onClick={() => setStatus(project, "published")} disabled={isPending}>
-                        Publish
-                      </Button>
-                    )}
-                    <button
-                      type="button"
-                      aria-label={`Move ${project.name} up`}
-                      disabled={isPending || index === 0}
-                      onClick={() => move(project.id, "up")}
-                      className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
-                    >
-                      <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Move ${project.name} down`}
-                      disabled={isPending || index === projects.length - 1}
-                      onClick={() => move(project.id, "down")}
-                      className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
-                    >
-                      <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Edit ${project.name}`}
-                      disabled={isPending}
-                      onClick={() => startEdit(project)}
-                      className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
-                    >
-                      <Pencil className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Delete ${project.name}`}
-                      disabled={isPending}
-                      onClick={() => remove(project)}
-                      className="rounded-full p-2 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                  </div>
-                </>
-              )}
+                )}
+                <button
+                  type="button"
+                  aria-label={`Move ${project.name} up`}
+                  disabled={isPending || index === 0}
+                  onClick={() => move(project.id, "up")}
+                  className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
+                >
+                  <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move ${project.name} down`}
+                  disabled={isPending || index === projects.length - 1}
+                  onClick={() => move(project.id, "down")}
+                  className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
+                >
+                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Edit ${project.name}`}
+                  disabled={isPending || loadingId === project.id}
+                  onClick={() => openEdit(project)}
+                  className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Delete ${project.name}`}
+                  disabled={isPending}
+                  onClick={() => remove(project)}
+                  className="rounded-full p-2 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
             </li>
           ))}
         </ul>
-        {creating ? (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Input
-              value={newName}
-              onChange={(event) => setNewName(event.target.value)}
-              placeholder="Project name"
-              className="flex-1"
-              autoFocus
-            />
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={newProgress}
-              onChange={(event) => setNewProgress(Number(event.target.value))}
-              className="w-24"
-              aria-label="Progress percent"
-              placeholder="0"
-            />
-            <Button size="sm" onClick={saveCreate} disabled={isPending}>
-              Save
-            </Button>
-            <Button variant="ghost" size="sm" onClick={cancelCreate} disabled={isPending}>
-              Cancel
-            </Button>
-          </div>
-        ) : null}
       </Card>
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={editing ? "Edit Project" : "New Project"}
+      >
+        {drawerOpen ? (
+          <TransparencyProjectForm
+            key={editing?.id ?? "new"}
+            record={editing}
+            onSaved={handleSaved}
+            onCancel={() => setDrawerOpen(false)}
+          />
+        ) : null}
+      </Drawer>
       {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
     </>
   );

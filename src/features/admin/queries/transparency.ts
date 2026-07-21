@@ -7,6 +7,7 @@ import type {
   LegislativeType,
   LegislativeValues,
   TransparencyDocumentValues,
+  TransparencyProjectValues,
 } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { documentUrl } from "@/lib/storage";
@@ -65,51 +66,67 @@ export async function listAdminTransparencyDocuments(): Promise<AdminTransparenc
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("transparency_documents")
-    .select("id, title, category_id, date_released, status, file_path, transparency_categories(label)")
-    .order("date_released", { ascending: false });
-
+    .select("id, title, category_id, date_released, status, transparency_categories(label)")
+    .order("date_released", { ascending: false, nullsFirst: true });
   if (error || !data) return [];
-  return (data as unknown as {
-    id: string;
-    title: string;
-    category_id: string;
-    date_released: string;
-    status: ContentStatus;
-    file_path: string | null;
-    transparency_categories: { label: string } | null;
-  }[]).map((row) => ({
+  const rows = data as unknown as {
+    id: string; title: string; category_id: string; date_released: string | null;
+    status: ContentStatus; transparency_categories: { label: string } | null;
+  }[];
+  const counts = new Map<string, number>();
+  if (rows.length > 0) {
+    // Guard the empty case: `.in("owner_id", [])` on a uuid column can error.
+    const { data: fileRows } = await admin
+      .from("transparency_files")
+      .select("owner_id")
+      .eq("owner_type", "document")
+      .in("owner_id", rows.map((r) => r.id));
+    for (const fr of (fileRows ?? []) as { owner_id: string }[]) {
+      counts.set(fr.owner_id, (counts.get(fr.owner_id) ?? 0) + 1);
+    }
+  }
+  return rows.map((row) => ({
     id: row.id,
     title: row.title,
     categoryId: row.category_id,
     categoryLabel: row.transparency_categories?.label ?? "Document",
     dateReleased: row.date_released,
     status: row.status,
-    hasFile: Boolean(row.file_path),
-    fileUrl: row.file_path ? documentUrl(row.file_path) : null,
+    fileCount: counts.get(row.id) ?? 0,
   }));
 }
 
-export async function getTransparencyDocumentForEdit(
-  id: string,
-): Promise<{ values: TransparencyDocumentValues; status: ContentStatus; fileUrl: string | null } | null> {
+export async function getTransparencyDocumentForEdit(id: string) {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("transparency_documents")
-    .select("title, category_id, date_released, file_path, file_size_bytes, status")
+    .select("title, category_id, date_released, status")
     .eq("id", id)
     .maybeSingle();
-
   if (error || !data) return null;
+  const { data: fileRows } = await admin
+    .from("transparency_files")
+    .select("id, path, mime, size_bytes, sort_order")
+    .eq("owner_type", "document")
+    .eq("owner_id", id)
+    .order("sort_order", { ascending: true });
+  const files = ((fileRows ?? []) as { id: string; path: string; mime: string; size_bytes: number }[]).map(
+    (f, i) => ({
+      id: f.id,
+      url: documentUrl(f.path),
+      label: f.mime === "application/pdf" ? `Document ${i + 1}` : `Image ${i + 1}`,
+      mime: f.mime,
+      sizeBytes: f.size_bytes,
+    }),
+  );
   return {
     values: {
       title: data.title as string,
       categoryId: data.category_id as string,
-      dateReleased: data.date_released as string,
-      filePath: (data.file_path as string) ?? null,
-      fileSizeBytes: (data.file_size_bytes as number) ?? null,
-    },
+      dateReleased: data.date_released as string | null,
+    } satisfies TransparencyDocumentValues,
     status: data.status as ContentStatus,
-    fileUrl: data.file_path ? documentUrl(data.file_path as string) : null,
+    files,
   };
 }
 
@@ -117,15 +134,67 @@ export async function listAdminTransparencyProjects(): Promise<AdminTransparency
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("transparency_projects")
-    .select("id, name, progress, sort_order, status")
+    .select("id, name, progress, sort_order, status, date")
     .order("sort_order", { ascending: true });
 
   if (error || !data) return [];
-  return data.map((row) => ({
-    id: row.id as string,
-    name: row.name as string,
-    progress: row.progress as number,
-    sortOrder: row.sort_order as number,
-    status: row.status as ContentStatus,
+  const rows = data as unknown as {
+    id: string; name: string; progress: number; sort_order: number;
+    status: ContentStatus; date: string | null;
+  }[];
+  const counts = new Map<string, number>();
+  if (rows.length > 0) {
+    // Guard the empty case: `.in("owner_id", [])` on a uuid column can error.
+    const { data: fileRows } = await admin
+      .from("transparency_files")
+      .select("owner_id")
+      .eq("owner_type", "project")
+      .in("owner_id", rows.map((r) => r.id));
+    for (const fr of (fileRows ?? []) as { owner_id: string }[]) {
+      counts.set(fr.owner_id, (counts.get(fr.owner_id) ?? 0) + 1);
+    }
+  }
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    progress: row.progress,
+    sortOrder: row.sort_order,
+    status: row.status,
+    date: row.date,
+    fileCount: counts.get(row.id) ?? 0,
   }));
+}
+
+export async function getTransparencyProjectForEdit(id: string) {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("transparency_projects")
+    .select("name, progress, date, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data) return null;
+  const { data: fileRows } = await admin
+    .from("transparency_files")
+    .select("id, path, mime, size_bytes, sort_order")
+    .eq("owner_type", "project")
+    .eq("owner_id", id)
+    .order("sort_order", { ascending: true });
+  const files = ((fileRows ?? []) as { id: string; path: string; mime: string; size_bytes: number }[]).map(
+    (f, i) => ({
+      id: f.id,
+      url: documentUrl(f.path),
+      label: f.mime === "application/pdf" ? `Document ${i + 1}` : `Image ${i + 1}`,
+      mime: f.mime,
+      sizeBytes: f.size_bytes,
+    }),
+  );
+  return {
+    values: {
+      name: data.name as string,
+      progress: data.progress as number,
+      date: data.date as string | null,
+    } satisfies TransparencyProjectValues,
+    status: data.status as ContentStatus,
+    files,
+  };
 }

@@ -3,10 +3,13 @@
 import { requirePermission } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
+  ALLOWED_DOC_FILE_TYPES,
   ALLOWED_PDF_TYPES,
+  MAX_DOC_FILE_BYTES,
   MAX_PDF_BYTES,
   PUBLIC_DOCUMENTS_BUCKET,
   documentUrl,
+  extForDocType,
 } from "@/lib/storage";
 
 export interface ActionResult {
@@ -61,13 +64,53 @@ export async function uploadDocumentPdf(
   return { error: null, path, url: documentUrl(path), sizeBytes: file.size };
 }
 
+export interface UploadFileResult {
+  error: string | null;
+  path: string | null;
+  sizeBytes: number | null;
+  mime: string | null;
+}
+
+/**
+ * Upload one PDF-or-image for a transparency document or project. The caller
+ * persists the returned path/mime/size; on any later failure the caller must
+ * delete the object (compensating delete), keeping the storage/DB invariant.
+ */
+export async function uploadTransparencyFile(
+  folder: "documents" | "projects",
+  formData: FormData,
+): Promise<UploadFileResult> {
+  await requirePermission("manage-transparency");
+  if (!["documents", "projects"].includes(folder)) {
+    return { error: "Upload failed. Try again.", path: null, sizeBytes: null, mime: null };
+  }
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a file.", path: null, sizeBytes: null, mime: null };
+  }
+  if (!ALLOWED_DOC_FILE_TYPES.includes(file.type as (typeof ALLOWED_DOC_FILE_TYPES)[number])) {
+    return { error: "Files must be a PDF or image.", path: null, sizeBytes: null, mime: null };
+  }
+  if (file.size > MAX_DOC_FILE_BYTES) {
+    return { error: "Each file must be 10 MB or smaller.", path: null, sizeBytes: null, mime: null };
+  }
+  const path = `${folder}/${crypto.randomUUID()}.${extForDocType(file.type)}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.storage
+    .from(PUBLIC_DOCUMENTS_BUCKET)
+    .upload(path, buffer, { contentType: file.type, upsert: false });
+  if (error) return { error: "Upload failed. Try again.", path: null, sizeBytes: null, mime: null };
+  return { error: null, path, sizeBytes: file.size, mime: file.type };
+}
+
 /** Delete an owned storage object. A remote URL is left alone. */
 export async function removeStoredDocument(path: string): Promise<ActionResult> {
   await requirePermission("manage-transparency");
   // Pass through remote URLs as no-op (seeded content, nothing to remove locally).
   if (/^https?:\/\//i.test(path)) return { error: null };
   // Require path to start with a valid folder prefix.
-  if (!/^(legislative|documents)\//.test(path)) {
+  if (!/^(legislative|documents|projects)\//.test(path)) {
     return { error: "That file cannot be removed." };
   }
   // Reject paths containing .. segments to prevent directory traversal. Check both

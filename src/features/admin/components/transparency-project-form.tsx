@@ -1,66 +1,50 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { ContentStatus, TransparencyCategoryRow, TransparencyDocumentValues } from "@/types";
+import type { ContentStatus, TransparencyProjectValues } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select } from "@/components/ui/form";
+import { Field, Input } from "@/components/ui/form";
 import {
-  deleteTransparencyDocument,
-  saveTransparencyDocument,
-  setTransparencyDocumentStatus,
-} from "@/features/admin/actions/transparency-documents";
+  deleteTransparencyProject,
+  saveTransparencyProject,
+  setTransparencyProjectStatus,
+} from "@/features/admin/actions/transparency-projects";
 import { MultiFileUploader, type ExistingFile } from "./multi-file-uploader";
 
-export interface TransparencyDocumentEditRecord {
+export interface TransparencyProjectEditRecord {
   id: string;
-  values: TransparencyDocumentValues;
+  values: TransparencyProjectValues;
   status: ContentStatus;
   files: ExistingFile[];
 }
 
-interface TransparencyDocumentFormProps {
-  record: TransparencyDocumentEditRecord | null;
-  categories: TransparencyCategoryRow[];
+interface TransparencyProjectFormProps {
+  record: TransparencyProjectEditRecord | null;
   onSaved: (message: string) => void;
   onCancel: () => void;
 }
 
-const EMPTY_VALUES: TransparencyDocumentValues = {
-  title: "",
-  categoryId: "",
-  dateReleased: null,
+const EMPTY_VALUES: TransparencyProjectValues = {
+  name: "",
+  progress: 0,
+  date: null,
 };
 
-/** Create/edit form for a public transparency document. Mirrors legislative-form.tsx. */
-export function TransparencyDocumentForm({
-  record,
-  categories,
-  onSaved,
-  onCancel,
-}: TransparencyDocumentFormProps) {
+/** Create/edit form for a monitored project. Mirrors transparency-document-form.tsx. */
+export function TransparencyProjectForm({ record, onSaved, onCancel }: TransparencyProjectFormProps) {
   const [id, setId] = useState<string | null>(record?.id ?? null);
   const [status, setStatus] = useState<ContentStatus>(record?.status ?? "draft");
-  const [values, setValues] = useState<TransparencyDocumentValues>(() => {
-    if (record) return record.values;
-    const firstActive = categories.find((c) => c.isActive);
-    return { ...EMPTY_VALUES, categoryId: firstActive?.id ?? "" };
-  });
+  const [values, setValues] = useState<TransparencyProjectValues>(record?.values ?? EMPTY_VALUES);
   // Pending files picked in this drawer session — nothing touches storage
-  // until Save (see multi-file-uploader.tsx and saveTransparencyDocument).
+  // until Save (see multi-file-uploader.tsx and saveTransparencyProject).
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [keptIds, setKeptIds] = useState<string[]>(record?.files.map((f) => f.id) ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Active categories only for new documents; editing keeps the current category
-  // selectable even if it has since been retired.
-  const categoryOptions = categories.filter(
-    (c) => c.isActive || c.id === record?.values.categoryId,
-  );
-
-  const set = <K extends keyof TransparencyDocumentValues>(
+  const set = <K extends keyof TransparencyProjectValues>(
     key: K,
-    value: TransparencyDocumentValues[K],
+    value: TransparencyProjectValues[K],
   ) => setValues((prev) => ({ ...prev, [key]: value }));
 
   function handleSave(event: React.FormEvent) {
@@ -70,13 +54,13 @@ export function TransparencyDocumentForm({
       const fd = new FormData();
       for (const f of newFiles) fd.append("newFile", f);
       for (const id2 of keptIds) fd.append("keptFileId", id2);
-      const result = await saveTransparencyDocument(id, values, fd);
+      const result = await saveTransparencyProject(id, values, fd);
       if (result.error) {
         setError(result.error);
         return;
       }
       if (result.id) setId(result.id);
-      onSaved("Document saved.");
+      onSaved("Project saved.");
     });
   }
 
@@ -85,7 +69,7 @@ export function TransparencyDocumentForm({
     if (!currentId) return;
     setError(null);
     startTransition(async () => {
-      const result = await setTransparencyDocumentStatus(currentId, nextStatus);
+      const result = await setTransparencyProjectStatus(currentId, nextStatus);
       if (result.error) {
         setError(result.error);
         return;
@@ -98,51 +82,46 @@ export function TransparencyDocumentForm({
   function handleDelete() {
     const currentId = id;
     if (!currentId) return;
-    if (!window.confirm("Delete this document? This cannot be undone.")) return;
+    if (!window.confirm("Delete this project? This cannot be undone.")) return;
     setError(null);
     startTransition(async () => {
-      const result = await deleteTransparencyDocument(currentId);
+      const result = await deleteTransparencyProject(currentId);
       if (result.error) {
         setError(result.error);
         return;
       }
-      onSaved("Document deleted.");
+      onSaved("Project deleted.");
     });
   }
 
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
-        <Field label="Title" htmlFor="transparency-doc-title">
+        <Field label="Name" htmlFor="transparency-project-name">
           <Input
-            id="transparency-doc-title"
-            value={values.title}
-            onChange={(event) => set("title", event.target.value)}
+            id="transparency-project-name"
+            value={values.name}
+            onChange={(event) => set("name", event.target.value)}
             required
             minLength={3}
           />
         </Field>
-        <Field label="Category" htmlFor="transparency-doc-category">
-          <Select
-            id="transparency-doc-category"
-            value={values.categoryId}
-            onChange={(event) => set("categoryId", event.target.value)}
-          >
-            {categoryOptions.length === 0 ? <option value="">No categories available</option> : null}
-            {categoryOptions.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.label}
-                {category.isActive ? "" : " (retired)"}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Date Released (optional)" htmlFor="transparency-doc-date">
+        <Field label="Progress (0–100)" htmlFor="transparency-project-progress">
           <Input
-            id="transparency-doc-date"
+            id="transparency-project-progress"
+            type="number"
+            min={0}
+            max={100}
+            value={values.progress}
+            onChange={(event) => set("progress", Number(event.target.value))}
+          />
+        </Field>
+        <Field label="Date (optional)" htmlFor="transparency-project-date">
+          <Input
+            id="transparency-project-date"
             type="date"
-            value={values.dateReleased ?? ""}
-            onChange={(event) => set("dateReleased", event.target.value || null)}
+            value={values.date ?? ""}
+            onChange={(event) => set("date", event.target.value || null)}
           />
         </Field>
         <div>
@@ -234,7 +213,7 @@ export function TransparencyDocumentForm({
             Cancel
           </Button>
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : id ? "Save Changes" : "Add Document"}
+            {pending ? "Saving…" : id ? "Save Changes" : "Add Project"}
           </Button>
         </div>
       </div>

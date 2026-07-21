@@ -6,6 +6,9 @@ import type { ContentStatus, TransparencyProjectValues } from "@/types";
 import { requirePermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getTransparencyProjectForEdit } from "@/features/admin/queries/transparency";
+import { MAX_FILES_PER_RECORD } from "@/lib/storage";
+import { removeStoredDocument, uploadTransparencyFile } from "./documents";
 
 export interface ActionResult {
   error: string | null;
@@ -18,7 +21,13 @@ export interface SaveResult {
 const schema = z.object({
   name: z.string().trim().min(3, "Enter a project name."),
   progress: z.number().int().min(0, "Progress must be 0–100.").max(100, "Progress must be 0–100."),
+  date: z.string().trim().nullable(),
 });
+
+/** "" (empty date input) → SQL NULL; a real date passes through. */
+function normalizeDate(value: string | null): string | null {
+  return value && value.length > 0 ? value : null;
+}
 
 // Server Actions are public HTTP endpoints — `ContentStatus` only constrains
 // callers that go through TypeScript. A direct POST can send any string, so
@@ -30,11 +39,23 @@ const statusSchema = z.enum(["draft", "in-review", "published", "archived"]);
 function revalidate() {
   revalidatePath("/admin/transparency");
   revalidatePath("/transparency");
+  revalidatePath("/transparency/uploads");
+}
+
+/**
+ * Client-callable counterpart to `getTransparencyProjectForEdit` (which is
+ * `server-only` and cannot be imported into the "use client" panel). The
+ * panel fetches full detail — including files — only when a drawer opens.
+ */
+export async function getTransparencyProjectForEditAction(id: string) {
+  await requirePermission("manage-transparency");
+  return getTransparencyProjectForEdit(id);
 }
 
 export async function saveTransparencyProject(
   id: string | null,
   values: TransparencyProjectValues,
+  formData: FormData,
 ): Promise<SaveResult> {
   const actor = await requirePermission("manage-transparency");
   const parsed = schema.safeParse(values);
@@ -44,43 +65,96 @@ export async function saveTransparencyProject(
 
   const admin = createSupabaseAdminClient();
 
-  if (id) {
-    const { error } = await admin
-      .from("transparency_projects")
-      .update({
-        name: parsed.data.name,
-        progress: parsed.data.progress,
-      })
-      .eq("id", id);
-    if (error) return { error: "Could not save the project.", id: null };
+  const newFiles = formData.getAll("newFile").filter((f): f is File => f instanceof File && f.size > 0);
+  const keptIds = formData.getAll("keptFileId").map(String);
 
-    await recordActivity(actor, "updated project", "transparency project", id, parsed.data.name);
-    revalidate();
-    return { error: null, id };
+  // Reject over the ≤3 cap BEFORE uploading anything — a caller bypassing the
+  // client picker's limit would otherwise upload N objects only to have them
+  // compensating-deleted. keptIds and newFiles are both client-supplied, so
+  // this is a cheap pre-check; the post-upload cap check below still guards
+  // the persisted total.
+  if (keptIds.length + newFiles.length > MAX_FILES_PER_RECORD) {
+    return { error: `Up to ${MAX_FILES_PER_RECORD} files.`, id: null };
   }
 
-  // New rows join at the end of the display list, mirroring createNewsCategory.
-  const { data: rows, error: readError } = await admin
-    .from("transparency_projects")
-    .select("sort_order");
-  if (readError) return { error: "Could not create the project. Try again.", id: null };
-  const nextSortOrder =
-    (rows ?? []).reduce((max, row) => Math.max(max, row.sort_order ?? 0), 0) + 1;
+  // Upload every new file first; track them so any later failure deletes them.
+  const uploaded: { path: string; mime: string; sizeBytes: number }[] = [];
+  async function cleanupUploads() {
+    for (const u of uploaded) {
+      const removed = await removeStoredDocument(u.path);
+      if (removed.error) console.error(`Orphaned storage object (compensating delete failed): ${u.path}`);
+    }
+  }
+  for (const file of newFiles) {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await uploadTransparencyFile("projects", fd);
+    if (res.error || res.path === null || res.mime === null || res.sizeBytes === null) {
+      await cleanupUploads();
+      return { error: res.error ?? "Upload failed. Try again.", id: null };
+    }
+    uploaded.push({ path: res.path, mime: res.mime, sizeBytes: res.sizeBytes });
+  }
 
-  const { data, error } = await admin
-    .from("transparency_projects")
-    .insert({
-      name: parsed.data.name,
-      progress: parsed.data.progress,
-      sort_order: nextSortOrder,
-    })
-    .select("id")
-    .single();
-  if (error || !data) return { error: "Could not create the project.", id: null };
+  // Enforce the ≤3 cap BEFORE any parent write, so an over-limit direct API
+  // call can't leave an empty draft row behind. keptIds is client-supplied.
+  if (keptIds.length + uploaded.length > MAX_FILES_PER_RECORD) {
+    await cleanupUploads();
+    return { error: `Up to ${MAX_FILES_PER_RECORD} files.`, id: null };
+  }
 
-  await recordActivity(actor, "created project", "transparency project", data.id, parsed.data.name);
+  const date = normalizeDate(parsed.data.date);
+
+  // Resolve the parent row id (insert if new).
+  let projectId = id;
+  if (projectId) {
+    const { error } = await admin
+      .from("transparency_projects")
+      .update({ name: parsed.data.name, progress: parsed.data.progress, date })
+      .eq("id", projectId);
+    if (error) { await cleanupUploads(); return { error: "Could not save the project.", id: null }; }
+  } else {
+    // New rows join at the end of the display list, mirroring createNewsCategory.
+    const { data: rows, error: readError } = await admin
+      .from("transparency_projects")
+      .select("sort_order");
+    if (readError) { await cleanupUploads(); return { error: "Could not create the project. Try again.", id: null }; }
+    const nextSortOrder =
+      (rows ?? []).reduce((max, row) => Math.max(max, row.sort_order ?? 0), 0) + 1;
+
+    const { data, error } = await admin
+      .from("transparency_projects")
+      .insert({ name: parsed.data.name, progress: parsed.data.progress, date, sort_order: nextSortOrder })
+      .select("id")
+      .single();
+    if (error || !data) { await cleanupUploads(); return { error: "Could not create the project.", id: null }; }
+    projectId = data.id as string;
+  }
+
+  // Existing files: delete the ones the user dropped (rows + objects), keep the rest.
+  const { data: existingFiles } = await admin.from("transparency_files")
+    .select("id, path, sort_order").eq("owner_type", "project").eq("owner_id", projectId)
+    .order("sort_order", { ascending: true });
+  const removedRows = ((existingFiles ?? []) as { id: string; path: string }[]).filter((f) => !keptIds.includes(f.id));
+  if (removedRows.length > 0) {
+    await admin.from("transparency_files").delete().in("id", removedRows.map((r) => r.id));
+    for (const r of removedRows) await removeStoredDocument(r.path); // deferred: row already gone
+  }
+
+  // Insert the newly uploaded files after the kept ones.
+  const keptCount = ((existingFiles ?? []) as { id: string }[]).filter((f) => keptIds.includes(f.id)).length;
+  if (uploaded.length > 0) {
+    const insert = uploaded.map((u, i) => ({
+      owner_type: "project", owner_id: projectId, path: u.path, mime: u.mime,
+      size_bytes: u.sizeBytes, sort_order: keptCount + i,
+    }));
+    const { error } = await admin.from("transparency_files").insert(insert);
+    if (error) { await cleanupUploads(); return { error: "Could not save the project's files.", id: null }; }
+  }
+
+  await recordActivity(actor, id ? "updated project" : "created project", "transparency project", projectId, parsed.data.name);
   revalidate();
-  return { error: null, id: data.id };
+  return { error: null, id: projectId };
 }
 
 /**
@@ -138,8 +212,22 @@ export async function deleteTransparencyProject(id: string): Promise<ActionResul
     .eq("id", id)
     .maybeSingle();
 
+  // Collect the project's file objects before the parent row goes away.
+  const { data: fileRows } = await admin
+    .from("transparency_files")
+    .select("id, path")
+    .eq("owner_type", "project")
+    .eq("owner_id", id);
+
   const { error } = await admin.from("transparency_projects").delete().eq("id", id);
   if (error) return { error: "Could not delete the project." };
+
+  // Deferred delete: rows first (cascades with the parent), then the objects.
+  const files = (fileRows ?? []) as { id: string; path: string }[];
+  if (files.length > 0) {
+    await admin.from("transparency_files").delete().in("id", files.map((f) => f.id));
+    for (const f of files) await removeStoredDocument(f.path);
+  }
 
   await recordActivity(
     actor,

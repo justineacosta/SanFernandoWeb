@@ -12,8 +12,10 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
-import { formatDate } from "@/lib/format";
+import { useTableSort } from "@/components/ui/use-table-sort";
+import { formatOptionalDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getTransparencyDocumentForEditAction } from "@/features/admin/actions/transparency-documents";
 import { AdminEmptyState } from "./admin-empty-state";
@@ -81,7 +83,23 @@ export function TransparencyManager({
     [documents, docCategoryId, docStatus],
   );
 
-  const documentPageItems = filteredDocuments.slice(
+  const {
+    sorted: sortedDocuments,
+    sortKey: docSortKey,
+    sortDir: docSortDir,
+    toggle: toggleDocSort,
+  } = useTableSort(
+    filteredDocuments,
+    { key: "date", dir: "desc" },
+    {
+      title: (r) => r.title,
+      category: (r) => r.categoryLabel,
+      date: (r) => r.dateReleased,
+      status: (r) => r.status,
+    },
+  );
+
+  const documentPageItems = sortedDocuments.slice(
     (docPage - 1) * PAGE_SIZE,
     docPage * PAGE_SIZE,
   );
@@ -104,7 +122,7 @@ export function TransparencyManager({
           id: row.id,
           values: detail.values,
           status: detail.status,
-          fileUrl: detail.fileUrl,
+          files: detail.files,
         });
         setDocDrawerOpen(true);
       } finally {
@@ -230,10 +248,10 @@ export function TransparencyManager({
                     <thead>
                       <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
                         <th scope="col" className="px-6 py-4">#</th>
-                        <th scope="col" className="px-6 py-4">Title</th>
-                        <th scope="col" className="px-6 py-4">Category</th>
-                        <th scope="col" className="px-6 py-4">Date Released</th>
-                        <th scope="col" className="px-6 py-4">Status</th>
+                        <SortableTh label="Title" sortKey="title" activeKey={docSortKey} dir={docSortDir} onToggle={toggleDocSort} />
+                        <SortableTh label="Category" sortKey="category" activeKey={docSortKey} dir={docSortDir} onToggle={toggleDocSort} />
+                        <SortableTh label="Date Released" sortKey="date" activeKey={docSortKey} dir={docSortDir} onToggle={toggleDocSort} />
+                        <SortableTh label="Status" sortKey="status" activeKey={docSortKey} dir={docSortDir} onToggle={toggleDocSort} />
                         <th scope="col" className="px-6 py-4">File</th>
                         <th scope="col" className="px-6 py-4 text-right">Actions</th>
                       </tr>
@@ -248,11 +266,15 @@ export function TransparencyManager({
                             <p className="font-semibold text-ink-900">{record.title}</p>
                           </td>
                           <td className="px-6 py-4 text-ink-600">{record.categoryLabel}</td>
-                          <td className="px-6 py-4 text-ink-600">{formatDate(record.dateReleased)}</td>
+                          <td className="px-6 py-4 text-ink-600">{formatOptionalDate(record.dateReleased)}</td>
                           <td className="px-6 py-4">
                             <StatusChip status={record.status} />
                           </td>
-                          <td className="px-6 py-4 text-ink-600">{record.hasFile ? "PDF" : "—"}</td>
+                          <td className="px-6 py-4 text-ink-600">
+                            {record.fileCount > 0
+                              ? `${record.fileCount} file${record.fileCount === 1 ? "" : "s"}`
+                              : "—"}
+                          </td>
                           <td className="px-6 py-4 text-right">
                             <button
                               type="button"

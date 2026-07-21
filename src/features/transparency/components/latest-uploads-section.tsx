@@ -1,64 +1,79 @@
-import { formatDate } from "@/lib/format";
-import { resolveIcon } from "@/lib/icon-map";
-import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
+import Link from "next/link";
+import type { UploadBrowseType } from "@/types";
+import { formatOptionalDate } from "@/lib/format";
 import { Section } from "@/components/ui/section";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { listLatestPublishedDocuments } from "@/features/transparency/queries";
-import type { TransparencyDocumentItem } from "@/types";
+import { listLatestUploads } from "@/features/transparency/queries";
+import { FileDownloads } from "./file-downloads";
 
-const columns: DataTableColumn<TransparencyDocumentItem>[] = [
-  {
-    header: "Document Title",
-    cell: (doc) => {
-      const Icon = resolveIcon(doc.categoryIconName);
-      return (
-        <span className="flex items-center gap-3">
-          <Icon className="h-5 w-5 shrink-0 text-ink-900" aria-hidden="true" />
-          <span className="font-medium text-ink-900">{doc.title}</span>
-        </span>
-      );
-    },
-  },
-  { header: "Category", cell: (doc) => doc.categoryLabel },
-  {
-    header: "Date Released",
-    cell: (doc) => <span className="text-ink-600">{formatDate(doc.dateReleased)}</span>,
-  },
-  {
-    header: "Action",
-    align: "right",
-    cell: (doc) =>
-      doc.fileUrl ? (
-        <a
-          href={doc.fileUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-semibold uppercase text-ink-900 hover:underline"
-        >
-          Download
-          <span className="sr-only"> {doc.title}</span>
-        </a>
-      ) : (
-        <span className="text-sm text-ink-500">At the barangay hall</span>
-      ),
-  },
-];
+const TYPE_LABELS: Record<UploadBrowseType, string> = {
+  legislative: "Legislative",
+  document: "Document",
+  project: "Project",
+};
 
-/** Table of the most recent documents added to the portal. */
+/** Short preview of the most recent uploads across legislative, documents, and projects. */
 export async function LatestUploadsSection() {
-  const documents = await listLatestPublishedDocuments(4);
+  const uploads = await listLatestUploads(5);
   return (
     <Section id="latest-uploads" tone="white" className="border-t border-ink-200">
       <SectionHeading
         title="Latest Uploads"
-        description="Recent documents added to the transparency portal."
+        description="Recent documents, legislation, and projects added to the transparency portal."
+        action={{ label: "Browse all uploads", href: "/transparency/uploads" }}
       />
-      <DataTable
-        caption="Latest documents uploaded to the transparency portal"
-        columns={columns}
-        rows={documents}
-        rowKey={(doc) => doc.id}
-      />
+      {uploads.length === 0 ? (
+        <p className="rounded-2xl bg-ink-50 p-8 text-center text-ink-600">No uploads published yet.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-3xl border border-ink-200/70 bg-white">
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">Latest documents uploaded to the transparency portal</caption>
+            <thead>
+              <tr className="border-b border-ink-200 bg-ink-50 text-xs font-semibold uppercase tracking-wider text-ink-600">
+                <th scope="col" className="px-6 py-4">
+                  Title
+                </th>
+                <th scope="col" className="px-6 py-4">
+                  Type
+                </th>
+                <th scope="col" className="px-6 py-4">
+                  Date
+                </th>
+                <th scope="col" className="px-6 py-4 text-right">
+                  Files
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-200/70">
+              {uploads.map((item) => (
+                <tr key={item.key} className="transition-colors hover:bg-ink-50">
+                  <td className="px-6 py-4 font-medium text-ink-900">
+                    {item.title}
+                    {item.progress !== null ? (
+                      <span className="ml-2 text-xs font-normal text-ink-500">({item.progress}%)</span>
+                    ) : null}
+                  </td>
+                  <td className="px-6 py-4 text-ink-600">{TYPE_LABELS[item.type]}</td>
+                  <td className="px-6 py-4 text-ink-600">{formatOptionalDate(item.date)}</td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex flex-col items-end gap-1">
+                      {item.href ? (
+                        <Link
+                          href={item.href}
+                          className="text-sm font-semibold uppercase text-ink-900 hover:underline"
+                        >
+                          View
+                        </Link>
+                      ) : null}
+                      <FileDownloads files={item.files} recordTitle={item.title} align="right" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Section>
   );
 }
