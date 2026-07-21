@@ -46,8 +46,21 @@ below only make sense against them.
   (`draft | in-review | published | archived`) is used by 7 content tables, `archiveX()`
   actions exist, and publish actions already accept `archived` as an input state, so
   restore-by-republish works today.
-- **Uploads are eager.** Every uploader writes to Storage the instant a file is picked
-  and returns a path the form persists on Save. Cancelling the drawer orphans the object.
+- **Uploads are eager in three of five uploaders, not all five.** `SingleImageUploader`,
+  `NewsPhotoUploader`, and `AchievementPhotoUploader` write to Storage the instant a file
+  is picked, so cancelling the drawer orphans the object. `PdfUploader` and
+  `MultiFileUploader` already defer to Save (2026-07-20 / 2026-07-21 plans) and are the
+  model the other three should follow — see §3.3.
+- **`src/middleware.ts` exists** and guards the whole `/admin` tree: it redirects
+  unauthenticated GETs to `/admin/login` and refreshes the Supabase session cookie. Its
+  matcher deliberately excludes Server Action POSTs via the `Next-Action` header, because
+  Next's `proxyClientMaxBodySize` was silently truncating large upload bodies. This is a
+  second auth layer above `src/lib/auth.ts` and must be accounted for when reasoning
+  about admin access — it was missed in the first pass of this analysis.
+- **`next.config.ts` already sets `experimental.serverActions.bodySizeLimit: "12mb"`**,
+  globally, so the 10 MB PDF check is reachable. This raises the accepted body size for
+  every Server Action including the public unauthenticated ones — a known follow-up for
+  the hardening pass, recorded in `BACKEND_HANDOFF.md`.
 - **Only two real searches exist:** `searchLegislative()` (PostgREST `ilike` with a
   documented escaping layer) and `searchUploads()` (in-memory substring). Everything else
   is `.toLowerCase().includes()` in a client manager. The `AdminTopBar` search input is a
@@ -94,23 +107,47 @@ destructive act while still allowing a genuine purge.
 Consequence: every manager needs an Archived view in which a SuperAdmin, and only a
 SuperAdmin, sees the Delete action.
 
-### 3.3 Uploads commit through a staging prefix
+### 3.3 Uploads defer to Save, following the pattern already in this repo
 
-Files upload immediately, as today, but into a quarantine prefix `_staging/<token>/` that
-no database row references. On Save the server **moves** the object to its real home and
-persists the path. On cancel, close, refresh, or navigate-away the object stays in
-quarantine, referenced by nothing, and a sweeper deletes it after 24 hours.
+> **Revised 2026-07-22, after reading `docs/BACKEND_HANDOFF.md`.** The original decision
+> here was a `_staging/<token>/` quarantine prefix plus a sweeper. That was chosen against
+> two premises that a documentation read proved false, and it is withdrawn. The reasoning
+> is kept below rather than deleted, because the reversal is the useful record.
 
-This preserves the current UX — instant preview, upload progress, retry of a single
-failed file — while satisfying the requirement's substance: no database changes, no
-changes to the real folders, and existing files untouched.
+**What the repo already does.** The 2026-07-20 transparency plan hit exactly this problem
+and solved it: *"Uploads are deferred to Save. `PdfUploader` is a pure file picker making
+no network calls; the save Server Actions upload server-side and compensating-delete the
+storage object if the row write fails, so 'a storage object exists only if a row
+references it' holds by construction. This replaced an earlier design that uploaded on
+file-select and orphaned an object every time a drawer was cancelled."* The 2026-07-21
+plan extended the same pattern from one file to a file *set*. Both are live and verified.
 
-It is an honest partial: **the bytes do briefly reach the bucket**, in quarantine. The
-alternative — holding files in the browser and sending them with the form on Save — is
-literally transactional but requires raising Next's Server Action body limit from 1 MB to
-~32 MB on a public endpoint (an abuse surface), loses per-file progress, and re-uploads
-everything when a save fails. On barangay-office connectivity that is a long silent wait
-with a real timeout risk. The owner accepted the staging tradeoff.
+So the codebase has already tried the eager approach, found the exact bug this
+sub-project exists to fix, and replaced it with defer-to-Save.
+
+**Why the staging prefix was wrong.** It rested on two false premises:
+
+1. *"Deferring to Save needs the Server Action body limit raised to ~32 MB, which is an
+   abuse surface."* — `next.config.ts` **already sets
+   `experimental.serverActions.bodySizeLimit: "12mb"`**, and has since the 2026-07-20
+   plan, precisely so the 10 MB PDF check is reachable. The remaining eager uploaders
+   carry 2 MB images, at most 3 at a time — 6 MB, comfortably inside the existing limit.
+   No config change is needed at all.
+2. *"No transactional pattern exists, so one must be invented."* — one exists, is
+   documented, and is the established convention for exactly this problem.
+
+Introducing a second, different mechanism alongside it would have left the codebase with
+two upload models and a sweeper job that has no other reason to exist.
+
+**The decision.** The three remaining eager uploaders — `SingleImageUploader`
+(`media.ts`), `NewsPhotoUploader` (`news-photos.ts`), and `AchievementPhotoUploader`
+(`achievement-photos.ts`) — convert to the existing defer-to-Save + compensating-delete
+pattern. No staging prefix, no sweeper, no new config.
+
+The news and achievement photo cases carry a real wrinkle the transparency ones did not:
+their photos are child-table rows keyed by a parent id, uploaded one file at a time
+against an already-saved parent. Converting them means holding a pending list in form
+state and flushing it on Save. Sub-project 7's spec owns that detail.
 
 Overwrite safety is already guaranteed and must stay so: all paths are UUID-based and
 every upload uses `upsert: false`.
@@ -203,7 +240,13 @@ the category stops being offered for new ones.
 - Glance stats are freely editable with no provenance field, despite currently holding
   figures verified against the Ecological Profile PDF. The owner accepted that they may
   drift from the source document.
-- `@dnd-kit` is added for carousel and history reordering.
+- `@dnd-kit` is added for carousel and history reordering. Note that avoiding a
+  drag-and-drop dependency was a **deliberate** earlier choice, recorded in
+  `BACKEND_HANDOFF.md` §6.7: photo reordering uses accessible up/down buttons, *"not an
+  oversight; revisit only if editors ask for it."* The owner has now asked for it, so the
+  dependency is warranted — but only where it was asked for. Existing up/down reordering
+  (news photos, achievements, officials, projects) stays as it is; this is not a licence
+  to convert every list in the portal.
 - The RSC icon boundary applies: `GLANCE_STATS`, `MILESTONES`, `CORE_VALUES`, and
   `INVOLVEMENT_ITEMS` carry `icon: LucideIcon`, which is neither serializable across the
   client boundary nor storable in Postgres. The CMS must use the existing
@@ -255,6 +298,16 @@ Rationale for the ordering:
 - **No test framework.** Verification is `npm run typecheck`, `npm run lint`, and driving
   the running app per `.claude/skills/verify/SKILL.md`. Every sub-project must state its
   own runtime verification steps, and no sub-project may claim completion without them.
+
+  **Unresolved tension, for the owner to settle.** `CLAUDE.md` says *"There is no test
+  framework. Do not add one casually."* But the master spec §11 says Playwright
+  integration tests are to be added *"when the backend lands (the no-test rule expires)"*,
+  in priority order — the four ticket flows and `/track` first — and `BACKEND_HANDOFF.md`
+  §6.5 repeats it. The backend has substantially landed. Nothing in this programme adds
+  tests, and every sub-project is verified by hand instead; that is a deliberate reading
+  of `CLAUDE.md` as the more current instruction, not an oversight. It is worth an
+  explicit decision before sub-project 7, which is the riskiest change and the one that
+  would benefit most from a regression net.
 - **Migrations are applied manually by the owner** against live Supabase. No sub-project
   may assume a migration is applied without explicit confirmation.
 - **Sub-project 3 rewrites ~75 existing call sites.** Mechanical but wide.
