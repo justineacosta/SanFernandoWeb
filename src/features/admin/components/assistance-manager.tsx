@@ -14,6 +14,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
   createWalkInAssistance,
   decideAssistance,
@@ -61,14 +62,20 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
   const underReviewCount = requests.filter((record) => record.status === "under-review").length;
 
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return requests.filter(
+    const narrowed = requests.filter(
       (record) =>
-        (query === "" ||
-          `${record.firstName} ${record.lastName}`.toLowerCase().includes(query) ||
-          record.ticketNo.toLowerCase().includes(query)) &&
         (categoryId === "all" || record.categoryId === categoryId) &&
         (status === "all" || record.status === status),
+    );
+    return fuzzyFilter(narrowed, search, (record) =>
+      haystack(
+        record.firstName,
+        record.lastName,
+        record.ticketNo,
+        record.contactNumber,
+        record.email,
+        record.categoryLabel,
+      ),
     );
   }, [requests, search, categoryId, status]);
 
@@ -172,6 +179,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
           action={
             <AdminFilterBar
               search={{
+                id: "assistance-search",
                 value: search,
                 placeholder: "Search name or ticket no…",
                 onChange: (value) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Plus, Archive, Trash2, Pencil } from "lucide-react";
 import type { Permission, SessionUser, StaffStatusLabel, TeamUser } from "@/types";
 import { PERMISSION_GROUPS, PERMISSION_LABELS, STATUS_PRESETS } from "@/constants/permissions";
@@ -9,6 +9,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrength } from "@/components/ui/password-strength";
 import { Toast } from "@/components/ui/toast";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
   archiveTeamUser,
   createTeamUser,
@@ -16,6 +17,7 @@ import {
   setTeamUserActive,
   updateTeamUser,
 } from "@/features/admin/actions/users";
+import { AdminFilterBar } from "./admin-filter-bar";
 
 interface TeamManagerProps {
   team: TeamUser[];
@@ -32,6 +34,7 @@ const inputClass =
 
 /** Team management: list, create/edit drawer with permission checkboxes, row actions. */
 export function TeamManager({ team, currentUser }: TeamManagerProps) {
+  const [search, setSearch] = useState("");
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -120,6 +123,18 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
     });
   }
 
+  const visible = useMemo(
+    () =>
+      fuzzyFilter(team, search, (member) =>
+        haystack(
+          member.fullName,
+          member.email,
+          member.isSuperAdmin ? "SuperAdmin" : member.statusLabel,
+        ),
+      ),
+    [team, search],
+  );
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -130,8 +145,23 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
         </Button>
       </div>
 
+      <AdminFilterBar
+        className="mb-4"
+        search={{
+          id: "team-user-search",
+          value: search,
+          placeholder: "Search users...",
+          onChange: setSearch,
+        }}
+      />
+
+      {visible.length === 0 ? (
+        <p className="rounded-2xl border border-ink-200/70 p-8 text-center text-sm text-ink-500">
+          {search.trim() ? "No users match your search." : "No users yet."}
+        </p>
+      ) : (
       <ul className="divide-y divide-ink-200/70 rounded-2xl border border-ink-200/70">
-        {team.map((member) => (
+        {visible.map((member) => (
           <li key={member.id} className="flex items-center justify-between gap-4 p-4">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-ink-900">
@@ -193,6 +223,7 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
           </li>
         ))}
       </ul>
+      )}
 
       <Drawer
         open={drawer !== null}

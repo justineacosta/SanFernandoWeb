@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
   getOfficialForEditAction,
   reorderOfficials,
@@ -46,6 +47,7 @@ interface OfficialsManagerProps {
 /** Officials directory: stat cards, filters, ordered table, drawer editor. */
 export function OfficialsManager({ officials }: OfficialsManagerProps) {
   const router = useRouter();
+  const [search, setSearch] = useState("");
   const [group, setGroup] = useState("all");
   const [status, setStatus] = useState("all");
   const [editing, setEditing] = useState<OfficialEditRecord | null>(null);
@@ -58,17 +60,16 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
   const drafts = officials.filter((r) => r.status === "draft" || r.status === "in-review").length;
   const archived = officials.filter((r) => r.status === "archived").length;
 
-  const filtersActive = group !== "all" || status !== "all";
+  const filtersActive = search.trim() !== "" || group !== "all" || status !== "all";
 
-  const filtered = useMemo(
-    () =>
-      officials.filter(
-        (record) =>
-          (group === "all" || record.group === group) &&
-          (status === "all" || record.status === status),
-      ),
-    [officials, group, status],
-  );
+  const filtered = useMemo(() => {
+    const narrowed = officials.filter(
+      (record) =>
+        (group === "all" || record.group === group) &&
+        (status === "all" || record.status === status),
+    );
+    return fuzzyFilter(narrowed, search, (record) => haystack(record.name, record.role));
+  }, [officials, search, group, status]);
 
   const openCreate = () => {
     setEditing(null);
@@ -144,6 +145,12 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
           className="mb-0 flex-wrap gap-3 px-6 pt-6"
           action={
             <AdminFilterBar
+              search={{
+                id: "official-search",
+                value: search,
+                placeholder: "Search name or position...",
+                onChange: setSearch,
+              }}
               selects={[
                 {
                   id: "official-group-filter",

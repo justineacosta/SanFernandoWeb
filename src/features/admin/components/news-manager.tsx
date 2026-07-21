@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { cn } from "@/lib/utils";
 import { getAnnouncementForEditAction } from "@/features/admin/actions/announcements";
 import { getNewsArticleForEditAction } from "@/features/admin/actions/news";
@@ -64,20 +65,17 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
   };
 
   const filteredNews = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return articles.filter(
+    const narrowed = articles.filter(
       (a) =>
         (categoryId === "all" || a.categoryId === categoryId) &&
-        (status === "all" || a.status === status) &&
-        (q === "" || a.title.toLowerCase().includes(q)),
+        (status === "all" || a.status === status),
     );
+    return fuzzyFilter(narrowed, search, (a) => haystack(a.title, a.category));
   }, [articles, search, categoryId, status]);
 
   const filteredAnnouncements = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return announcements.filter(
-      (a) => (status === "all" || a.status === status) && (q === "" || a.title.toLowerCase().includes(q)),
-    );
+    const narrowed = announcements.filter((a) => status === "all" || a.status === status);
+    return fuzzyFilter(narrowed, search, (a) => a.title);
   }, [announcements, search, status]);
 
   const newsPageItems = filteredNews.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -184,6 +182,7 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
       <Card className="mb-6 p-5">
         <AdminFilterBar
           search={{
+            id: "news-search",
             value: search,
             placeholder: tab === "news" ? "Search posts..." : "Search announcements...",
             onChange: (value) => {

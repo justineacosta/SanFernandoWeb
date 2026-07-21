@@ -16,6 +16,7 @@ import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
 import { useTableSort } from "@/components/ui/use-table-sort";
 import { formatOptionalDate } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { cn } from "@/lib/utils";
 import { getTransparencyDocumentForEditAction } from "@/features/admin/actions/transparency-documents";
 import { AdminEmptyState } from "./admin-empty-state";
@@ -57,6 +58,7 @@ export function TransparencyManager({
   const [tab, setTab] = useState<Tab>("legislative");
 
   // Public-documents tab: owned here since there is no separate manager component.
+  const [docSearch, setDocSearch] = useState("");
   const [docCategoryId, setDocCategoryId] = useState("all");
   const [docStatus, setDocStatus] = useState("all");
   const [docPage, setDocPage] = useState(1);
@@ -68,20 +70,22 @@ export function TransparencyManager({
 
   const switchTab = (next: Tab) => {
     setTab(next);
+    setDocSearch("");
     setDocCategoryId("all");
     setDocStatus("all");
     setDocPage(1);
   };
 
-  const filteredDocuments = useMemo(
-    () =>
-      documents.filter(
-        (record) =>
-          (docCategoryId === "all" || record.categoryId === docCategoryId) &&
-          (docStatus === "all" || record.status === docStatus),
-      ),
-    [documents, docCategoryId, docStatus],
-  );
+  const filteredDocuments = useMemo(() => {
+    const narrowed = documents.filter(
+      (record) =>
+        (docCategoryId === "all" || record.categoryId === docCategoryId) &&
+        (docStatus === "all" || record.status === docStatus),
+    );
+    return fuzzyFilter(narrowed, docSearch, (record) =>
+      haystack(record.title, record.categoryLabel),
+    );
+  }, [documents, docSearch, docCategoryId, docStatus]);
 
   const {
     sorted: sortedDocuments,
@@ -138,6 +142,7 @@ export function TransparencyManager({
   };
 
   const clearDocFilters = () => {
+    setDocSearch("");
     setDocCategoryId("all");
     setDocStatus("all");
     setDocPage(1);
@@ -211,6 +216,15 @@ export function TransparencyManager({
               className="mb-0 flex-wrap gap-3 px-6 pt-6"
               action={
                 <AdminFilterBar
+                  search={{
+                    id: "transparency-doc-search",
+                    value: docSearch,
+                    placeholder: "Search documents...",
+                    onChange: (value) => {
+                      setDocSearch(value);
+                      setDocPage(1);
+                    },
+                  }}
                   selects={[
                     {
                       id: "transparency-doc-category-filter",

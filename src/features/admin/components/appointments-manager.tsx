@@ -8,6 +8,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
   completeAppointment,
   createWalkInAppointment,
@@ -48,13 +49,18 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
   const confirmedCount = appointments.filter((record) => record.status === "confirmed").length;
 
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return appointments.filter(
-      (record) =>
-        (query === "" ||
-          `${record.firstName} ${record.lastName}`.toLowerCase().includes(query) ||
-          record.ticketNo.toLowerCase().includes(query)) &&
-        (status === "all" || record.status === status),
+    const narrowed = appointments.filter(
+      (record) => status === "all" || record.status === status,
+    );
+    return fuzzyFilter(narrowed, search, (record) =>
+      haystack(
+        record.firstName,
+        record.lastName,
+        record.ticketNo,
+        record.contactNumber,
+        record.email,
+        record.purpose,
+      ),
     );
   }, [appointments, search, status]);
 
@@ -153,6 +159,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
           action={
             <AdminFilterBar
               search={{
+                id: "appointment-search",
                 value: search,
                 placeholder: "Search name or ticket no…",
                 onChange: (value) => {

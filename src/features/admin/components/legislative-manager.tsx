@@ -12,6 +12,7 @@ import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
 import { useTableSort } from "@/components/ui/use-table-sort";
 import { formatDateApproved } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { getLegislativeForEditAction } from "@/features/admin/actions/legislative";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
@@ -37,6 +38,7 @@ interface LegislativeManagerProps {
 /** Ordinance & resolution directory: stat cards, filterable table, drawer editor backed by real actions. */
 export function LegislativeManager({ documents }: LegislativeManagerProps) {
   const router = useRouter();
+  const [search, setSearch] = useState("");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -52,15 +54,14 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
     (r) => r.status === "draft" || r.status === "in-review",
   ).length;
 
-  const filtered = useMemo(
-    () =>
-      documents.filter(
-        (record) =>
-          (type === "all" || record.docType === type) &&
-          (status === "all" || record.status === status),
-      ),
-    [documents, type, status],
-  );
+  const filtered = useMemo(() => {
+    const narrowed = documents.filter(
+      (record) =>
+        (type === "all" || record.docType === type) &&
+        (status === "all" || record.status === status),
+    );
+    return fuzzyFilter(narrowed, search, (record) => haystack(record.number, record.title));
+  }, [documents, search, type, status]);
 
   const { sorted, sortKey, sortDir, toggle } = useTableSort(
     filtered,
@@ -138,6 +139,15 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
           className="mb-0 flex-wrap gap-3 px-6 pt-6"
           action={
             <AdminFilterBar
+              search={{
+                id: "legislative-search",
+                value: search,
+                placeholder: "Search number or title...",
+                onChange: (value) => {
+                  setSearch(value);
+                  setPage(1);
+                },
+              }}
               selects={[
                 {
                   id: "legislative-type-filter",

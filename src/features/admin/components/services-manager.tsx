@@ -9,6 +9,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { IconCircle } from "@/components/ui/icon-circle";
 import { Toast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { resolveIcon } from "@/lib/icon-map";
 import { setServiceAvailable } from "@/features/admin/actions/services";
 import { AdminEmptyState } from "./admin-empty-state";
@@ -35,13 +36,11 @@ export function ServicesManager({ services }: ServicesManagerProps) {
   const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return services.filter(
-      (record) =>
-        (status === "all" || record.status === status) &&
-        (q === "" ||
-          record.title.toLowerCase().includes(q) ||
-          record.department.toLowerCase().includes(q)),
+    const narrowed = services.filter(
+      (record) => status === "all" || record.status === status,
+    );
+    return fuzzyFilter(narrowed, search, (record) =>
+      haystack(record.title, record.department),
     );
   }, [services, search, status]);
 
@@ -88,6 +87,7 @@ export function ServicesManager({ services }: ServicesManagerProps) {
         <AdminFilterBar
           className="border-b border-ink-200/70 p-5"
           search={{
+            id: "service-search",
             value: search,
             placeholder: "Search services...",
             onChange: (value) => {

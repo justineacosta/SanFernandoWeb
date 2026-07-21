@@ -54,13 +54,29 @@ function sortHrefFor(p: Params, column: AuditSortKey): string {
 }
 
 /**
+ * Display names for stored `entity_type` slugs. Every other type is already a
+ * plain phrase ("news article", "legislative document") that Title Cases
+ * cleanly; only the user rows carry a slug. Mapped at render rather than
+ * corrected at the source because the table is immutable — historical rows keep
+ * whatever string was written, so the fix has to live here to reach them.
+ */
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  "team-user": "User",
+  session: "Session",
+  account: "Account",
+  profile: "Profile",
+};
+
+/**
  * Renders the target as "Official: Maria Santos", falling back through the
  * label captured at write time, then the id (which is a readable ticket number
  * for the four ticket flows), then the bare type.
  */
 function targetOf(entry: AuditEntry): string {
   const name = entry.entityLabel?.trim() || entry.entityId?.trim();
-  const type = entry.entityType.charAt(0).toUpperCase() + entry.entityType.slice(1);
+  const raw = entry.entityType;
+  const type =
+    ENTITY_TYPE_LABELS[raw] ?? raw.charAt(0).toUpperCase() + raw.slice(1);
   return name ? `${type}: ${name}` : type;
 }
 

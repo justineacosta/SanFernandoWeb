@@ -8,6 +8,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
   createWalkInApplication,
   releaseApplication,
@@ -50,14 +51,21 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
   const approvedCount = applications.filter((record) => record.status === "approved").length;
 
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return applications.filter(
+    const narrowed = applications.filter(
       (record) =>
-        (query === "" ||
-          `${record.firstName} ${record.lastName}`.toLowerCase().includes(query) ||
-          record.ticketNo.toLowerCase().includes(query)) &&
         (serviceId === "all" || record.serviceId === serviceId) &&
         (status === "all" || record.status === status),
+    );
+    return fuzzyFilter(narrowed, search, (record) =>
+      haystack(
+        record.firstName,
+        record.lastName,
+        record.ticketNo,
+        record.contactNumber,
+        record.email,
+        record.serviceTitle,
+        record.purpose,
+      ),
     );
   }, [applications, search, serviceId, status]);
 
@@ -157,6 +165,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
           action={
             <AdminFilterBar
               search={{
+                id: "application-search",
                 value: search,
                 placeholder: "Search name or ticket no…",
                 onChange: (value) => {

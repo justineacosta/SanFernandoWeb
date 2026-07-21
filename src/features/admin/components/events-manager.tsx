@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
 import { toCalendarParts } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { EVENT_CATEGORY_LABELS } from "@/features/admin/data";
 import { getEventForEditAction } from "@/features/admin/actions/events";
 import { AdminEmptyState } from "./admin-empty-state";
@@ -50,12 +51,13 @@ export function EventsManager({ events }: EventsManagerProps) {
   const resetPage = () => setPage(1);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return events.filter(
+    const narrowed = events.filter(
       (record) =>
         (category === "all" || record.category === category) &&
-        (status === "all" || record.status === status) &&
-        (q === "" || record.title.toLowerCase().includes(q)),
+        (status === "all" || record.status === status),
+    );
+    return fuzzyFilter(narrowed, search, (record) =>
+      haystack(record.title, record.venue),
     );
   }, [events, search, category, status]);
 
@@ -109,6 +111,7 @@ export function EventsManager({ events }: EventsManagerProps) {
           <Card className="mb-4 p-5">
             <AdminFilterBar
               search={{
+                id: "event-search",
                 value: search,
                 placeholder: "Search events...",
                 onChange: (value) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Archive, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import type { AdminTransparencyProjectRow } from "@/types";
@@ -9,12 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
 import { formatOptionalDate } from "@/lib/format";
+import { fuzzyFilter } from "@/lib/fuzzy";
 import {
   deleteTransparencyProject,
   getTransparencyProjectForEditAction,
   moveTransparencyProject,
   setTransparencyProjectStatus,
 } from "@/features/admin/actions/transparency-projects";
+import { AdminFilterBar } from "./admin-filter-bar";
 import { StatusChip } from "./status-chip";
 import { TransparencyProjectForm, type TransparencyProjectEditRecord } from "./transparency-project-form";
 
@@ -25,12 +27,19 @@ interface TransparencyProjectsPanelProps {
 /** Monitored-projects editor: name, progress, date, and files edited in a drawer; reorder/status/delete inline. */
 export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPanelProps) {
   const router = useRouter();
+  const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<TransparencyProjectEditRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const searching = search.trim() !== "";
+  const visible = useMemo(
+    () => fuzzyFilter(projects, search, (project) => project.name),
+    [projects, search],
+  );
 
   function openCreate() {
     setError(null);
@@ -124,13 +133,22 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
             New Project
           </Button>
         </div>
+        <AdminFilterBar
+          className="mb-4"
+          search={{
+            id: "transparency-project-search",
+            value: search,
+            placeholder: "Search projects...",
+            onChange: setSearch,
+          }}
+        />
         {error ? (
           <p role="alert" className="mb-4 text-sm font-medium text-danger">
             {error}
           </p>
         ) : null}
         <ul className="divide-y divide-ink-200/70 rounded-2xl border border-ink-200/70">
-          {projects.map((project, index) => (
+          {visible.map((project, index) => (
             <li key={project.id} className="flex items-center justify-between gap-4 p-4">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink-900">{project.name}</p>
@@ -158,24 +176,31 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
                     Publish
                   </Button>
                 )}
-                <button
-                  type="button"
-                  aria-label={`Move ${project.name} up`}
-                  disabled={isPending || index === 0}
-                  onClick={() => move(project.id, "up")}
-                  className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
-                >
-                  <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Move ${project.name} down`}
-                  disabled={isPending || index === projects.length - 1}
-                  onClick={() => move(project.id, "down")}
-                  className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
-                >
-                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                </button>
+                {/* Reorder is hidden while searching: "up" means "swap with the
+                    row above", and with rows filtered out the row above on
+                    screen is not the neighbour the action would move. */}
+                {searching ? null : (
+                  <>
+                    <button
+                      type="button"
+                      aria-label={`Move ${project.name} up`}
+                      disabled={isPending || index === 0}
+                      onClick={() => move(project.id, "up")}
+                      className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
+                    >
+                      <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Move ${project.name} down`}
+                      disabled={isPending || index === visible.length - 1}
+                      onClick={() => move(project.id, "down")}
+                      className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
+                    >
+                      <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   aria-label={`Edit ${project.name}`}
