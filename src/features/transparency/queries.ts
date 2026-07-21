@@ -237,22 +237,6 @@ export async function listPublishedDocumentsByCategory(
   return rows.map((r) => toDocumentItem(r, files.get(r.id) ?? []));
 }
 
-export async function listLatestPublishedDocuments(
-  limit = 4,
-): Promise<TransparencyDocumentItem[]> {
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("transparency_documents")
-    .select(DOCUMENT_COLUMNS)
-    .eq("status", "published")
-    .order("date_released", { ascending: false, nullsFirst: true })
-    .limit(limit);
-  if (error || !data) return [];
-  const rows = data as unknown as DocumentRow[];
-  const files = await filesByOwner(admin, "document", rows.map((r) => r.id));
-  return rows.map((r) => toDocumentItem(r, files.get(r.id) ?? []));
-}
-
 interface ProjectRow {
   id: string;
   name: string;

@@ -352,6 +352,57 @@
 > `AssistanceStatus`, and the newly-added `ContentStatus` respectively, so `AdminStatus`
 > now unions in `ContentStatus` directly.
 
+> **Updated 2026-07-21 (transparency enhancements):** documents and projects moved from
+> one file to **up to 3 files each** (PDF or image, 10 MB each — `MAX_DOC_FILE_BYTES` /
+> `MAX_FILES_PER_RECORD` in `src/lib/storage.ts`), dates on both became optional, and a
+> new unified browse route landed (plan: `docs/superpowers/plans/2026-07-21-transparency-enhancements.md`;
+> spec: `docs/superpowers/specs/2026-07-21-transparency-enhancements-design.md`). New
+> migration **`0011_transparency_enhancements.sql`** (applied by the repo owner,
+> 2026-07-21):
+> 1. **`transparency_files`** — a polymorphic child table (`owner_type`:
+>    `'document' | 'project'`, `owner_id`, `path`, `mime`, `size_bytes`, `sort_order`),
+>    replacing the single `file_path`/`file_size_bytes` columns dropped from
+>    `transparency_documents`. There is **no DB foreign key** on `owner_id` — it points at
+>    two different parent tables — so referential integrity (no orphaned rows, no rows past
+>    the ≤3 cap) is enforced entirely in application code: the save actions cap at 3 files
+>    and the delete actions remove a record's file rows *and* storage objects
+>    before/with the parent row. RLS is enabled with no policies, same pattern as every
+>    other content table. `transparency_projects` files use the same child table with
+>    `owner_type = 'project'`.
+> 2. **Optional dates.** `transparency_documents.date_released` dropped its `NOT NULL`
+>    (existing `(status, date_released desc)` indexes already order NULLS FIRST, so no
+>    index change was needed), and `transparency_projects` gained a new nullable `date`
+>    column. Both render **"Undated"** in place of a missing date on every public and
+>    admin surface, mirroring the "Pending Approval" treatment `date_approved` got in
+>    Plan 4.
+> 3. **Multi-file save stays orphan-free.** Extending the Plan-4 "upload on Save, not on
+>    file-select" pattern from a single file to a file *set*: the picker makes no network
+>    calls, the save Server Action uploads all new files and compensating-deletes the
+>    whole set from storage if the row/file-row write fails, so "a storage object exists
+>    only if a `transparency_files` row references it" still holds by construction.
+> 4. **`/transparency/uploads`** — a new public route unifying legislative documents,
+>    transparency documents, and project files into one browsable, paginated list.
+>    `listUploadsPage()` (`src/features/transparency/queries.ts`) fetches all three
+>    published sources and unions/sorts/paginates them **in memory** rather than in a
+>    single SQL query (they come from three different tables with different shapes).
+>    Fine at current seed-data volume; revisit with a DB-side union/materialized view if
+>    the combined row count grows large enough to make in-memory sorting expensive. This
+>    route replaced the dead `listLatestPublishedDocuments()` query (removed this plan —
+>    superseded by `listLatestUploads()` for the `/transparency` preview section).
+> 5. **Sortable tables.** Column-header sorting landed client-side on the public
+>    legislative archive table and the admin content tables (`SortableTh` in
+>    `src/components/ui/`), and server-side (via query params) on the new
+>    `/transparency/uploads` browse. Projects deliberately keep **manual drag-free
+>    up/down `sort_order`** reordering instead of column sorting — progress tracking reads
+>    better in a curated order than an alphabetically- or date-sorted one.
+> Dead code removed this plan: the orphaned `src/components/shared/document-link.tsx`
+> (unused since an earlier rewrite) and `listLatestPublishedDocuments()` in
+> `src/features/transparency/queries.ts` (superseded by `listLatestUploads()`, see (4)
+> above). The legislative archive page also picked up a UI-only clamp
+> (`safePage = Math.min(Math.max(1, page), lastPage)` in `LegislativeArchive`) so a
+> `?page=9999` URL shows "Page N of N" instead of "Page 9999 of N" — the query already
+> clamped internally; this was a display-only follow-up flagged in the Plan 4 review.
+
 ---
 
 ## 1. Current State
@@ -435,7 +486,7 @@ src/
 │   ├── navigation/ # DesktopNav, MobileNav, NavLink (active-route aware)
 │   ├── sections/   # PageHero, CtaBanner (cross-page shells)
 │   └── shared/     # AnnouncementCard, EventCard, OfficialCard, StatCard,
-│                   # EmergencyHotlinesCard, DocumentLink, DividerHeading
+│                   # EmergencyHotlinesCard, DividerHeading
 ├── features/       # home | about | officials | services | announcements | events |
 │                   # transparency | contact — each: components/ + index.ts, plus
 │                   # data.ts (static mock content) or queries.ts (DB-backed reads,
