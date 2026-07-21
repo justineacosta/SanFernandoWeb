@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Section } from "@/components/ui/section";
 import { toTelHref } from "@/lib/format";
 import { getPublishedOfficialBySlug } from "@/features/officials/queries";
+import { AchievementsTimeline } from "@/features/officials";
 
 export async function generateMetadata({
   params,
@@ -103,6 +104,8 @@ export default async function OfficialProfilePage({
           <p className="mt-3 whitespace-pre-line leading-relaxed text-ink-600">{official.bio}</p>
         </div>
       ) : null}
+
+      <AchievementsTimeline achievements={official.achievements} />
     </Section>
   );
 }
