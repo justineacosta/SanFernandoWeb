@@ -7,7 +7,8 @@ import { requirePermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTransparencyDocumentForEdit } from "@/features/admin/queries/transparency";
-import { removeStoredDocument, uploadDocumentPdf } from "./documents";
+import { MAX_FILES_PER_RECORD } from "@/lib/storage";
+import { removeStoredDocument, uploadTransparencyFile } from "./documents";
 
 export interface ActionResult {
   error: string | null;
@@ -20,10 +21,13 @@ export interface SaveResult {
 const schema = z.object({
   title: z.string().trim().min(3, "Enter a title."),
   categoryId: z.string().trim().min(1, "Pick a category."),
-  dateReleased: z.string().trim().min(1, "Pick the date released."),
-  filePath: z.string().nullable(),
-  fileSizeBytes: z.number().nullable(),
+  dateReleased: z.string().trim().nullable(),
 });
+
+/** "" (empty date input) → SQL NULL; a real date passes through. */
+function normalizeDate(value: string | null): string | null {
+  return value && value.length > 0 ? value : null;
+}
 
 // Server Actions are public HTTP endpoints — `ContentStatus` only constrains
 // callers that go through TypeScript. A direct POST can send any string, so
@@ -37,6 +41,7 @@ const statusSchema = z.enum(["draft", "in-review", "published", "archived"]);
 function revalidate() {
   revalidatePath("/admin/transparency");
   revalidatePath("/transparency");
+  revalidatePath("/transparency/uploads");
 }
 
 /**
@@ -52,150 +57,88 @@ export async function getTransparencyDocumentForEditAction(id: string) {
 export async function saveTransparencyDocument(
   id: string | null,
   values: TransparencyDocumentValues,
-  fileForm: FormData,
+  formData: FormData,
 ): Promise<SaveResult> {
   const actor = await requirePermission("manage-transparency");
   const parsed = schema.safeParse(values);
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
-  }
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
 
   const admin = createSupabaseAdminClient();
-
-  // Category must exist — never trust categoryId from the client.
   const { data: cat, error: catErr } = await admin
-    .from("transparency_categories")
-    .select("id")
-    .eq("id", parsed.data.categoryId)
-    .maybeSingle();
+    .from("transparency_categories").select("id").eq("id", parsed.data.categoryId).maybeSingle();
   if (catErr) return { error: "Could not save the document. Try again.", id: null };
   if (!cat) return { error: "Pick a valid category.", id: null };
 
-  // Upload a newly chosen file (if any) up front — this is the only side
-  // effect in this action before the row write below, so every failure past
-  // this point must delete the object it just created. `fail()` does that.
-  const incomingFile = fileForm.get("file");
-  const removeFile = fileForm.get("removeFile") === "1";
-  let uploadedPath: string | null = null;
-  let uploadedSize: number | null = null;
-  if (incomingFile instanceof File && incomingFile.size > 0) {
-    const uploadFd = new FormData();
-    uploadFd.append("file", incomingFile);
-    const uploadResult = await uploadDocumentPdf("documents", uploadFd);
-    if (uploadResult.error) return { error: uploadResult.error, id: null };
-    uploadedPath = uploadResult.path;
-    uploadedSize = uploadResult.sizeBytes;
+  const newFiles = formData.getAll("newFile").filter((f): f is File => f instanceof File && f.size > 0);
+  const keptIds = formData.getAll("keptFileId").map(String);
+
+  // Upload every new file first; track them so any later failure deletes them.
+  const uploaded: { path: string; mime: string; sizeBytes: number }[] = [];
+  async function cleanupUploads() {
+    for (const u of uploaded) {
+      const removed = await removeStoredDocument(u.path);
+      if (removed.error) console.error(`Orphaned storage object (compensating delete failed): ${u.path}`);
+    }
+  }
+  for (const file of newFiles) {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await uploadTransparencyFile("documents", fd);
+    if (res.error || res.path === null || res.mime === null || res.sizeBytes === null) {
+      await cleanupUploads();
+      return { error: res.error ?? "Upload failed. Try again.", id: null };
+    }
+    uploaded.push({ path: res.path, mime: res.mime, sizeBytes: res.sizeBytes });
   }
 
-  async function fail(error: string): Promise<SaveResult> {
-    if (uploadedPath) {
-      const removed = await removeStoredDocument(uploadedPath);
-      // The compensating delete failing is a second, independent failure —
-      // the caller must still see `error` (the original save failure), not
-      // this one. But silently swallowing it means the orphan it leaves
-      // behind is invisible to everyone. Log the path so a human can find
-      // and clean it up; this is a storage-cleanup fault, not a user
-      // action, so it doesn't belong in the user-facing audit_log.
-      if (removed.error) {
-        console.error(`Orphaned storage object (compensating delete failed): ${uploadedPath}`);
-      }
-    }
-    return { error, id: null };
+  // Enforce the ≤3 cap BEFORE any parent write, so an over-limit direct API
+  // call can't leave an empty draft row behind. keptIds is client-supplied.
+  if (keptIds.length + uploaded.length > MAX_FILES_PER_RECORD) {
+    await cleanupUploads();
+    return { error: `Up to ${MAX_FILES_PER_RECORD} files.`, id: null };
   }
 
-  if (id) {
-    const { data: existing, error: readErr } = await admin
-      .from("transparency_documents")
-      .select("file_path, file_size_bytes")
-      .eq("id", id)
-      .maybeSingle();
-    if (readErr) return fail("Could not save the document.");
-    if (!existing) return fail("Document not found.");
+  const dateReleased = normalizeDate(parsed.data.dateReleased);
 
-    // The final file reference: a newly uploaded file wins, otherwise the
-    // user's removal request, otherwise whatever was already on the row.
-    // Never trust the client's belief of the current path — it hasn't
-    // uploaded anything since this drawer opened.
-    const finalPath = uploadedPath ?? (removeFile ? null : (existing.file_path as string | null));
-    const finalSize = uploadedPath
-      ? uploadedSize
-      : removeFile
-        ? null
-        : (existing.file_size_bytes as number | null);
-
-    let query = admin
-      .from("transparency_documents")
-      .update({
-        title: parsed.data.title,
-        category_id: parsed.data.categoryId,
-        date_released: parsed.data.dateReleased,
-        file_path: finalPath,
-        file_size_bytes: finalSize,
-      })
-      .eq("id", id);
-    // Optimistic lock on file_path — only when THIS save is uploading a new
-    // file. Two admins editing only text fields must keep last-write-wins,
-    // exactly as before; but if both replace the PDF, both uploads succeed
-    // and both UPDATEs would otherwise match the row, so the second write
-    // silently overwrites the first's file_path and orphans the first
-    // upload. Require the row to still show the file_path this action read.
-    // PostgREST's .eq() never matches NULL, so a currently-fileless row
-    // needs .is() instead — get this branch wrong and every attach-to-a-
-    // fileless-document save fails.
-    if (uploadedPath) {
-      const existingFilePath = existing.file_path as string | null;
-      query =
-        existingFilePath === null
-          ? query.is("file_path", null)
-          : query.eq("file_path", existingFilePath);
-      const { data: updated, error } = await query.select("id").maybeSingle();
-      if (error) return fail("Could not save the document.");
-      // Zero rows means another admin changed this document's file between
-      // this action's read and this write. Report that explicitly instead
-      // of falling through to recordActivity/revalidate, which would log
-      // and announce a save that never happened; fail() deletes the file
-      // this save just uploaded so it doesn't outlive the row.
-      if (!updated) {
-        return fail("Someone else changed this document's file. Reopen it and try again.");
-      }
-    } else {
-      const { error } = await query;
-      if (error) return fail("Could not save the document.");
-    }
-
-    // Deferred delete: only once the row no longer references the old file.
-    const oldPath = existing.file_path as string | null;
-    if (oldPath && oldPath !== finalPath) {
-      await removeStoredDocument(oldPath);
-    }
-
-    await recordActivity(actor, "updated document", "transparency document", id, parsed.data.title);
-    revalidate();
-    return { error: null, id };
+  // Resolve the parent row id (insert if new).
+  let docId = id;
+  if (docId) {
+    const { error } = await admin.from("transparency_documents")
+      .update({ title: parsed.data.title, category_id: parsed.data.categoryId, date_released: dateReleased })
+      .eq("id", docId);
+    if (error) { await cleanupUploads(); return { error: "Could not save the document.", id: null }; }
+  } else {
+    const { data, error } = await admin.from("transparency_documents")
+      .insert({ title: parsed.data.title, category_id: parsed.data.categoryId, date_released: dateReleased })
+      .select("id").single();
+    if (error || !data) { await cleanupUploads(); return { error: "Could not create the document.", id: null }; }
+    docId = data.id as string;
   }
 
-  const { data, error } = await admin
-    .from("transparency_documents")
-    .insert({
-      title: parsed.data.title,
-      category_id: parsed.data.categoryId,
-      date_released: parsed.data.dateReleased,
-      file_path: uploadedPath,
-      file_size_bytes: uploadedPath ? uploadedSize : null,
-    })
-    .select("id")
-    .single();
-  if (error || !data) return fail("Could not create the document.");
+  // Existing files: delete the ones the user dropped (rows + objects), keep the rest.
+  const { data: existingFiles } = await admin.from("transparency_files")
+    .select("id, path, sort_order").eq("owner_type", "document").eq("owner_id", docId)
+    .order("sort_order", { ascending: true });
+  const removedRows = ((existingFiles ?? []) as { id: string; path: string }[]).filter((f) => !keptIds.includes(f.id));
+  if (removedRows.length > 0) {
+    await admin.from("transparency_files").delete().in("id", removedRows.map((r) => r.id));
+    for (const r of removedRows) await removeStoredDocument(r.path); // deferred: row already gone
+  }
 
-  await recordActivity(
-    actor,
-    "created document",
-    "transparency document",
-    data.id,
-    parsed.data.title,
-  );
+  // Insert the newly uploaded files after the kept ones.
+  const keptCount = ((existingFiles ?? []) as { id: string }[]).filter((f) => keptIds.includes(f.id)).length;
+  if (uploaded.length > 0) {
+    const insert = uploaded.map((u, i) => ({
+      owner_type: "document", owner_id: docId, path: u.path, mime: u.mime,
+      size_bytes: u.sizeBytes, sort_order: keptCount + i,
+    }));
+    const { error } = await admin.from("transparency_files").insert(insert);
+    if (error) { await cleanupUploads(); return { error: "Could not save the document's files.", id: null }; }
+  }
+
+  await recordActivity(actor, id ? "updated document" : "created document", "transparency document", docId, parsed.data.title);
   revalidate();
-  return { error: null, id: data.id };
+  return { error: null, id: docId };
 }
 
 /**
@@ -254,14 +197,26 @@ export async function deleteTransparencyDocument(id: string): Promise<ActionResu
 
   const { data: existing } = await admin
     .from("transparency_documents")
-    .select("title, file_path")
+    .select("title")
     .eq("id", id)
     .maybeSingle();
+
+  // Collect the document's file objects before the parent row goes away.
+  const { data: fileRows } = await admin
+    .from("transparency_files")
+    .select("id, path")
+    .eq("owner_type", "document")
+    .eq("owner_id", id);
 
   const { error } = await admin.from("transparency_documents").delete().eq("id", id);
   if (error) return { error: "Could not delete the document." };
 
-  if (existing?.file_path) await removeStoredDocument(existing.file_path as string);
+  // Deferred delete: rows first (cascades with the parent), then the objects.
+  const files = (fileRows ?? []) as { id: string; path: string }[];
+  if (files.length > 0) {
+    await admin.from("transparency_files").delete().in("id", files.map((f) => f.id));
+    for (const f of files) await removeStoredDocument(f.path);
+  }
   await recordActivity(
     actor,
     "deleted document",

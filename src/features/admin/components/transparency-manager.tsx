@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
-import { formatDate } from "@/lib/format";
+import { formatOptionalDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getTransparencyDocumentForEditAction } from "@/features/admin/actions/transparency-documents";
 import { AdminEmptyState } from "./admin-empty-state";
@@ -104,7 +104,7 @@ export function TransparencyManager({
           id: row.id,
           values: detail.values,
           status: detail.status,
-          fileUrl: detail.fileUrl,
+          files: detail.files,
         });
         setDocDrawerOpen(true);
       } finally {
@@ -248,11 +248,15 @@ export function TransparencyManager({
                             <p className="font-semibold text-ink-900">{record.title}</p>
                           </td>
                           <td className="px-6 py-4 text-ink-600">{record.categoryLabel}</td>
-                          <td className="px-6 py-4 text-ink-600">{formatDate(record.dateReleased)}</td>
+                          <td className="px-6 py-4 text-ink-600">{formatOptionalDate(record.dateReleased)}</td>
                           <td className="px-6 py-4">
                             <StatusChip status={record.status} />
                           </td>
-                          <td className="px-6 py-4 text-ink-600">{record.hasFile ? "PDF" : "—"}</td>
+                          <td className="px-6 py-4 text-ink-600">
+                            {record.fileCount > 0
+                              ? `${record.fileCount} file${record.fileCount === 1 ? "" : "s"}`
+                              : "—"}
+                          </td>
                           <td className="px-6 py-4 text-right">
                             <button
                               type="button"

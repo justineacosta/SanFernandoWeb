@@ -9,13 +9,13 @@ import {
   saveTransparencyDocument,
   setTransparencyDocumentStatus,
 } from "@/features/admin/actions/transparency-documents";
-import { PdfUploader } from "./pdf-uploader";
+import { MultiFileUploader, type ExistingFile } from "./multi-file-uploader";
 
 export interface TransparencyDocumentEditRecord {
   id: string;
   values: TransparencyDocumentValues;
   status: ContentStatus;
-  fileUrl: string | null;
+  files: ExistingFile[];
 }
 
 interface TransparencyDocumentFormProps {
@@ -28,9 +28,7 @@ interface TransparencyDocumentFormProps {
 const EMPTY_VALUES: TransparencyDocumentValues = {
   title: "",
   categoryId: "",
-  dateReleased: "",
-  filePath: null,
-  fileSizeBytes: null,
+  dateReleased: null,
 };
 
 /** Create/edit form for a public transparency document. Mirrors legislative-form.tsx. */
@@ -47,12 +45,10 @@ export function TransparencyDocumentForm({
     const firstActive = categories.find((c) => c.isActive);
     return { ...EMPTY_VALUES, categoryId: firstActive?.id ?? "" };
   });
-  const [previewUrl] = useState<string | null>(record?.fileUrl ?? null);
-  // Pending PDF picked in this drawer session — not uploaded until Save. See
-  // pdf-uploader.tsx and saveTransparencyDocument for why: nothing touches
-  // storage until the row write actually happens.
-  const [file, setFile] = useState<File | null>(null);
-  const [removeFile, setRemoveFile] = useState(false);
+  // Pending files picked in this drawer session — nothing touches storage
+  // until Save (see multi-file-uploader.tsx and saveTransparencyDocument).
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [keptIds, setKeptIds] = useState<string[]>(record?.files.map((f) => f.id) ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -72,8 +68,8 @@ export function TransparencyDocumentForm({
     setError(null);
     startTransition(async () => {
       const fd = new FormData();
-      if (file) fd.append("file", file);
-      if (removeFile) fd.append("removeFile", "1");
+      for (const f of newFiles) fd.append("newFile", f);
+      for (const id2 of keptIds) fd.append("keptFileId", id2);
       const result = await saveTransparencyDocument(id, values, fd);
       if (result.error) {
         setError(result.error);
@@ -141,25 +137,22 @@ export function TransparencyDocumentForm({
             ))}
           </Select>
         </Field>
-        <Field label="Date Released" htmlFor="transparency-doc-date">
+        <Field label="Date Released (optional)" htmlFor="transparency-doc-date">
           <Input
             id="transparency-doc-date"
             type="date"
-            value={values.dateReleased}
-            onChange={(event) => set("dateReleased", event.target.value)}
-            required
+            value={values.dateReleased ?? ""}
+            onChange={(event) => set("dateReleased", event.target.value || null)}
           />
         </Field>
         <div>
-          <h3 className="mb-2 text-sm font-medium text-ink-700">Document PDF</h3>
-          <PdfUploader
-            existingPath={values.filePath}
-            existingSizeBytes={values.fileSizeBytes}
-            existingPreviewUrl={previewUrl}
-            file={file}
-            onFileChange={setFile}
-            removeExisting={removeFile}
-            onRemoveExistingChange={setRemoveFile}
+          <h3 className="mb-2 text-sm font-medium text-ink-700">Files</h3>
+          <MultiFileUploader
+            existing={record?.files ?? []}
+            keptIds={keptIds}
+            onKeptIdsChange={setKeptIds}
+            newFiles={newFiles}
+            onNewFilesChange={setNewFiles}
           />
         </div>
         {error ? (

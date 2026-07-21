@@ -4,6 +4,7 @@ import type {
   LegislativeListItem,
   LegislativeType,
   TransparencyDocumentItem,
+  TransparencyFile,
   TransparencyProjectItem,
 } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -154,29 +155,67 @@ export async function getPublishedLegislativeBySlug(
   return { ...toListItem(row), summary: row.summary ?? "" };
 }
 
+interface FileRow {
+  id: string;
+  owner_id: string;
+  path: string;
+  mime: string;
+  size_bytes: number;
+  sort_order: number;
+}
+
+function toFile(row: FileRow, index: number): TransparencyFile {
+  return {
+    id: row.id,
+    url: documentUrl(row.path),
+    label: row.mime === "application/pdf" ? `Document ${index + 1}` : `Image ${index + 1}`,
+    mime: row.mime,
+    sizeBytes: row.size_bytes,
+  };
+}
+
+/** Map owner_id → resolved files, for a set of document/project ids. */
+export async function filesByOwner(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  ownerType: "document" | "project",
+  ownerIds: string[],
+): Promise<Map<string, TransparencyFile[]>> {
+  const map = new Map<string, TransparencyFile[]>();
+  if (ownerIds.length === 0) return map;
+  const { data } = await admin
+    .from("transparency_files")
+    .select("id, owner_id, path, mime, size_bytes, sort_order")
+    .eq("owner_type", ownerType)
+    .in("owner_id", ownerIds)
+    .order("sort_order", { ascending: true });
+  for (const row of (data ?? []) as FileRow[]) {
+    const list = map.get(row.owner_id) ?? [];
+    list.push(toFile(row, list.length));
+    map.set(row.owner_id, list);
+  }
+  return map;
+}
+
 interface DocumentRow {
   id: string;
   title: string;
-  date_released: string;
-  file_path: string | null;
-  file_size_bytes: number | null;
+  date_released: string | null;
   transparency_categories: { label: string; icon_name: string } | null;
 }
 
-function toDocumentItem(row: DocumentRow): TransparencyDocumentItem {
+const DOCUMENT_COLUMNS =
+  "id, title, date_released, transparency_categories(label, icon_name)";
+
+function toDocumentItem(row: DocumentRow, files: TransparencyFile[]): TransparencyDocumentItem {
   return {
     id: row.id,
     title: row.title,
     categoryLabel: row.transparency_categories?.label ?? "Document",
     categoryIconName: row.transparency_categories?.icon_name ?? "file-text",
     dateReleased: row.date_released,
-    fileUrl: row.file_path ? documentUrl(row.file_path) : null,
-    fileSizeBytes: row.file_size_bytes,
+    files,
   };
 }
-
-const DOCUMENT_COLUMNS =
-  "id, title, date_released, file_path, file_size_bytes, transparency_categories(label, icon_name)";
 
 export async function listPublishedDocumentsByCategory(
   categoryId: string,
@@ -188,11 +227,12 @@ export async function listPublishedDocumentsByCategory(
     .select(DOCUMENT_COLUMNS)
     .eq("status", "published")
     .eq("category_id", categoryId)
-    .order("date_released", { ascending: false })
+    .order("date_released", { ascending: false, nullsFirst: true })
     .limit(limit);
-
   if (error || !data) return [];
-  return (data as unknown as DocumentRow[]).map(toDocumentItem);
+  const rows = data as unknown as DocumentRow[];
+  const files = await filesByOwner(admin, "document", rows.map((r) => r.id));
+  return rows.map((r) => toDocumentItem(r, files.get(r.id) ?? []));
 }
 
 export async function listLatestPublishedDocuments(
@@ -203,11 +243,12 @@ export async function listLatestPublishedDocuments(
     .from("transparency_documents")
     .select(DOCUMENT_COLUMNS)
     .eq("status", "published")
-    .order("date_released", { ascending: false })
+    .order("date_released", { ascending: false, nullsFirst: true })
     .limit(limit);
-
   if (error || !data) return [];
-  return (data as unknown as DocumentRow[]).map(toDocumentItem);
+  const rows = data as unknown as DocumentRow[];
+  const files = await filesByOwner(admin, "document", rows.map((r) => r.id));
+  return rows.map((r) => toDocumentItem(r, files.get(r.id) ?? []));
 }
 
 export async function listPublishedProjects(): Promise<TransparencyProjectItem[]> {

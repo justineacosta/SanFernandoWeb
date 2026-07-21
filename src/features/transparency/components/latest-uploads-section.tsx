@@ -1,10 +1,11 @@
-import { formatDate } from "@/lib/format";
+import { formatOptionalDate } from "@/lib/format";
 import { resolveIcon } from "@/lib/icon-map";
 import { DataTable, type DataTableColumn } from "@/components/ui/data-table";
 import { Section } from "@/components/ui/section";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { listLatestPublishedDocuments } from "@/features/transparency/queries";
 import type { TransparencyDocumentItem } from "@/types";
+import { FileDownloads } from "./file-downloads";
 
 const columns: DataTableColumn<TransparencyDocumentItem>[] = [
   {
@@ -22,25 +23,12 @@ const columns: DataTableColumn<TransparencyDocumentItem>[] = [
   { header: "Category", cell: (doc) => doc.categoryLabel },
   {
     header: "Date Released",
-    cell: (doc) => <span className="text-ink-600">{formatDate(doc.dateReleased)}</span>,
+    cell: (doc) => <span className="text-ink-600">{formatOptionalDate(doc.dateReleased)}</span>,
   },
   {
     header: "Action",
     align: "right",
-    cell: (doc) =>
-      doc.fileUrl ? (
-        <a
-          href={doc.fileUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-semibold uppercase text-ink-900 hover:underline"
-        >
-          Download
-          <span className="sr-only"> {doc.title}</span>
-        </a>
-      ) : (
-        <span className="text-sm text-ink-500">At the barangay hall</span>
-      ),
+    cell: (doc) => <FileDownloads files={doc.files} recordTitle={doc.title} align="right" />,
   },
 ];
 

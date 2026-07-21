@@ -274,10 +274,9 @@ export interface TransparencyDocumentItem {
   categoryLabel: string;
   /** Icon name string — resolve with resolveIcon(); never store a component. */
   categoryIconName: string;
-  /** ISO date released. */
-  dateReleased: string;
-  fileUrl: string | null;
-  fileSizeBytes: number | null;
+  /** ISO date released, or null when undated. */
+  dateReleased: string | null;
+  files: TransparencyFile[];
 }
 
 export interface TransparencyProjectItem {
@@ -338,10 +337,9 @@ export interface AdminTransparencyDocumentRow {
   title: string;
   categoryId: string;
   categoryLabel: string;
-  dateReleased: string;
+  dateReleased: string | null;
   status: ContentStatus;
-  hasFile: boolean;
-  fileUrl: string | null;
+  fileCount: number;
 }
 
 export interface AdminTransparencyProjectRow {
@@ -370,9 +368,9 @@ export interface LegislativeValues {
 export interface TransparencyDocumentValues {
   title: string;
   categoryId: string;
-  dateReleased: string;
-  filePath: string | null;
-  fileSizeBytes: number | null;
+  /** ISO date, or null when undated. The action stores an empty string from
+   *  the date input as SQL NULL. */
+  dateReleased: string | null;
 }
 
 export interface TransparencyProjectValues {

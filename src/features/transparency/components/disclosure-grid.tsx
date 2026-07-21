@@ -1,11 +1,12 @@
-import { ReceiptText, Search, Wallet } from "lucide-react";
+import { FileText, ReceiptText, Search, Wallet } from "lucide-react";
+import { formatOptionalDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/form";
 import { Section } from "@/components/ui/section";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { listPublishedDocumentsByCategory } from "@/features/transparency/queries";
-import { DocumentDownloadCard } from "./document-download-card";
+import { FileDownloads } from "./file-downloads";
 import { ProjectsCard } from "./projects-card";
 
 /** Bento grid of public disclosure categories: budgets, projects, financials, ordinances. */
@@ -38,12 +39,19 @@ export async function DisclosureGrid() {
               <p className="text-sm text-ink-500">No budget reports are published yet.</p>
             ) : (
               budgetDocuments.map((doc) => (
-                <DocumentDownloadCard
+                <div
                   key={doc.id}
-                  fileUrl={doc.fileUrl}
-                  title={doc.title}
-                  fileSizeBytes={doc.fileSizeBytes}
-                />
+                  className="flex items-center gap-3 rounded-2xl border border-ink-200 p-4"
+                >
+                  <FileText className="h-6 w-6 shrink-0 text-ink-900" aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-semibold text-ink-900">{doc.title}</span>
+                    <span className="text-sm text-ink-500">
+                      {formatOptionalDate(doc.dateReleased)}
+                    </span>
+                  </span>
+                  <FileDownloads files={doc.files} recordTitle={doc.title} align="right" />
+                </div>
               ))
             )}
           </div>
