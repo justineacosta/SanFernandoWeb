@@ -199,7 +199,7 @@ export interface NewsCategoryValues {
 
 export interface GalleryPhoto {
   id: string;
-  src: string; // raw reference; resolve with photoUrl() at render
+  src: string; // render-ready URL — every producer resolves it with photoUrl()
   alt: string;
 }
 

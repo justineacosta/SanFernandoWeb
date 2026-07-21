@@ -509,7 +509,7 @@
 | `/assistance/new` | Social-service assistance form | `AssistanceForm` — category picker sourced from `assistance_categories`; renders `ApplyUnavailable` if every category is retired |
 | `/track` | Ticket status lookup | `TrackLookup` — ticket number + last name, DB-backed via `lookupTicket()`; resolves all four ticket kinds through `tickets_view` (a complaint result shows status only) |
 | `/announcements` | News & Announcements | `NewsFeed` (DB-backed via `listPublishedArticles()`; 1 featured + 6/page, real link-based pagination), `NewsSidebar` (DB-backed via `listPublishedAnnouncements()`; hotlines, newsletter) |
-| `/announcements/[slug]` | News article detail | `getPublishedArticleBySlug()`; article body + `NewsGallery` (count-based layout, lightbox) for its 0–3 `news_photos`; 404s for a non-existent or non-published slug |
+| `/announcements/[slug]` | News article detail | `getPublishedArticleBySlug()`; article body + `PhotoGallery` (shared; count-based layout, lightbox) for its 0–3 `news_photos`; 404s for a non-existent or non-published slug |
 | `/transparency` | Transparency portal | `TransparencyHero`, `DisclosureGrid`, `LatestUploadsSection`, `LegislativeSection`, `FoiSection` — all DB-backed since 2026-07-20 |
 | `/transparency/legislative` | Ordinances & resolutions archive | `LegislativeArchive` — searchable (`q`), type-filtered, paginated (`LEGISLATIVE_PAGE_SIZE = 10`) |
 | `/transparency/legislative/[slug]` | Ordinance/resolution detail | `getPublishedLegislativeBySlug()`; summary + `PdfViewer` (falls back to an "available at the barangay hall" note when no PDF is attached); 404s for a non-existent or non-published slug |

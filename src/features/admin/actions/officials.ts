@@ -303,7 +303,12 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
   const { error } = await admin.from("officials").delete().eq("id", id);
   if (error) return { error: "Could not delete the official." };
 
-  if (existing?.photo_path) await removeStoredImage(existing.photo_path as string);
+  if (existing?.photo_path) {
+    const removed = await removeStoredImage(existing.photo_path as string);
+    if (removed.error) {
+      console.error(`Orphaned storage object (portrait cleanup failed): ${existing.photo_path}`);
+    }
+  }
   await recordActivity(actor, "deleted official", "official", id, (existing?.name as string) ?? "");
   revalidate((existing?.slug as string) ?? undefined);
   return { error: null };

@@ -228,8 +228,6 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
         <div>
           <h3 className="mb-2 text-sm font-medium text-ink-700">Achievements</h3>
           {id ? (
-            // `key` remounts the editor when a brand-new official is saved and
-            // first acquires an id.
             <AchievementsEditor
               key={id}
               officialId={id}
