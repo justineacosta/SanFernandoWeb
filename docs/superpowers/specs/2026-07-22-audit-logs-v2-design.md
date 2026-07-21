@@ -154,11 +154,22 @@ await recordActivity(actor, {
 `type`, `action`, and `entityType` are required; `entityId`, `entityLabel`, and `detail`
 are optional. TypeScript enforces `type` against the enum union at all 75 sites.
 
-### 3.7 Dashboard: renamed, not removed
+### 3.7 Dashboard: renamed, and SuperAdmin-only
 
 `PublishingActivity` becomes `AuditLogPanel` — "Audit Logs", the 8 most recent entries,
-with a "View all" link to `/admin/audit` **shown only to SuperAdmins**. Non-SuperAdmins
-keep the recent-activity timeline on their dashboard but cannot reach the full log.
+with a "View all" link to `/admin/audit`.
+
+> **Corrected during verification.** This section originally said non-SuperAdmins keep the
+> recent-activity timeline and only lose the link. Driving the page as a `manage-news`-only
+> user showed why that was wrong: the panel renders the *same rows* `/admin/audit` does,
+> including sign-in records and entries naming modules the viewer has no permission for
+> (`Legislative document: Ordinance No. 11-2023`). Hiding the link while showing the data
+> would have leaked precisely what sub-project 2's 404 gating exists to hide, and
+> contradicted the SuperAdmin-only decision in §3.5.
+>
+> The panel is now gated at the call site in `ContentHub`, and
+> `app/admin/(portal)/page.tsx` skips `listRecentActivity()` entirely for non-SuperAdmins
+> rather than fetching rows it will not render.
 
 The dead `PUBLISHING_ACTIVITY` constant and `PublishingActivityEntry` type are deleted —
 `BACKEND_HANDOFF.md` §3E.3 records them as unused since 2026-07-15.
@@ -199,6 +210,26 @@ the honest default for an unrecognised edit.
 The one-way door is the immutability trigger — after it lands, correcting a mis-backfilled
 row requires disabling it deliberately. So the backfill runs **before** the trigger is
 created, in the same migration.
+
+### 6.1 Two problems found while reviewing and running the migration
+
+**`actor_id`'s foreign key had to go.** Migration `0001` declared
+`actor_id uuid references auth.users (id) on delete set null`. That ON DELETE SET NULL is
+an **UPDATE against `audit_log`** — which the immutability trigger rejects. Deleting any
+staff member who had ever performed an action would have failed with a raised exception
+instead of a handled error, breaking `deleteTeamUser`. The FK is dropped rather than the
+trigger being weakened: an append-only historical record should not be mutable by another
+table's lifecycle, and `actor_name` is already denormalised onto every row so the trail
+survives the account. Caught before the migration was applied.
+
+**The `entity_label` backfill duplicates `detail`.** Step 4 copies `detail` into
+`entity_label` for content rows but leaves `detail` populated, so historical rows carry the
+same string twice and the Target Entity cell rendered
+`Legislative document: Ordinance No. 11-2023Ordinance No. 11-2023`. Caught *after* the
+migration was applied, when the table was already immutable — so it is corrected at render
+(`detailOf()` in `audit-log-manager.tsx` suppresses `detail` that merely repeats the label
+or id) rather than with an UPDATE. Rows written by the new code set the two fields from
+different sources and are unaffected.
 
 ## 7. Verification
 

@@ -19,6 +19,11 @@ interface ContentHubProps {
  * Every card links to a gated module, and those now 404 rather than redirect,
  * so showing an unreachable card would both dead-end the user and reveal that
  * the module exists.
+ *
+ * The audit panel is SuperAdmin-only for the same reason. It renders the same
+ * rows /admin/audit does — including sign-ins and entries naming modules the
+ * viewer has no permission for — so showing it to everyone would have leaked
+ * exactly what the 404 gating exists to hide.
  */
 export async function ContentHub({ activityEntries }: ContentHubProps) {
   const user = await requireSessionUser();
@@ -48,7 +53,7 @@ export async function ContentHub({ activityEntries }: ContentHubProps) {
       ) : null}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <RecentDrafts />
-        <AuditLogPanel entries={activityEntries} canViewAll={user.isSuperAdmin} />
+        {user.isSuperAdmin ? <AuditLogPanel entries={activityEntries} /> : null}
       </div>
     </>
   );

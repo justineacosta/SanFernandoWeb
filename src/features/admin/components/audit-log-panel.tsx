@@ -8,26 +8,28 @@ import { AUDIT_ACTION_LABELS } from "./audit-log-manager";
 
 interface AuditLogPanelProps {
   entries: AuditEntry[];
-  /** The full log at /admin/audit is SuperAdmin-only, so the link is too. */
-  canViewAll: boolean;
 }
 
-/** Recent administrative actions, from the audit log. */
-export function AuditLogPanel({ entries, canViewAll }: AuditLogPanelProps) {
+/**
+ * Recent administrative actions, from the audit log.
+ *
+ * SuperAdmin-only — ContentHub does not render it for anyone else. These rows
+ * name modules the viewer may have no permission for, so gating happens at the
+ * call site rather than by hiding the "View all" link here.
+ */
+export function AuditLogPanel({ entries }: AuditLogPanelProps) {
   return (
     <Card className="rounded-3xl p-6">
       <CardHeader
         title="Audit Logs"
         icon={<History className="h-5 w-5 text-ink-500" aria-hidden="true" />}
         action={
-          canViewAll ? (
-            <Link
-              href="/admin/audit"
-              className="text-sm font-semibold text-brand-700 transition-colors hover:text-ink-900"
-            >
-              View all
-            </Link>
-          ) : null
+          <Link
+            href="/admin/audit"
+            className="text-sm font-semibold text-brand-700 transition-colors hover:text-ink-900"
+          >
+            View all
+          </Link>
         }
       />
       {entries.length === 0 ? (

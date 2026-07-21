@@ -88,6 +88,21 @@ function targetOf(entry: AuditEntry): string {
 }
 
 /**
+ * Extra context worth showing under the target — staff remarks, permission
+ * summaries. Suppressed when it merely repeats the label: migration 0014
+ * backfilled `entity_label` from `detail` for historical rows and left `detail`
+ * in place, so those rows carry the same string twice. The table is
+ * append-only, so this is corrected at render rather than with an UPDATE.
+ */
+function detailOf(entry: AuditEntry): string | null {
+  const detail = entry.detail?.trim();
+  if (!detail) return null;
+  if (detail === entry.entityLabel?.trim()) return null;
+  if (detail === entry.entityId?.trim()) return null;
+  return detail;
+}
+
+/**
  * Audit Logs table. Server-driven via searchParams rather than a client
  * manager holding the full dataset — this table grows without bound, so the
  * pattern the other eight managers use would eventually ship the entire log
@@ -208,8 +223,8 @@ export async function AuditLogManager(params: Params) {
                     </td>
                     <td className="px-6 py-4 text-ink-700">
                       {targetOf(entry)}
-                      {entry.detail ? (
-                        <span className="mt-1 block text-xs text-ink-500">{entry.detail}</span>
+                      {detailOf(entry) ? (
+                        <span className="mt-1 block text-xs text-ink-500">{detailOf(entry)}</span>
                       ) : null}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-ink-600">
