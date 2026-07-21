@@ -6,6 +6,8 @@ import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDateApproved } from "@/lib/format";
 import { useDisclosure } from "@/hooks/use-disclosure";
+import { useTableSort } from "@/components/ui/use-table-sort";
+import { SortableTh } from "@/components/ui/sortable-th";
 import type { LegislativeDetail } from "@/types";
 
 interface LegislativeTableProps {
@@ -16,6 +18,16 @@ interface LegislativeTableProps {
 
 /** Legislative document table where each row expands to show the document summary. */
 export function LegislativeTable({ caption, documents }: LegislativeTableProps) {
+  const { sorted, sortKey, sortDir, toggle } = useTableSort(
+    documents,
+    { key: "date", dir: "desc" },
+    {
+      number: (d) => d.number,
+      title: (d) => d.title,
+      date: (d) => d.dateApproved,
+    },
+  );
+
   return (
     <div className="relative overflow-x-auto rounded-3xl border border-ink-200/70 bg-white">
       <table className="w-full text-left text-sm">
@@ -25,29 +37,23 @@ export function LegislativeTable({ caption, documents }: LegislativeTableProps) 
             <th scope="col" className="w-12 px-4 py-4">
               <span className="sr-only">Expand</span>
             </th>
-            <th scope="col" className="px-6 py-4">
-              Number
-            </th>
-            <th scope="col" className="px-6 py-4">
-              Title
-            </th>
-            <th scope="col" className="px-6 py-4">
-              Date Approved
-            </th>
+            <SortableTh label="Number" sortKey="number" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+            <SortableTh label="Title" sortKey="title" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+            <SortableTh label="Date Approved" sortKey="date" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
             <th scope="col" className="px-6 py-4 text-right">
               Action
             </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-ink-200/70">
-          {documents.length === 0 ? (
+          {sorted.length === 0 ? (
             <tr>
               <td colSpan={5} className="px-6 py-10 text-center text-ink-600">
                 No documents have been published yet.
               </td>
             </tr>
           ) : (
-            documents.map((doc) => <LegislativeRow key={doc.id} doc={doc} />)
+            sorted.map((doc) => <LegislativeRow key={doc.id} doc={doc} />)
           )}
         </tbody>
       </table>
