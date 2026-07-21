@@ -12,6 +12,7 @@ import {
   PartyPopper,
   Scale,
   Settings,
+  Users,
 } from "lucide-react";
 import type {
   AdminTeamMember,
@@ -33,6 +34,7 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Transparency", href: "/admin/transparency", icon: FileStack, permission: "manage-transparency" },
   { label: "Event Calendar", href: "/admin/events", icon: CalendarDays, permission: "manage-news" },
   { label: "News & Announcements", href: "/admin/news", icon: Megaphone, permission: "manage-news" },
+  { label: "Officials", href: "/admin/officials", icon: Users, permission: "manage-officials" },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 

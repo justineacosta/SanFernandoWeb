@@ -19,3 +19,5 @@ export { TransparencyManager } from "./components/transparency-manager";
 export { TransparencyDocumentForm } from "./components/transparency-document-form";
 export { TransparencyProjectsPanel } from "./components/transparency-projects-panel";
 export { TransparencyCategoriesPanel } from "./components/transparency-categories-panel";
+export { OfficialsManager } from "./components/officials-manager";
+export { OfficialForm } from "./components/official-form";
