@@ -382,7 +382,7 @@
 >    only if a `transparency_files` row references it" still holds by construction.
 > 4. **`/transparency/uploads`** — a new public route unifying legislative documents,
 >    transparency documents, and project files into one browsable, paginated list.
->    `listUploadsPage()` (`src/features/transparency/queries.ts`) fetches all three
+>    `searchUploads()` (`src/features/transparency/queries.ts`) fetches all three
 >    published sources and unions/sorts/paginates them **in memory** rather than in a
 >    single SQL query (they come from three different tables with different shapes).
 >    Fine at current seed-data volume; revisit with a DB-side union/materialized view if
