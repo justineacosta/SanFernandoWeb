@@ -68,7 +68,13 @@ export async function createAssistanceCategory(
   });
   if (error) return { error: "Could not create the category." };
 
-  await recordActivity(actor, "added assistance category", "assistance category", id, parsed.data.label);
+  await recordActivity(actor, {
+    type: "create",
+    action: "added assistance category",
+    entityType: "assistance category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidatePath("/admin/services");
   revalidatePath("/assistance/new");
   return { error: null };
@@ -93,7 +99,13 @@ export async function renameAssistanceCategory(
     .eq("id", id);
   if (error) return { error: "Could not rename the category." };
 
-  await recordActivity(actor, "renamed assistance category", "assistance category", id, parsed.data.label);
+  await recordActivity(actor, {
+    type: "update",
+    action: "renamed assistance category",
+    entityType: "assistance category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidatePath("/admin/services");
   revalidatePath("/assistance/new");
   return { error: null };
@@ -117,12 +129,12 @@ export async function setAssistanceCategoryActive(
     .eq("id", id);
   if (error) return { error: "Could not update the category." };
 
-  await recordActivity(
-    actor,
-    isActive ? "restored assistance category" : "retired assistance category",
-    "assistance category",
-    id,
-  );
+  await recordActivity(actor, {
+    type: isActive ? "restore" : "archive",
+    action: isActive ? "restored assistance category" : "retired assistance category",
+    entityType: "assistance category",
+    entityId: id,
+  });
   revalidatePath("/admin/services");
   revalidatePath("/assistance/new");
   return { error: null };
@@ -175,7 +187,12 @@ export async function moveAssistanceCategory(
     .eq("id", neighbour.id);
   if (secondError) return { error: "Could not reorder categories." };
 
-  await recordActivity(actor, "reordered assistance categories", "assistance category", id);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered assistance categories",
+    entityType: "assistance category",
+    entityId: id,
+  });
   revalidatePath("/admin/services");
   revalidatePath("/assistance/new");
   return { error: null };

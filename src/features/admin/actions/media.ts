@@ -2,6 +2,7 @@
 
 import type { Permission } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
+import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   ALLOWED_IMAGE_TYPES,
@@ -47,7 +48,8 @@ export async function uploadSingleImage(
 ): Promise<UploadResult> {
   const permission = permissionForFolder(folder);
   if (!permission) return { error: "Unknown upload folder.", src: null, url: null };
-  if (!(await checkPermission(permission))) return { error: NOT_FOUND, src: null, url: null };
+  const actor = await checkPermission(permission);
+  if (!actor) return { error: NOT_FOUND, src: null, url: null };
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -68,6 +70,13 @@ export async function uploadSingleImage(
     .upload(path, buffer, { contentType: file.type, upsert: false });
   if (error) return { error: "Upload failed. Try again.", src: null, url: null };
 
+  await recordActivity(actor, {
+    type: "file_upload",
+    action: "uploaded image",
+    entityType: `${folder} image`,
+    entityId: path,
+    entityLabel: file.name,
+  });
   return { error: null, src: path, url: photoUrl(path) };
 }
 
@@ -78,10 +87,21 @@ export async function removeStoredImage(src: string): Promise<ActionResult> {
   const folder = src.split("/")[0] ?? "";
   const permission = permissionForFolder(folder);
   if (!permission) return { error: "That image cannot be removed." };
-  if (!(await checkPermission(permission))) return { error: NOT_FOUND };
+  const actor = await checkPermission(permission);
+  if (!actor) return { error: NOT_FOUND };
 
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove([src]);
   if (error) return { error: "Could not remove the image." };
+
+  // Also fires for the deferred cleanup inside saveOfficial when a portrait is
+  // replaced. That is a real file deletion the user's edit caused, so it earns
+  // its own entry rather than hiding inside the "updated official" one.
+  await recordActivity(actor, {
+    type: "file_delete",
+    action: "deleted image",
+    entityType: `${folder} image`,
+    entityId: src,
+  });
   return { error: null };
 }

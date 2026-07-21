@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { ContentStatus, NewsArticleValues, GalleryPhoto, SessionUser } from "@/types";
+import type { AuditActionType, ContentStatus, GalleryPhoto, NewsArticleValues, SessionUser } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -130,7 +130,13 @@ export async function saveNewsArticle(
         id: null,
       };
     }
-    await recordActivity(actor, "updated news article", "news article", id, parsed.data.title);
+    await recordActivity(actor, {
+      type: "update",
+      action: "updated news article",
+      entityType: "news article",
+      entityId: id,
+      entityLabel: parsed.data.title,
+    });
     revalidate();
     return { error: null, id };
   }
@@ -153,7 +159,13 @@ export async function saveNewsArticle(
     .select("id")
     .single();
   if (error || !inserted) return { error: "Could not create the article.", id: null };
-  await recordActivity(actor, "created news article", "news article", inserted.id, parsed.data.title);
+  await recordActivity(actor, {
+    type: "create",
+    action: "created news article",
+    entityType: "news article",
+    entityId: inserted.id,
+    entityLabel: parsed.data.title,
+  });
   revalidate();
   return { error: null, id: inserted.id };
 }
@@ -169,6 +181,7 @@ async function applyTransition(
   id: string,
   from: string[],
   patch: Record<string, unknown>,
+  type: AuditActionType,
   verb: string,
 ): Promise<ActionResult> {
   const admin = createSupabaseAdminClient();
@@ -181,7 +194,7 @@ async function applyTransition(
     .maybeSingle();
   if (error) return { error: "Could not update the article." };
   if (!data) return { error: "This article is no longer in a state that allows that action." };
-  await recordActivity(actor, verb, "news article", id, data.title);
+  await recordActivity(actor, { type, action: verb, entityType: "news article", entityId: id, entityLabel: data.title });
   revalidate();
   return { error: null };
 }
@@ -189,13 +202,13 @@ async function applyTransition(
 export async function submitNewsForReview(id: string): Promise<ActionResult> {
   const actor = await checkPermission("manage-news");
   if (!actor) return { error: NOT_FOUND };
-  return applyTransition(actor, id, ["draft"], { status: "in-review" }, "submitted news article for review");
+  return applyTransition(actor, id, ["draft"], { status: "in-review" }, "update", "submitted news article for review");
 }
 
 export async function returnNewsToDraft(id: string): Promise<ActionResult> {
   const actor = await checkPermission("manage-news");
   if (!actor) return { error: NOT_FOUND };
-  return applyTransition(actor, id, ["in-review"], { status: "draft" }, "returned news article to draft");
+  return applyTransition(actor, id, ["in-review"], { status: "draft" }, "save_draft", "returned news article to draft");
 }
 
 export async function archiveNewsArticle(id: string): Promise<ActionResult> {
@@ -206,6 +219,7 @@ export async function archiveNewsArticle(id: string): Promise<ActionResult> {
     id,
     ["draft", "in-review", "published"],
     { status: "archived" },
+    "archive",
     "archived news article",
   );
 }
@@ -234,7 +248,13 @@ export async function publishNewsArticle(id: string): Promise<ActionResult> {
     .maybeSingle();
   if (error) return { error: "Could not publish the article." };
   if (!data) return { error: "This article is already published." };
-  await recordActivity(actor, "published news article", "news article", id, row.title);
+  await recordActivity(actor, {
+    type: "publish",
+    action: "published news article",
+    entityType: "news article",
+    entityId: id,
+    entityLabel: row.title,
+  });
   revalidate();
   return { error: null };
 }

@@ -90,13 +90,16 @@ export async function reviewApplication(
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That application was already reviewed. Refresh to see its status." };
 
-  await recordActivity(
-    actor,
-    parsed.data.status === "approved" ? "approved application" : "rejected application",
-    "application",
-    data.ticket_no,
-    parsed.data.remarks || undefined,
-  );
+  const approved = parsed.data.status === "approved";
+  await recordActivity(actor, {
+    type: approved ? "approve" : "reject",
+    action: approved ? "approved application" : "rejected application",
+    entityType: "application",
+    // Ticket rows carry a human-readable id, so it doubles as the label.
+    entityId: data.ticket_no,
+    entityLabel: data.ticket_no,
+    detail: parsed.data.remarks || undefined,
+  });
   revalidatePath("/admin/applications");
   return { error: null };
 }
@@ -121,7 +124,12 @@ export async function releaseApplication(id: string): Promise<ActionResult> {
   if (error) return { error: "Could not mark it released." };
   if (!data) return { error: "Only approved applications can be released. Refresh to see its status." };
 
-  await recordActivity(actor, "released application", "application", data.ticket_no);
+  await recordActivity(actor, {
+    type: "update",
+    action: "released application",
+    entityType: "application",
+    entityId: data.ticket_no,
+  });
   revalidatePath("/admin/applications");
   return { error: null };
 }
@@ -167,7 +175,12 @@ export async function createWalkInApplication(
     return { error: "Could not encode the application." };
   }
 
-  await recordActivity(actor, "encoded walk-in application", "application", data.ticket_no);
+  await recordActivity(actor, {
+    type: "create",
+    action: "encoded walk-in application",
+    entityType: "application",
+    entityId: data.ticket_no,
+  });
   revalidatePath("/admin/applications");
   return { error: null };
 }

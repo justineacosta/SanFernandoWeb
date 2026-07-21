@@ -103,7 +103,12 @@ export async function uploadAchievementPhotos(
     if (insErr) return { error: "Upload failed. Try again.", photos: [] };
   }
 
-  await recordActivity(actor, "uploaded achievement photos", "official achievement", achievementId);
+  await recordActivity(actor, {
+    type: "file_upload",
+    action: "uploaded achievement photos",
+    entityType: "official achievement",
+    entityId: achievementId,
+  });
   await revalidateForAchievement(admin, achievementId);
   const refreshed = await currentPhotos(admin, achievementId);
   return {
@@ -135,7 +140,12 @@ export async function reorderAchievementPhotos(
     if (error) return { error: "Could not reorder photos." };
   }
 
-  await recordActivity(actor, "reordered achievement photos", "official achievement", achievementId);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered achievement photos",
+    entityType: "official achievement",
+    entityId: achievementId,
+  });
   await revalidateForAchievement(admin, achievementId);
   return { error: null };
 }
@@ -166,12 +176,12 @@ export async function updateAchievementPhotoAlt(
   if (error) return { error: "Could not update the photo description." };
 
   const achievementId = photo.achievement_id as string;
-  await recordActivity(
-    actor,
-    "updated achievement photo description",
-    "official achievement",
-    achievementId,
-  );
+  await recordActivity(actor, {
+    type: "update",
+    action: "updated achievement photo description",
+    entityType: "official achievement",
+    entityId: achievementId,
+  });
   await revalidateForAchievement(admin, achievementId);
   return { error: null };
 }
@@ -207,7 +217,12 @@ export async function removeAchievementPhoto(photoId: string): Promise<ActionRes
   if (error) return { error: "Could not remove the photo." };
 
   const achievementId = photo.achievement_id as string;
-  await recordActivity(actor, "removed achievement photo", "official achievement", achievementId);
+  await recordActivity(actor, {
+    type: "file_delete",
+    action: "removed achievement photo",
+    entityType: "official achievement",
+    entityId: achievementId,
+  });
   await revalidateForAchievement(admin, achievementId);
   return { error: null };
 }

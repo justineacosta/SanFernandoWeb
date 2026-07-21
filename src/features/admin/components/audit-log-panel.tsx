@@ -1,27 +1,33 @@
+import Link from "next/link";
 import { History } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/format";
+import { formatAuditTimestamp } from "@/lib/format";
 import { Card, CardHeader } from "@/components/ui/card";
 import type { AuditEntry } from "@/types";
+import { AUDIT_ACTION_LABELS } from "./audit-log-manager";
 
-interface PublishingActivityProps {
+interface AuditLogPanelProps {
   entries: AuditEntry[];
+  /** The full log at /admin/audit is SuperAdmin-only, so the link is too. */
+  canViewAll: boolean;
 }
 
-/** Timeline of recent publish/update events on the public portal, from the audit log. */
-export function PublishingActivity({ entries }: PublishingActivityProps) {
+/** Recent administrative actions, from the audit log. */
+export function AuditLogPanel({ entries, canViewAll }: AuditLogPanelProps) {
   return (
     <Card className="rounded-3xl p-6">
       <CardHeader
-        title="Publishing Activity"
+        title="Audit Logs"
         icon={<History className="h-5 w-5 text-ink-500" aria-hidden="true" />}
         action={
-          <button
-            type="button"
-            className="text-sm font-semibold text-brand-700 transition-colors hover:text-ink-900"
-          >
-            Filter
-          </button>
+          canViewAll ? (
+            <Link
+              href="/admin/audit"
+              className="text-sm font-semibold text-brand-700 transition-colors hover:text-ink-900"
+            >
+              View all
+            </Link>
+          ) : null
         }
       />
       {entries.length === 0 ? (
@@ -43,12 +49,15 @@ export function PublishingActivity({ entries }: PublishingActivityProps) {
                   index === 0 ? "text-ink-900" : "text-ink-600",
                 )}
               >
-                {formatDate(entry.createdAt.slice(0, 10))}
+                {formatAuditTimestamp(entry.createdAt)}
               </p>
               <h4 className="font-semibold text-ink-900">
                 {entry.actorName} {entry.action}
               </h4>
-              {entry.detail ? <p className="mt-1 text-sm text-ink-600">{entry.detail}</p> : null}
+              <p className="mt-1 text-sm text-ink-600">
+                {AUDIT_ACTION_LABELS[entry.actionType]}
+                {entry.entityLabel ? ` · ${entry.entityLabel}` : ""}
+              </p>
             </li>
           ))}
         </ol>

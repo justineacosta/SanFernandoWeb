@@ -68,7 +68,13 @@ export async function createNewsCategory(
   });
   if (error) return { error: "Could not create the category." };
 
-  await recordActivity(actor, "added news category", "news category", id, parsed.data.label);
+  await recordActivity(actor, {
+    type: "create",
+    action: "added news category",
+    entityType: "news category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
   return { error: null };
@@ -93,7 +99,13 @@ export async function renameNewsCategory(
     .eq("id", id);
   if (error) return { error: "Could not rename the category." };
 
-  await recordActivity(actor, "renamed news category", "news category", id, parsed.data.label);
+  await recordActivity(actor, {
+    type: "update",
+    action: "renamed news category",
+    entityType: "news category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
   return { error: null };
@@ -117,12 +129,12 @@ export async function setNewsCategoryActive(
     .eq("id", id);
   if (error) return { error: "Could not update the category." };
 
-  await recordActivity(
-    actor,
-    isActive ? "restored news category" : "retired news category",
-    "news category",
-    id,
-  );
+  await recordActivity(actor, {
+    type: isActive ? "restore" : "archive",
+    action: isActive ? "restored news category" : "retired news category",
+    entityType: "news category",
+    entityId: id,
+  });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
   return { error: null };
@@ -175,7 +187,12 @@ export async function moveNewsCategory(
     .eq("id", neighbour.id);
   if (secondError) return { error: "Could not reorder categories." };
 
-  await recordActivity(actor, "reordered news categories", "news category", id);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered news categories",
+    entityType: "news category",
+    entityId: id,
+  });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
   return { error: null };

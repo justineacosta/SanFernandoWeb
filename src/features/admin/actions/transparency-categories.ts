@@ -75,13 +75,13 @@ export async function createTransparencyCategory(
   });
   if (error) return { error: "Could not create the category." };
 
-  await recordActivity(
-    actor,
-    "added transparency category",
-    "transparency category",
-    id,
-    parsed.data.label,
-  );
+  await recordActivity(actor, {
+    type: "create",
+    action: "added transparency category",
+    entityType: "transparency category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidate();
   return { error: null };
 }
@@ -105,13 +105,13 @@ export async function renameTransparencyCategory(
     .eq("id", id);
   if (error) return { error: "Could not rename the category." };
 
-  await recordActivity(
-    actor,
-    "renamed transparency category",
-    "transparency category",
-    id,
-    parsed.data.label,
-  );
+  await recordActivity(actor, {
+    type: "update",
+    action: "renamed transparency category",
+    entityType: "transparency category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidate();
   return { error: null };
 }
@@ -134,12 +134,12 @@ export async function setTransparencyCategoryActive(
     .eq("id", id);
   if (error) return { error: "Could not update the category." };
 
-  await recordActivity(
-    actor,
-    isActive ? "restored transparency category" : "retired transparency category",
-    "transparency category",
-    id,
-  );
+  await recordActivity(actor, {
+    type: isActive ? "restore" : "archive",
+    action: isActive ? "restored transparency category" : "retired transparency category",
+    entityType: "transparency category",
+    entityId: id,
+  });
   revalidate();
   return { error: null };
 }
@@ -191,7 +191,12 @@ export async function moveTransparencyCategory(
     .eq("id", neighbour.id);
   if (secondError) return { error: "Could not reorder categories." };
 
-  await recordActivity(actor, "reordered transparency categories", "transparency category", id);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered transparency categories",
+    entityType: "transparency category",
+    entityId: id,
+  });
   revalidate();
   return { error: null };
 }

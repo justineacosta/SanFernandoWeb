@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, LegislativeValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
-import { recordActivity } from "@/lib/audit";
+import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getLegislativeForEdit } from "@/features/admin/queries/transparency";
 import { removeStoredDocument, uploadDocumentPdf } from "./documents";
@@ -225,7 +225,13 @@ export async function saveLegislative(
       await removeStoredDocument(oldPath);
     }
 
-    await recordActivity(actor, "updated document", "legislative document", id, parsed.data.number);
+    await recordActivity(actor, {
+      type: "update",
+      action: "updated document",
+      entityType: "legislative document",
+      entityId: id,
+      entityLabel: parsed.data.number,
+    });
     revalidate(slug);
     return { error: null, id };
   }
@@ -249,13 +255,13 @@ export async function saveLegislative(
     .single();
   if (error || !data) return fail("Could not create the document.");
 
-  await recordActivity(
-    actor,
-    "created document",
-    "legislative document",
-    data.id,
-    parsed.data.number,
-  );
+  await recordActivity(actor, {
+    type: "create",
+    action: "created document",
+    entityType: "legislative document",
+    entityId: data.id,
+    entityLabel: parsed.data.number,
+  });
   revalidate(slugResult.slug);
   return { error: null, id: data.id };
 }
@@ -295,13 +301,13 @@ export async function setLegislativeStatus(
   const { error } = await admin.from("legislative_documents").update(patch).eq("id", id);
   if (error) return { error: "Could not update the document." };
 
-  await recordActivity(
-    actor,
-    `${nextStatus} document`,
-    "legislative document",
-    id,
-    existing.number as string,
-  );
+  await recordActivity(actor, {
+    type: auditTypeForStatus(nextStatus),
+    action: `${nextStatus} document`,
+    entityType: "legislative document",
+    entityId: id,
+    entityLabel: existing.number as string,
+  });
   revalidate(existing.slug as string);
   return { error: null };
 }
@@ -325,13 +331,13 @@ export async function deleteLegislative(id: string): Promise<ActionResult> {
   if (error) return { error: "Could not delete the document." };
 
   if (existing?.file_path) await removeStoredDocument(existing.file_path as string);
-  await recordActivity(
-    actor,
-    "deleted document",
-    "legislative document",
-    id,
-    (existing?.number as string) ?? "",
-  );
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted document",
+    entityType: "legislative document",
+    entityId: id,
+    entityLabel: (existing?.number as string) ?? "",
+  });
   revalidate((existing?.slug as string) ?? undefined);
   return { error: null };
 }

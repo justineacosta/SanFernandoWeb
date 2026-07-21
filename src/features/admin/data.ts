@@ -4,6 +4,7 @@ import {
   FileStack,
   Gavel,
   HeartHandshake,
+  History,
   Inbox,
   Landmark,
   LayoutDashboard,
@@ -19,8 +20,7 @@ import type {
   ContentDraft,
   ContentTypeAction,
   EventCategory,
-  IconNavItem,
-  PublishingActivityEntry,
+  IconNavItem,
   TeamRole,
 } from "@/types";
 
@@ -35,6 +35,7 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Event Calendar", href: "/admin/events", icon: CalendarDays, permission: "manage-news" },
   { label: "News & Announcements", href: "/admin/news", icon: Megaphone, permission: "manage-news" },
   { label: "Officials", href: "/admin/officials", icon: Users, permission: "manage-officials" },
+  { label: "Audit Logs", href: "/admin/audit", icon: History, superAdminOnly: true },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
@@ -102,26 +103,6 @@ export const DRAFT_STATUS_LABELS: Record<ContentDraft["status"], string> = {
   draft: "Draft",
   "in-review": "In Review",
 };
-
-export const PUBLISHING_ACTIVITY: PublishingActivityEntry[] = [
-  {
-    dateLabel: "Today, 09:45 AM",
-    title: "Community Clean-up Drive Announced",
-    description: "Published by Admin user 'marcelo_p' under Events.",
-    liveHref: "/announcements",
-    highlight: true,
-  },
-  {
-    dateLabel: "Yesterday, 14:30 PM",
-    title: "Updated Health Center Operating Hours",
-    description: "Updated by 'dr_santos' in Announcements.",
-  },
-  {
-    dateLabel: "Oct 12, 10:00 AM",
-    title: "Ordinance 2023-04: Noise Regulation",
-    description: "Published by Admin user 'sec_general' under Resolutions.",
-  },
-];
 
 /* ------------------- Section seed data (wraps real public content) ------------------ */
 

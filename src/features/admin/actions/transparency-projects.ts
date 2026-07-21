@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, TransparencyProjectValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
-import { recordActivity } from "@/lib/audit";
+import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTransparencyProjectForEdit } from "@/features/admin/queries/transparency";
 import { MAX_FILES_PER_RECORD } from "@/lib/storage";
@@ -153,7 +153,13 @@ export async function saveTransparencyProject(
     if (error) { await cleanupUploads(); return { error: "Could not save the project's files.", id: null }; }
   }
 
-  await recordActivity(actor, id ? "updated project" : "created project", "transparency project", projectId, parsed.data.name);
+  await recordActivity(actor, {
+    type: id ? "update" : "create",
+    action: id ? "updated project" : "created project",
+    entityType: "transparency project",
+    entityId: projectId,
+    entityLabel: parsed.data.name,
+  });
   revalidate();
   return { error: null, id: projectId };
 }
@@ -192,13 +198,13 @@ export async function setTransparencyProjectStatus(
   const { error } = await admin.from("transparency_projects").update(patch).eq("id", id);
   if (error) return { error: "Could not update the project." };
 
-  await recordActivity(
-    actor,
-    `${nextStatus} project`,
-    "transparency project",
-    id,
-    existing.name as string,
-  );
+  await recordActivity(actor, {
+    type: auditTypeForStatus(nextStatus),
+    action: `${nextStatus} project`,
+    entityType: "transparency project",
+    entityId: id,
+    entityLabel: existing.name as string,
+  });
   revalidate();
   return { error: null };
 }
@@ -232,13 +238,13 @@ export async function deleteTransparencyProject(id: string): Promise<ActionResul
     for (const f of files) await removeStoredDocument(f.path);
   }
 
-  await recordActivity(
-    actor,
-    "deleted project",
-    "transparency project",
-    id,
-    (existing?.name as string) ?? "",
-  );
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted project",
+    entityType: "transparency project",
+    entityId: id,
+    entityLabel: (existing?.name as string) ?? "",
+  });
   revalidate();
   return { error: null };
 }
@@ -291,7 +297,12 @@ export async function moveTransparencyProject(
     .eq("id", neighbour.id);
   if (secondError) return { error: "Could not reorder projects." };
 
-  await recordActivity(actor, "reordered projects", "transparency project", id);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered projects",
+    entityType: "transparency project",
+    entityId: id,
+  });
   revalidate();
   return { error: null };
 }

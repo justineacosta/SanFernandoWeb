@@ -105,7 +105,13 @@ export async function createTeamUser(input: TeamUserInput): Promise<ActionResult
     return { error: "Could not save the profile. The account was not created." };
   }
 
-  await recordActivity(actor, "created user", "team-user", data.user.id, parsed.data.fullName);
+  await recordActivity(actor, {
+    type: "create",
+    action: "created user",
+    entityType: "team-user",
+    entityId: data.user.id,
+    entityLabel: parsed.data.fullName,
+  });
   revalidatePath("/admin/settings");
   return { error: null };
 }
@@ -137,6 +143,22 @@ export async function updateTeamUser(
   // Email is editable only for OTHER users, and only when it actually changes.
   // Look up the current email so we can skip a no-op auth write and roll back
   // the auth change if the profile write below fails (keeping the two in sync).
+  // Read the prior grant so the audit entry can distinguish a permission or
+  // SuperAdmin change (role_change) from an ordinary profile edit (update).
+  // Who can do what is the highest-stakes thing this action can alter, and
+  // burying it under a generic "updated user" would make it unfindable.
+  const { data: prior } = await admin
+    .from("profiles")
+    .select("permissions, is_superadmin")
+    .eq("id", id)
+    .maybeSingle();
+  const priorPermissions = [...((prior?.permissions as string[]) ?? [])].sort();
+  const nextPermissions = [...parsed.data.permissions].sort();
+  const roleChanged =
+    prior !== null &&
+    (prior.is_superadmin !== parsed.data.isSuperAdmin ||
+      priorPermissions.join(",") !== nextPermissions.join(","));
+
   let changingEmail = false;
   let previousEmail: string | null = null;
   if (!isSelf && parsed.data.email !== undefined) {
@@ -175,7 +197,18 @@ export async function updateTeamUser(
     return { error: "Could not save the changes." };
   }
 
-  await recordActivity(actor, "updated user", "team-user", id, parsed.data.fullName);
+  await recordActivity(actor, {
+    type: roleChanged ? "role_change" : "update",
+    action: roleChanged ? "changed user permissions" : "updated user",
+    entityType: "team-user",
+    entityId: id,
+    entityLabel: parsed.data.fullName,
+    detail: roleChanged
+      ? `${parsed.data.isSuperAdmin ? "SuperAdmin" : "Staff"} · ${
+          nextPermissions.length > 0 ? nextPermissions.join(", ") : "no permissions"
+        }`
+      : undefined,
+  });
   revalidatePath("/admin/settings");
   return { error: null };
 }
@@ -194,7 +227,12 @@ export async function setTeamUserActive(id: string, isActive: boolean): Promise<
   const { error } = await admin.from("profiles").update({ is_active: isActive }).eq("id", id);
   if (error) return { error: "Could not update the account." };
 
-  await recordActivity(actor, isActive ? "enabled user" : "disabled user", "team-user", id);
+  await recordActivity(actor, {
+    type: "update",
+    action: isActive ? "enabled user" : "disabled user",
+    entityType: "team-user",
+    entityId: id,
+  });
   revalidatePath("/admin/settings");
   return { error: null };
 }
@@ -216,7 +254,12 @@ export async function archiveTeamUser(id: string): Promise<ActionResult> {
     .eq("id", id);
   if (error) return { error: "Could not archive the account." };
 
-  await recordActivity(actor, "archived user", "team-user", id);
+  await recordActivity(actor, {
+    type: "archive",
+    action: "archived user",
+    entityType: "team-user",
+    entityId: id,
+  });
   revalidatePath("/admin/settings");
   return { error: null };
 }
@@ -247,7 +290,12 @@ export async function deleteTeamUser(id: string): Promise<ActionResult> {
   const { error } = await admin.auth.admin.deleteUser(id); // profile row cascades
   if (error) return { error: "Could not delete the account." };
 
-  await recordActivity(actor, "deleted user", "team-user", id);
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted user",
+    entityType: "team-user",
+    entityId: id,
+  });
   revalidatePath("/admin/settings");
   return { error: null };
 }

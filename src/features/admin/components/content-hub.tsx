@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/features/admin/components/admin-page-header";
 import { ContentTypeCard } from "@/features/admin/components/content-type-card";
-import { PublishingActivity } from "@/features/admin/components/publishing-activity";
+import { AuditLogPanel } from "@/features/admin/components/audit-log-panel";
 import { RecentDrafts } from "@/features/admin/components/recent-drafts";
 import { CONTENT_TYPE_ACTIONS } from "@/features/admin/data";
 import { requireSessionUser } from "@/lib/auth";
@@ -48,7 +48,7 @@ export async function ContentHub({ activityEntries }: ContentHubProps) {
       ) : null}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <RecentDrafts />
-        <PublishingActivity entries={activityEntries} />
+        <AuditLogPanel entries={activityEntries} canViewAll={user.isSuperAdmin} />
       </div>
     </>
   );

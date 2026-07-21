@@ -73,7 +73,12 @@ export async function uploadNewsPhotos(
     if (insErr) return { error: "Upload failed. Try again.", photos: [] };
   }
 
-  await recordActivity(actor, "uploaded news photos", "news article", articleId);
+  await recordActivity(actor, {
+    type: "file_upload",
+    action: "uploaded news photos",
+    entityType: "news article",
+    entityId: articleId,
+  });
   revalidate();
   const refreshed = await currentPhotos(admin, articleId);
   return { error: null, photos: refreshed.map((p) => ({ id: p.id, src: photoUrl(p.src), alt: p.alt })) };
@@ -94,7 +99,12 @@ export async function reorderNewsPhotos(
       .eq("article_id", articleId);
     if (error) return { error: "Could not reorder photos." };
   }
-  await recordActivity(actor, "reordered news photos", "news article", articleId);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered news photos",
+    entityType: "news article",
+    entityId: articleId,
+  });
   revalidate();
   return { error: null };
 }
@@ -112,7 +122,12 @@ export async function updateNewsPhotoAlt(photoId: string, alt: string): Promise<
   if (!photo) return { error: "Could not update the photo description." };
   const { error } = await admin.from("news_photos").update({ alt }).eq("id", photoId);
   if (error) return { error: "Could not update the photo description." };
-  await recordActivity(actor, "updated news photo description", "news article", photo.article_id);
+  await recordActivity(actor, {
+    type: "update",
+    action: "updated news photo description",
+    entityType: "news article",
+    entityId: photo.article_id,
+  });
   revalidate();
   return { error: null };
 }
@@ -134,7 +149,12 @@ export async function removeNewsPhoto(photoId: string): Promise<ActionResult> {
   }
   const { error } = await admin.from("news_photos").delete().eq("id", photoId);
   if (error) return { error: "Could not remove the photo." };
-  await recordActivity(actor, "removed news photo", "news article", photo.article_id);
+  await recordActivity(actor, {
+    type: "file_delete",
+    action: "removed news photo",
+    entityType: "news article",
+    entityId: photo.article_id,
+  });
   revalidate();
   return { error: null };
 }

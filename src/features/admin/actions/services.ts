@@ -76,7 +76,13 @@ export async function updateService(id: string, input: ServiceFormValues): Promi
     .eq("id", id);
   if (error) return { error: "Could not save the service." };
 
-  await recordActivity(actor, "updated service", "service", id, parsed.data.title);
+  await recordActivity(actor, {
+    type: "update",
+    action: "updated service",
+    entityType: "service",
+    entityId: id,
+    entityLabel: parsed.data.title,
+  });
   revalidatePath("/admin/services");
   revalidatePath("/services");
   return { error: null };
@@ -123,7 +129,13 @@ export async function createService(input: ServiceFormValues): Promise<ActionRes
   });
   if (error) return { error: "Could not create the service." };
 
-  await recordActivity(actor, "created service", "service", id, parsed.data.title);
+  await recordActivity(actor, {
+    type: "create",
+    action: "created service",
+    entityType: "service",
+    entityId: id,
+    entityLabel: parsed.data.title,
+  });
   revalidatePath("/admin/services");
   revalidatePath("/services");
   return { error: null };
@@ -137,7 +149,12 @@ export async function setServiceAvailable(id: string, isAvailable: boolean): Pro
   const { error } = await admin.from("services").update({ is_available: isAvailable }).eq("id", id);
   if (error) return { error: "Could not update availability." };
 
-  await recordActivity(actor, isAvailable ? "enabled service" : "disabled service", "service", id);
+  await recordActivity(actor, {
+    type: "update",
+    action: isAvailable ? "enabled service" : "disabled service",
+    entityType: "service",
+    entityId: id,
+  });
   revalidatePath("/admin/services");
   revalidatePath("/services");
   return { error: null };

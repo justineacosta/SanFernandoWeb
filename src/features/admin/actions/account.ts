@@ -35,7 +35,12 @@ export async function updateMyProfile(input: UpdateMyProfileValues): Promise<Act
     .eq("id", user.id);
   if (error) return { error: "Could not save your profile." };
 
-  await recordActivity(user, "updated own profile", "profile", user.id);
+  await recordActivity(user, {
+    type: "update",
+    action: "updated own profile",
+    entityType: "profile",
+    entityId: user.id,
+  });
   revalidatePath("/admin/settings");
   return { error: null };
 }
@@ -68,6 +73,11 @@ export async function changeMyPassword(input: ChangePasswordValues): Promise<Act
     return { error: "Could not update your password." };
   }
 
-  await recordActivity(user, "changed own password", "account", user.id);
+  await recordActivity(user, {
+    type: "password_reset",
+    action: "changed own password",
+    entityType: "account",
+    entityId: user.id,
+  });
   return { error: null };
 }

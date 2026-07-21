@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { AnnouncementValues, ContentStatus, SessionUser } from "@/types";
+import type { AnnouncementValues, AuditActionType, ContentStatus, SessionUser } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -70,7 +70,13 @@ export async function saveAnnouncement(
       .maybeSingle();
     if (error) return { error: "Could not save the announcement.", id: null };
     if (!updated) return { error: "Announcement not found.", id: null };
-    await recordActivity(actor, "updated announcement", "announcement", id, parsed.data.title);
+    await recordActivity(actor, {
+      type: "update",
+      action: "updated announcement",
+      entityType: "announcement",
+      entityId: id,
+      entityLabel: parsed.data.title,
+    });
     revalidate();
     return { error: null, id };
   }
@@ -89,7 +95,13 @@ export async function saveAnnouncement(
     .select("id")
     .single();
   if (error || !inserted) return { error: "Could not create the announcement.", id: null };
-  await recordActivity(actor, "created announcement", "announcement", inserted.id, parsed.data.title);
+  await recordActivity(actor, {
+    type: "create",
+    action: "created announcement",
+    entityType: "announcement",
+    entityId: inserted.id,
+    entityLabel: parsed.data.title,
+  });
   revalidate();
   return { error: null, id: inserted.id };
 }
@@ -105,6 +117,7 @@ async function applyTransition(
   id: string,
   from: string[],
   patch: Record<string, unknown>,
+  type: AuditActionType,
   verb: string,
 ): Promise<ActionResult> {
   const admin = createSupabaseAdminClient();
@@ -117,7 +130,7 @@ async function applyTransition(
     .maybeSingle();
   if (error) return { error: "Could not update the announcement." };
   if (!data) return { error: "This announcement is no longer in a state that allows that action." };
-  await recordActivity(actor, verb, "announcement", id, data.title);
+  await recordActivity(actor, { type, action: verb, entityType: "announcement", entityId: id, entityLabel: data.title });
   revalidate();
   return { error: null };
 }
@@ -125,13 +138,13 @@ async function applyTransition(
 export async function submitAnnouncementForReview(id: string): Promise<ActionResult> {
   const actor = await checkPermission("manage-news");
   if (!actor) return { error: NOT_FOUND };
-  return applyTransition(actor, id, ["draft"], { status: "in-review" }, "submitted announcement for review");
+  return applyTransition(actor, id, ["draft"], { status: "in-review" }, "update", "submitted announcement for review");
 }
 
 export async function returnAnnouncementToDraft(id: string): Promise<ActionResult> {
   const actor = await checkPermission("manage-news");
   if (!actor) return { error: NOT_FOUND };
-  return applyTransition(actor, id, ["in-review"], { status: "draft" }, "returned announcement to draft");
+  return applyTransition(actor, id, ["in-review"], { status: "draft" }, "save_draft", "returned announcement to draft");
 }
 
 export async function archiveAnnouncement(id: string): Promise<ActionResult> {
@@ -142,6 +155,7 @@ export async function archiveAnnouncement(id: string): Promise<ActionResult> {
     id,
     ["draft", "in-review", "published"],
     { status: "archived" },
+    "archive",
     "archived announcement",
   );
 }
@@ -170,7 +184,13 @@ export async function publishAnnouncement(id: string): Promise<ActionResult> {
     .maybeSingle();
   if (error) return { error: "Could not publish the announcement." };
   if (!data) return { error: "This announcement is already published." };
-  await recordActivity(actor, "published announcement", "announcement", id, row.title);
+  await recordActivity(actor, {
+    type: "publish",
+    action: "published announcement",
+    entityType: "announcement",
+    entityId: id,
+    entityLabel: row.title,
+  });
   revalidate();
   return { error: null };
 }

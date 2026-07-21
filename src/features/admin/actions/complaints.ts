@@ -117,13 +117,16 @@ export async function reviewComplaint(
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That report was already reviewed. Refresh to see its status." };
 
-  await recordActivity(
-    actor,
-    parsed.data.status === "dismissed" ? "dismissed complaint" : "took up complaint",
-    "complaint",
-    data.ticket_no,
-    parsed.data.remarks || undefined,
-  );
+  const dismissed = parsed.data.status === "dismissed";
+  await recordActivity(actor, {
+    // "took up" moves the report into mediation — a status move, not a verdict.
+    type: dismissed ? "reject" : "update",
+    action: dismissed ? "dismissed complaint" : "took up complaint",
+    entityType: "complaint",
+    entityId: data.ticket_no,
+    entityLabel: data.ticket_no,
+    detail: parsed.data.remarks || undefined,
+  });
   revalidatePath("/admin/complaints");
   return { error: null };
 }
@@ -159,13 +162,17 @@ export async function closeComplaint(
     return { error: "Only reports under review can be closed. Refresh to see its status." };
   }
 
-  await recordActivity(
-    actor,
-    parsed.data.status === "resolved" ? "resolved complaint" : "dismissed complaint",
-    "complaint",
-    data.ticket_no,
-    parsed.data.remarks || undefined,
-  );
+  const resolved = parsed.data.status === "resolved";
+  await recordActivity(actor, {
+    // Resolved is the positive terminal outcome; it files with approve so a
+    // reviewer filtering decisions sees all four flows' outcomes together.
+    type: resolved ? "approve" : "reject",
+    action: resolved ? "resolved complaint" : "dismissed complaint",
+    entityType: "complaint",
+    entityId: data.ticket_no,
+    entityLabel: data.ticket_no,
+    detail: parsed.data.remarks || undefined,
+  });
   revalidatePath("/admin/complaints");
   return { error: null };
 }
@@ -203,7 +210,12 @@ export async function createWalkInComplaint(values: WalkInComplaintValues): Prom
     return { error: "Could not encode the report." };
   }
 
-  await recordActivity(actor, "encoded walk-in complaint", "complaint", data.ticket_no);
+  await recordActivity(actor, {
+    type: "create",
+    action: "encoded walk-in complaint",
+    entityType: "complaint",
+    entityId: data.ticket_no,
+  });
   revalidatePath("/admin/complaints");
   return { error: null };
 }

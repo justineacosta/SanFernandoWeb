@@ -463,17 +463,6 @@ export interface ContentDraft {
   icon: LucideIcon;
 }
 
-export interface PublishingActivityEntry {
-  /** Display timestamp, e.g. "Today, 09:45 AM". */
-  dateLabel: string;
-  title: string;
-  description: string;
-  /** Link to the live page, when the item is published and public. */
-  liveHref?: string;
-  /** Highlight the timeline dot (most recent entry). */
-  highlight?: boolean;
-}
-
 export interface ContentTypeAction {
   title: string;
   description: string;
@@ -639,13 +628,45 @@ export interface TeamUser extends SessionUser {
   createdAt: string;
 }
 
+/**
+ * Controlled action classes for the audit log — the Action Type dropdown's
+ * values. Mirrors the `public.audit_action` enum (migration 0014); the two must
+ * change together.
+ */
+export const AUDIT_ACTIONS = [
+  "create",
+  "update",
+  "delete",
+  "archive",
+  "restore",
+  "publish",
+  "unpublish",
+  "save_draft",
+  "approve",
+  "reject",
+  "login",
+  "logout",
+  "file_upload",
+  "file_delete",
+  "role_change",
+  "password_reset",
+  "reorder",
+] as const;
+
+export type AuditActionType = (typeof AUDIT_ACTIONS)[number];
+
 /** A row in the audit_log table. */
 export interface AuditEntry {
   id: number;
   actorName: string;
+  actionType: AuditActionType;
+  /** Human sentence, e.g. "archived announcement" — secondary to actionType. */
   action: string;
   entityType: string;
   entityId: string | null;
+  /** Human name of the target, captured at write time. */
+  entityLabel: string | null;
+  /** Free-text extra context (staff remarks). Never the entity name. */
   detail: string | null;
   /** ISO timestamp. */
   createdAt: string;

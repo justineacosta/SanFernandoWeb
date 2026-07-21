@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, TransparencyDocumentValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
-import { recordActivity } from "@/lib/audit";
+import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTransparencyDocumentForEdit } from "@/features/admin/queries/transparency";
 import { MAX_FILES_PER_RECORD } from "@/lib/storage";
@@ -146,7 +146,13 @@ export async function saveTransparencyDocument(
     if (error) { await cleanupUploads(); return { error: "Could not save the document's files.", id: null }; }
   }
 
-  await recordActivity(actor, id ? "updated document" : "created document", "transparency document", docId, parsed.data.title);
+  await recordActivity(actor, {
+    type: id ? "update" : "create",
+    action: id ? "updated document" : "created document",
+    entityType: "transparency document",
+    entityId: docId,
+    entityLabel: parsed.data.title,
+  });
   revalidate();
   return { error: null, id: docId };
 }
@@ -187,13 +193,13 @@ export async function setTransparencyDocumentStatus(
   const { error } = await admin.from("transparency_documents").update(patch).eq("id", id);
   if (error) return { error: "Could not update the document." };
 
-  await recordActivity(
-    actor,
-    `${nextStatus} document`,
-    "transparency document",
-    id,
-    existing.title as string,
-  );
+  await recordActivity(actor, {
+    type: auditTypeForStatus(nextStatus),
+    action: `${nextStatus} document`,
+    entityType: "transparency document",
+    entityId: id,
+    entityLabel: existing.title as string,
+  });
   revalidate();
   return { error: null };
 }
@@ -229,13 +235,13 @@ export async function deleteTransparencyDocument(id: string): Promise<ActionResu
     await admin.from("transparency_files").delete().in("id", files.map((f) => f.id));
     for (const f of files) await removeStoredDocument(f.path);
   }
-  await recordActivity(
-    actor,
-    "deleted document",
-    "transparency document",
-    id,
-    (existing?.title as string) ?? "",
-  );
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted document",
+    entityType: "transparency document",
+    entityId: id,
+    entityLabel: (existing?.title as string) ?? "",
+  });
   revalidate();
   return { error: null };
 }

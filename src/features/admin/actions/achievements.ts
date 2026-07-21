@@ -90,7 +90,12 @@ export async function createAchievement(officialId: string): Promise<CreateResul
     .single();
   if (error || !data) return { error: "Could not add the achievement.", id: null };
 
-  await recordActivity(actor, "added achievement", "official", officialId);
+  await recordActivity(actor, {
+    type: "create",
+    action: "added achievement",
+    entityType: "official",
+    entityId: officialId,
+  });
   await revalidateForOfficial(admin, officialId);
   return { error: null, id: data.id as string };
 }
@@ -122,7 +127,13 @@ export async function updateAchievement(
     .eq("id", id);
   if (error) return { error: "Could not save the achievement." };
 
-  await recordActivity(actor, "updated achievement", "official", officialId, parsed.data.title);
+  await recordActivity(actor, {
+    type: "update",
+    action: "updated achievement",
+    entityType: "official",
+    entityId: officialId,
+    entityLabel: parsed.data.title,
+  });
   await revalidateForOfficial(admin, officialId);
   return { error: null };
 }
@@ -146,12 +157,12 @@ export async function setAchievementVisibility(
     .eq("id", id);
   if (error) return { error: "Could not update the achievement." };
 
-  await recordActivity(
-    actor,
-    isVisible ? "showed achievement" : "hid achievement",
-    "official",
-    officialId,
-  );
+  await recordActivity(actor, {
+    type: "update",
+    action: isVisible ? "showed achievement" : "hid achievement",
+    entityType: "official",
+    entityId: officialId,
+  });
   await revalidateForOfficial(admin, officialId);
   return { error: null };
 }
@@ -180,7 +191,12 @@ export async function reorderAchievements(
     if (error) return { error: "Could not save the new order." };
   }
 
-  await recordActivity(actor, "reordered achievements", "official", officialId);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered achievements",
+    entityType: "official",
+    entityId: officialId,
+  });
   await revalidateForOfficial(admin, officialId);
   return { error: null };
 }
@@ -224,13 +240,13 @@ export async function deleteAchievement(id: string): Promise<ActionResult> {
   if (error) return { error: "Could not delete the achievement." };
 
   const officialId = existing.official_id as string;
-  await recordActivity(
-    actor,
-    "deleted achievement",
-    "official",
-    officialId,
-    (existing.title as string) ?? "",
-  );
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted achievement",
+    entityType: "official",
+    entityId: officialId,
+    entityLabel: (existing.title as string) ?? "",
+  });
   await revalidateForOfficial(admin, officialId);
   return { error: null };
 }

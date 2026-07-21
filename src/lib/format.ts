@@ -9,6 +9,24 @@ export function formatDate(iso: string): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("en-PH", DATE_FORMAT);
 }
 
+/**
+ * Format an audit timestamp as e.g. "September 23, 2001 (1:53 PM)".
+ *
+ * Rendered in Asia/Manila, not the server's UTC: an action taken at 8am Manila
+ * must not read as the previous day in the barangay's own audit trail.
+ */
+export function formatAuditTimestamp(timestamp: string): string {
+  const date = new Date(timestamp);
+  const day = date.toLocaleDateString("en-PH", { ...DATE_FORMAT, timeZone: "Asia/Manila" });
+  const time = date.toLocaleTimeString("en-PH", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Manila",
+  });
+  return `${day} (${time})`;
+}
+
 /** Format a date-approved value, showing "Pending Approval" when not yet set. */
 export function formatDateApproved(iso: string | null): string {
   return iso ? formatDate(iso) : "Pending Approval";

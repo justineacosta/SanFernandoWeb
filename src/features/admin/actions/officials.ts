@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, OfficialValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
-import { recordActivity } from "@/lib/audit";
+import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getOfficialForEdit } from "@/features/admin/queries/officials";
 import { PUBLIC_MEDIA_BUCKET } from "@/lib/storage";
@@ -180,7 +180,13 @@ export async function saveOfficial(
       }
     }
 
-    await recordActivity(actor, "updated official", "official", id, parsed.data.name);
+    await recordActivity(actor, {
+      type: "update",
+      action: "updated official",
+      entityType: "official",
+      entityId: id,
+      entityLabel: parsed.data.name,
+    });
     revalidate(slug);
     return { error: null, id };
   }
@@ -204,7 +210,13 @@ export async function saveOfficial(
     .single();
   if (error || !data) return { error: "Could not create the official.", id: null };
 
-  await recordActivity(actor, "created official", "official", data.id, parsed.data.name);
+  await recordActivity(actor, {
+    type: "create",
+    action: "created official",
+    entityType: "official",
+    entityId: data.id,
+    entityLabel: parsed.data.name,
+  });
   revalidate(slugResult.slug);
   return { error: null, id: data.id };
 }
@@ -255,7 +267,13 @@ export async function setOfficialStatus(
   const { error } = await admin.from("officials").update(patch).eq("id", id);
   if (error) return { error: "Could not update the official." };
 
-  await recordActivity(actor, `${nextStatus} official`, "official", id, existing.name as string);
+  await recordActivity(actor, {
+    type: auditTypeForStatus(nextStatus),
+    action: `${nextStatus} official`,
+    entityType: "official",
+    entityId: id,
+    entityLabel: existing.name as string,
+  });
   revalidate(existing.slug as string);
   return { error: null };
 }
@@ -312,7 +330,13 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
       console.error(`Orphaned storage object (portrait cleanup failed): ${existing.photo_path}`);
     }
   }
-  await recordActivity(actor, "deleted official", "official", id, (existing?.name as string) ?? "");
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted official",
+    entityType: "official",
+    entityId: id,
+    entityLabel: (existing?.name as string) ?? "",
+  });
   revalidate((existing?.slug as string) ?? undefined);
   return { error: null };
 }
@@ -338,7 +362,11 @@ export async function reorderOfficials(orderedIds: string[]): Promise<ActionResu
     if (error) return { error: "Could not save the new order." };
   }
 
-  await recordActivity(actor, "reordered officials", "official");
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered officials",
+    entityType: "official",
+  });
   revalidate();
   return { error: null };
 }
