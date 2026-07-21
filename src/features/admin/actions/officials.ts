@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getOfficialForEdit } from "@/features/admin/queries/officials";
+import { PUBLIC_MEDIA_BUCKET } from "@/lib/storage";
 import { removeStoredImage } from "./media";
 
 export interface ActionResult {
@@ -270,6 +271,27 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
     .select("name, slug, photo_path")
     .eq("id", id)
     .maybeSingle();
+
+  // Deleting the official cascades away its achievements and their photo
+  // ROWS, but Postgres knows nothing about Storage. Collect the objects while
+  // the rows still exist, or they are orphaned forever.
+  const { data: achievements } = await admin
+    .from("official_achievements")
+    .select("id")
+    .eq("official_id", id);
+  const achievementIds = (achievements ?? []).map((row) => row.id as string);
+  if (achievementIds.length > 0) {
+    const { data: photos } = await admin
+      .from("official_achievement_photos")
+      .select("src")
+      .in("achievement_id", achievementIds);
+    const paths = (photos ?? [])
+      .map((photo) => photo.src as string)
+      .filter((src) => !/^https?:\/\//i.test(src));
+    if (paths.length > 0) {
+      await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove(paths);
+    }
+  }
 
   const { error } = await admin.from("officials").delete().eq("id", id);
   if (error) return { error: "Could not delete the official." };

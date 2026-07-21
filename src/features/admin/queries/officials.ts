@@ -1,7 +1,14 @@
 import "server-only";
-import type { AdminOfficialRow, ContentStatus, OfficialGroup, OfficialValues } from "@/types";
+import type {
+  AdminAchievement,
+  AdminOfficialRow,
+  ContentStatus,
+  OfficialGroup,
+  OfficialValues,
+} from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { photoUrl } from "@/lib/storage";
+import { listAchievementsForOfficial } from "./achievements";
 
 /** Every official, all statuses, in directory order. */
 export async function listAdminOfficials(): Promise<AdminOfficialRow[]> {
@@ -27,7 +34,12 @@ export async function listAdminOfficials(): Promise<AdminOfficialRow[]> {
 
 export async function getOfficialForEdit(
   id: string,
-): Promise<{ values: OfficialValues; status: ContentStatus; photoUrl: string | null } | null> {
+): Promise<{
+  values: OfficialValues;
+  status: ContentStatus;
+  photoUrl: string | null;
+  achievements: AdminAchievement[];
+} | null> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("officials")
@@ -36,6 +48,9 @@ export async function getOfficialForEdit(
     .maybeSingle();
 
   if (error || !data) return null;
+
+  const achievements = await listAchievementsForOfficial(id);
+
   return {
     values: {
       name: data.name as string,
@@ -51,5 +66,6 @@ export async function getOfficialForEdit(
     },
     status: data.status as ContentStatus,
     photoUrl: data.photo_path ? photoUrl(data.photo_path as string) : null,
+    achievements,
   };
 }
