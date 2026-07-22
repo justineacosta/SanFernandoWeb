@@ -972,8 +972,9 @@
 >    server-side guards are correct and were not touched** — the public card leads with the
 >    portrait and a government site cannot ship an empty `alt`. What changed is that the
 >    refusal now arrives as an error toast, and the drawer's error moved into the footer beside
->    the button it explains. **Legislative and Transparency keep drawer-only publishing** — they
->    share the pattern but not the bug report, and neither hides its button behind a prior save.
+>    the button it explains. Legislative and disclosure documents gained the same row-level
+>    Publish in a 2026-07-23 follow-up — they shared the missing-action half of the pattern,
+>    though neither hides its drawer button behind a prior save.
 > 2. **A fourth directory section, `members`** (`0022`), rendered as **"Barangay Members"** below
 >    Administration and labelled just "Members" in the admin. `ALTER TYPE … ADD VALUE` cannot
 >    have its new label *used* in the transaction that adds it, so `0022` only declares it —
@@ -1002,7 +1003,12 @@
 > 6. **`adminPageTitle` is permission-gated, and that is a disclosure control, not politeness.**
 >    The portal 404s on unpermitted routes so those modules stay hidden — but the layout, and
 >    therefore the top bar, renders *above* that 404. An ungated lookup would print
->    "Applications" over the not-found page and undo the gating. A test pins this.
+>    "Applications" over the not-found page and undo the gating. A test pins this. The same
+>    leak existed one layer up: a gated page's static `metadata.title` is resolved regardless
+>    of what the render throws, naming the module in the browser tab over the 404. Since
+>    2026-07-23 every gated page exports `gatedMetadata(<permission>, <title>)` from
+>    `src/lib/auth.ts` instead — the title resolves only for a session holding the permission,
+>    and otherwise falls back to the layout's generic "Admin".
 > 7. **The sidebar collapses to a 72px icon rail, and its state is a cookie read server-side.**
 >    Not `localStorage` in an effect: an effect runs after paint, so the rail would render
 >    expanded and snap shut on every single load. `AdminShell` owns the state because the fixed
