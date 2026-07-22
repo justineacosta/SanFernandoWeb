@@ -43,7 +43,11 @@ export interface UploadResult {
   url: string | null;
 }
 
-export type ImageFolder = "announcements" | "events" | "officials";
+// `site` is the Home/About CMS prefix (sub-project 9). It shares this helper
+// rather than getting its own uploader: a carousel slide, a history photo and
+// the get-involved banner are all single-slot images with the same 2 MB / JPG-
+// PNG-WebP rules as an official's portrait.
+export type ImageFolder = "announcements" | "events" | "officials" | "site";
 
 /**
  * Upload one image for a single-slot field (announcement image, event cover,
@@ -85,7 +89,11 @@ export async function removeStoredImage(src: string): Promise<ActionResult> {
   // Every owned path is `<folder>/<uuid>.<ext>` written by this module or by
   // newsPhotoPath/achievementPhotoPath. Reject anything else — and any `..`
   // segment — rather than handing an arbitrary string to storage.remove().
-  if (!/^(announcements|events|officials|news|achievements)\//.test(src)) {
+  // `site/` covers both shapes the CMS stores: `site/<uuid>.<ext>` written by
+  // uploadSingleImage, and the deterministic seed paths (site/hero-*.jpg)
+  // scripts/upload-site-images.mjs populates. Leaving it out of this allow-list
+  // would silently turn every replaced carousel photo into a logged orphan.
+  if (!/^(announcements|events|officials|news|achievements|site)\//.test(src)) {
     return { error: "That image cannot be removed." };
   }
   if (src.split("/").some((segment) => segment === "..")) {

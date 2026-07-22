@@ -19,7 +19,12 @@ export const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
  */
 export const DRAFT_MAX_BYTES = 256 * 1024;
 
-/** The seven draft-capable forms (umbrella §3.7). */
+/**
+ * The draft-capable forms: the seven of umbrella §3.7, plus the site-content
+ * editors added by sub-project 9. Site content has no draft/published workflow
+ * of its own, but its drawers close on Esc like every other, so the local
+ * recovery copy is worth exactly as much there.
+ */
 export type DraftScope =
   | "news"
   | "announcement"
@@ -27,7 +32,9 @@ export type DraftScope =
   | "official"
   | "legislative"
   | "transparency-document"
-  | "transparency-project";
+  | "transparency-project"
+  | "site-item"
+  | "site-block";
 
 export interface DraftSnapshot<T> {
   savedAt: number;

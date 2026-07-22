@@ -607,6 +607,62 @@ export interface ValueItem {
   description: string;
 }
 
+/* --------------------------- Site content CMS (plan 9) -------------------------- */
+/* The editable Home and About blocks. Mirrors migration 0021 — the enum below and  */
+/* `public.site_block` must change together.                                        */
+
+export const SITE_BLOCKS = [
+  "hero_slides",
+  "quick_services",
+  "glance_stats",
+  "involvement_items",
+  "core_values",
+  "history_entries",
+  "milestones",
+] as const;
+
+export type SiteBlock = (typeof SITE_BLOCKS)[number];
+
+/** Singleton text blocks, keyed by dotted path (site_blocks.key). */
+export const SITE_BLOCK_KEYS = [
+  "about.mission",
+  "about.vision",
+  "about.captain_message",
+  "home.cta_image",
+] as const;
+
+export type SiteBlockKey = (typeof SITE_BLOCK_KEYS)[number];
+
+/**
+ * Drawer body for one collection item. Three generic text slots whose meaning is
+ * fixed per block (see the table in migration 0021, and SITE_BLOCK_FIELDS).
+ *
+ * The image FILE is deliberately absent: it lives in component state so the
+ * autosave snapshot stays text-only by construction (sub-projects 7 and 8).
+ */
+export interface SiteItemValues {
+  iconName: string | null;
+  label: string | null;
+  value: string | null;
+  body: string | null;
+  href: string | null;
+  imageAlt: string | null;
+  imageFit: "cover" | "contain" | null;
+}
+
+/**
+ * An item as the manager sees it. Note there is no ArchiveMeta: site content has
+ * no draft/published/archived lifecycle (design §2.3), so it has no archived
+ * state to carry. That absence is a decision, not an oversight.
+ */
+export interface AdminSiteItemRow extends SiteItemValues {
+  id: string;
+  block: SiteBlock;
+  sortOrder: number;
+  imagePath: string | null;
+  imageUrl: string | null;
+}
+
 /* ── Auth & permissions (backend plan 1) ─────────────────────────────── */
 
 /** Permission slugs stored in profiles.permissions. Order matches the admin UI. */
@@ -619,6 +675,7 @@ export const PERMISSIONS = [
   "manage-news",
   "manage-officials",
   "manage-transparency",
+  "manage-site-content",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
