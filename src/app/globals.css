@@ -95,6 +95,18 @@
 }
 
 @layer base {
+  /*
+   * The page itself never scrolls sideways — wide content (tables) scrolls
+   * inside its own overflow-x-auto container. Chrome still grows the root
+   * scroll area for the transparency tables' intrinsic width (present before
+   * the overhaul; walkthrough finding), so the root hides x-overflow.
+   * `clip` was tried first but Chrome's root scroller pans regardless;
+   * `hidden` on html (not body) keeps sticky/fixed descendants working.
+   */
+  html {
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-white text-ink-900 font-sans antialiased;
   }
