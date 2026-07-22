@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { Menu, X } from "lucide-react";
@@ -25,7 +26,17 @@ import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
  * card mounts fresh on every open, so a glide would have nothing to glide from,
  * and the rail is `hidden md:flex` — display-hidden but still mounted — so a
  * shared id would compete with a laid-out-but-invisible twin.
+ *
+ * The scrim and card portal to `document.body` and must keep doing so. This
+ * component renders inside the top bar, whose `backdrop-blur-md` creates a
+ * containing block for fixed-position descendants — exactly as a transform
+ * would. Rendered in place, `fixed inset-0` resolves to the bar's own box, so
+ * the card insets from the bar's padding edge and the scrim collapses into an
+ * invisible strip.
  */
+/** Never fires; the store is a constant, so nothing ever needs re-reading. */
+const noopSubscribe = () => () => {};
+
 export function AdminMobileNav({
   isSuperAdmin,
   permissions,
@@ -36,6 +47,15 @@ export function AdminMobileNav({
   const { isOpen, toggle, close } = useDisclosure();
   const pathname = usePathname();
   const groups = groupNavItems(ADMIN_NAV_ITEMS, { isSuperAdmin, permissions });
+  // The portal target only exists in the browser, and AnimatePresence has to
+  // stay mounted across the close for the exit to run — so the portal is gated
+  // on hydration rather than folded into the isOpen check. useSyncExternalStore
+  // is the hydration-safe read: the server snapshot is false, the client's true.
+  const hydrated = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
 
   // Rows close the menu themselves on tap, because tapping the row you are
   // already on does not change the pathname. This effect is the other half:
@@ -53,6 +73,87 @@ export function AdminMobileNav({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, close]);
 
+  const menu = (
+    <MotionConfig reducedMotion="user">
+      <AnimatePresence>
+        {isOpen ? (
+          // The layer is click-through; only the scrim and the card take taps,
+          // so the top bar's X stays live in the strip above them. It repeats
+          // `md:hidden` because the portal escapes the wrapper that carries it.
+          <motion.div
+            key="admin-mobile-menu-layer"
+            className="pointer-events-none fixed inset-0 z-50 md:hidden"
+          >
+            <motion.button
+              type="button"
+              aria-label="Close admin menu"
+              onClick={close}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={FADE_QUICK}
+              // Starts level with the card: the top bar's bottom edge is at
+              // 72px (pt-4 + h-14) and must not be dimmed.
+              className="pointer-events-auto absolute inset-x-0 bottom-0 top-18 bg-ink-900/40 backdrop-blur-[2px]"
+            />
+            <motion.nav
+              id="admin-mobile-menu"
+              aria-label="Admin navigation"
+              initial={{ opacity: 0, y: -8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -6, transition: FADE_QUICK }}
+              transition={POP}
+              style={{ transformOrigin: "top center" }}
+              className="pointer-events-auto absolute inset-x-4 top-18 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-3xl border border-ink-200/70 bg-white/95 p-3 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.25)] backdrop-blur-xl"
+            >
+              <div className="flex flex-col gap-5">
+                {groups.map((section) => (
+                  <div key={section.group}>
+                    <p className="mb-2 flex items-center gap-2 px-4 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-ink-500 before:h-px before:w-4 before:shrink-0 before:bg-brand-400/40 before:content-['']">
+                      {section.label}
+                    </p>
+                    <ul className="flex flex-col gap-1">
+                      {section.items.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = item.exact
+                          ? pathname === item.href
+                          : pathname.startsWith(item.href);
+                        return (
+                          <li key={item.href}>
+                            <Link
+                              href={item.href}
+                              onClick={close}
+                              aria-current={isActive ? "page" : undefined}
+                              className={cn(
+                                "flex items-center gap-3 rounded-full px-4 py-3 text-sm font-medium transition-colors duration-(--duration-quick)",
+                                isActive
+                                  ? "bg-brand-50 text-ink-900"
+                                  : "text-ink-600 hover:bg-ink-50 hover:text-ink-900",
+                              )}
+                            >
+                              <Icon
+                                className={cn(
+                                  "h-5 w-5 shrink-0",
+                                  isActive ? "text-brand-600" : "text-ink-400",
+                                )}
+                                aria-hidden="true"
+                              />
+                              <span className="truncate">{item.label}</span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </motion.nav>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </MotionConfig>
+  );
+
   return (
     <div className="md:hidden">
       <button
@@ -65,83 +166,7 @@ export function AdminMobileNav({
       >
         {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
       </button>
-      <MotionConfig reducedMotion="user">
-        <AnimatePresence>
-          {isOpen ? (
-            // The layer is click-through; only the scrim and the card take
-            // taps, so the topbar's own X stays live in the strip above them.
-            <motion.div
-              key="admin-mobile-menu-layer"
-              className="pointer-events-none fixed inset-0 z-50"
-            >
-              <motion.button
-                type="button"
-                aria-label="Close admin menu"
-                onClick={close}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={FADE_QUICK}
-                // Starts level with the card: the topbar's bottom edge is at
-                // 72px (pt-4 + h-14) and must not be dimmed.
-                className="pointer-events-auto absolute inset-x-0 bottom-0 top-18 bg-ink-900/40 backdrop-blur-[2px]"
-              />
-              <motion.nav
-                id="admin-mobile-menu"
-                aria-label="Admin navigation"
-                initial={{ opacity: 0, y: -8, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -6, transition: FADE_QUICK }}
-                transition={POP}
-                style={{ transformOrigin: "top center" }}
-                className="pointer-events-auto absolute inset-x-4 top-18 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-3xl border border-ink-200/70 bg-white/95 p-3 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.25)] backdrop-blur-xl"
-              >
-                <div className="flex flex-col gap-5">
-                  {groups.map((section) => (
-                    <div key={section.group}>
-                      <p className="mb-2 flex items-center gap-2 px-4 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-ink-500 before:h-px before:w-4 before:shrink-0 before:bg-brand-400/40 before:content-['']">
-                        {section.label}
-                      </p>
-                      <ul className="flex flex-col gap-1">
-                        {section.items.map((item) => {
-                          const Icon = item.icon;
-                          const isActive = item.exact
-                            ? pathname === item.href
-                            : pathname.startsWith(item.href);
-                          return (
-                            <li key={item.href}>
-                              <Link
-                                href={item.href}
-                                onClick={close}
-                                aria-current={isActive ? "page" : undefined}
-                                className={cn(
-                                  "flex items-center gap-3 rounded-full px-4 py-3 text-sm font-medium transition-colors duration-(--duration-quick)",
-                                  isActive
-                                    ? "bg-brand-50 text-ink-900"
-                                    : "text-ink-600 hover:bg-ink-50 hover:text-ink-900",
-                                )}
-                              >
-                                <Icon
-                                  className={cn(
-                                    "h-5 w-5 shrink-0",
-                                    isActive ? "text-brand-600" : "text-ink-400",
-                                  )}
-                                  aria-hidden="true"
-                                />
-                                <span className="truncate">{item.label}</span>
-                              </Link>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </motion.nav>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-      </MotionConfig>
+      {hydrated ? createPortal(menu, document.body) : null}
     </div>
   );
 }
