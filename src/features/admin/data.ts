@@ -2,24 +2,19 @@ import {
   CalendarClock,
   CalendarDays,
   FileStack,
-  Gavel,
   HeartHandshake,
   History,
   Inbox,
   Landmark,
   Megaphone,
   MessagesSquare,
-  Newspaper,
   PanelsTopLeft,
-  PartyPopper,
   Scale,
   Settings,
   Users,
 } from "lucide-react";
 import type {
   AdminTeamMember,
-  ContentDraft,
-  ContentTypeAction,
   EventCategory,
   IconNavItem,
   TeamRole,
@@ -40,71 +35,6 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Audit Logs", href: "/admin/audit", icon: History, superAdminOnly: true, group: "system" },
   { label: "Settings", href: "/admin/settings", icon: Settings, group: "system" },
 ];
-
-export const ADMIN_USER = {
-  name: "Maria Santos",
-  role: "Content Administrator",
-  email: "m.santos@brgy-sanfernando.gov.ph",
-  phone: "(077) 600-2345",
-  avatar:
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuDywk9wpYtcWnNA0FWF88gUK3yo2MwAu2MWoBwHgoVtz2CbRQYsTGOP_slCwmRy9aeVnKX2Rf8gaBoZvaT9gXXdU8X2t1_Y8sraK7l6O7WswP_znAxgeJc9gJUxf22BMQckTxHodBglkQIBVboh0ZV720NsiTReQ8DsYiuuxNvX_1E4L6spfUG03Rx-24rhC3h52XJINUNPbjja_RqzXNIYhhtN4x49W-SmbkeKUfUPU0_7uigGsoiMstStrNKmgYP6Vzwc8Lnn3cw",
-};
-
-export const CONTENT_TYPE_ACTIONS: ContentTypeAction[] = [
-  {
-    title: "Ordinance / Resolution",
-    description: "Draft official local laws, resolutions, and policy documents for public review.",
-    href: "/admin/transparency",
-    icon: Gavel,
-    tone: "primary",
-    permission: "manage-transparency",
-  },
-  {
-    title: "Community Event",
-    description: "Schedule town halls, health drives, festivals, and public gatherings.",
-    href: "/admin/events",
-    icon: PartyPopper,
-    tone: "secondary",
-    permission: "manage-news",
-  },
-  {
-    title: "News & Announcement",
-    description: "Publish immediate updates, advisories, and local news bulletins.",
-    href: "/admin/news",
-    icon: Newspaper,
-    tone: "deep",
-    permission: "manage-news",
-  },
-];
-
-export const RECENT_DRAFTS: ContentDraft[] = [
-  {
-    title: "Typhoon Preparedness Advisory",
-    editedLabel: "Last edited 2 hours ago by Maria Santos",
-    author: "Maria Santos",
-    status: "draft",
-    icon: Megaphone,
-  },
-  {
-    title: "Resolution No. 45 - Traffic Management",
-    editedLabel: "Last edited yesterday by Juan Dela Cruz",
-    author: "Juan Dela Cruz",
-    status: "in-review",
-    icon: Gavel,
-  },
-  {
-    title: "Annual Barangay Fiesta Schedule",
-    editedLabel: "Last edited 3 days ago by Ana Reyes",
-    author: "Ana Reyes",
-    status: "draft",
-    icon: CalendarDays,
-  },
-];
-
-export const DRAFT_STATUS_LABELS: Record<ContentDraft["status"], string> = {
-  draft: "Draft",
-  "in-review": "In Review",
-};
 
 /* ------------------- Section seed data (wraps real public content) ------------------ */
 

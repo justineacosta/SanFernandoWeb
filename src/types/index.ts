@@ -472,33 +472,6 @@ export interface TransparencyCategoryValues {
 
 /* ------------------------------------- Admin ------------------------------------ */
 
-export type DraftStatus = "draft" | "in-review";
-
-export interface ContentDraft {
-  title: string;
-  /** Relative edit label, e.g. "2 hours ago" — becomes a timestamp once backed by an API. */
-  editedLabel: string;
-  author: string;
-  status: DraftStatus;
-  icon: LucideIcon;
-}
-
-export interface ContentTypeAction {
-  title: string;
-  description: string;
-  href: string;
-  icon: LucideIcon;
-  /** Icon housing tone. */
-  tone: "primary" | "secondary" | "deep";
-  /**
-   * Gates the card the same way IconNavItem.permission gates a sidebar link.
-   * Required in practice: every card links to a permission-gated module, and
-   * those modules now 404 rather than redirect, so an ungated card would offer
-   * a staff member a dead end.
-   */
-  permission?: Permission;
-}
-
 /* ----------------------- Admin content management (mock CMS) --------------------- */
 /* Envelope types wrapping the public entities the admin portal manages. These are    */
 /* the de-facto write-side contract for the future backend (see BACKEND_HANDOFF §3E). */
