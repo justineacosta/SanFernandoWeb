@@ -3,16 +3,33 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ArrowDown, ArrowUp, Eye, Pencil, Plus, UserCheck, Users, UserX } from "lucide-react";
+import {
+  Archive,
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  Pencil,
+  Plus,
+  Trash2,
+  UserCheck,
+  Users,
+  UserX,
+} from "lucide-react";
 import type { AdminOfficialRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
+import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
+import { Tooltip } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
+  deleteOfficial,
   getOfficialForEditAction,
   reorderOfficials,
+  setOfficialStatus,
 } from "@/features/admin/actions/officials";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
@@ -44,6 +61,13 @@ interface OfficialsManagerProps {
   officials: AdminOfficialRow[];
 }
 
+/** A row action awaiting confirmation. Null when no dialog is open. */
+type PendingAction = {
+  kind: "archive" | "delete";
+  id: string;
+  name: string;
+} | null;
+
 /** Officials directory: stat cards, filters, ordered table, drawer editor. */
 export function OfficialsManager({ officials }: OfficialsManagerProps) {
   const router = useRouter();
@@ -53,7 +77,9 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
   const [editing, setEditing] = useState<OfficialEditRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<PendingAction>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [, startTransition] = useTransition();
 
   const published = officials.filter((r) => r.status === "published").length;
@@ -82,7 +108,7 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
       try {
         const detail = await getOfficialForEditAction(row.id);
         if (!detail) {
-          setToast("Could not load that official.");
+          showError("Could not load that official.");
           return;
         }
         setEditing({
@@ -108,16 +134,68 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
     startTransition(async () => {
       const result = await reorderOfficials(ids);
       if (result.error) {
-        setToast(result.error);
+        showError(result.error);
         return;
       }
       router.refresh();
     });
   };
 
+  /**
+   * Run the confirmed row action. The dialog stays open and locked until the
+   * Server Action answers, so a second click cannot fire a second delete.
+   */
+  const runConfirmed = () => {
+    if (!confirming) return;
+    const { kind, id, name } = confirming;
+    setActionPending(true);
+    startTransition(async () => {
+      const result =
+        kind === "delete"
+          ? await deleteOfficial(id)
+          : await setOfficialStatus(id, "archived");
+      setActionPending(false);
+      setConfirming(null);
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(kind === "delete" ? `Deleted ${name}.` : `Archived ${name}.`);
+      router.refresh();
+    });
+  };
+
+  const actionsFor = (record: AdminOfficialRow): RowAction[] => {
+    const actions: RowAction[] = [
+      {
+        label: record.status === "archived" ? "View details" : "Edit official",
+        icon: record.status === "archived" ? Eye : Pencil,
+        onSelect: () => openEdit(record),
+        disabled: loadingEditId === record.id,
+      },
+    ];
+    // Archiving is only meaningful for a record the public can currently see.
+    if (record.status === "published") {
+      actions.push({
+        label: "Archive",
+        icon: Archive,
+        tone: "danger",
+        onSelect: () =>
+          setConfirming({ kind: "archive", id: record.id, name: record.name }),
+      });
+    }
+    actions.push({
+      label: "Delete",
+      icon: Trash2,
+      tone: "danger",
+      onSelect: () => setConfirming({ kind: "delete", id: record.id, name: record.name }),
+    });
+    return actions;
+  };
+
   const handleSaved = (message: string) => {
     setDrawerOpen(false);
-    setToast(message);
+    showToast(message);
     router.refresh();
   };
 
@@ -200,26 +278,35 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
                           <span className="w-6 font-semibold text-ink-500">
                             {String(index + 1).padStart(2, "0")}
                           </span>
+                          {/*
+                            "Move up" means "swap with the row above", which is
+                            only true when the rows on screen are the whole
+                            directory in its stored order.
+                          */}
                           {filtersActive ? null : (
                             <>
-                              <button
-                                type="button"
-                                onClick={() => move(index, -1)}
-                                disabled={index === 0}
-                                aria-label={`Move ${record.name} up`}
-                                className="rounded p-1 text-ink-500 hover:bg-ink-50 hover:text-ink-900 disabled:opacity-30"
-                              >
-                                <ArrowUp className="h-4 w-4" aria-hidden="true" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => move(index, 1)}
-                                disabled={index === officials.length - 1}
-                                aria-label={`Move ${record.name} down`}
-                                className="rounded p-1 text-ink-500 hover:bg-ink-50 hover:text-ink-900 disabled:opacity-30"
-                              >
-                                <ArrowDown className="h-4 w-4" aria-hidden="true" />
-                              </button>
+                              <Tooltip label="Move up">
+                                <button
+                                  type="button"
+                                  onClick={() => move(index, -1)}
+                                  disabled={index === 0}
+                                  aria-label={`Move ${record.name} up`}
+                                  className="rounded p-1 text-ink-500 hover:bg-ink-50 hover:text-ink-900 disabled:opacity-30"
+                                >
+                                  <ArrowUp className="h-4 w-4" aria-hidden="true" />
+                                </button>
+                              </Tooltip>
+                              <Tooltip label="Move down">
+                                <button
+                                  type="button"
+                                  onClick={() => move(index, 1)}
+                                  disabled={index === officials.length - 1}
+                                  aria-label={`Move ${record.name} down`}
+                                  className="rounded p-1 text-ink-500 hover:bg-ink-50 hover:text-ink-900 disabled:opacity-30"
+                                >
+                                  <ArrowDown className="h-4 w-4" aria-hidden="true" />
+                                </button>
+                              </Tooltip>
                             </>
                           )}
                         </div>
@@ -249,20 +336,10 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
                       <td className="px-6 py-4">
                         <StatusChip status={record.status} />
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(record)}
-                          disabled={loadingEditId === record.id}
-                          aria-label={`${record.status === "archived" ? "View" : "Edit"} ${record.name}`}
-                          className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
-                        >
-                          {record.status === "archived" ? (
-                            <Eye className="h-4 w-4" aria-hidden="true" />
-                          ) : (
-                            <Pencil className="h-4 w-4" aria-hidden="true" />
-                          )}
-                        </button>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end">
+                          <RowActions label={record.name} actions={actionsFor(record)} />
+                        </div>
                       </td>
                     </tr>
                   );
@@ -286,7 +363,37 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      <ConfirmDialog
+        open={confirming !== null}
+        title={confirming?.kind === "delete" ? "Delete this official?" : "Archive this official?"}
+        body={
+          confirming?.kind === "delete" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.name}</strong> and
+              their achievements will be removed permanently. Archiving keeps the record as
+              term history — this does not.
+            </>
+          ) : (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming?.name}</strong> will
+              be removed from the public directory. The record is kept and can be published
+              again later.
+            </>
+          )
+        }
+        confirmLabel={confirming?.kind === "delete" ? "Delete" : "Archive"}
+        pending={actionPending}
+        onConfirm={runConfirmed}
+        onCancel={() => setConfirming(null)}
+      />
+      {toast ? (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          tone={toast.tone}
+          onDismiss={dismissToast}
+        />
+      ) : null}
     </>
   );
 }

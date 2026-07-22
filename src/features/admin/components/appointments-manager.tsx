@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
@@ -41,7 +42,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const totalCount = appointments.length;
@@ -83,7 +84,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
         return;
       }
       closeReview();
-      setToast(values.status === "confirmed" ? "Appointment confirmed." : "Appointment declined.");
+      showToast(values.status === "confirmed" ? "Appointment confirmed." : "Appointment declined.");
     });
   };
 
@@ -96,7 +97,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
         return;
       }
       closeReview();
-      setToast("Marked as completed.");
+      showToast("Marked as completed.");
     });
   };
 
@@ -110,7 +111,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
       }
       setCreateOpen(false);
       setPage(1);
-      setToast("Walk-in appointment encoded.");
+      showToast("Walk-in appointment encoded.");
     });
   };
 
@@ -282,7 +283,9 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

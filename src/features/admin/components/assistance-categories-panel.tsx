@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/form";
 import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import {
   createAssistanceCategory,
   moveAssistanceCategory,
@@ -26,7 +27,7 @@ export function AssistanceCategoriesPanel({ categories }: AssistanceCategoriesPa
   const [creating, setCreating] = useState(false);
   const [newBuffer, setNewBuffer] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   function startEdit(category: AssistanceCategoryRow) {
@@ -51,7 +52,7 @@ export function AssistanceCategoriesPanel({ categories }: AssistanceCategoriesPa
       }
       setEditingId(null);
       setEditBuffer("");
-      setToast("Category renamed.");
+      showToast("Category renamed.");
     });
   }
 
@@ -77,7 +78,7 @@ export function AssistanceCategoriesPanel({ categories }: AssistanceCategoriesPa
       }
       setCreating(false);
       setNewBuffer("");
-      setToast("Category added.");
+      showToast("Category added.");
     });
   }
 
@@ -90,7 +91,7 @@ export function AssistanceCategoriesPanel({ categories }: AssistanceCategoriesPa
         setError(result.error);
         return;
       }
-      setToast(nextActive ? "Category restored." : "Category retired.");
+      showToast(nextActive ? "Category restored." : "Category retired.");
     });
   }
 
@@ -102,7 +103,7 @@ export function AssistanceCategoriesPanel({ categories }: AssistanceCategoriesPa
         setError(result.error);
         return;
       }
-      setToast("Categories reordered.");
+      showToast("Categories reordered.");
     });
   }
 
@@ -210,7 +211,9 @@ export function AssistanceCategoriesPanel({ categories }: AssistanceCategoriesPa
           </div>
         ) : null}
       </Card>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

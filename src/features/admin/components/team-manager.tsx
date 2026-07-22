@@ -1,14 +1,17 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Archive, Trash2, Pencil } from "lucide-react";
+import { Plus, Archive, Trash2, Pencil, UserCheck, UserX } from "lucide-react";
 import type { Permission, SessionUser, StaffStatusLabel, TeamUser } from "@/types";
 import { PERMISSION_GROUPS, PERMISSION_LABELS, STATUS_PRESETS } from "@/constants/permissions";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrength } from "@/components/ui/password-strength";
+import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
   archiveTeamUser,
@@ -29,6 +32,9 @@ interface DrawerState {
   user?: TeamUser;
 }
 
+/** A row action awaiting confirmation. Null when no dialog is open. */
+type PendingAction = { kind: "archive" | "delete"; user: TeamUser } | null;
+
 const inputClass =
   "w-full rounded-full border border-ink-200 bg-ink-50 px-4 py-2 text-sm text-ink-900 transition-colors focus:border-ink-300 focus:outline-none focus:ring-1 focus:ring-brand-400/30";
 
@@ -36,7 +42,9 @@ const inputClass =
 export function TeamManager({ team, currentUser }: TeamManagerProps) {
   const [search, setSearch] = useState("");
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<PendingAction>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [formError, setFormError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -112,15 +120,77 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
         return;
       }
       setDrawer(null);
-      setToast(drawer?.mode === "edit" ? "User updated." : "User created.");
+      showToast(drawer?.mode === "edit" ? "User updated." : "User created.");
     });
   }
 
   function runRowAction(action: () => Promise<{ error: string | null }>, success: string) {
     startTransition(async () => {
       const result = await action();
-      setToast(result.error ?? success);
+      // Previously the error text was passed to the success toast, so a failed
+      // archive arrived looking like a successful one.
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(success);
     });
+  }
+
+  /**
+   * Archiving and deleting a colleague's account both went through a bare
+   * click before this — no confirmation of any kind. Both now route through
+   * the dialog, which stays locked until the Server Action answers.
+   */
+  function runConfirmed() {
+    if (!confirming) return;
+    const { kind, user } = confirming;
+    setActionPending(true);
+    startTransition(async () => {
+      const result =
+        kind === "delete" ? await deleteTeamUser(user.id) : await archiveTeamUser(user.id);
+      setActionPending(false);
+      setConfirming(null);
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(kind === "delete" ? `Deleted ${user.fullName}.` : `Archived ${user.fullName}.`);
+    });
+  }
+
+  function actionsFor(member: TeamUser): RowAction[] {
+    // Nobody may disable, archive, or delete their own account — that is the
+    // one mistake with no way back into the portal.
+    const isSelf = member.id === currentUser.id;
+    return [
+      { label: "Edit user", icon: Pencil, onSelect: () => openEdit(member) },
+      {
+        label: member.isActive ? "Disable sign-in" : "Enable sign-in",
+        icon: member.isActive ? UserX : UserCheck,
+        tone: member.isActive ? ("danger" as const) : ("default" as const),
+        disabled: isPending || isSelf,
+        onSelect: () =>
+          runRowAction(
+            () => setTeamUserActive(member.id, !member.isActive),
+            member.isActive ? `Disabled ${member.fullName}.` : `Enabled ${member.fullName}.`,
+          ),
+      },
+      {
+        label: "Archive",
+        icon: Archive,
+        tone: "danger" as const,
+        disabled: isPending || isSelf,
+        onSelect: () => setConfirming({ kind: "archive", user: member }),
+      },
+      {
+        label: "Delete",
+        icon: Trash2,
+        tone: "danger" as const,
+        disabled: isPending || isSelf,
+        onSelect: () => setConfirming({ kind: "delete", user: member }),
+      },
+    ];
   }
 
   const visible = useMemo(
@@ -180,45 +250,7 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                aria-label={`Edit ${member.fullName}`}
-                onClick={() => openEdit(member)}
-                className="rounded-full p-2 text-ink-600 transition-colors hover:bg-ink-50"
-              >
-                <Pencil className="h-4 w-4" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                disabled={isPending || member.id === currentUser.id}
-                onClick={() =>
-                  runRowAction(
-                    () => setTeamUserActive(member.id, !member.isActive),
-                    member.isActive ? "User disabled." : "User enabled.",
-                  )
-                }
-                className="rounded-full px-3 py-1.5 text-xs font-semibold text-ink-600 transition-colors hover:bg-ink-50 disabled:opacity-40"
-              >
-                {member.isActive ? "Disable" : "Enable"}
-              </button>
-              <button
-                type="button"
-                aria-label={`Archive ${member.fullName}`}
-                disabled={isPending || member.id === currentUser.id}
-                onClick={() => runRowAction(() => archiveTeamUser(member.id), "User archived.")}
-                className="rounded-full p-2 text-ink-600 transition-colors hover:bg-ink-50 disabled:opacity-40"
-              >
-                <Archive className="h-4 w-4" aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                aria-label={`Delete ${member.fullName}`}
-                disabled={isPending || member.id === currentUser.id}
-                onClick={() => runRowAction(() => deleteTeamUser(member.id), "User deleted.")}
-                className="rounded-full p-2 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
-              >
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-              </button>
+              <RowActions label={member.fullName} actions={actionsFor(member)} />
             </div>
           </li>
         ))}
@@ -344,7 +376,34 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
         </div>
       </Drawer>
 
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      <ConfirmDialog
+        open={confirming !== null}
+        title={confirming?.kind === "delete" ? "Delete this user?" : "Archive this user?"}
+        body={
+          confirming?.kind === "delete" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.user.fullName}</strong>{" "}
+              ({confirming.user.email}) will lose their account permanently. Their entries in
+              the audit log stay — that record is immutable.
+            </>
+          ) : (
+            <>
+              <strong className="font-semibold text-ink-900">
+                {confirming?.user.fullName}
+              </strong>{" "}
+              will no longer be able to sign in and will drop off this list. The account is
+              kept and can be restored.
+            </>
+          )
+        }
+        confirmLabel={confirming?.kind === "delete" ? "Delete" : "Archive"}
+        pending={actionPending}
+        onConfirm={runConfirmed}
+        onCancel={() => setConfirming(null)}
+      />
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, FolderKanban, Gavel, Pencil, Plus } from "lucide-react";
+import { Archive, Eye, FileText, FolderKanban, Gavel, Pencil, Plus, Trash2 } from "lucide-react";
 import type {
   AdminLegislativeRow,
   AdminTransparencyDocumentRow,
@@ -11,14 +11,21 @@ import type {
 } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
+import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
 import { useTableSort } from "@/components/ui/use-table-sort";
+import { useToast } from "@/hooks/use-toast";
 import { formatOptionalDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { cn } from "@/lib/utils";
-import { getTransparencyDocumentForEditAction } from "@/features/admin/actions/transparency-documents";
+import {
+  deleteTransparencyDocument,
+  getTransparencyDocumentForEditAction,
+  setTransparencyDocumentStatus,
+} from "@/features/admin/actions/transparency-documents";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
@@ -39,6 +46,13 @@ const STATUS_OPTIONS = [
   { value: "published", label: "Published" },
   { value: "archived", label: "Archived" },
 ];
+
+/** A row action awaiting confirmation. Null when no dialog is open. */
+type PendingAction = {
+  kind: "archive" | "delete";
+  id: string;
+  name: string;
+} | null;
 
 interface TransparencyManagerProps {
   legislative: AdminLegislativeRow[];
@@ -65,7 +79,9 @@ export function TransparencyManager({
   const [editingDocument, setEditingDocument] = useState<TransparencyDocumentEditRecord | null>(null);
   const [docDrawerOpen, setDocDrawerOpen] = useState(false);
   const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<PendingAction>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [, startTransition] = useTransition();
 
   const switchTab = (next: Tab) => {
@@ -119,7 +135,7 @@ export function TransparencyManager({
       try {
         const detail = await getTransparencyDocumentForEditAction(row.id);
         if (!detail) {
-          setToast("Could not load that document.");
+          showError("Could not load that document.");
           return;
         }
         setEditingDocument({
@@ -135,9 +151,56 @@ export function TransparencyManager({
     });
   };
 
+  /** Run the confirmed row action; the dialog stays locked until it answers. */
+  const runConfirmed = () => {
+    if (!confirming) return;
+    const { kind, id, name } = confirming;
+    setActionPending(true);
+    startTransition(async () => {
+      const result =
+        kind === "delete"
+          ? await deleteTransparencyDocument(id)
+          : await setTransparencyDocumentStatus(id, "archived");
+      setActionPending(false);
+      setConfirming(null);
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(kind === "delete" ? `Deleted ${name}.` : `Archived ${name}.`);
+      router.refresh();
+    });
+  };
+
+  const documentActions = (record: AdminTransparencyDocumentRow): RowAction[] => {
+    const actions: RowAction[] = [
+      {
+        label: record.status === "archived" ? "View details" : "Edit document",
+        icon: record.status === "archived" ? Eye : Pencil,
+        onSelect: () => openEditDocument(record),
+        disabled: loadingDocId === record.id,
+      },
+    ];
+    if (record.status === "published") {
+      actions.push({
+        label: "Archive",
+        icon: Archive,
+        tone: "danger",
+        onSelect: () => setConfirming({ kind: "archive", id: record.id, name: record.title }),
+      });
+    }
+    actions.push({
+      label: "Delete",
+      icon: Trash2,
+      tone: "danger",
+      onSelect: () => setConfirming({ kind: "delete", id: record.id, name: record.title }),
+    });
+    return actions;
+  };
+
   const handleDocumentSaved = (message: string) => {
     setDocDrawerOpen(false);
-    setToast(message);
+    showToast(message);
     router.refresh();
   };
 
@@ -289,16 +352,10 @@ export function TransparencyManager({
                               ? `${record.fileCount} file${record.fileCount === 1 ? "" : "s"}`
                               : "—"}
                           </td>
-                          <td className="px-6 py-4 text-right">
-                            <button
-                              type="button"
-                              onClick={() => openEditDocument(record)}
-                              disabled={loadingDocId === record.id}
-                              aria-label={`Edit ${record.title}`}
-                              className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
-                            >
-                              <Pencil className="h-4 w-4" aria-hidden="true" />
-                            </button>
+                          <td className="px-6 py-4">
+                            <div className="flex justify-end">
+                              <RowActions label={record.title} actions={documentActions(record)} />
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -335,7 +392,31 @@ export function TransparencyManager({
 
       {tab === "projects" ? <TransparencyProjectsPanel projects={projects} /> : null}
 
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      <ConfirmDialog
+        open={confirming !== null}
+        title={confirming?.kind === "delete" ? "Delete this document?" : "Archive this document?"}
+        body={
+          confirming?.kind === "delete" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.name}</strong> and every
+              file attached to it will be removed permanently. This cannot be undone.
+            </>
+          ) : (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming?.name}</strong> will be
+              removed from the public transparency board. The record is kept and can be
+              published again later.
+            </>
+          )
+        }
+        confirmLabel={confirming?.kind === "delete" ? "Delete" : "Archive"}
+        pending={actionPending}
+        onConfirm={runConfirmed}
+        onCancel={() => setConfirming(null)}
+      />
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

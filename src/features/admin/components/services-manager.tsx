@@ -1,13 +1,15 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, ToggleLeft, ToggleRight } from "lucide-react";
 import type { AdminServiceRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { IconCircle } from "@/components/ui/icon-circle";
+import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { resolveIcon } from "@/lib/icon-map";
@@ -32,7 +34,7 @@ export function ServicesManager({ services }: ServicesManagerProps) {
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<AdminServiceRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
@@ -57,7 +59,7 @@ export function ServicesManager({ services }: ServicesManagerProps) {
   const handleSaved = () => {
     const wasEditing = editing !== null;
     setDrawerOpen(false);
-    setToast(wasEditing ? "Service updated." : "Service created.");
+    showToast(wasEditing ? "Service updated." : "Service created.");
   };
   const clearFilters = () => {
     setSearch("");
@@ -65,11 +67,45 @@ export function ServicesManager({ services }: ServicesManagerProps) {
     setPage(1);
   };
   const toggleAvailability = (record: AdminServiceRow) => {
+    const enabling = record.status !== "active";
     startTransition(async () => {
-      const result = await setServiceAvailable(record.id, record.status !== "active");
-      setToast(result.error ?? "Availability updated.");
+      const result = await setServiceAvailable(record.id, enabling);
+      // Previously the error text was passed to the success toast, so a failure
+      // arrived with a green tick beside it.
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(enabling ? `Enabled ${record.title}.` : `Disabled ${record.title}.`);
     });
   };
+
+  /**
+   * Services have no delete action — the catalog is a fixed set the barangay
+   * turns on and off, and a removed service would orphan the applications
+   * filed against it.
+   */
+  const actionsFor = (record: AdminServiceRow): RowAction[] => [
+    {
+      label: "Edit service",
+      icon: Pencil,
+      onSelect: () => openEdit(record),
+    },
+    record.status === "active"
+      ? {
+          label: "Disable service",
+          icon: ToggleLeft,
+          tone: "danger" as const,
+          onSelect: () => toggleAvailability(record),
+          disabled: isPending,
+        }
+      : {
+          label: "Enable service",
+          icon: ToggleRight,
+          onSelect: () => toggleAvailability(record),
+          disabled: isPending,
+        },
+  ];
 
   return (
     <>
@@ -144,24 +180,9 @@ export function ServicesManager({ services }: ServicesManagerProps) {
                       <td className="px-6 py-4">
                         <StatusChip status={record.status} />
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => toggleAvailability(record)}
-                            className="rounded-full px-3 py-1.5 text-xs font-semibold text-ink-600 transition-colors hover:bg-ink-50 disabled:opacity-40"
-                          >
-                            {record.status === "active" ? "Disable" : "Enable"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openEdit(record)}
-                            aria-label={`Edit ${record.title}`}
-                            className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900"
-                          >
-                            <Pencil className="h-4 w-4" aria-hidden="true" />
-                          </button>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end">
+                          <RowActions label={record.title} actions={actionsFor(record)} />
                         </div>
                       </td>
                     </tr>
@@ -193,7 +214,9 @@ export function ServicesManager({ services }: ServicesManagerProps) {
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

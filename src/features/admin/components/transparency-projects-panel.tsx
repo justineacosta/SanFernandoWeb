@@ -2,12 +2,16 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { Archive, ChevronDown, ChevronUp, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import type { AdminTransparencyProjectRow } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
+import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
+import { Tooltip } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 import { formatOptionalDate } from "@/lib/format";
 import { fuzzyFilter } from "@/lib/fuzzy";
 import {
@@ -32,7 +36,9 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<AdminTransparencyProjectRow | null>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const searching = search.trim() !== "";
@@ -54,7 +60,7 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
       try {
         const detail = await getTransparencyProjectForEditAction(project.id);
         if (!detail) {
-          setToast("Could not load that project.");
+          showError("Could not load that project.");
           return;
         }
         setEditing({
@@ -72,7 +78,7 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
 
   function handleSaved(message: string) {
     setDrawerOpen(false);
-    setToast(message);
+    showToast(message);
     router.refresh();
   }
 
@@ -81,10 +87,10 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
     startTransition(async () => {
       const result = await setTransparencyProjectStatus(project.id, nextStatus);
       if (result.error) {
-        setError(result.error);
+        showError(result.error);
         return;
       }
-      setToast(nextStatus === "published" ? "Project published." : "Project archived.");
+      showToast(nextStatus === "published" ? "Project published." : "Project archived.");
       router.refresh();
     });
   }
@@ -94,26 +100,63 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
     startTransition(async () => {
       const result = await moveTransparencyProject(id, direction);
       if (result.error) {
-        setError(result.error);
+        showError(result.error);
         return;
       }
-      setToast("Projects reordered.");
+      showToast("Projects reordered.");
       router.refresh();
     });
   }
 
-  function remove(project: AdminTransparencyProjectRow) {
-    if (!window.confirm(`Delete "${project.name}"? This cannot be undone.`)) return;
+  /** Run the confirmed delete; the dialog stays locked until it answers. */
+  function runConfirmedDelete() {
+    if (!confirming) return;
+    const { id, name } = confirming;
+    setActionPending(true);
     setError(null);
     startTransition(async () => {
-      const result = await deleteTransparencyProject(project.id);
+      const result = await deleteTransparencyProject(id);
+      setActionPending(false);
+      setConfirming(null);
       if (result.error) {
-        setError(result.error);
+        showError(result.error);
         return;
       }
-      setToast("Project deleted.");
+      showToast(`Deleted ${name}.`);
       router.refresh();
     });
+  }
+
+  function actionsFor(project: AdminTransparencyProjectRow): RowAction[] {
+    return [
+      {
+        label: "Edit project",
+        icon: Pencil,
+        onSelect: () => openEdit(project),
+        disabled: isPending || loadingId === project.id,
+      },
+      project.status === "published"
+        ? {
+            label: "Archive",
+            icon: Archive,
+            tone: "danger" as const,
+            onSelect: () => setStatus(project, "archived"),
+            disabled: isPending,
+          }
+        : {
+            label: "Publish",
+            icon: Send,
+            onSelect: () => setStatus(project, "published"),
+            disabled: isPending,
+          },
+      {
+        label: "Delete",
+        icon: Trash2,
+        tone: "danger" as const,
+        onSelect: () => setConfirming(project),
+        disabled: isPending,
+      },
+    ];
   }
 
   return (
@@ -161,64 +204,36 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <StatusChip status={project.status} />
-                {project.status === "published" ? (
-                  <button
-                    type="button"
-                    aria-label={`Archive ${project.name}`}
-                    disabled={isPending}
-                    onClick={() => setStatus(project, "archived")}
-                    className="rounded-full p-2 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
-                  >
-                    <Archive className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                ) : (
-                  <Button variant="accent" size="sm" onClick={() => setStatus(project, "published")} disabled={isPending}>
-                    Publish
-                  </Button>
-                )}
                 {/* Reorder is hidden while searching: "up" means "swap with the
                     row above", and with rows filtered out the row above on
                     screen is not the neighbour the action would move. */}
                 {searching ? null : (
                   <>
-                    <button
-                      type="button"
-                      aria-label={`Move ${project.name} up`}
-                      disabled={isPending || index === 0}
-                      onClick={() => move(project.id, "up")}
-                      className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
-                    >
-                      <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Move ${project.name} down`}
-                      disabled={isPending || index === visible.length - 1}
-                      onClick={() => move(project.id, "down")}
-                      className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
-                    >
-                      <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                    </button>
+                    <Tooltip label="Move up">
+                      <button
+                        type="button"
+                        aria-label={`Move ${project.name} up`}
+                        disabled={isPending || index === 0}
+                        onClick={() => move(project.id, "up")}
+                        className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
+                      >
+                        <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="Move down">
+                      <button
+                        type="button"
+                        aria-label={`Move ${project.name} down`}
+                        disabled={isPending || index === visible.length - 1}
+                        onClick={() => move(project.id, "down")}
+                        className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
+                      >
+                        <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </Tooltip>
                   </>
                 )}
-                <button
-                  type="button"
-                  aria-label={`Edit ${project.name}`}
-                  disabled={isPending || loadingId === project.id}
-                  onClick={() => openEdit(project)}
-                  className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
-                >
-                  <Pencil className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Delete ${project.name}`}
-                  disabled={isPending}
-                  onClick={() => remove(project)}
-                  className="rounded-full p-2 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                </button>
+                <RowActions label={project.name} actions={actionsFor(project)} />
               </div>
             </li>
           ))}
@@ -238,7 +253,24 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      <ConfirmDialog
+        open={confirming !== null}
+        title="Delete this project?"
+        body={
+          <>
+            <strong className="font-semibold text-ink-900">{confirming?.name}</strong> and every
+            file attached to it will be removed permanently. Archiving hides it from the public
+            page while keeping the record — this does not.
+          </>
+        }
+        confirmLabel="Delete"
+        pending={actionPending}
+        onConfirm={runConfirmedDelete}
+        onCancel={() => setConfirming(null)}
+      />
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

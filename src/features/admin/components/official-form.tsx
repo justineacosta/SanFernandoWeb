@@ -4,11 +4,7 @@ import { useState, useTransition } from "react";
 import type { AdminAchievement, ContentStatus, OfficialValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
-import {
-  deleteOfficial,
-  saveOfficial,
-  setOfficialStatus,
-} from "@/features/admin/actions/officials";
+import { saveOfficial, setOfficialStatus } from "@/features/admin/actions/officials";
 import { AchievementsEditor } from "./achievements-editor";
 import { SingleImageUploader } from "./single-image-uploader";
 
@@ -65,21 +61,6 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
     });
   }
 
-  function runTransition(nextStatus: ContentStatus, message: string) {
-    const currentId = id;
-    if (!currentId) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await setOfficialStatus(currentId, nextStatus);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      setStatus(nextStatus);
-      onSaved(message);
-    });
-  }
-
   /**
    * Publish must persist the on-screen values first: `setOfficialStatus`
    * reads `photo_path`/`photo_alt` from the database, so an uploaded portrait
@@ -109,23 +90,6 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
       }
       setStatus("published");
       onSaved("Published.");
-    });
-  }
-
-  function handleDelete() {
-    const currentId = id;
-    if (!currentId) return;
-    if (!window.confirm("Delete this official? Archiving keeps the record — this does not.")) {
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const result = await deleteOfficial(currentId);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      onSaved("Official deleted.");
     });
   }
 
@@ -245,6 +209,12 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
           </p>
         ) : null}
       </div>
+      {/*
+        Archive and Delete moved to the row's actions menu (sub-project 5): a
+        destructive action should not require opening an editor you did not
+        want to open. Publish stays here because it must persist the on-screen
+        values first — see handlePublish.
+      */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 p-6">
         <div className="flex flex-wrap gap-2">
           {id && status !== "published" ? (
@@ -255,21 +225,6 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
               onClick={handlePublish}
             >
               Publish
-            </Button>
-          ) : null}
-          {id && status === "published" ? (
-            <Button
-              type="button"
-              variant="outline-danger"
-              disabled={pending}
-              onClick={() => runTransition("archived", "Archived.")}
-            >
-              Archive
-            </Button>
-          ) : null}
-          {id ? (
-            <Button type="button" variant="outline-danger" disabled={pending} onClick={handleDelete}>
-              Delete
             </Button>
           ) : null}
         </div>

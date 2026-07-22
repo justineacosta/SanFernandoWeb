@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import type { ContentStatus, LegislativeValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
-import { deleteLegislative, saveLegislative, setLegislativeStatus } from "@/features/admin/actions/legislative";
+import { saveLegislative, setLegislativeStatus } from "@/features/admin/actions/legislative";
 import { PdfUploader } from "./pdf-uploader";
 
 export interface LegislativeEditRecord {
@@ -76,21 +76,6 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
       }
       setStatus(nextStatus);
       onSaved(message);
-    });
-  }
-
-  function handleDelete() {
-    const currentId = id;
-    if (!currentId) return;
-    if (!window.confirm("Delete this document? This cannot be undone.")) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await deleteLegislative(currentId);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      onSaved("Document deleted.");
     });
   }
 
@@ -206,16 +191,7 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
               </Button>
             </>
           ) : null}
-          {id && status === "published" ? (
-            <Button
-              type="button"
-              variant="outline-danger"
-              disabled={pending}
-              onClick={() => runTransition("archived", "Archived.")}
-            >
-              Archive
-            </Button>
-          ) : null}
+          {/* Archive and Delete live in the row's actions menu (sub-project 5). */}
           {id && status === "archived" ? (
             <Button
               type="button"
@@ -224,11 +200,6 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
               onClick={() => runTransition("published", "Published.")}
             >
               Publish
-            </Button>
-          ) : null}
-          {id ? (
-            <Button type="button" variant="outline-danger" disabled={pending} onClick={handleDelete}>
-              Delete
             </Button>
           ) : null}
         </div>

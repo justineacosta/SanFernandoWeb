@@ -1,18 +1,26 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Clock, MapPin, Plus } from "lucide-react";
+import { Archive, Clock, MapPin, Pencil, Plus, Send } from "lucide-react";
 import type { AdminEventRow } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
+import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { toCalendarParts } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { EVENT_CATEGORY_LABELS } from "@/features/admin/data";
-import { getEventForEditAction } from "@/features/admin/actions/events";
+import {
+  archiveEvent,
+  getEventForEditAction,
+  publishEvent,
+} from "@/features/admin/actions/events";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
@@ -37,6 +45,7 @@ interface EventsManagerProps {
 
 /** Event schedule: single DB-backed list, category/status filters, mini calendar, drawer editor. */
 export function EventsManager({ events }: EventsManagerProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
@@ -45,7 +54,9 @@ export function EventsManager({ events }: EventsManagerProps) {
   const [editing, setEditing] = useState<EventEditRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<AdminEventRow | null>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [, startTransition] = useTransition();
 
   const resetPage = () => setPage(1);
@@ -74,7 +85,7 @@ export function EventsManager({ events }: EventsManagerProps) {
       const detail = await getEventForEditAction(row.id);
       setLoadingEditId(null);
       if (!detail) {
-        setToast("Could not load that event.");
+        showError("Could not load that event.");
         return;
       }
       setEditing({ id: row.id, values: detail.values, status: detail.status });
@@ -84,8 +95,56 @@ export function EventsManager({ events }: EventsManagerProps) {
 
   const handleSaved = (message: string) => {
     setDrawerOpen(false);
-    setToast(message);
+    showToast(message);
   };
+
+  const publish = (record: AdminEventRow) => {
+    startTransition(async () => {
+      const result = await publishEvent(record.id);
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(`Published ${record.title}.`);
+      router.refresh();
+    });
+  };
+
+  /** Run the confirmed archive; the dialog stays locked until it answers. */
+  const runConfirmed = () => {
+    if (!confirming) return;
+    const record = confirming;
+    setActionPending(true);
+    startTransition(async () => {
+      const result = await archiveEvent(record.id);
+      setActionPending(false);
+      setConfirming(null);
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(`Archived ${record.title}.`);
+      router.refresh();
+    });
+  };
+
+  /** Events are taken down, not deleted — the calendar is a public record. */
+  const actionsFor = (record: AdminEventRow): RowAction[] => [
+    {
+      label: "Edit event",
+      icon: Pencil,
+      onSelect: () => openEdit(record),
+      disabled: loadingEditId === record.id,
+    },
+    record.status === "published"
+      ? {
+          label: "Archive",
+          icon: Archive,
+          tone: "danger" as const,
+          onSelect: () => setConfirming(record),
+        }
+      : { label: "Publish", icon: Send, onSelect: () => publish(record) },
+  ];
 
   const clearFilters = () => {
     setSearch("");
@@ -198,14 +257,7 @@ export function EventsManager({ events }: EventsManagerProps) {
                             <span className="text-sm text-ink-600">Cap: {record.capacity}</span>
                           ) : null}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => openEdit(record)}
-                          disabled={loadingEditId === record.id}
-                          className="text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800 disabled:opacity-40"
-                        >
-                          Manage
-                        </button>
+                        <RowActions label={record.title} actions={actionsFor(record)} />
                       </div>
                     </Card>
                   );
@@ -235,7 +287,24 @@ export function EventsManager({ events }: EventsManagerProps) {
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      <ConfirmDialog
+        open={confirming !== null}
+        title="Archive this event?"
+        body={
+          <>
+            <strong className="font-semibold text-ink-900">{confirming?.title}</strong> will be
+            removed from the public calendar. The record is kept and can be published again
+            later.
+          </>
+        }
+        confirmLabel="Archive"
+        pending={actionPending}
+        onConfirm={runConfirmed}
+        onCancel={() => setConfirming(null)}
+      />
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

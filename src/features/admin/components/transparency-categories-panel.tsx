@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/form";
 import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { ICON_OPTIONS, resolveIcon } from "@/lib/icon-map";
 import {
   createTransparencyCategory,
@@ -31,7 +32,7 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
   const [newLabel, setNewLabel] = useState("");
   const [newIcon, setNewIcon] = useState(ICON_OPTIONS[0].value);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   function startEdit(category: TransparencyCategoryRow) {
@@ -57,7 +58,7 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
       }
       setEditingId(null);
       setEditLabel("");
-      setToast("Category renamed.");
+      showToast("Category renamed.");
       router.refresh();
     });
   }
@@ -85,7 +86,7 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
       }
       setCreating(false);
       setNewLabel("");
-      setToast("Category added.");
+      showToast("Category added.");
       router.refresh();
     });
   }
@@ -99,7 +100,7 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
         setError(result.error);
         return;
       }
-      setToast(nextActive ? "Category restored." : "Category retired.");
+      showToast(nextActive ? "Category restored." : "Category retired.");
       router.refresh();
     });
   }
@@ -112,7 +113,7 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
         setError(result.error);
         return;
       }
-      setToast("Categories reordered.");
+      showToast("Categories reordered.");
       router.refresh();
     });
   }
@@ -251,7 +252,9 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
           </div>
         ) : null}
       </Card>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

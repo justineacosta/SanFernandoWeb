@@ -6,6 +6,7 @@ import { Field, fieldClasses } from "@/components/ui/form";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrength } from "@/components/ui/password-strength";
 import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { changeMyPassword } from "@/features/admin/actions/account";
 
 export function AccountSecurityForm() {
@@ -13,7 +14,7 @@ export function AccountSecurityForm() {
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   function submit(event: React.FormEvent) {
@@ -32,7 +33,7 @@ export function AccountSecurityForm() {
       setCurrent("");
       setNext("");
       setConfirm("");
-      setToast("Password updated.");
+      showToast("Password updated.");
     });
   }
 
@@ -76,7 +77,9 @@ export function AccountSecurityForm() {
           </Button>
         </div>
       </form>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

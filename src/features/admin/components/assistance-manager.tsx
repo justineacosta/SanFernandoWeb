@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
@@ -49,7 +50,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const activeCategories = useMemo(
@@ -98,7 +99,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
         return;
       }
       closeReview();
-      setToast(
+      showToast(
         values.status === "under-review"
           ? "Request taken up for review."
           : "Request declined.",
@@ -115,7 +116,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
         return;
       }
       closeReview();
-      setToast(values.status === "granted" ? "Request granted." : "Request declined.");
+      showToast(values.status === "granted" ? "Request granted." : "Request declined.");
     });
   };
 
@@ -129,7 +130,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
       }
       setCreateOpen(false);
       setPage(1);
-      setToast("Walk-in request encoded.");
+      showToast("Walk-in request encoded.");
     });
   };
 
@@ -312,7 +313,9 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

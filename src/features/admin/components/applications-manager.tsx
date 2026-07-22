@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
@@ -43,7 +44,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const totalCount = applications.length;
@@ -88,7 +89,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
         return;
       }
       closeReview();
-      setToast(values.status === "approved" ? "Application approved." : "Application rejected.");
+      showToast(values.status === "approved" ? "Application approved." : "Application rejected.");
     });
   };
 
@@ -101,7 +102,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
         return;
       }
       closeReview();
-      setToast("Marked as released.");
+      showToast("Marked as released.");
     });
   };
 
@@ -115,7 +116,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
       }
       setCreateOpen(false);
       setPage(1);
-      setToast("Walk-in application encoded.");
+      showToast("Walk-in application encoded.");
     });
   };
 
@@ -298,7 +299,9 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

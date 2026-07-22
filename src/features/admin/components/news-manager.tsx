@@ -1,18 +1,30 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ImageIcon, Megaphone, Newspaper, Pencil, Plus } from "lucide-react";
+import { Archive, ImageIcon, Megaphone, Newspaper, Pencil, Plus, Send } from "lucide-react";
 import type { AdminAnnouncementRow, AdminNewsArticleRow, NewsCategoryRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
+import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { cn } from "@/lib/utils";
-import { getAnnouncementForEditAction } from "@/features/admin/actions/announcements";
-import { getNewsArticleForEditAction } from "@/features/admin/actions/news";
+import {
+  archiveAnnouncement,
+  getAnnouncementForEditAction,
+  publishAnnouncement,
+} from "@/features/admin/actions/announcements";
+import {
+  archiveNewsArticle,
+  getNewsArticleForEditAction,
+  publishNewsArticle,
+} from "@/features/admin/actions/news";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
@@ -39,8 +51,18 @@ interface NewsManagerProps {
   categories: NewsCategoryRow[];
 }
 
+/**
+ * An archive awaiting confirmation. Null when no dialog is open.
+ *
+ * Only archive is confirmed: news and announcements have no delete action —
+ * published bulletins are the barangay's public record and are taken down, not
+ * erased.
+ */
+type PendingArchive = { kind: Tab; id: string; title: string } | null;
+
 /** News & announcements: tabbed card grids, search/category/status filters, drawer editors backed by real actions. */
 export function NewsManager({ articles, announcements, categories }: NewsManagerProps) {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("news");
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("all");
@@ -51,7 +73,9 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
   const [editingAnnouncement, setEditingAnnouncement] = useState<AnnouncementEditRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<PendingArchive>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [, startTransition] = useTransition();
 
   const resetPage = () => setPage(1);
@@ -93,7 +117,7 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
       try {
         const detail = await getNewsArticleForEditAction(row.id);
         if (!detail) {
-          setToast("Could not load that post.");
+          showError("Could not load that post.");
           return;
         }
         setEditingNews({ id: row.id, values: detail.values, status: detail.status, photos: detail.photos });
@@ -110,7 +134,7 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
       try {
         const detail = await getAnnouncementForEditAction(row.id);
         if (!detail) {
-          setToast("Could not load that announcement.");
+          showError("Could not load that announcement.");
           return;
         }
         setEditingAnnouncement({ id: row.id, values: detail.values, status: detail.status });
@@ -125,7 +149,69 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
   // needs an article id) becomes reachable in place; editing still closes as before.
   const handleSaved = (message: string, keepOpen = false) => {
     if (!keepOpen) setDrawerOpen(false);
-    setToast(message);
+    showToast(message);
+  };
+
+  const publish = (kind: Tab, id: string, title: string) => {
+    startTransition(async () => {
+      const result = kind === "news" ? await publishNewsArticle(id) : await publishAnnouncement(id);
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(`Published ${title}.`);
+      router.refresh();
+    });
+  };
+
+  /** Run the confirmed archive; the dialog stays locked until it answers. */
+  const runConfirmed = () => {
+    if (!confirming) return;
+    const { kind, id, title } = confirming;
+    setActionPending(true);
+    startTransition(async () => {
+      const result =
+        kind === "news" ? await archiveNewsArticle(id) : await archiveAnnouncement(id);
+      setActionPending(false);
+      setConfirming(null);
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(`Archived ${title}.`);
+      router.refresh();
+    });
+  };
+
+  /** Shared between the two card grids — the workflow is identical. */
+  const actionsFor = (
+    kind: Tab,
+    record: { id: string; title: string; status: string },
+    onEdit: () => void,
+  ): RowAction[] => {
+    const actions: RowAction[] = [
+      {
+        label: kind === "news" ? "Edit post" : "Edit announcement",
+        icon: Pencil,
+        onSelect: onEdit,
+        disabled: loadingEditId === record.id,
+      },
+    ];
+    if (record.status !== "published") {
+      actions.push({
+        label: "Publish",
+        icon: Send,
+        onSelect: () => publish(kind, record.id, record.title),
+      });
+    } else {
+      actions.push({
+        label: "Archive",
+        icon: Archive,
+        tone: "danger",
+        onSelect: () => setConfirming({ kind, id: record.id, title: record.title }),
+      });
+    }
+    return actions;
   };
 
   const clearFilters = () => {
@@ -268,15 +354,10 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
                       <span className="text-sm text-ink-500">
                         {record.photoCount} photo{record.photoCount === 1 ? "" : "s"}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => openEditNews(record)}
-                        disabled={loadingEditId === record.id}
-                        aria-label={`Edit ${record.title}`}
-                        className="rounded-full p-2 text-brand-700 transition-colors hover:bg-brand-100 disabled:opacity-40"
-                      >
-                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                      </button>
+                      <RowActions
+                        label={record.title}
+                        actions={actionsFor("news", record, () => openEditNews(record))}
+                      />
                     </div>
                   </div>
                 </Card>
@@ -333,15 +414,12 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
                   )}
                   <div className="mt-auto flex items-center justify-between pt-4">
                     <span className="text-sm text-ink-500">Updated {record.updatedLabel}</span>
-                    <button
-                      type="button"
-                      onClick={() => openEditAnnouncement(record)}
-                      disabled={loadingEditId === record.id}
-                      aria-label={`Edit ${record.title}`}
-                      className="rounded-full p-2 text-brand-700 transition-colors hover:bg-brand-100 disabled:opacity-40"
-                    >
-                      <Pencil className="h-4 w-4" aria-hidden="true" />
-                    </button>
+                    <RowActions
+                      label={record.title}
+                      actions={actionsFor("announcements", record, () =>
+                        openEditAnnouncement(record),
+                      )}
+                    />
                   </div>
                 </div>
               </Card>
@@ -388,7 +466,23 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
           )
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      <ConfirmDialog
+        open={confirming !== null}
+        title={confirming?.kind === "news" ? "Archive this post?" : "Archive this announcement?"}
+        body={
+          <>
+            <strong className="font-semibold text-ink-900">{confirming?.title}</strong> will be
+            removed from the public site. The record is kept and can be published again later.
+          </>
+        }
+        confirmLabel="Archive"
+        pending={actionPending}
+        onConfirm={runConfirmed}
+        onCancel={() => setConfirming(null)}
+      />
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }
