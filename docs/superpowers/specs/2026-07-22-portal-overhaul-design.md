@@ -277,6 +277,7 @@ earlier ones; the order is not arbitrary.
 | 7 | Transactional uploads | `0017` |
 | 8 | Autosave | — |
 | 9 | Home & About CMS | `0018` |
+| 10 | Public-side UI/UX | — |
 
 Rationale for the ordering:
 
@@ -292,6 +293,38 @@ Rationale for the ordering:
 - **7 before 8** because autosave's contract (§3.7) is defined in terms of staged uploads.
 - **9 last** — it is the largest new build and depends on the upload, autosave, and table
   primitives all being settled.
+- **10 is order-independent.** It adds no migration and shares no code with 6–9, so it can
+  run at any point. It is numbered last only because it was added to the programme after
+  the other nine; see §4.1.
+
+### 4.1 Sub-project 10 — the public side is in scope too
+
+**Added 2026-07-22, on the owner's instruction, after sub-project 5 shipped.** The original
+brief listed "resident portal fixes" as sub-project 1 and everything after it was admin
+work, which left the impression that the UI/UX standards were an admin-only concern. They
+are not. The owner's words: *"improve also the UI/UX in the client side, I didn't mean to
+be at the Admin side only."*
+
+The public site is what residents actually use, and the survey done when this section was
+written shows it is behind the portal on exactly the standards sub-project 5 just
+established:
+
+| Standard | Admin (after 5) | Public today |
+| --- | --- | --- |
+| Loading feedback | 12 × `loading.tsx` | **none** — 5 DB-backed routes stream with no fallback |
+| Error boundary | route `not-found.tsx` | **no `error.tsx` anywhere in the app** — a failed query is a blank crash |
+| Toasts | `useToast`, tones, ids | per-form inline text only |
+| Focus ring | global `:focus-visible` | inherits the same global rule ✅ |
+| Inline validation | blur-then-live | the six public forms each do their own thing |
+| Confirmation | branded `alertdialog` | n/a — the public side has no destructive actions |
+
+The six public client components in scope: `apply-form`, `appointment-form`,
+`complaint-form`, `assistance-form`, `inquiry-form`, `newsletter-form`, plus
+`track-lookup` and the `legislative-table` disclosure rows.
+
+This sub-project reuses the primitives sub-project 5 built rather than inventing public
+equivalents — `Skeleton`, `useToast`/`Toast`, and the shared Zod schemas — so the two
+halves of the site behave the same way. It gets its own spec before implementation.
 
 ## 5. Risks carried across the whole programme
 
@@ -308,6 +341,10 @@ Rationale for the ordering:
   of `CLAUDE.md` as the more current instruction, not an oversight. It is worth an
   explicit decision before sub-project 7, which is the riskiest change and the one that
   would benefit most from a regression net.
+
+  **Resolved 2026-07-22.** The owner lifted the no-test rule. Sub-project 5 added Vitest
+  (pure functions, 21 cases) and Playwright (`public` + `admin` projects), and `CLAUDE.md`
+  was updated to match. The paragraph above is left standing as the record of why.
 - **Migrations are applied manually by the owner** against live Supabase. No sub-project
   may assume a migration is applied without explicit confirmation.
 - **Sub-project 3 rewrites ~75 existing call sites.** Mechanical but wide.

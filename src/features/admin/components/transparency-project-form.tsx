@@ -5,7 +5,6 @@ import type { ContentStatus, TransparencyProjectValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import {
-  deleteTransparencyProject,
   saveTransparencyProject,
   setTransparencyProjectStatus,
 } from "@/features/admin/actions/transparency-projects";
@@ -76,21 +75,6 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
       }
       setStatus(nextStatus);
       onSaved(message);
-    });
-  }
-
-  function handleDelete() {
-    const currentId = id;
-    if (!currentId) return;
-    if (!window.confirm("Delete this project? This cannot be undone.")) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await deleteTransparencyProject(currentId);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      onSaved("Project deleted.");
     });
   }
 
@@ -182,16 +166,12 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
               </Button>
             </>
           ) : null}
-          {id && status === "published" ? (
-            <Button
-              type="button"
-              variant="outline-danger"
-              disabled={pending}
-              onClick={() => runTransition("archived", "Archived.")}
-            >
-              Archive
-            </Button>
-          ) : null}
+          {/*
+            Archive and Delete moved to the row's actions menu (sub-project 5): a
+            destructive action should not require opening an editor you did not
+            want to open. Publish stays here because it must persist the
+            on-screen values first.
+          */}
           {id && status === "archived" ? (
             <Button
               type="button"
@@ -200,11 +180,6 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
               onClick={() => runTransition("published", "Published.")}
             >
               Publish
-            </Button>
-          ) : null}
-          {id ? (
-            <Button type="button" variant="outline-danger" disabled={pending} onClick={handleDelete}>
-              Delete
             </Button>
           ) : null}
         </div>

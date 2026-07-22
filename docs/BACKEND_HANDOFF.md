@@ -712,6 +712,32 @@
 >    `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` are set in `.env.local`. **Action for the
 >    owner: create one dedicated staging staff account (not a SuperAdmin) for the e2e
 >    suite.**
+>
+> **Follow-up, same day.** Two call sites survived the first sweep and were fixed after the
+> owner asked whether archiving or deleting a user was confirmed: the transparency **project**
+> drawer still carried its own Archive/Delete pair with a `window.confirm` (removed — the
+> row kebab already had both), and the **achievements** sub-list inside the officials drawer
+> confirmed a delete natively (now a `ConfirmDialog`; it keeps an inline trash button rather
+> than a kebab, because achievements are sub-records inside an open editor, not table rows).
+> Team users already had the dialog on both actions, plus a rule that nobody may archive,
+> delete, or disable their own account. `window.confirm` is now absent from `src/` entirely.
+
+> **Scope correction 2026-07-22 — the public site is in the programme too.** Sub-projects
+> 2–9 are all admin-side, which wrongly implied the UI/UX standards stop at the portal. A
+> tenth sub-project, **Public-side UI/UX**, is now on the sequence table (umbrella spec
+> §4.1). It carries no migration and shares no code with 6–9, so it can run at any point.
+> What the survey found on the public side today:
+> - **No `loading.tsx` under `app/(public)`** — five DB-backed routes (services, officials,
+>   announcements, transparency, track) stream with no fallback, the same defect the admin
+>   portal had before sub-project 5.
+> - **No `error.tsx` anywhere in the app.** A failed Supabase query on a public page is an
+>   unstyled crash, not a recoverable "something went wrong" with a retry.
+> - **Six public forms, six validation styles** — `apply-form`, `appointment-form`,
+>   `complaint-form`, `assistance-form`, `inquiry-form`, `newsletter-form`, plus
+>   `track-lookup`. None use the blur-then-live contract or the shared toast.
+>
+> It reuses the primitives sub-project 5 built rather than growing public equivalents, so
+> both halves of the site behave the same way. It gets its own spec first.
 
 ---
 

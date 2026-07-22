@@ -188,9 +188,29 @@ Phases A and B ship together as one commit per manager group; phase C ships sepa
 - Deep-linking end to end: typing `dela cruz` in the top bar and clicking the hit lands on
   `/admin/officials` with the **Edit Official** drawer open and no `edit=` left in the URL.
 
-## 8. Open items
+## 8. Follow-up found after the first pass
+
+Two call sites were missed by the sweep and fixed straight after, on the owner's
+reminder that *"when archiving or deleting a user there should be confirmation"*:
+
+- **`transparency-project-form.tsx`** still had its own Archive and Delete buttons with a
+  `window.confirm`, duplicating the row kebab the projects panel had already gained. The
+  other three forms were converted; this one was skipped. Both buttons removed, matching
+  §3.1's rule that destructive actions live on the row.
+- **`achievements-editor.tsx`** — the sub-list inside the officials drawer — deleted an
+  achievement and its photos behind a `window.confirm`. Now a `ConfirmDialog` naming the
+  achievement. It keeps its inline trash button rather than gaining a kebab: these are
+  sub-records inside an open editor, not table rows.
+
+`window.confirm` now appears nowhere in `src/` outside `confirm-dialog.tsx`'s own doc
+comment. **Team users already had the dialog** — archive and delete both route through
+`ConfirmDialog`, and a user cannot archive, delete, or disable their own account.
+
+## 9. Open items
 
 - Whether ticket rows should get quick status transitions — deferred to sub-project 6.
+- The same standards on the **public side** — now programme sub-project 10, see the
+  umbrella spec §4.1. This spec covers the admin portal only.
 - The sidebar's **Emergency Response** button is a dead stub with no handler. Noted here
   because it was found during this survey; it belongs to whichever sub-project defines
   what it should do.

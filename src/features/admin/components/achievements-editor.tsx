@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { AchievementValues, AdminAchievement } from "@/types";
 import { Field, Input, Textarea } from "@/components/ui/form";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   createAchievement,
   deleteAchievement,
@@ -42,6 +43,8 @@ export function AchievementsEditor({ officialId, achievements: initial }: Achiev
   const [items, setItems] = useState<AdminAchievement[]>(initial);
   const [error, setError] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<AdminAchievement | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [pending, start] = useTransition();
   // Last-saved text per achievement, so a blur that changed nothing skips the
   // round trip and a failed save can revert the fields.
@@ -132,13 +135,17 @@ export function AchievementsEditor({ officialId, achievements: initial }: Achiev
     });
   }
 
-  function remove(id: string) {
-    if (!window.confirm("Delete this achievement? Its photos are deleted too.")) return;
+  function runConfirmedRemove() {
+    if (!confirming) return;
+    const { id } = confirming;
     const previous = items;
     setItems((prev) => prev.filter((a) => a.id !== id));
     setError(null);
+    setRemoving(true);
     start(async () => {
       const result = await deleteAchievement(id);
+      setRemoving(false);
+      setConfirming(null);
       if (result.error) {
         setItems(previous);
         setError(result.error);
@@ -192,7 +199,7 @@ export function AchievementsEditor({ officialId, achievements: initial }: Achiev
                 </button>
                 <button
                   type="button"
-                  onClick={() => remove(achievement.id)}
+                  onClick={() => setConfirming(achievement)}
                   disabled={pending}
                   aria-label={`Delete achievement ${index + 1}`}
                   className="rounded p-1 text-danger hover:bg-ink-50 disabled:opacity-30"
@@ -272,6 +279,23 @@ export function AchievementsEditor({ officialId, achievements: initial }: Achiev
         <Plus className="h-4 w-4" aria-hidden="true" />
         {items.length >= MAX ? `Limit of ${MAX} reached` : "Add achievement"}
       </button>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        title="Delete this achievement?"
+        body={
+          <>
+            <strong className="font-semibold text-ink-900">
+              {confirming?.title || "This achievement"}
+            </strong>{" "}
+            and its photos are removed for good. This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete"
+        pending={removing}
+        onConfirm={runConfirmedRemove}
+        onCancel={() => setConfirming(null)}
+      />
     </div>
   );
 }
