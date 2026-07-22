@@ -94,6 +94,19 @@
   color: transparent;
 }
 
+/*
+ * Scrolls, but paints no scrollbar. For overlay panels where a desktop
+ * scrollbar would cut across a rounded edge and the clipped content is
+ * affordance enough. Touch scrollbars already overlay and auto-hide, so this
+ * only changes what a mouse sees.
+ */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer base {
   /*
    * The page itself never scrolls sideways — wide content (tables) scrolls

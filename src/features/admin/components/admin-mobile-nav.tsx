@@ -109,7 +109,7 @@ export function AdminMobileNav({
               // gutter, so the card floats clear of it instead of hanging off
               // it. Capped well short of the viewport: the point is a card that
               // scrolls, not a sheet that happens to fit thirteen rows.
-              className="pointer-events-auto absolute inset-x-4 top-22 max-h-[65dvh] overflow-y-auto rounded-3xl border border-ink-200/70 bg-white/95 p-3 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.25)] backdrop-blur-xl"
+              className="no-scrollbar pointer-events-auto absolute inset-x-4 top-22 max-h-[65dvh] overflow-y-auto rounded-3xl border border-ink-200/70 bg-white/95 p-3 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.25)] backdrop-blur-xl"
             >
               <div className="flex flex-col gap-5">
                 {groups.map((section) => (
