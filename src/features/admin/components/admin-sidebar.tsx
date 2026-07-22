@@ -49,7 +49,7 @@ export function AdminSidebar({
     <aside
       aria-label="Admin navigation"
       className={cn(
-        "relative flex h-screen flex-col overflow-y-auto overflow-x-hidden border-r border-white/10 bg-ink-950 py-6 text-ink-300 transition-[width] duration-200",
+        "relative flex h-screen flex-col overflow-y-auto overflow-x-hidden border-r border-white/10 bg-ink-950 py-6 text-ink-300 shadow-[4px_0_24px_rgb(0_0_0/0.25)] transition-[width] duration-200",
         collapsed ? "w-18" : "w-64",
         className,
       )}
@@ -106,7 +106,7 @@ export function AdminSidebar({
             {collapsed ? (
               <div className="mx-3 mb-2 border-t border-white/10" aria-hidden="true" />
             ) : (
-              <p className="mb-1.5 px-3 text-[0.68rem] font-bold uppercase tracking-widest text-ink-500">
+              <p className="mb-1.5 flex items-center gap-2 px-3 text-[0.68rem] font-bold uppercase tracking-[0.2em] text-ink-500 before:h-px before:w-4 before:shrink-0 before:bg-white/15 before:content-['']">
                 {section.label}
               </p>
             )}
