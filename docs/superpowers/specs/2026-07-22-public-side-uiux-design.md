@@ -53,12 +53,30 @@ product call, not an implementation detail. Recorded in §6.
 
 ## 3. Decisions
 
-### 3.1 Skeletons at segment boundaries, not one per route
+### 3.1 `Suspense` on the list pages, `loading.tsx` on the detail pages
 
-`loading.tsx` inherits down the tree, so seven files cover the eleven routes:
-`announcements/`, `officials/`, `services/`, `transparency/`, `track/`, `complaints/`,
-`assistance/`. Where a list and its detail page differ enough that one skeleton would be a
-lie about either (`services` vs `services/apply/[slug]`), the child gets its own.
+The portal answer — a `loading.tsx` per route — is the wrong one here, and reading the
+pages shows why. Every public list route has the same shape:
+
+```tsx
+<PageHero title="…" description="…" />   {/* static, renderable instantly */}
+<ServicesGrid />                          {/* async: awaits listServices() */}
+```
+
+A `loading.tsx` replaces the **whole page**, so the hero — which needs no data at all —
+would flash as a grey block on every navigation. Wrapping only the async section in
+`<Suspense>` paints the hero immediately and shimmers just the part that is actually
+waiting. That is the App Router's own answer, and the async work is already isolated in
+leaf components (`ServicesGrid`, `NewsFeed`, `NewsSidebar`, `LegislativeArchive`,
+`UploadsBrowse`), so no restructuring is needed to get it.
+
+`loading.tsx` is still right for the **detail** routes — `/officials/[slug]`,
+`/announcements/[slug]`, `/services/apply/[slug]`,
+`/transparency/legislative/[slug]` — where the page awaits the record before it can render
+anything, including its own title. There is no instant part to protect.
+
+`/track` gets neither: it is dynamic only because it reads `searchParams`, and `TrackLookup`
+is a Client Component that fetches on submit. Nothing streams.
 
 Skeletons are composed from `@/components/ui/skeleton` — the same primitives the portal
 uses, so there is one set to maintain. They mirror the real layout and pulse only under

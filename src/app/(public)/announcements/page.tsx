@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { PageHero } from "@/components/sections/page-hero";
+import { NewsFeedSkeleton, NewsSidebarSkeleton } from "@/components/ui/public-skeleton";
 import { NewsFeed, NewsSidebar } from "@/features/announcements";
 
 export const metadata: Metadata = {
@@ -36,11 +38,19 @@ export default async function AnnouncementsPage({
       </PageHero>
       <Container className="py-12 md:py-16">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+          {/*
+            Two independent queries, so two boundaries: the sidebar's three
+            announcements should not be held back by a slow page of articles.
+          */}
           <div className="lg:col-span-8">
-            <NewsFeed page={current} />
+            <Suspense key={current} fallback={<NewsFeedSkeleton />}>
+              <NewsFeed page={current} />
+            </Suspense>
           </div>
           <div className="lg:col-span-4">
-            <NewsSidebar />
+            <Suspense fallback={<NewsSidebarSkeleton />}>
+              <NewsSidebar />
+            </Suspense>
           </div>
         </div>
       </Container>
