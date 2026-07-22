@@ -11,7 +11,9 @@ interface AdminEmptyStateProps {
 export function AdminEmptyState({ message, onClear }: AdminEmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 p-16 text-center">
-      <SearchX className="h-10 w-10 text-ink-400" aria-hidden="true" />
+      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+        <SearchX className="h-6 w-6" aria-hidden="true" />
+      </span>
       <p className="text-ink-600">{message}</p>
       {onClear ? (
         <Button variant="ghost" onClick={onClear}>

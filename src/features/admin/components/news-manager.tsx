@@ -431,7 +431,14 @@ export function NewsManager({ articles, announcements, categories, isSuperAdmin 
       {tab === "news" ? (
         filteredNews.length === 0 ? (
           <Card>
-            <AdminEmptyState message="No posts match your filters." onClear={clearFilters} />
+            <AdminEmptyState
+              message={
+                articles.length === 0
+                  ? "No posts yet — write the first one."
+                  : "No posts match your filters."
+              }
+              onClear={clearFilters}
+            />
           </Card>
         ) : (
           <>
@@ -496,7 +503,14 @@ export function NewsManager({ articles, announcements, categories, isSuperAdmin 
         )
       ) : filteredAnnouncements.length === 0 ? (
         <Card>
-          <AdminEmptyState message="No announcements match your filters." onClear={clearFilters} />
+          <AdminEmptyState
+            message={
+              announcements.length === 0
+                ? "No announcements yet — create the first one."
+                : "No announcements match your filters."
+            }
+            onClear={clearFilters}
+          />
         </Card>
       ) : (
         <>
