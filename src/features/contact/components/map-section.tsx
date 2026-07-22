@@ -23,7 +23,7 @@ export function MapSection() {
             Get Directions
           </Button>
         </div>
-        <div className="relative h-[450px] overflow-hidden rounded-[2rem] border border-ink-200/70 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.25)]">
+        <div className="relative h-[450px] overflow-hidden rounded-[2rem] border border-ink-200/70 shadow-floating">
           <Image
             src={MAP_IMAGE}
             alt="Map showing the location of the San Fernando Barangay Hall"

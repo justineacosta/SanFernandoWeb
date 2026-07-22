@@ -82,7 +82,7 @@ export function OfficialCard({ official, variant = "portrait", highlighted = fal
             alt={official.photoAlt}
             fill
             sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            className="object-cover transition-transform duration-(--duration-reveal) ease-out-soft group-hover:scale-[1.03]"
           />
           {official.badge ? (
             <span className="absolute right-2 top-2 rounded-full bg-ink-900 px-2 py-1 text-[10px] font-bold uppercase text-white">

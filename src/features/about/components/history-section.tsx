@@ -33,7 +33,7 @@ export async function HistorySection() {
                 )}
               >
                 <div className={cn("w-full md:w-1/2", !reversed && "md:text-right")}>
-                  <span className="mb-2 inline-block rounded-full bg-ink-100 px-4 py-1 font-bold text-ink-900">
+                  <span className="mb-2 inline-block rounded-full bg-brand-100 px-4 py-1 font-display font-bold tabular-nums text-brand-800">
                     {entry.year}
                   </span>
                   <h3 className="mb-2 text-xl font-semibold tracking-tight">{entry.title}</h3>
