@@ -11,7 +11,7 @@ interface NewsCardProps {
 /** Featured article card: side-by-side image and copy with author byline. */
 export function FeaturedNewsCard({ article }: NewsCardProps) {
   return (
-    <article className="group overflow-hidden rounded-3xl border border-ink-200 bg-white transition-all duration-300 hover:shadow-lg">
+    <article className="group overflow-hidden rounded-3xl border border-ink-200 bg-white transition-all duration-(--duration-quick) ease-out-soft hover:border-brand-300 hover:shadow-floating">
       <div className="grid md:grid-cols-2">
         <div className="relative h-64 overflow-hidden rounded-2xl md:h-full">
           {article.coverSrc ? (
@@ -20,7 +20,7 @@ export function FeaturedNewsCard({ article }: NewsCardProps) {
               alt={article.coverAlt}
               fill
               sizes="(min-width: 768px) 33vw, 100vw"
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              className="object-cover transition-transform duration-(--duration-reveal) ease-out-soft group-hover:scale-[1.03]"
             />
           ) : (
             <div className="flex h-full items-center justify-center bg-ink-100 text-ink-400">
@@ -40,7 +40,7 @@ export function FeaturedNewsCard({ article }: NewsCardProps) {
           <Badge variant="soft" className="mb-2 w-fit">
             {article.category}
           </Badge>
-          <h3 className="mb-4 text-2xl font-semibold transition-colors group-hover:text-ink-900">
+          <h3 className="mb-4 text-2xl font-semibold tracking-tight transition-colors group-hover:text-ink-900">
             {article.title}
           </h3>
           <p className="mb-6 line-clamp-3 text-ink-600">{article.excerpt}</p>
@@ -70,7 +70,7 @@ export function FeaturedNewsCard({ article }: NewsCardProps) {
 /** Standard news grid card with image, category, and excerpt. */
 export function NewsCard({ article }: NewsCardProps) {
   return (
-    <article className="flex flex-col overflow-hidden rounded-3xl border border-ink-200 bg-white transition-colors hover:border-ink-900">
+    <article className="group flex flex-col overflow-hidden rounded-3xl border border-ink-200 bg-white transition-all duration-(--duration-quick) ease-out-soft hover:-translate-y-1 hover:border-brand-300 hover:shadow-floating">
       <div className="relative h-48 overflow-hidden rounded-2xl">
         {article.coverSrc ? (
           <Image
@@ -78,7 +78,7 @@ export function NewsCard({ article }: NewsCardProps) {
             alt={article.coverAlt}
             fill
             sizes="(min-width: 768px) 33vw, 100vw"
-            className="object-cover"
+            className="object-cover transition-transform duration-(--duration-reveal) ease-out-soft group-hover:scale-[1.03]"
           />
         ) : (
           <div className="flex h-full items-center justify-center bg-ink-100 text-ink-400">
@@ -90,7 +90,7 @@ export function NewsCard({ article }: NewsCardProps) {
         <Badge variant="soft" className="mb-2 w-fit">
           {article.category}
         </Badge>
-        <h3 className="mb-3 text-xl font-semibold">
+        <h3 className="mb-3 text-xl font-semibold tracking-tight">
           {article.isNew ? (
             <Badge variant="new" className="mr-1 px-1.5 text-[10px]">
               New
