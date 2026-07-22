@@ -6,7 +6,10 @@ import type { ApplicationReviewValues, ApplicationRow, WalkInApplicationValues }
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
+import { useTableSort } from "@/components/ui/use-table-sort";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
@@ -44,7 +47,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const { toast, showToast, dismissToast } = useToast();
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const totalCount = applications.length;
@@ -70,10 +73,32 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
     );
   }, [applications, search, serviceId, status]);
 
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Newest first by default — the queue is worked from the top.
+  const { sorted, sortKey, sortDir, toggle } = useTableSort(
+    filtered,
+    { key: "date", dir: "desc" },
+    {
+      applicant: (r) => `${r.lastName} ${r.firstName}`,
+      service: (r) => r.serviceTitle,
+      date: (r) => r.submittedAt,
+      status: (r) => r.status,
+    },
+  );
+
+  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const reviewing = reviewingId
     ? (applications.find((record) => record.id === reviewingId) ?? null)
     : null;
+
+  // Global-search results link here as ?review=<id>.
+  useEditDeepLink("review", (id) => {
+    if (applications.some((record) => record.id === id)) {
+      setFormError(null);
+      setReviewingId(id);
+    } else {
+      showError("That application no longer exists.");
+    }
+  });
 
   const closeReview = () => {
     setReviewingId(null);
@@ -223,10 +248,10 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
               <table className="w-full min-w-160 text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    <th scope="col" className="px-6 py-4">Applicant</th>
-                    <th scope="col" className="px-6 py-4">Document Type</th>
-                    <th scope="col" className="px-6 py-4">Date Applied</th>
-                    <th scope="col" className="px-6 py-4">Status</th>
+                    <SortableTh label="Applicant" sortKey="applicant" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Document Type" sortKey="service" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Date Applied" sortKey="date" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
                     <th scope="col" className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>

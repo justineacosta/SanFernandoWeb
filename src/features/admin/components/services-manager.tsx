@@ -8,7 +8,10 @@ import { Card } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { IconCircle } from "@/components/ui/icon-circle";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
+import { useTableSort } from "@/components/ui/use-table-sort";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
@@ -46,7 +49,18 @@ export function ServicesManager({ services }: ServicesManagerProps) {
     );
   }, [services, search, status]);
 
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const { sorted, sortKey, sortDir, toggle } = useTableSort(
+    filtered,
+    { key: "title", dir: "asc" },
+    {
+      title: (r) => r.title,
+      department: (r) => r.department,
+      updated: (r) => r.updatedAt,
+      status: (r) => r.status,
+    },
+  );
+
+  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const openCreate = () => {
     setEditing(null);
@@ -56,6 +70,13 @@ export function ServicesManager({ services }: ServicesManagerProps) {
     setEditing(record);
     setDrawerOpen(true);
   };
+  // Global-search results link here as /admin/services?edit=<id>.
+  useEditDeepLink("edit", (id) => {
+    const record = services.find((r) => r.id === id);
+    if (record) openEdit(record);
+    else showError("That service no longer exists.");
+  });
+
   const handleSaved = () => {
     const wasEditing = editing !== null;
     setDrawerOpen(false);
@@ -156,10 +177,10 @@ export function ServicesManager({ services }: ServicesManagerProps) {
               <table className="w-full min-w-160 text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    <th scope="col" className="px-6 py-4">Service Name</th>
-                    <th scope="col" className="px-6 py-4">Department</th>
-                    <th scope="col" className="px-6 py-4">Last Updated</th>
-                    <th scope="col" className="px-6 py-4">Status</th>
+                    <SortableTh label="Service Name" sortKey="title" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Department" sortKey="department" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Last Updated" sortKey="updated" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
                     <th scope="col" className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>

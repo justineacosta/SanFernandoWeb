@@ -11,6 +11,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { formatOptionalDate } from "@/lib/format";
 import { fuzzyFilter } from "@/lib/fuzzy";
@@ -75,6 +76,14 @@ export function TransparencyProjectsPanel({ projects }: TransparencyProjectsPane
       }
     });
   }
+
+  // Only mounted while the Projects tab is showing, so it is safe for this
+  // panel to consume ?edit= unconditionally.
+  useEditDeepLink("edit", (id) => {
+    const project = projects.find((p) => p.id === id);
+    if (project) openEdit(project);
+    else showError("That project no longer exists.");
+  });
 
   function handleSaved(message: string) {
     setDrawerOpen(false);

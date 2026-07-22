@@ -13,6 +13,7 @@ import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
 import { useTableSort } from "@/components/ui/use-table-sort";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateApproved } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
@@ -113,6 +114,14 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
       }
     });
   };
+
+  // Only mounted while the Legislative tab is showing, so it is safe for this
+  // panel to consume ?edit= unconditionally.
+  useEditDeepLink("edit", (id) => {
+    const record = documents.find((r) => r.id === id);
+    if (record) openEdit(record);
+    else showError("That document no longer exists.");
+  });
 
   /** Run the confirmed row action; the dialog stays locked until it answers. */
   const runConfirmed = () => {

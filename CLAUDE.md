@@ -25,11 +25,18 @@ npm run dev        # http://localhost:3000 — often already running; check befo
 npm run build      # production build (mix of static + dynamic/DB-backed routes)
 npm run typecheck  # tsc --noEmit
 npm run lint       # ESLint 9 flat config (eslint.config.mjs) — `next lint` no longer exists in Next 16
+npm run test:unit  # Vitest, pure functions only (tests/unit)
+npm run test:e2e   # Playwright against the dev server (tests/e2e); `--project=public` needs no login
 ```
 
-**There is no test framework.** Do not add one casually. Verification = typecheck + lint +
-driving the running app; the runtime-verification recipe (including how to drive the browser
-with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.md`.
+**Tests were added 2026-07-22** (sub-project 5), lifting the earlier no-test rule. Two
+frameworks with different jobs: **Vitest** covers pure functions — no jsdom, no React
+renderer, so a broken test environment cannot make a broken page look green. **Playwright**
+drives the real dev server through system Chrome; the `public` project needs no session, the
+`admin` project reuses a storage state from `tests/e2e/auth.setup.ts` and skips unless
+`E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` are set in `.env.local`. Component-level tests are
+deliberately *not* a thing here — behaviour is verified in the browser. The ad-hoc
+verification recipe still applies for one-off checks: `.claude/skills/verify/SKILL.md`.
 
 ## Architecture
 
@@ -44,6 +51,16 @@ with playwright-core against system Chrome) is in `.claude/skills/verify/SKILL.m
   Server Actions**; only the **Dashboard Overview** still renders mock seed from
   `features/admin/data.ts` (the nav is real, but `RECENT_DRAFTS` / `PUBLISHING_ACTIVITY` /
   `ADMIN_TEAM` are placeholder).
+- **Admin table standards** (sub-project 5, 2026-07-22) are shared primitives, not per-manager
+  code: `RowActions` (the row kebab — Edit / Publish / Archive / Delete; portals to
+  `document.body` because every admin table sits in `overflow-x-auto`), `ConfirmDialog`
+  (replaces `window.confirm`; focus starts on Cancel, stays locked while the action runs),
+  `useToast` (carries an incrementing `id` so a repeated message re-fires, plus an error
+  tone), `Skeleton` + a `loading.tsx` per admin route, `Tooltip`, `SortableTh` +
+  `useTableSort`, and `useEditDeepLink` (`?edit=` / `?review=` from global search).
+  **Destructive actions belong on the row, not in the drawer.** Reorder arrows are hidden
+  whenever a filter, a search, or a non-`order` sort is active — "move up" only means
+  something when the row above is the one that would be swapped.
 - **Feature modules own everything for a route:** `src/features/<name>/` =
   `data.ts` (typed mock content) + `components/` (section components) + `index.ts`
   (barrel re-exports, kept in page order). Pages import only from the barrel.

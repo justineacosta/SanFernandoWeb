@@ -21,8 +21,11 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useTableSort } from "@/components/ui/use-table-sort";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
@@ -97,6 +100,31 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
     return fuzzyFilter(narrowed, search, (record) => haystack(record.name, record.role));
   }, [officials, search, group, status]);
 
+  // `officials` arrives in stored directory order, so a row's index in it IS
+  // its order — no separate sortOrder field needed.
+  const orderOf = useMemo(
+    () => new Map(officials.map((record, index) => [record.id, index])),
+    [officials],
+  );
+
+  const { sorted, sortKey, sortDir, toggle } = useTableSort(
+    filtered,
+    { key: "order", dir: "asc" },
+    {
+      order: (r) => orderOf.get(r.id) ?? 0,
+      name: (r) => r.name,
+      section: (r) => GROUP_LABELS[r.group],
+      status: (r) => r.status,
+    },
+  );
+
+  /*
+   * Reordering is only coherent while the rows on screen are the whole
+   * directory in its stored order: "move up" means "swap with the row above",
+   * and both filtering and sorting by another column break that adjacency.
+   */
+  const reorderable = !filtersActive && sortKey === "order";
+
   const openCreate = () => {
     setEditing(null);
     setDrawerOpen(true);
@@ -124,6 +152,13 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
       }
     });
   };
+
+  // Global-search results link here as /admin/officials?edit=<id>.
+  useEditDeepLink("edit", (id) => {
+    const record = officials.find((r) => r.id === id);
+    if (record) openEdit(record);
+    else showError("That official is no longer in the directory.");
+  });
 
   /** Swap a row with its neighbour and persist the whole order. */
   const move = (index: number, direction: -1 | 1) => {
@@ -259,15 +294,15 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
             <table className="w-full min-w-160 text-left text-sm">
               <thead>
                 <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                  <th scope="col" className="px-6 py-4">Order</th>
-                  <th scope="col" className="px-6 py-4">Official</th>
-                  <th scope="col" className="px-6 py-4">Section</th>
-                  <th scope="col" className="px-6 py-4">Status</th>
+                  <SortableTh label="Order" sortKey="order" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                  <SortableTh label="Official" sortKey="name" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                  <SortableTh label="Section" sortKey="section" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                  <SortableTh label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
                   <th scope="col" className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((record) => {
+                {sorted.map((record) => {
                   // Index in the FULL list — moving must reorder the real
                   // directory, not a filtered view of it.
                   const index = officials.findIndex((r) => r.id === record.id);
@@ -278,12 +313,7 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
                           <span className="w-6 font-semibold text-ink-500">
                             {String(index + 1).padStart(2, "0")}
                           </span>
-                          {/*
-                            "Move up" means "swap with the row above", which is
-                            only true when the rows on screen are the whole
-                            directory in its stored order.
-                          */}
-                          {filtersActive ? null : (
+                          {reorderable ? (
                             <>
                               <Tooltip label="Move up">
                                 <button
@@ -308,7 +338,7 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
                                 </button>
                               </Tooltip>
                             </>
-                          )}
+                          ) : null}
                         </div>
                       </td>
                       <td className="px-6 py-4">

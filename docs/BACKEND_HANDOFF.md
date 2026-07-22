@@ -651,10 +651,67 @@
 >    database never scans a module the viewer cannot open and nothing the client sends can
 >    widen the search. Services are SuperAdmin-only, matching their `superAdminOnly` nav
 >    entry. Shared constants live in `features/admin/search-modules.ts` because a
->    `"use server"` file may only export async functions. **Known limit:** results link to
->    the module page, not the record — drawer editors are client state with no URL, so
->    deep-linking waits for sub-project 5. Unlike the public search functions this one does
->    **not** filter to `published`; the portal is where drafts are managed.
+>    `"use server"` file may only export async functions. ~~**Known limit:** results link to
+>    the module page, not the record.~~ **Resolved in sub-project 5 — see below.** Unlike
+>    the public search functions this one does **not** filter to `published`; the portal is
+>    where drafts are managed.
+
+> **Updated 2026-07-22 (table standards — sub-project 5):** eleven behaviours that every
+> admin manager had implemented differently, or not at all, are now shared primitives. **No
+> migration**; no Server Action contract changed.
+> 1. **Destructive actions moved out of the drawers.** Archiving or deleting used to require
+>    opening the record's editor first. Every content manager's rows now carry a `RowActions`
+>    kebab (Edit / Publish / Archive / Delete as the record's state allows). It renders
+>    through `createPortal` into `document.body` at `position: fixed`, because every admin
+>    table sits inside `overflow-x-auto`, which would clip an absolutely-positioned menu;
+>    scroll and resize dismiss it rather than re-anchoring. Full menu keyboard contract
+>    (↑/↓/Home/End/Escape, focus returns to the trigger).
+> 2. **The four ticket managers deliberately keep the review drawer as their only action.**
+>    Umbrella §3.6 excludes tickets from archive and §3.2 puts delete in sub-project 6, so
+>    there is nothing yet to put in a menu for them.
+> 3. **`window.confirm` is gone**, replaced by `ConfirmDialog` (`role="alertdialog"`). It
+>    names the record, focus starts on **Cancel** so a stray Enter cannot destroy anything,
+>    and it stays open and disabled while the Server Action runs — the native dialog could
+>    not express that, so a slow delete gave no feedback and a second click fired a second
+>    delete.
+> 4. **Two real defects fixed on the way.** Team users could be archived or deleted with a
+>    single click and *no confirmation at all*. Services and Team both passed the error
+>    string to the success toast, so a failed action arrived with a green tick beside it.
+> 5. **Toasts gained an id and a tone.** Managers held `useState<string | null>` keyed by the
+>    message text, so re-firing an identical message was not a state change — React never
+>    re-rendered and the dismiss timer never restarted, which made a second save look like a
+>    no-op. `useToast` carries an incrementing `id` used as the Toast's key. Failures use
+>    `role="alert"`; successes stay `role="status"`.
+> 6. **Skeletons.** There was no `loading.tsx` anywhere in the app, so a DB-backed admin
+>    route showed the *previous* page until the server finished. All twelve admin routes now
+>    have one, built from a shared `Skeleton` set that mirrors each real layout. Managers get
+>    their rows as props from async Server Components, so the App Router's streaming boundary
+>    is the correct seam — there is no client fetch to spin on. Pulse is `motion-safe` only.
+> 7. **Sorting everywhere.** `SortableTh` + `useTableSort` were previously used by two
+>    managers; they now cover Officials, Services, and all four ticket queues (ticket tables
+>    default to newest-first — the queue is worked from the top).
+> 8. **Reorder vs. sort.** Officials and Transparency Projects persist a manual order.
+>    Reorder arrows are hidden whenever a filter, a search, **or a non-`order` sort** is
+>    active: "move up" means "swap with the row above", which is only true when the rows on
+>    screen are the whole list in stored order.
+> 9. **Deep-linking closes sub-project 4's known limit.** `hrefForHit()` builds
+>    `/admin/<module>?tab=…&edit=<id>` (or `?review=<id>` for tickets) and `useEditDeepLink`
+>    opens the drawer for that record, then strips the parameter with `router.replace` so a
+>    refresh does not re-open it. Tabbed pages pass `enabled` so only the panel that owns the
+>    record consumes the link. No permission check in the hook — the page is already gated by
+>    `requirePermission`, and the search cannot hand out an id for a module the viewer
+>    cannot open.
+> 10. **One global `:focus-visible` ring** in `globals.css`. Tailwind emits utilities in a
+>    later cascade layer, so anything with its own focus treatment keeps it; this only
+>    reaches controls that previously showed nothing. Icon-only buttons also gained visible
+>    `Tooltip`s to match the `aria-label`s screen readers already had.
+> 11. **Tests exist now** (`npm run test:unit`, `npm run test:e2e`), lifting the old no-test
+>    rule ahead of sub-project 7. Vitest covers pure functions only — 21 cases pinning the
+>    fuzzy matcher's contract and the global search's permission map against the sidebar.
+>    Playwright drives the real dev server; the `admin` project **skips** until
+>    `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` are set in `.env.local`. **Action for the
+>    owner: create one dedicated staging staff account (not a SuperAdmin) for the e2e
+>    suite.**
 
 ---
 

@@ -7,6 +7,7 @@ import { globalSearch } from "@/features/admin/actions/search";
 import {
   MIN_QUERY_LENGTH,
   MODULE_META,
+  hrefForHit,
   type GlobalSearchHit,
 } from "@/features/admin/search-modules";
 
@@ -145,7 +146,11 @@ export function AdminGlobalSearch() {
           ) : (
             groups.map((group) => (
               <div key={`${group.module}-${group.rows[0]!.id}`} className="mb-1 last:mb-0">
-                <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-ink-500">
+                <p
+                  data-search-group={MODULE_META[group.module].label}
+                  data-search-href={MODULE_META[group.module].href}
+                  className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-ink-500"
+                >
                   {MODULE_META[group.module].label}
                 </p>
                 {group.rows.map((hit) => (
@@ -154,7 +159,8 @@ export function AdminGlobalSearch() {
                     type="button"
                     role="option"
                     aria-selected={false}
-                    onClick={() => go(MODULE_META[hit.module].href)}
+                    // Lands on the record itself, not just its module page.
+                    onClick={() => go(hrefForHit(hit.module, hit.id))}
                     className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-ink-50 focus:bg-ink-50 focus:outline-none"
                   >
                     <span className="min-w-0">

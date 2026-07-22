@@ -63,15 +63,7 @@ export const MODULE_PERMISSION: Record<SearchModule, Permission | null> = {
   assistance: "handle-assistance",
 };
 
-/**
- * Group heading and destination per module.
- *
- * `href` is the module's manager page, not the individual record: drawer
- * editors are client state with no URL of their own, so there is nothing to
- * deep-link to yet. The result row still names the record and the module that
- * holds it, which is what makes the search useful. Deep-linking is a follow-up
- * for the table-standards sub-project, where row actions move out of drawers.
- */
+/** Group heading and manager page per module. */
 export const MODULE_META: Record<SearchModule, { label: string; href: string }> = {
   news: { label: "News", href: "/admin/news" },
   announcements: { label: "Announcements", href: "/admin/news" },
@@ -86,6 +78,36 @@ export const MODULE_META: Record<SearchModule, { label: string; href: string }> 
   complaints: { label: "Incident Reports", href: "/admin/complaints" },
   assistance: { label: "Assistance Requests", href: "/admin/assistance" },
 };
+
+/** Modules whose manager page shows several tabs, and which tab holds them. */
+const MODULE_TAB: Partial<Record<SearchModule, string>> = {
+  news: "news",
+  announcements: "announcements",
+  legislative: "legislative",
+  documents: "documents",
+  projects: "projects",
+};
+
+/** Ticket modules open a review drawer rather than an editor. */
+const TICKET_MODULES: SearchModule[] = [
+  "applications",
+  "appointments",
+  "complaints",
+  "assistance",
+];
+
+/**
+ * Where a single search hit should land: the manager page, the tab that holds
+ * the record, and the parameter that opens it. See `useEditDeepLink`.
+ */
+export function hrefForHit(module: SearchModule, id: string): string {
+  const { href } = MODULE_META[module];
+  const params = new URLSearchParams();
+  const tab = MODULE_TAB[module];
+  if (tab) params.set("tab", tab);
+  params.set(TICKET_MODULES.includes(module) ? "review" : "edit", id);
+  return `${href}?${params.toString()}`;
+}
 
 /**
  * Two characters is the floor. `fuzzy_match` treats an empty query as "match

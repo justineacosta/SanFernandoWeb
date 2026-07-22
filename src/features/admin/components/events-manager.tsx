@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { toCalendarParts } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
@@ -92,6 +93,13 @@ export function EventsManager({ events }: EventsManagerProps) {
       setDrawerOpen(true);
     });
   };
+
+  // Global-search results link here as /admin/events?edit=<id>.
+  useEditDeepLink("edit", (id) => {
+    const record = events.find((r) => r.id === id);
+    if (record) openEdit(record);
+    else showError("That event no longer exists.");
+  });
 
   const handleSaved = (message: string) => {
     setDrawerOpen(false);

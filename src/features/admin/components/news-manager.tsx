@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
@@ -147,6 +148,27 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
 
   // Creating a new post must keep the drawer open so the photo uploader (which
   // needs an article id) becomes reachable in place; editing still closes as before.
+  /*
+   * Global-search results link here as /admin/news?tab=…&edit=<id>. Two
+   * modules share this page, so the id alone would be ambiguous — the tab
+   * says which list to look in, and switching to it is part of arriving.
+   */
+  useEditDeepLink("edit", (id) => {
+    const article = articles.find((r) => r.id === id);
+    if (article) {
+      setTab("news");
+      openEditNews(article);
+      return;
+    }
+    const announcement = announcements.find((r) => r.id === id);
+    if (announcement) {
+      setTab("announcements");
+      openEditAnnouncement(announcement);
+      return;
+    }
+    showError("That post no longer exists.");
+  });
+
   const handleSaved = (message: string, keepOpen = false) => {
     if (!keepOpen) setDrawerOpen(false);
     showToast(message);

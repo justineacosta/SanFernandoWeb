@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Archive, Eye, FileText, FolderKanban, Gavel, Pencil, Plus, Trash2 } from "lucide-react";
 import type {
   AdminLegislativeRow,
@@ -17,6 +17,7 @@ import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
 import { useTableSort } from "@/components/ui/use-table-sort";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { formatOptionalDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
@@ -69,7 +70,13 @@ export function TransparencyManager({
   categories,
 }: TransparencyManagerProps) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("legislative");
+  // A search hit arrives as ?tab=documents&edit=<id>. Reading the tab in the
+  // useState initialiser means the panel that owns the record is the one that
+  // mounts, so it — and only it — consumes the `edit` parameter.
+  const initialTab = useSearchParams().get("tab");
+  const [tab, setTab] = useState<Tab>(
+    initialTab === "documents" || initialTab === "projects" ? initialTab : "legislative",
+  );
 
   // Public-documents tab: owned here since there is no separate manager component.
   const [docSearch, setDocSearch] = useState("");
@@ -150,6 +157,16 @@ export function TransparencyManager({
       }
     });
   };
+
+  useEditDeepLink(
+    "edit",
+    (id) => {
+      const record = documents.find((r) => r.id === id);
+      if (record) openEditDocument(record);
+      else showError("That document no longer exists.");
+    },
+    tab === "documents",
+  );
 
   /** Run the confirmed row action; the dialog stays locked until it answers. */
   const runConfirmed = () => {
