@@ -29,32 +29,33 @@ const LABELS: Record<AdminStatus, string> = {
 };
 
 const TONES: Record<AdminStatus, string> = {
-  published: "bg-brand-100 text-brand-800",
-  active: "bg-brand-100 text-brand-800",
-  approved: "bg-brand-100 text-brand-800",
-  // Stage-1 positives sit with `approved`; terminal successes are the deeper
-  // amber `released` already uses (there is no green token).
-  confirmed: "bg-brand-100 text-brand-800",
-  // Terminal success — a deeper amber than `approved` (there is no green token).
-  released: "bg-brand-200 text-brand-800",
-  completed: "bg-brand-200 text-brand-800",
-  resolved: "bg-brand-200 text-brand-800",
-  granted: "bg-brand-200 text-brand-800",
+  // Live / positive-terminal → the success pair (green landed with the overhaul).
+  published: "bg-success-soft text-success",
+  active: "bg-success-soft text-success",
+  released: "bg-success-soft text-success",
+  completed: "bg-success-soft text-success",
+  resolved: "bg-success-soft text-success",
+  granted: "bg-success-soft text-success",
   // Answering is the inbox's terminal success; it sits with the other four.
-  answered: "bg-brand-200 text-brand-800",
+  answered: "bg-success-soft text-success",
+  // Stage-1 positives — approved but not yet terminal.
+  approved: "bg-brand-100 text-brand-800",
+  confirmed: "bg-brand-100 text-brand-800",
+  // Attention states are amber, not red: review is workflow, not danger.
+  "in-review": "bg-brand-100 text-brand-800",
+  "under-review": "bg-brand-100 text-brand-800",
+  in_progress: "bg-brand-100 text-brand-800",
+  // True negatives keep danger.
+  rejected: "bg-danger-soft text-danger-soft-fg",
+  declined: "bg-danger-soft text-danger-soft-fg",
+  dismissed: "bg-danger-soft text-danger-soft-fg",
   scheduled: "bg-ink-100 text-ink-700",
   pending: "bg-ink-100 text-ink-700",
   // Untouched intake, like `pending`.
   received: "bg-ink-100 text-ink-700",
   new: "bg-ink-100 text-ink-700",
-  in_progress: "bg-danger-soft text-danger-soft-fg",
   draft: "bg-ink-100 text-ink-600",
   planning: "bg-ink-100 text-ink-600",
-  "in-review": "bg-danger-soft text-danger-soft-fg",
-  "under-review": "bg-danger-soft text-danger-soft-fg",
-  rejected: "bg-danger-soft text-danger-soft-fg",
-  declined: "bg-danger-soft text-danger-soft-fg",
-  dismissed: "bg-danger-soft text-danger-soft-fg",
   inactive: "bg-ink-100 text-ink-500",
   archived: "bg-ink-100 text-ink-500",
   // Closed without a reply — spam, or a duplicate. Not a success.

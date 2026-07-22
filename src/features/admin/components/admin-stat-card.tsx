@@ -16,7 +16,7 @@ export function AdminStatCard({ icon, label, value, tone = "primary" }: AdminSta
       <IconCircle icon={icon} tone={tone} />
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">{label}</p>
-        <p className="font-display text-3xl font-bold text-ink-900">{value}</p>
+        <p className="font-display text-3xl font-bold tabular-nums text-ink-900">{value}</p>
       </div>
     </Card>
   );
