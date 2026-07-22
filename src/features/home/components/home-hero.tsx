@@ -24,21 +24,23 @@ export async function HomeHero() {
         <div className="relative">
           <div className="pointer-events-none relative z-10 grid items-center gap-8 p-6 pb-20 sm:p-10 sm:pb-24 lg:min-h-[600px] lg:grid-cols-12 lg:p-14 lg:pb-24">
             <div className="pointer-events-auto lg:col-span-7">
-              <Badge variant="soft" className="mb-5">
+              <Badge variant="soft" className="hero-seq hero-seq-1 mb-5">
                 <Sparkles className="size-3.5 text-brand-500" aria-hidden="true" />
                 Welcome To
               </Badge>
-              <h1 className="text-balance font-display text-4xl font-semibold leading-[1.05] tracking-tight text-ink-900 sm:text-5xl md:text-6xl">
+              <h1 className="hero-seq hero-seq-2 text-balance font-display text-4xl font-semibold leading-[1.05] tracking-tight text-ink-900 sm:text-6xl md:text-7xl">
                 Barangay{" "}
                 <BrandStroke draw>
                   <span className="text-gradient-brand">San Fernando</span>
                 </BrandStroke>
               </h1>
-              <p className="mt-6 text-lg font-medium text-ink-700 md:text-xl">{SITE.tagline}</p>
-              <p className="mt-3 max-w-2xl text-balance text-base leading-relaxed text-ink-600 md:text-lg">
+              <p className="hero-seq hero-seq-3 mt-6 text-lg font-medium text-ink-700 md:text-xl">
+                {SITE.tagline}
+              </p>
+              <p className="hero-seq hero-seq-3 mt-3 max-w-2xl text-balance text-base leading-relaxed text-ink-600 md:text-lg">
                 {SITE.description}
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="hero-seq hero-seq-4 mt-8 flex flex-col gap-3 sm:flex-row">
                 <Button href="/about" size="lg">
                   About Our Barangay <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
