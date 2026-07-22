@@ -1,4 +1,5 @@
 import { Mail, MapPin, Phone } from "lucide-react";
+import mapImage from "@/images/map/san-fernando-map.png";
 import { SITE } from "@/constants/site";
 import type { ContactChannel } from "@/types";
 
@@ -45,5 +46,9 @@ export function inquirySubjectLabel(value: string): string {
   return INQUIRY_SUBJECTS.find((subject) => subject.value === value)?.label ?? value;
 }
 
-export const MAP_IMAGE =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuDAkBIJIGnHT97sdIP82suABS7zH2anKDrIB1ggPIeT3aRJBCia91GRdsvjF-bJOn6dUqz0zCa8XhlCJbkKRDFW843spLGy8DrYBc6HyHJ_wDXnneXxcySQIKkDqq-Do4KfbzQFh4bldTYYPygYf1dqtCZfat0ztk4u6ZKMBlgPwhnOw2ul6Cc8dFGmcpy1DpRMoD-P6C4wUAiaC8OzzMUojawPD4Lcz9t_FYq-W42Txyv0NYF2ACGflY0k9kKVosgtKNLfk1MQeik";
+/**
+ * The barangay map, supplied by the barangay. Bundled like SITE.sealImage
+ * rather than served from Storage: one file, no admin surface, changes only
+ * when the boundary does.
+ */
+export const MAP_IMAGE = mapImage;
