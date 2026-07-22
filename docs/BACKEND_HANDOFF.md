@@ -721,6 +721,22 @@
 > than a kebab, because achievements are sub-records inside an open editor, not table rows).
 > Team users already had the dialog on both actions, plus a rule that nobody may archive,
 > delete, or disable their own account. `window.confirm` is now absent from `src/` entirely.
+>
+> **Disabling a user now confirms too, and archived users can be restored.** Disabling locks
+> a colleague out of the portal on their next page load — the same class of act as archiving
+> — so it goes through `ConfirmDialog`. Enabling and restoring stay one click: they hand
+> access back, and confirming harmless actions trains people to click through the ones that
+> matter. The archive dialog had been promising the account "is kept and can be restored"
+> while `listTeamUsers` filtered `is_archived = false` and nothing else read the archived
+> rows — there was no route back short of SQL. Settings now renders an **Archived accounts**
+> disclosure below the roster (only when non-empty) with a Restore per row, backed by
+> `listArchivedTeamUsers()` and `restoreTeamUser()`. **Restore clears `is_archived` but
+> deliberately leaves `is_active` false**: archiving turns sign-in off, and returning someone
+> to the roster is a smaller decision than handing them a working login, so the row comes
+> back marked disabled and enabling it is a separate act. Also **moves `listTeamUsers` onto
+> the service-role client** — it was the last read in the portal going through the anon
+> client and leaning on an RLS policy for its filtering, which is why a stubbed session used
+> to show an empty team list.
 
 > **Scope correction 2026-07-22 — the public site is in the programme too.** Sub-projects
 > 2–9 are all admin-side, which wrongly implied the UI/UX standards stop at the portal. A
