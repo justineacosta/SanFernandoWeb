@@ -93,7 +93,10 @@ export function AdminGlobalSearch() {
   const groups = groupHits(hits);
 
   return (
-    <div ref={containerRef} className="relative hidden sm:block">
+    // w-64 is the preferred width, not a fixed one: min-w-0 lets it shrink
+    // when the bar is tight (between md and ~980px the sidebar takes 256px
+    // and the right-hand cluster would otherwise overflow the viewport).
+    <div ref={containerRef} className="relative hidden w-64 min-w-0 sm:block">
       <Search
         className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-500"
         aria-hidden="true"
@@ -123,7 +126,7 @@ export function AdminGlobalSearch() {
         }}
         onFocus={() => setOpen(true)}
         placeholder="Search..."
-        className="w-64 rounded-full border border-ink-200 bg-ink-50 py-2 pl-10 pr-9 text-ink-900 transition-colors focus:border-ink-300 focus:outline-none focus:ring-1 focus:ring-brand-400/30"
+        className="w-full rounded-full border border-ink-200 bg-ink-50 py-2 pl-10 pr-9 text-ink-900 transition-colors focus:border-ink-300 focus:outline-none focus:ring-1 focus:ring-brand-400/30"
       />
       {isPending ? (
         <Loader2

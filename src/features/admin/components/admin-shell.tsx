@@ -45,7 +45,13 @@ export function AdminShell({ user, defaultCollapsed, children }: AdminShellProps
       />
       <div
         className={cn(
-          "flex min-h-screen w-full flex-1 flex-col transition-[margin] duration-200 ease-out-soft",
+          // min-w-0 is load-bearing. As a flex item this column defaults to
+          // min-width:auto, which floors it at its content's min-content width
+          // — so one wide table (the audit log's min-w-160) pushes the whole
+          // column past the viewport and the page pans sideways. Wide content
+          // is supposed to scroll inside its own overflow-x-auto container,
+          // and it cannot while the column is free to grow instead.
+          "flex min-h-screen w-full min-w-0 flex-1 flex-col transition-[margin] duration-200 ease-out-soft",
           collapsed ? "md:ml-18" : "md:ml-64",
         )}
       >

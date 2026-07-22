@@ -78,7 +78,7 @@ export function AdminTopBar({ user }: { user: SessionUser }) {
               </motion.h1>
             </AnimatePresence>
           </div>
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <AdminGlobalSearch />
             <span aria-hidden="true" className="hidden h-6 w-px bg-ink-200 sm:block" />
             <div className="flex items-center gap-3">
