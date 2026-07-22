@@ -39,7 +39,7 @@ export function Toast({ message, tone = "success", onDismiss }: ToastProps) {
     <div
       role={tone === "error" ? "alert" : "status"}
       className={cn(
-        "fixed bottom-6 right-6 z-60 flex max-w-sm items-center gap-2.5 rounded-2xl px-5 py-3.5 text-sm font-medium text-white shadow-[0_16px_40px_-12px_rgba(0,0,0,0.4)]",
+        "animate-fade-up fixed bottom-6 right-6 z-60 flex max-w-sm items-center gap-2.5 rounded-2xl px-5 py-3.5 text-sm font-medium text-white shadow-floating",
         tone === "error" ? "bg-danger-deep" : "bg-ink-900",
       )}
     >
