@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import type { LegislativeType } from "@/types";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
 import { PublicTableSkeleton } from "@/components/ui/public-skeleton";
 import { LegislativeArchive } from "@/features/transparency";
@@ -26,7 +27,7 @@ export default async function LegislativeArchivePage({
   return (
     <>
       <PageHero
-        title="Ordinances & Resolutions"
+        title={<><BrandStroke>Ordinances</BrandStroke> & Resolutions</>}
         description="Search the enacted legislation of the Sangguniang Barangay."
       />
       {/*

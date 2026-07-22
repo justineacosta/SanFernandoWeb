@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
 import { NewsFeedSkeleton, NewsSidebarSkeleton } from "@/components/ui/public-skeleton";
 import { NewsFeed, NewsSidebar } from "@/features/announcements";
@@ -24,7 +25,7 @@ export default async function AnnouncementsPage({
     <>
       <PageHero
         eyebrow="Official Updates"
-        title="News Hub: Stay Informed, Stay Connected"
+        title={<><BrandStroke>News Hub</BrandStroke>: Stay Informed, Stay Connected</>}
         description="Access the latest announcements, public notices, and community highlights from the heart of Barangay San Fernando."
       >
         <div className="flex flex-wrap gap-4">

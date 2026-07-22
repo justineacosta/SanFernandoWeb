@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
 import { Section } from "@/components/ui/section";
 import { TrackLookup } from "@/features/track";
@@ -18,7 +19,7 @@ export default async function TrackPage({ searchParams }: TrackPageProps) {
   return (
     <>
       <PageHero
-        title="Track Your Request"
+        title={<>Track Your <BrandStroke>Request</BrandStroke></>}
         description="Enter the ticket number from your application together with the last name you filed it under."
       />
       <Section>

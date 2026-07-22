@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
 import { Section } from "@/components/ui/section";
 import { ApplyUnavailable } from "@/features/services/components/apply-unavailable";
@@ -17,7 +18,7 @@ export default async function NewAssistancePage() {
   return (
     <>
       <PageHero
-        title="Request Assistance"
+        title={<>Request <BrandStroke>Assistance</BrandStroke></>}
         description="Tell us what you need. The Barangay Social Welfare Desk reviews every request and will contact you."
       />
       {categories.length > 0 ? (
