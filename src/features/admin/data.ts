@@ -7,7 +7,6 @@ import {
   History,
   Inbox,
   Landmark,
-  LayoutDashboard,
   Megaphone,
   MessagesSquare,
   Newspaper,
@@ -27,20 +26,19 @@ import type {
 } from "@/types";
 
 export const ADMIN_NAV_ITEMS: IconNavItem[] = [
-  { label: "Dashboard Overview", href: "/admin", icon: LayoutDashboard, exact: true },
-  { label: "Services Management", href: "/admin/services", icon: Landmark, superAdminOnly: true },
-  { label: "Applications", href: "/admin/applications", icon: Inbox, permission: "process-applications" },
-  { label: "Incident Reports", href: "/admin/complaints", icon: Scale, permission: "handle-complaints" },
-  { label: "Appointments", href: "/admin/appointments", icon: CalendarClock, permission: "process-appointments" },
-  { label: "Assistance Requests", href: "/admin/assistance", icon: HeartHandshake, permission: "handle-assistance" },
-  { label: "Inquiries", href: "/admin/inquiries", icon: MessagesSquare, permission: "handle-inquiries" },
-  { label: "Transparency", href: "/admin/transparency", icon: FileStack, permission: "manage-transparency" },
-  { label: "Event Calendar", href: "/admin/events", icon: CalendarDays, permission: "manage-news" },
-  { label: "News & Announcements", href: "/admin/news", icon: Megaphone, permission: "manage-news" },
-  { label: "Officials", href: "/admin/officials", icon: Users, permission: "manage-officials" },
-  { label: "Site Content", href: "/admin/site-content", icon: PanelsTopLeft, permission: "manage-site-content" },
-  { label: "Audit Logs", href: "/admin/audit", icon: History, superAdminOnly: true },
-  { label: "Settings", href: "/admin/settings", icon: Settings },
+  { label: "Applications", href: "/admin/applications", icon: Inbox, permission: "process-applications", group: "requests" },
+  { label: "Incident Reports", href: "/admin/complaints", icon: Scale, permission: "handle-complaints", group: "requests" },
+  { label: "Appointments", href: "/admin/appointments", icon: CalendarClock, permission: "process-appointments", group: "requests" },
+  { label: "Assistance Requests", href: "/admin/assistance", icon: HeartHandshake, permission: "handle-assistance", group: "requests" },
+  { label: "Inquiries", href: "/admin/inquiries", icon: MessagesSquare, permission: "handle-inquiries", group: "requests" },
+  { label: "News & Announcements", href: "/admin/news", icon: Megaphone, permission: "manage-news", group: "content" },
+  { label: "Event Calendar", href: "/admin/events", icon: CalendarDays, permission: "manage-news", group: "content" },
+  { label: "Transparency", href: "/admin/transparency", icon: FileStack, permission: "manage-transparency", group: "content" },
+  { label: "Officials", href: "/admin/officials", icon: Users, permission: "manage-officials", group: "content" },
+  { label: "Site Content", href: "/admin/site-content", icon: PanelsTopLeft, permission: "manage-site-content", group: "content" },
+  { label: "Services Management", href: "/admin/services", icon: Landmark, superAdminOnly: true, group: "system" },
+  { label: "Audit Logs", href: "/admin/audit", icon: History, superAdminOnly: true, group: "system" },
+  { label: "Settings", href: "/admin/settings", icon: Settings, group: "system" },
 ];
 
 export const ADMIN_USER = {

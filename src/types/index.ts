@@ -18,6 +18,9 @@ export interface SocialLink {
   icon: LucideIcon;
 }
 
+/** Sidebar section. Labels and render order live in `src/lib/admin-nav.ts`. */
+export type AdminNavGroup = "requests" | "content" | "system";
+
 export interface IconNavItem extends NavItem {
   icon: LucideIcon;
   /** Match the route exactly instead of by prefix. */
@@ -26,6 +29,8 @@ export interface IconNavItem extends NavItem {
   superAdminOnly?: boolean;
   /** Render only for users holding this permission (page is permission-gated). */
   permission?: Permission;
+  /** Sidebar section. See ADMIN_NAV_GROUP_LABELS in src/lib/admin-nav.ts. */
+  group: AdminNavGroup;
 }
 
 /* ------------------------------------ Media ------------------------------------ */
