@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FADE_QUICK, POP } from "@/lib/motion";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -91,66 +93,78 @@ export function ConfirmDialog({
     };
   }, [open]);
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-70 flex items-center justify-center p-4">
-      <div
-        aria-hidden="true"
-        onClick={() => (pending ? undefined : onCancel())}
-        className="absolute inset-0 bg-ink-950/50"
-      />
-      <div
-        ref={panelRef}
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-body"
-        className="animate-fade-up relative w-full max-w-md rounded-3xl bg-white p-6 shadow-floating"
-      >
-        <div className="flex gap-4">
-          <span
-            className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-              tone === "danger" ? "bg-danger-soft text-danger" : "bg-brand-100 text-brand-700",
-            )}
-          >
-            <AlertTriangle className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2
-              id="confirm-dialog-title"
-              className="font-display text-lg font-semibold tracking-tight text-ink-900"
+    <MotionConfig reducedMotion="user">
+      <AnimatePresence>
+        {open ? (
+          <motion.div key="confirm" className="fixed inset-0 z-70 flex items-center justify-center p-4">
+            <motion.div
+              aria-hidden="true"
+              onClick={() => (pending ? undefined : onCancel())}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={FADE_QUICK}
+              className="absolute inset-0 bg-ink-950/50"
+            />
+            <motion.div
+              ref={panelRef}
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="confirm-dialog-title"
+              aria-describedby="confirm-dialog-body"
+              initial={{ opacity: 0, y: 12, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={POP}
+              className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-floating"
             >
-              {title}
-            </h2>
-            <div id="confirm-dialog-body" className="mt-2 text-sm text-ink-600">
-              {body}
-            </div>
-          </div>
-        </div>
-        <div className="mt-6 flex justify-end gap-3">
-          <Button
-            ref={cancelRef}
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            onClick={onCancel}
-          >
-            {cancelLabel}
-          </Button>
-          <Button
-            type="button"
-            variant={tone === "danger" ? "outline-danger" : "primary"}
-            size="sm"
-            disabled={pending}
-            onClick={onConfirm}
-          >
-            {pending ? "Working…" : confirmLabel}
-          </Button>
-        </div>
-      </div>
-    </div>
+              <div className="flex gap-4">
+                <span
+                  className={cn(
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
+                    tone === "danger" ? "bg-danger-soft text-danger" : "bg-brand-100 text-brand-700",
+                  )}
+                >
+                  <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h2
+                    id="confirm-dialog-title"
+                    className="font-display text-lg font-semibold tracking-tight text-ink-900"
+                  >
+                    {title}
+                  </h2>
+                  <div id="confirm-dialog-body" className="mt-2 text-sm text-ink-600">
+                    {body}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <Button
+                  ref={cancelRef}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={pending}
+                  onClick={onCancel}
+                >
+                  {cancelLabel}
+                </Button>
+                <Button
+                  type="button"
+                  variant={tone === "danger" ? "outline-danger" : "primary"}
+                  size="sm"
+                  disabled={pending}
+                  onClick={onConfirm}
+                >
+                  {pending ? "Working…" : confirmLabel}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </MotionConfig>
   );
 }
