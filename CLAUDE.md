@@ -148,6 +148,16 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   tokens; blue tokens are from the pre-2026-07 design and must not reappear. Space Grotesk
   (`font-display`) headings, Inter body. UI primitives (Button, Card, Section,
   SectionHeading, DataTable, Accordion, …) are in `src/components/ui/`.
+- **Motion (framer-motion, imported from `"motion/react"`) is for what CSS cannot do** —
+  exit animations (`AnimatePresence`), shared-element indicators (the admin sidebar's
+  `layoutId` pill), and mount-time staggers over data. The CSS three-pattern system
+  (hero-seq, `.reveal-*`, `--duration-quick` micro-interactions) stays CSS; never port it
+  to Motion. All springs/durations come from `src/lib/motion.ts` (budget-tested in
+  `tests/unit/motion.test.ts`) — never inline them. Every Motion surface wraps in
+  `<MotionConfig reducedMotion="user">`. Never put a transform on a wrapper containing
+  `position: fixed` descendants — the admin `Drawer` renders in place, which is why the
+  route templates animate opacity only, and why the Drawer itself stays CSS (converting
+  it to `AnimatePresence` would also unmount closed editors and reset their form state).
 - **Icon caveat:** several data shapes carry `icon: LucideIcon` (a React component). A future
   API must return icon *name strings* mapped to components on the frontend.
 
