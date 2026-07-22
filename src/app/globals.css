@@ -109,16 +109,17 @@
 
 @layer base {
   /*
-   * The page itself never scrolls sideways — wide content (tables) scrolls
-   * inside its own overflow-x-auto container. Chrome still grows the root
-   * scroll area for the transparency tables' intrinsic width (present before
-   * the overhaul; walkthrough finding), so the root hides x-overflow.
-   * `clip` was tried first but Chrome's root scroller pans regardless;
-   * `hidden` on html (not body) keeps sticky/fixed descendants working.
+   * There is deliberately no `html { overflow-x: hidden }` here. It was added
+   * to stop the transparency tables growing the root scroll area, but it only
+   * hid them — the tables still forced a 500px minimum document width, and
+   * Firefox panned anyway. They now stack into cards below md, so nothing
+   * overflows and the mask is not needed.
+   *
+   * Do not reintroduce it. It suppresses the symptom of a real layout bug and
+   * leaves the next one invisible, which is exactly how the last two survived.
+   * Wide content scrolls inside its own overflow-x-auto container; if a page
+   * pans sideways, find the element that is too wide and fix it there.
    */
-  html {
-    overflow-x: hidden;
-  }
 
   body {
     @apply bg-white text-ink-900 font-sans antialiased;
