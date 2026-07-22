@@ -112,6 +112,41 @@ Playwright at 390×844 against `/admin/applications` with an admin session
 (`E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD`), driven ad hoc per `.claude/skills/verify/SKILL.md`:
 
 1. Open the menu; screenshot. The card clears the topbar and does not cover the X.
+
 2. Scroll inside the card and reach **Settings** — confirms the height cap and internal scroll.
 3. Close via scrim tap, via Escape, and via tapping a nav row (route changes, menu closes).
 4. `npm run typecheck` and `npm run lint` clean.
+
+---
+
+## Implementation note (appended 2026-07-23, after the change shipped)
+
+The design above says the scrim and card render as a `fixed inset-0` layer. **They must
+be portalled to `document.body` instead**, and the first implementation was visibly wrong
+until they were.
+
+`AdminMobileNav` renders inside `AdminTopBar`'s inner bar, which carries `backdrop-blur-md`.
+**`backdrop-filter` establishes a containing block for fixed-position descendants** — the
+same effect CLAUDE.md already records for `transform`, and the reason the route templates
+animate opacity only. Rendered in place, `fixed inset-0` therefore resolved to the *bar's*
+box rather than the viewport, so:
+
+- the card measured `inset-x-4` from the bar's padding edge, landing ~45px in on a 390px
+  screen instead of 16px;
+- the scrim's `bottom-0` was the bar's bottom, collapsing it into an invisible strip.
+
+The old slide-in drawer had the same `fixed inset-0` structure and so carried the same
+latent bug; a left-anchored full-height rail simply hid it.
+
+The fix follows `RowActions`' existing escape hatch — `createPortal(..., document.body)`.
+Two consequences worth keeping:
+
+- The portalled layer must repeat `md:hidden`. It is no longer inside the wrapper that
+  carried it, so resizing to desktop with the menu open would otherwise strand it.
+- The portal is gated on a `useSyncExternalStore` hydration read, not `setState` in an
+  effect — `react-hooks/set-state-in-effect` rejects the latter. `AnimatePresence` lives
+  inside the portal and stays mounted across the close, or the exit animation never runs.
+
+Verified at 390×844 and 390×667: card top flush at the bar's 72px edge, `inset-x-4`,
+scrim `ink-900/40` spanning to the viewport bottom, internal scroll reaching Settings, and
+all four dismissal paths (scrim, Escape, navigating elsewhere, tapping the current row).
