@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { Eyebrow } from "@/components/ui/eyebrow";
 
 interface SectionHeadingProps {
   title: string;
@@ -35,9 +35,9 @@ export function SectionHeading({
     >
       <div>
         {eyebrow ? (
-          <Badge variant="soft" className="mb-4">
+          <Eyebrow className={cn("mb-4", align === "center" && "justify-center")}>
             {eyebrow}
-          </Badge>
+          </Eyebrow>
         ) : null}
         <h2 className="text-balance font-display text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
           {title}
