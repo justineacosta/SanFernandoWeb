@@ -86,7 +86,7 @@ export interface WasteCollectionSlot {
 
 /* ----------------------------------- Officials ---------------------------------- */
 
-export type OfficialGroup = "executive" | "council" | "administration";
+export type OfficialGroup = "executive" | "council" | "administration" | "members";
 
 /**
  * Public directory card. `photoUrl` is always resolved — publishing requires a

@@ -29,7 +29,7 @@ const optionalText = z
 const schema = z.object({
   name: z.string().trim().min(3, "Enter the official's full name."),
   role: z.string().trim().min(3, "Enter their position."),
-  group: z.enum(["executive", "council", "administration"]),
+  group: z.enum(["executive", "council", "administration", "members"]),
   badge: optionalText,
   // A `public-media` officials object path only — never a remote URL. Accepts
   // both seeded paths (officials/dominic-b-dela-cruz.jpg) and uploaded paths

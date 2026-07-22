@@ -57,12 +57,14 @@ const GROUP_OPTIONS = [
   { value: "executive", label: "Chief Executive" },
   { value: "council", label: "Barangay Council" },
   { value: "administration", label: "Administration" },
+  { value: "members", label: "Members" },
 ];
 
 const GROUP_LABELS: Record<AdminOfficialRow["group"], string> = {
   executive: "Chief Executive",
   council: "Barangay Council",
   administration: "Administration",
+  members: "Members",
 };
 
 interface OfficialsManagerProps {

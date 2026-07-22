@@ -155,6 +155,7 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
             <option value="executive">Chief Executive</option>
             <option value="council">Barangay Council</option>
             <option value="administration">Administration</option>
+            <option value="members">Members</option>
           </Select>
         </Field>
         <Field label="Badge (optional)" htmlFor="official-badge">
