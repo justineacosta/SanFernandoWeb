@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
 import { manilaToday } from "@/lib/format";
+import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitComplaint } from "@/features/complaints/actions";
+import { complaintSchema } from "@/features/complaints/schema";
 
 const EMPTY: PublicComplaintValues = {
   firstName: "",
@@ -39,9 +41,14 @@ export function ComplaintForm() {
   const set = <K extends keyof PublicComplaintValues>(key: K, value: PublicComplaintValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
+  const v = useFieldValidation(complaintSchema, values);
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (submitting.current) return;
+    // Reveal every message and focus the first field that needs work, rather
+    // than spending a round trip to be told the same thing.
+    if (!v.revealAll(event.currentTarget as HTMLFormElement)) return;
     submitting.current = true;
     setError(null);
     startTransition(async () => {
@@ -130,98 +137,155 @@ export function ComplaintForm() {
     <form onSubmit={handleSubmit} noValidate className="space-y-8">
       <Card className="space-y-5 rounded-3xl p-8">
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="First name" htmlFor="complaint-first-name">
+          <Field
+            label="First name"
+            htmlFor="complaint-first-name"
+            error={v.errorFor("firstName")}
+          >
             <Input
               id="complaint-first-name"
+              name="firstName"
               value={values.firstName}
               onChange={(event) => set("firstName", event.target.value)}
               autoComplete="given-name"
+              {...v.fieldProps("firstName", "complaint-first-name")}
             />
           </Field>
-          <Field label="Last name" htmlFor="complaint-last-name">
+          <Field label="Last name" htmlFor="complaint-last-name" error={v.errorFor("lastName")}>
             <Input
               id="complaint-last-name"
+              name="lastName"
               value={values.lastName}
               onChange={(event) => set("lastName", event.target.value)}
               autoComplete="family-name"
+              {...v.fieldProps("lastName", "complaint-last-name")}
             />
           </Field>
         </div>
-        <Field label="Purok / street address" htmlFor="complaint-address">
+        <Field
+          label="Purok / street address"
+          htmlFor="complaint-address"
+          error={v.errorFor("address")}
+        >
           <Input
             id="complaint-address"
+            name="address"
             placeholder="Purok 1, Barangay San Fernando"
             value={values.address}
             onChange={(event) => set("address", event.target.value)}
             autoComplete="street-address"
+            {...v.fieldProps("address", "complaint-address")}
           />
         </Field>
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Contact number" htmlFor="complaint-contact">
+          <Field
+            label="Contact number"
+            htmlFor="complaint-contact"
+            error={v.errorFor("contactNumber")}
+          >
             <Input
               id="complaint-contact"
+              name="contactNumber"
               type="tel"
               placeholder="(077) 600-0000"
               value={values.contactNumber}
               onChange={(event) => set("contactNumber", event.target.value)}
               autoComplete="tel"
+              {...v.fieldProps("contactNumber", "complaint-contact")}
             />
           </Field>
-          <Field label="Email (optional)" htmlFor="complaint-email">
+          <Field label="Email (optional)" htmlFor="complaint-email" error={v.errorFor("email")}>
             <Input
               id="complaint-email"
+              name="email"
               type="email"
               value={values.email}
               onChange={(event) => set("email", event.target.value)}
               autoComplete="email"
+              {...v.fieldProps("email", "complaint-email")}
             />
           </Field>
         </div>
-        <Field label="Person complained about (optional)" htmlFor="complaint-respondent">
+        <Field
+          label="Person complained about (optional)"
+          htmlFor="complaint-respondent"
+          error={v.errorFor("respondent")}
+        >
           <Input
             id="complaint-respondent"
+            name="respondent"
             placeholder="Leave blank if you would rather not say"
             value={values.respondent}
             onChange={(event) => set("respondent", event.target.value)}
+            {...v.fieldProps("respondent", "complaint-respondent")}
           />
         </Field>
-        <Field label="Date of incident" htmlFor="complaint-incident-date">
+        <Field
+          label="Date of incident"
+          htmlFor="complaint-incident-date"
+          error={v.errorFor("incidentDate")}
+        >
           <Input
             id="complaint-incident-date"
+            name="incidentDate"
             type="date"
             max={manilaToday()}
             value={values.incidentDate}
             onChange={(event) => set("incidentDate", event.target.value)}
+            {...v.fieldProps("incidentDate", "complaint-incident-date")}
           />
         </Field>
-        <Field label="Where it happened" htmlFor="complaint-location">
+        <Field
+          label="Where it happened"
+          htmlFor="complaint-location"
+          error={v.errorFor("location")}
+        >
           <Input
             id="complaint-location"
+            name="location"
             placeholder="e.g. Purok 2 basketball court"
             value={values.location}
             onChange={(event) => set("location", event.target.value)}
+            {...v.fieldProps("location", "complaint-location")}
           />
         </Field>
-        <Field label="What happened" htmlFor="complaint-narrative">
+        <Field
+          label="What happened"
+          htmlFor="complaint-narrative"
+          error={v.errorFor("narrative")}
+        >
           <Textarea
             id="complaint-narrative"
+            name="narrative"
             rows={6}
             placeholder="Describe the incident in your own words."
             value={values.narrative}
             onChange={(event) => set("narrative", event.target.value)}
+            {...v.fieldProps("narrative", "complaint-narrative")}
           />
         </Field>
-        <label className="flex items-start gap-3 text-sm text-ink-600">
-          <Checkbox
-            checked={values.consent}
-            onChange={(event) => set("consent", event.target.checked)}
-            className="mt-0.5 shrink-0"
-          />
-          <span>
-            I agree to the barangay recording these details to act on this report (Data
-            Privacy Act of 2012).
-          </span>
-        </label>
+        <div className="space-y-2">
+          <label className="flex items-start gap-3 text-sm text-ink-600">
+            <Checkbox
+              name="consent"
+              checked={values.consent}
+              onChange={(event) => set("consent", event.target.checked)}
+              onBlur={() => v.markTouched("consent")}
+              aria-invalid={v.errorFor("consent") ? true : undefined}
+              aria-describedby={v.errorFor("consent") ? "complaint-consent-error" : undefined}
+              className="mt-0.5 shrink-0"
+            />
+            <span>
+              I agree to the barangay recording these details to act on this report (Data
+              Privacy Act of 2012).
+            </span>
+          </label>
+          {v.errorFor("consent") ? (
+            <p id="complaint-consent-error" role="alert" className="text-sm font-medium text-danger">
+              {v.errorFor("consent")}
+            </p>
+          ) : null}
+        </div>
         {error ? (
           <p role="alert" className="text-sm font-medium text-danger">
             {error}

@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
 import { manilaToday } from "@/lib/format";
+import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitAppointment } from "@/features/appointments/actions";
+import { appointmentSchema } from "@/features/appointments/schema";
 
 const EMPTY: PublicAppointmentValues = {
   firstName: "",
@@ -38,9 +40,12 @@ export function AppointmentForm() {
   const set = <K extends keyof PublicAppointmentValues>(key: K, value: PublicAppointmentValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
+  const v = useFieldValidation(appointmentSchema, values);
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (submitting.current) return;
+    if (!v.revealAll(event.currentTarget as HTMLFormElement)) return;
     submitting.current = true;
     setError(null);
     startTransition(async () => {
@@ -129,96 +134,151 @@ export function AppointmentForm() {
     <form onSubmit={handleSubmit} noValidate className="space-y-8">
       <Card className="space-y-5 rounded-3xl p-8">
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="First name" htmlFor="appointment-first-name">
+          <Field
+            label="First name"
+            htmlFor="appointment-first-name"
+            error={v.errorFor("firstName")}
+          >
             <Input
               id="appointment-first-name"
+              name="firstName"
               value={values.firstName}
               onChange={(event) => set("firstName", event.target.value)}
               autoComplete="given-name"
+              {...v.fieldProps("firstName", "appointment-first-name")}
             />
           </Field>
-          <Field label="Last name" htmlFor="appointment-last-name">
+          <Field label="Last name" htmlFor="appointment-last-name" error={v.errorFor("lastName")}>
             <Input
               id="appointment-last-name"
+              name="lastName"
               value={values.lastName}
               onChange={(event) => set("lastName", event.target.value)}
               autoComplete="family-name"
+              {...v.fieldProps("lastName", "appointment-last-name")}
             />
           </Field>
         </div>
-        <Field label="Purok / street address" htmlFor="appointment-address">
+        <Field
+          label="Purok / street address"
+          htmlFor="appointment-address"
+          error={v.errorFor("address")}
+        >
           <Input
             id="appointment-address"
+            name="address"
             placeholder="Purok 1, Barangay San Fernando"
             value={values.address}
             onChange={(event) => set("address", event.target.value)}
             autoComplete="street-address"
+            {...v.fieldProps("address", "appointment-address")}
           />
         </Field>
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Contact number" htmlFor="appointment-contact">
+          <Field
+            label="Contact number"
+            htmlFor="appointment-contact"
+            error={v.errorFor("contactNumber")}
+          >
             <Input
               id="appointment-contact"
+              name="contactNumber"
               type="tel"
               placeholder="(077) 600-0000"
               value={values.contactNumber}
               onChange={(event) => set("contactNumber", event.target.value)}
               autoComplete="tel"
+              {...v.fieldProps("contactNumber", "appointment-contact")}
             />
           </Field>
-          <Field label="Email (optional)" htmlFor="appointment-email">
+          <Field label="Email (optional)" htmlFor="appointment-email" error={v.errorFor("email")}>
             <Input
               id="appointment-email"
+              name="email"
               type="email"
               value={values.email}
               onChange={(event) => set("email", event.target.value)}
               autoComplete="email"
+              {...v.fieldProps("email", "appointment-email")}
             />
           </Field>
         </div>
-        <Field label="What is the appointment about?" htmlFor="appointment-purpose">
+        <Field
+          label="What is the appointment about?"
+          htmlFor="appointment-purpose"
+          error={v.errorFor("purpose")}
+        >
           <Textarea
             id="appointment-purpose"
+            name="purpose"
             rows={4}
             placeholder="e.g. Consultation with the Punong Barangay"
             value={values.purpose}
             onChange={(event) => set("purpose", event.target.value)}
+            {...v.fieldProps("purpose", "appointment-purpose")}
           />
         </Field>
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Preferred date" htmlFor="appointment-preferred-date">
+          <Field
+            label="Preferred date"
+            htmlFor="appointment-preferred-date"
+            error={v.errorFor("preferredDate")}
+          >
             <Input
               id="appointment-preferred-date"
+              name="preferredDate"
               type="date"
               min={manilaToday()}
               value={values.preferredDate}
               onChange={(event) => set("preferredDate", event.target.value)}
+              {...v.fieldProps("preferredDate", "appointment-preferred-date")}
             />
           </Field>
-          <Field label="Preferred time" htmlFor="appointment-preferred-period">
+          <Field
+            label="Preferred time"
+            htmlFor="appointment-preferred-period"
+            error={v.errorFor("preferredPeriod")}
+          >
             <Select
               id="appointment-preferred-period"
+              name="preferredPeriod"
               value={values.preferredPeriod}
               onChange={(event) =>
                 set("preferredPeriod", event.target.value as PublicAppointmentValues["preferredPeriod"])
               }
+              {...v.fieldProps("preferredPeriod", "appointment-preferred-period")}
             >
               <option value="am">Morning (8:00 AM – 12:00 NN)</option>
               <option value="pm">Afternoon (1:00 PM – 5:00 PM)</option>
             </Select>
           </Field>
         </div>
-        <label className="flex items-start gap-3 text-sm text-ink-600">
-          <Checkbox
-            checked={values.consent}
-            onChange={(event) => set("consent", event.target.checked)}
-            className="mt-0.5 shrink-0"
-          />
-          <span>
-            I agree to the barangay recording these details to arrange this appointment (Data
-            Privacy Act of 2012).
-          </span>
-        </label>
+        <div className="space-y-2">
+          <label className="flex items-start gap-3 text-sm text-ink-600">
+            <Checkbox
+              name="consent"
+              checked={values.consent}
+              onChange={(event) => set("consent", event.target.checked)}
+              onBlur={() => v.markTouched("consent")}
+              aria-invalid={v.errorFor("consent") ? true : undefined}
+              aria-describedby={v.errorFor("consent") ? "appointment-consent-error" : undefined}
+              className="mt-0.5 shrink-0"
+            />
+            <span>
+              I agree to the barangay recording these details to arrange this appointment (Data
+              Privacy Act of 2012).
+            </span>
+          </label>
+          {v.errorFor("consent") ? (
+            <p
+              id="appointment-consent-error"
+              role="alert"
+              className="text-sm font-medium text-danger"
+            >
+              {v.errorFor("consent")}
+            </p>
+          ) : null}
+        </div>
         {error ? (
           <p role="alert" className="text-sm font-medium text-danger">
             {error}
