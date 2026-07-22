@@ -46,7 +46,7 @@ export async function LatestUploadsSection() {
             </thead>
             <tbody className="divide-y divide-ink-200/70">
               {uploads.map((item) => (
-                <tr key={item.key} className="transition-colors hover:bg-ink-50">
+                <tr key={item.key} className="transition-colors duration-(--duration-quick) hover:bg-ink-50">
                   <td className="px-6 py-4 font-medium text-ink-900">
                     {item.title}
                     {item.progress !== null ? (
@@ -54,7 +54,7 @@ export async function LatestUploadsSection() {
                     ) : null}
                   </td>
                   <td className="px-6 py-4 text-ink-600">{TYPE_LABELS[item.type]}</td>
-                  <td className="px-6 py-4 text-ink-600">{formatOptionalDate(item.date)}</td>
+                  <td className="px-6 py-4 tabular-nums text-ink-600">{formatOptionalDate(item.date)}</td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex flex-col items-end gap-1">
                       {item.href ? (

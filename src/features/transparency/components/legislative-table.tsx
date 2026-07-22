@@ -68,7 +68,7 @@ function LegislativeRow({ doc }: { doc: LegislativeDetail }) {
 
   return (
     <Fragment>
-      <tr className="transition-colors hover:bg-ink-50">
+      <tr className="transition-colors duration-(--duration-quick) hover:bg-ink-50">
         <td className="px-4 py-4">
           <button
             type="button"
@@ -86,9 +86,9 @@ function LegislativeRow({ doc }: { doc: LegislativeDetail }) {
             </span>
           </button>
         </td>
-        <td className="whitespace-nowrap px-6 py-4 font-medium text-ink-900">{doc.number}</td>
+        <td className="whitespace-nowrap px-6 py-4 font-medium tabular-nums text-ink-900">{doc.number}</td>
         <td className="px-6 py-4 text-ink-900">{doc.title}</td>
-        <td className="whitespace-nowrap px-6 py-4 text-ink-600">
+        <td className="whitespace-nowrap px-6 py-4 tabular-nums text-ink-600">
           {formatDateApproved(doc.dateApproved)}
         </td>
         <td className="px-6 py-4 text-right">

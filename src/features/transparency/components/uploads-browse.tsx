@@ -168,11 +168,11 @@ export async function UploadsBrowse({
             </thead>
             <tbody className="divide-y divide-ink-200/70">
               {items.map((item) => (
-                <tr key={item.key} className="transition-colors hover:bg-ink-50">
+                <tr key={item.key} className="transition-colors duration-(--duration-quick) hover:bg-ink-50">
                   <td className="px-6 py-4 font-medium text-ink-900">{item.title}</td>
                   <td className="px-6 py-4 text-ink-600">{TYPE_LABELS[item.type]}</td>
-                  <td className="px-6 py-4 text-ink-600">{formatOptionalDate(item.date)}</td>
-                  <td className="px-6 py-4 text-ink-600">
+                  <td className="px-6 py-4 tabular-nums text-ink-600">{formatOptionalDate(item.date)}</td>
+                  <td className="px-6 py-4 tabular-nums text-ink-600">
                     {item.progress !== null ? `${item.progress}%` : "—"}
                   </td>
                   <td className="px-6 py-4 text-right">
