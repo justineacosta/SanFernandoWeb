@@ -13,6 +13,7 @@ import {
 } from "@/features/admin/actions/news";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { useAdminUserId } from "./admin-user-context";
+import { FormSectionLabel } from "@/components/ui/form-section-label";
 import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import { NewsPhotoUploader, type PendingPhoto } from "./news-photo-uploader";
 
@@ -184,6 +185,7 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
             ))}
           </Select>
         </Field>
+        <FormSectionLabel>Content</FormSectionLabel>
         <Field label="Excerpt" htmlFor="news-excerpt">
           <Textarea
             id="news-excerpt"
@@ -201,8 +203,8 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
             onChange={(event) => set("body", event.target.value)}
           />
         </Field>
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-ink-700">Photos</h3>
+        <div className="space-y-3">
+          <FormSectionLabel>Photos</FormSectionLabel>
           <NewsPhotoUploader
             key={photoVersion}
             articleId={id}

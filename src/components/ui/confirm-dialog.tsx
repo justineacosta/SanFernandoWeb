@@ -106,7 +106,7 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-body"
-        className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.35)]"
+        className="animate-fade-up relative w-full max-w-md rounded-3xl bg-white p-6 shadow-floating"
       >
         <div className="flex gap-4">
           <span

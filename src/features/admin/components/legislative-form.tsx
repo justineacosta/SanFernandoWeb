@@ -8,6 +8,7 @@ import { useFormDraft } from "@/hooks/use-form-draft";
 import { saveLegislative, setLegislativeStatus } from "@/features/admin/actions/legislative";
 import { useAdminUserId } from "./admin-user-context";
 import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
+import { FormSectionLabel } from "@/components/ui/form-section-label";
 import { PdfUploader } from "./pdf-uploader";
 
 export interface LegislativeEditRecord {
@@ -139,6 +140,7 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
             &ldquo;Pending Approval&rdquo; until a date is entered.
           </p>
         </Field>
+        <FormSectionLabel>Content</FormSectionLabel>
         <Field label="Summary" htmlFor="legislative-summary">
           <Textarea
             id="legislative-summary"
@@ -147,8 +149,8 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
             onChange={(event) => set("summary", event.target.value)}
           />
         </Field>
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-ink-700">Document PDF</h3>
+        <div className="space-y-3">
+          <FormSectionLabel>Document PDF</FormSectionLabel>
           <PdfUploader
             existingPath={values.filePath}
             existingSizeBytes={values.fileSizeBytes}

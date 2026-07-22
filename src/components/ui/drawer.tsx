@@ -73,11 +73,11 @@ export function Drawer({ open, onClose, title, children }: DrawerProps) {
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "absolute inset-y-0 right-0 flex w-full max-w-lg flex-col bg-white shadow-2xl transition-transform duration-300 motion-reduce:transition-none",
+          "absolute inset-y-0 right-0 flex w-full max-w-lg flex-col bg-white shadow-floating transition-transform duration-300 motion-reduce:transition-none",
           open ? "translate-x-0" : "translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between border-b border-ink-200/70 px-6 py-5">
+        <div className="flex items-center justify-between border-b border-ink-200/70 bg-white/95 px-6 py-5 backdrop-blur">
           <h2 className="font-display text-xl font-semibold tracking-tight text-ink-900">
             {title}
           </h2>
