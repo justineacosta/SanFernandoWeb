@@ -3,6 +3,7 @@ import { ArrowRight, BarChart2, Calendar, Megaphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { Reveal } from "@/components/ui/reveal";
 import { Section } from "@/components/ui/section";
 import { AnnouncementCard } from "@/components/shared/announcement-card";
 import { EventCard } from "@/components/shared/event-card";
@@ -37,7 +38,8 @@ export async function CommunityPulseSection() {
         here. Two columns then, rather than a third of empty row.
       */}
       <div className={cn("grid grid-cols-1 gap-8", stats.length > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
-        <Card className="p-6">
+        <Reveal>
+        <Card className="h-full p-6">
           <CardHeader
             title="Announcements"
             icon={<Megaphone className="h-5 w-5 text-brand-500" aria-hidden="true" />}
@@ -52,8 +54,10 @@ export async function CommunityPulseSection() {
             View All Announcements
           </Button>
         </Card>
+        </Reveal>
 
-        <Card className="p-6">
+        <Reveal delay={80}>
+        <Card className="h-full p-6">
           <CardHeader
             title="Upcoming Events"
             icon={<Calendar className="h-5 w-5 text-brand-500" aria-hidden="true" />}
@@ -68,9 +72,11 @@ export async function CommunityPulseSection() {
             View All Events
           </Button>
         </Card>
+        </Reveal>
 
         {stats.length > 0 ? (
-          <Card className="p-6">
+          <Reveal delay={160}>
+          <Card className="h-full p-6">
             <CardHeader
               title="Barangay at a Glance"
               icon={<BarChart2 className="h-5 w-5 text-brand-500" aria-hidden="true" />}
@@ -84,6 +90,7 @@ export async function CommunityPulseSection() {
               More Statistics
             </Button>
           </Card>
+          </Reveal>
         ) : null}
       </div>
     </Section>
