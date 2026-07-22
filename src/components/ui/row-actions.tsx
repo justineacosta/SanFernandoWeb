@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { MotionConfig, motion } from "motion/react";
 import { MoreVertical } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useAnchorRect } from "@/hooks/use-anchor-rect";
 import { cn } from "@/lib/utils";
+import { POP } from "@/lib/motion";
 
 export interface RowAction {
   label: string;
@@ -142,40 +144,50 @@ export function RowActions({ label, actions, className }: RowActionsProps) {
     const left = Math.max(8, Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - 8));
 
     menu = createPortal(
-      <div
-        ref={menuRef}
-        id={menuId}
-        role="menu"
-        aria-label={`Actions for ${label}`}
-        onKeyDown={handleMenuKeyDown}
-        style={{ top, left, width: MENU_WIDTH }}
-        className="fixed z-70 rounded-2xl border border-ink-200/70 bg-white p-2 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.28)]"
-      >
-        {enabled.map((action, index) => {
-          const Icon = action.icon;
-          const danger = action.tone === "danger";
-          const firstDanger = danger && enabled[index - 1]?.tone !== "danger" && index > 0;
-          return (
-            <button
-              key={action.label}
-              type="button"
-              role="menuitem"
-              tabIndex={index === activeIndex ? 0 : -1}
-              onClick={() => select(action)}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors",
-                danger
-                  ? "text-danger hover:bg-danger-soft"
-                  : "text-ink-700 hover:bg-ink-50 hover:text-ink-900",
-                firstDanger && "mt-2 border-t border-ink-200/70 pt-3",
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-              {action.label}
-            </button>
-          );
-        })}
-      </div>,
+      <MotionConfig reducedMotion="user">
+        <motion.div
+          ref={menuRef}
+          id={menuId}
+          role="menu"
+          aria-label={`Actions for ${label}`}
+          onKeyDown={handleMenuKeyDown}
+          initial={{ opacity: 0, scale: 0.95, y: flip ? 6 : -6 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={POP}
+          style={{
+            top,
+            left,
+            width: MENU_WIDTH,
+            transformOrigin: flip ? "bottom right" : "top right",
+          }}
+          className="fixed z-70 rounded-2xl border border-ink-200/70 bg-white p-2 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.28)]"
+        >
+          {enabled.map((action, index) => {
+            const Icon = action.icon;
+            const danger = action.tone === "danger";
+            const firstDanger = danger && enabled[index - 1]?.tone !== "danger" && index > 0;
+            return (
+              <button
+                key={action.label}
+                type="button"
+                role="menuitem"
+                tabIndex={index === activeIndex ? 0 : -1}
+                onClick={() => select(action)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors",
+                  danger
+                    ? "text-danger hover:bg-danger-soft"
+                    : "text-ink-700 hover:bg-ink-50 hover:text-ink-900",
+                  firstDanger && "mt-2 border-t border-ink-200/70 pt-3",
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {action.label}
+              </button>
+            );
+          })}
+        </motion.div>
+      </MotionConfig>,
       document.body,
     );
   }
