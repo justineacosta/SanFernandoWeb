@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Archive, Clock, Eye, MapPin, Pencil, Plus, RotateCcw, Send } from "lucide-react";
+import { Archive, Clock, Eye, MapPin, Pencil, Plus, RotateCcw, Send, Trash2 } from "lucide-react";
 import type { AdminEventRow } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { EVENT_CATEGORY_LABELS } from "@/features/admin/data";
 import {
   archiveEvent,
+  deleteEvent,
   getEventForEditAction,
   publishEvent,
   restoreEvent,
@@ -45,14 +46,20 @@ const STATUS_OPTIONS = [
 ];
 
 /** A row action awaiting confirmation. Null when no dialog is open. */
-type PendingAction = { kind: "archive" | "restore"; record: AdminEventRow } | null;
+type PendingAction = { kind: "archive" | "restore" | "delete"; record: AdminEventRow } | null;
 
 interface EventsManagerProps {
   events: AdminEventRow[];
+  /**
+   * Presentation only — it decides whether Delete is offered on an archived
+   * row. `deleteEvent` re-checks with `checkSuperAdmin()`, because a Server
+   * Action is a public HTTP endpoint.
+   */
+  isSuperAdmin: boolean;
 }
 
 /** Event schedule: single DB-backed list, category/status filters, mini calendar, drawer editor. */
-export function EventsManager({ events }: EventsManagerProps) {
+export function EventsManager({ events, isSuperAdmin }: EventsManagerProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
@@ -135,7 +142,12 @@ export function EventsManager({ events }: EventsManagerProps) {
     const { kind, record } = confirming;
     setActionPending(true);
     startTransition(async () => {
-      const result = kind === "archive" ? await archiveEvent(record.id) : await restoreEvent(record.id);
+      const result =
+        kind === "archive"
+          ? await archiveEvent(record.id)
+          : kind === "restore"
+            ? await restoreEvent(record.id)
+            : await deleteEvent(record.id);
       setActionPending(false);
       setConfirming(null);
       if (result.error) {
@@ -143,13 +155,20 @@ export function EventsManager({ events }: EventsManagerProps) {
         return;
       }
       showToast(
-        kind === "archive" ? `Archived ${record.title}.` : `Restored ${record.title} as a draft.`,
+        kind === "archive"
+          ? `Archived ${record.title}.`
+          : kind === "restore"
+            ? `Restored ${record.title} as a draft.`
+            : `Deleted ${record.title}.`,
       );
       router.refresh();
     });
   };
 
-  /** Events are taken down, not deleted — the calendar is a public record. */
+  /**
+   * Archiving is how an event leaves the public calendar. Deleting is the
+   * SuperAdmin-only escape hatch on an already-archived row (sub-project 7).
+   */
   const actionsFor = (record: AdminEventRow): RowAction[] => {
     const archived = record.status === "archived";
     const actions: RowAction[] = [
@@ -168,6 +187,16 @@ export function EventsManager({ events }: EventsManagerProps) {
         icon: RotateCcw,
         onSelect: () => setConfirming({ kind: "restore", record }),
       });
+      // Offered to a SuperAdmin only. A disabled item for everyone else would
+      // just teach people to click it.
+      if (isSuperAdmin) {
+        actions.push({
+          label: "Delete permanently",
+          icon: Trash2,
+          tone: "danger",
+          onSelect: () => setConfirming({ kind: "delete", record }),
+        });
+      }
     } else if (record.status === "published") {
       actions.push({
         label: "Archive",
@@ -341,9 +370,21 @@ export function EventsManager({ events }: EventsManagerProps) {
       </Drawer>
       <ConfirmDialog
         open={confirming !== null}
-        title={confirming?.kind === "restore" ? "Restore this event?" : "Archive this event?"}
+        title={
+          confirming?.kind === "delete"
+            ? "Delete this event?"
+            : confirming?.kind === "restore"
+              ? "Restore this event?"
+              : "Archive this event?"
+        }
         body={
-          confirming?.kind === "restore" ? (
+          confirming?.kind === "delete" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.record.title}</strong>{" "}
+              and its cover image will be removed permanently. There is no undo. Archiving keeps
+              the record — this does not.
+            </>
+          ) : confirming?.kind === "restore" ? (
             <>
               <strong className="font-semibold text-ink-900">{confirming.record.title}</strong>{" "}
               comes back as a <strong className="font-semibold text-ink-900">draft</strong>, not
@@ -357,7 +398,13 @@ export function EventsManager({ events }: EventsManagerProps) {
             </>
           )
         }
-        confirmLabel={confirming?.kind === "restore" ? "Restore" : "Archive"}
+        confirmLabel={
+          confirming?.kind === "delete"
+            ? "Delete"
+            : confirming?.kind === "restore"
+              ? "Restore"
+              : "Archive"
+        }
         pending={actionPending}
         onConfirm={runConfirmed}
         onCancel={() => setConfirming(null)}

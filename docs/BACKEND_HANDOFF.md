@@ -832,6 +832,42 @@
 > 5. `deleteAchievement` is deliberately untouched — a sub-record inside a parent's drawer,
 >    whose soft state is the existing `is_visible` toggle.
 
+> **Sub-project 7 shipped 2026-07-22 — transactional uploads.** Spec:
+> `docs/superpowers/specs/2026-07-22-transactional-uploads-design.md`. **No migration.**
+>
+> Three uploaders still wrote to Storage the moment a file was picked, so cancelling a drawer
+> left an object no row referenced. They now follow the defer-to-Save pattern the transparency
+> work established on 2026-07-20.
+> 1. **`SingleImageUploader` is a pure file picker** (announcement image, event cover, official
+>    portrait). It holds a `File` and a local `blob:` preview; `saveAnnouncement` / `saveEvent`
+>    / `saveOfficial` take a `FormData` beside their values, upload server-side, and
+>    compensating-delete the object if the row write fails — the `fail()` helper from
+>    `saveLegislative`, copied deliberately rather than reinvented.
+> 2. **Announcements and events now clean up a replaced or removed image.** Neither save action
+>    called `removeStoredImage` at all before, so every replaced image since the feature
+>    shipped is still in the bucket. `discardImage()` in `src/lib/media.ts` is the best-effort
+>    cleanup: it never fails the user's save, and logs the path when it cannot tidy up.
+> 3. **News photos are a pending list flushed on Save.** Saved photos keep their immediate
+>    reorder/remove/alt actions (they act on rows that exist); photos chosen in the session
+>    travel with the form. A new post and its photos now commit in one pass, so the *"save this
+>    post as a draft first"* message is gone. `attachPendingPhotos` is all-or-nothing per batch.
+> 4. **`media.ts` moved to `src/lib/` and is no longer a Server Action module**, because nothing
+>    client-side imports it any more — leaving it as one would keep a public endpoint whose only
+>    job is putting an unreferenced object in the bucket. It also stopped writing audit entries:
+>    every caller is now a step inside an action that records its own, and the compensating path
+>    would otherwise claim a deletion for a save that never completed (the reasoning already at
+>    the top of `documents.ts`).
+> 5. **News, announcements and events gained the deletes deferred from sub-project 6** — same
+>    `guardDelete()`, SuperAdmin + archived only. Each removes its own media; deleting an
+>    article also removes its `news_photos` objects, which Postgres's cascade cannot do.
+> 6. **`AchievementPhotoUploader` was deliberately not converted.** The achievements editor has
+>    no Save button — rows are created on "Add" and fields save on blur — so there is no commit
+>    event to defer to and no Cancel to orphan an object. Its cleanup already works via
+>    `deleteAchievement` / `deleteOfficial`. Revisit with autosave (sub-project 8).
+> 7. **`scripts/report-orphaned-media.mjs`** lists objects no row references. **Read-only** —
+>    it never deletes, because a sweeper acting on its own judgement is what umbrella §3.3
+>    rejected. Staging currently reports 0 orphans.
+
 ---
 
 ## 1. Current State

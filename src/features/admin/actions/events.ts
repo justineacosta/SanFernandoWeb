@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AuditActionType, ContentStatus, EventValues, SessionUser } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
-import { statusPatch } from "@/lib/archive";
+import { guardDelete, statusPatch } from "@/lib/archive";
 import { recordActivity } from "@/lib/audit";
+import { discardImage, removeStoredImage, uploadSingleImage } from "@/lib/media";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getEventForEdit } from "@/features/admin/queries/events";
 
@@ -56,7 +57,11 @@ export async function getEventForEditAction(
   return getEventForEdit(id);
 }
 
-export async function saveEvent(id: string | null, values: EventValues): Promise<SaveResult> {
+export async function saveEvent(
+  id: string | null,
+  values: EventValues,
+  coverForm: FormData,
+): Promise<SaveResult> {
   const actor = await checkPermission("manage-news");
   if (!actor) return { error: NOT_FOUND, id: null };
   const parsed = schema.safeParse(values);
@@ -64,7 +69,38 @@ export async function saveEvent(id: string | null, values: EventValues): Promise
 
   const admin = createSupabaseAdminClient();
 
+  // Upload first, then compensate on any later failure — see saveAnnouncement.
+  const incoming = coverForm.get("image");
+  const removeCover = coverForm.get("removeImage") === "1";
+  let uploadedPath: string | null = null;
+  if (incoming instanceof File && incoming.size > 0) {
+    const uploaded = await uploadSingleImage("events", incoming);
+    if (uploaded.error) return { error: uploaded.error, id: null };
+    uploadedPath = uploaded.src;
+  }
+
+  async function fail(error: string): Promise<SaveResult> {
+    if (uploadedPath) {
+      const removed = await removeStoredImage(uploadedPath);
+      if (removed.error) {
+        console.error(`Orphaned storage object (compensating delete failed): ${uploadedPath}`);
+      }
+    }
+    return { error, id: null };
+  }
+
+  const nextCoverSrc = uploadedPath ?? (removeCover ? null : parsed.data.coverSrc);
+  const nextCoverAlt = nextCoverSrc ? parsed.data.coverAlt : "";
+
   if (id) {
+    const { data: existing, error: readErr } = await admin
+      .from("events")
+      .select("cover_src")
+      .eq("id", id)
+      .maybeSingle();
+    if (readErr) return fail("Could not save the event.");
+    if (!existing) return fail("Event not found.");
+
     const { data: updated, error } = await admin
       .from("events")
       .update({
@@ -76,14 +112,19 @@ export async function saveEvent(id: string | null, values: EventValues): Promise
         venue: parsed.data.venue,
         capacity: parsed.data.capacity,
         description: parsed.data.description,
-        cover_src: parsed.data.coverSrc,
-        cover_alt: parsed.data.coverAlt,
+        cover_src: nextCoverSrc,
+        cover_alt: nextCoverAlt,
       })
       .eq("id", id)
       .select("id")
       .maybeSingle();
-    if (error) return { error: "Could not save the event.", id: null };
-    if (!updated) return { error: "Event not found.", id: null };
+    if (error) return fail("Could not save the event.");
+    if (!updated) return fail("Event not found.");
+
+    const previous = existing.cover_src as string | null;
+    if (previous && previous !== nextCoverSrc) {
+      await discardImage(previous, "event cover replaced");
+    }
     await recordActivity(actor, {
       type: "update",
       action: "updated event",
@@ -106,13 +147,13 @@ export async function saveEvent(id: string | null, values: EventValues): Promise
       venue: parsed.data.venue,
       capacity: parsed.data.capacity,
       description: parsed.data.description,
-      cover_src: parsed.data.coverSrc,
-      cover_alt: parsed.data.coverAlt,
+      cover_src: nextCoverSrc,
+      cover_alt: nextCoverAlt,
       status: "draft",
     })
     .select("id")
     .single();
-  if (error || !inserted) return { error: "Could not create the event.", id: null };
+  if (error || !inserted) return fail("Could not create the event.");
   await recordActivity(actor, {
     type: "create",
     action: "created event",
@@ -190,6 +231,35 @@ export async function restoreEvent(id: string): Promise<ActionResult> {
     "restore",
     "restored event",
   );
+}
+
+/**
+ * Hard delete — SuperAdmin only, and only from `archived` (umbrella §3.2).
+ * Deferred out of sub-project 6 along with the rest of the storage lifecycle.
+ */
+export async function deleteEvent(id: string): Promise<ActionResult> {
+  const guard = await guardDelete<{ title: string; cover_src: string | null }>(
+    "events",
+    id,
+    "title, cover_src",
+  );
+  if (!guard.ok) return { error: guard.error };
+  const { actor, row: existing } = guard;
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.from("events").delete().eq("id", id);
+  if (error) return { error: "Could not delete the event." };
+
+  await discardImage(existing.cover_src, "event deleted");
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted event",
+    entityType: "event",
+    entityId: id,
+    entityLabel: existing.title,
+  });
+  revalidate();
+  return { error: null };
 }
 
 /** Publish; set published_at only on first publish so re-publishing an archived event doesn't bump it. */

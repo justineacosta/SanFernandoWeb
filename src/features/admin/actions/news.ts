@@ -4,9 +4,17 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AuditActionType, ContentStatus, GalleryPhoto, NewsArticleValues, SessionUser } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
-import { statusPatch } from "@/lib/archive";
+import { guardDelete, statusPatch } from "@/lib/archive";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_IMAGE_BYTES,
+  PUBLIC_MEDIA_BUCKET,
+  extForType,
+  newsPhotoPath,
+  photoUrl,
+} from "@/lib/storage";
 import { getNewsArticleForEdit } from "@/features/admin/queries/news";
 
 export interface ActionResult {
@@ -15,6 +23,12 @@ export interface ActionResult {
 export interface SaveResult {
   error: string | null;
   id: string | null;
+  /**
+   * The article's photos after the save, so a drawer that stays open (the
+   * create case) can swap its pending previews for the stored ones instead of
+   * showing both. Null when the save wrote no photos.
+   */
+  photos?: GalleryPhoto[] | null;
 }
 
 const schema = z.object({
@@ -66,9 +80,111 @@ export async function getNewsArticleForEditAction(
   return getNewsArticleForEdit(id);
 }
 
+const MAX_PHOTOS = 3;
+
+/**
+ * Write the photos chosen in this drawer session against an article that now
+ * exists. Called only after the row write has succeeded, because
+ * `newsPhotoPath` keys the object path by article id.
+ *
+ * All-or-nothing for the batch: a failure part-way deletes every object and row
+ * this call created and leaves the article's existing photos untouched, so the
+ * pending list the user is still looking at stays an accurate description of
+ * what is missing. Photos that were already stored are never in scope.
+ */
+async function attachPendingPhotos(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  articleId: string,
+  files: File[],
+  alts: string[],
+): Promise<{ error: string | null }> {
+  if (files.length === 0) return { error: null };
+
+  // Re-checked server-side: a Server Action is a public HTTP endpoint and the
+  // uploader's own checks can simply be skipped.
+  for (const file of files) {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
+      return { error: "Photos must be JPG, PNG, or WebP." };
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      return { error: "Each photo must be 2 MB or smaller." };
+    }
+  }
+
+  const { data: existing, error: readErr } = await admin
+    .from("news_photos")
+    .select("id, sort_order")
+    .eq("article_id", articleId);
+  if (readErr) return { error: "Could not attach the photos." };
+  if ((existing ?? []).length + files.length > MAX_PHOTOS) {
+    return { error: `A post can have at most ${MAX_PHOTOS} photos.` };
+  }
+
+  const paths: string[] = [];
+  const rowIds: string[] = [];
+
+  /** Undo everything this call wrote, then report the original failure. */
+  async function rollback(message: string): Promise<{ error: string }> {
+    if (rowIds.length > 0) {
+      await admin.from("news_photos").delete().in("id", rowIds);
+    }
+    if (paths.length > 0) {
+      const { error } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove(paths);
+      if (error) {
+        console.error(`Orphaned storage objects (photo rollback failed): ${paths.join(", ")}`);
+      }
+    }
+    return { error: message };
+  }
+
+  let sortOrder = (existing ?? []).reduce(
+    (max, p) => Math.max(max, p.sort_order as number),
+    -1,
+  );
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const path = newsPhotoPath(articleId, extForType(file.type));
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from(PUBLIC_MEDIA_BUCKET)
+      .upload(path, buffer, { contentType: file.type, upsert: false });
+    if (upErr) return rollback("Could not upload the photos. Try again.");
+    paths.push(path);
+
+    sortOrder += 1;
+    const { data: row, error: insErr } = await admin
+      .from("news_photos")
+      .insert({ article_id: articleId, src: path, alt: alts[i] ?? "", sort_order: sortOrder })
+      .select("id")
+      .single();
+    if (insErr || !row) return rollback("Could not attach the photos. Try again.");
+    rowIds.push(row.id as string);
+  }
+
+  return { error: null };
+}
+
+/** The article's stored photos, in display order. */
+async function listPhotos(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  articleId: string,
+): Promise<GalleryPhoto[]> {
+  const { data } = await admin
+    .from("news_photos")
+    .select("id, src, alt")
+    .eq("article_id", articleId)
+    .order("sort_order", { ascending: true });
+  return (data ?? []).map((p) => ({
+    id: p.id as string,
+    src: photoUrl(p.src as string),
+    alt: p.alt as string,
+  }));
+}
+
 export async function saveNewsArticle(
   id: string | null,
   values: NewsArticleValues,
+  photoForm: FormData,
 ): Promise<SaveResult> {
   const actor = await checkPermission("manage-news");
   if (!actor) return { error: NOT_FOUND, id: null };
@@ -76,6 +192,17 @@ export async function saveNewsArticle(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
 
   const admin = createSupabaseAdminClient();
+
+  // Photos chosen in this drawer session. They are written only after the
+  // article row exists, so unlike the single-image saves there is nothing to
+  // compensate for here: an upload never runs ahead of its row.
+  const files = photoForm.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
+  const alts = photoForm.getAll("photoAlts").map((a) => (typeof a === "string" ? a : ""));
+
+  /** The row saved; only the photos did not. Say so, and keep the id. */
+  function savedWithoutPhotos(articleId: string, reason: string): SaveResult {
+    return { error: `Saved, but the photos were not attached. ${reason}`, id: articleId };
+  }
 
   // category must exist — never trust categoryId from the client.
   const { data: cat, error: catErr } = await admin
@@ -138,8 +265,10 @@ export async function saveNewsArticle(
       entityId: id,
       entityLabel: parsed.data.title,
     });
+    const attached = await attachPendingPhotos(admin, id, files, alts);
     revalidate();
-    return { error: null, id };
+    if (attached.error) return savedWithoutPhotos(id, attached.error);
+    return { error: null, id, photos: files.length > 0 ? await listPhotos(admin, id) : null };
   }
 
   const slugResult = await uniqueSlug(admin, slugify(parsed.data.slug) || slugify(parsed.data.title), null);
@@ -167,8 +296,14 @@ export async function saveNewsArticle(
     entityId: inserted.id,
     entityLabel: parsed.data.title,
   });
+  const attached = await attachPendingPhotos(admin, inserted.id, files, alts);
   revalidate();
-  return { error: null, id: inserted.id };
+  if (attached.error) return savedWithoutPhotos(inserted.id, attached.error);
+  return {
+    error: null,
+    id: inserted.id,
+    photos: files.length > 0 ? await listPhotos(admin, inserted.id) : null,
+  };
 }
 
 /**
@@ -237,6 +372,52 @@ export async function restoreNewsArticle(id: string): Promise<ActionResult> {
     "restore",
     "restored news article",
   );
+}
+
+/**
+ * Hard delete — SuperAdmin only, and only from `archived` (umbrella §3.2).
+ *
+ * Deleting the article cascades away its `news_photos` ROWS, but Postgres knows
+ * nothing about Storage: the objects have to be collected while the rows still
+ * exist or they are orphaned forever. This is the work that kept the action out
+ * of sub-project 6.
+ */
+export async function deleteNewsArticle(id: string): Promise<ActionResult> {
+  const guard = await guardDelete<{ title: string; slug: string }>(
+    "news_articles",
+    id,
+    "title, slug",
+  );
+  if (!guard.ok) return { error: guard.error };
+  const { actor, row: existing } = guard;
+
+  const admin = createSupabaseAdminClient();
+  const { data: photos } = await admin.from("news_photos").select("src").eq("article_id", id);
+  const paths = (photos ?? [])
+    .map((photo) => photo.src as string)
+    .filter((src) => !/^https?:\/\//i.test(src));
+
+  const { error } = await admin.from("news_articles").delete().eq("id", id);
+  if (error) return { error: "Could not delete the article." };
+
+  if (paths.length > 0) {
+    const { error: removeErr } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove(paths);
+    if (removeErr) {
+      // A failed cleanup must not fail the delete the user just made, but the
+      // orphans it leaves are invisible otherwise — log the paths for a human.
+      console.error(`Orphaned storage objects (news photo cleanup failed): ${paths.join(", ")}`);
+    }
+  }
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted news article",
+    entityType: "news article",
+    entityId: id,
+    entityLabel: existing.title,
+  });
+  revalidatePath(`/announcements/${existing.slug}`);
+  revalidate();
+  return { error: null };
 }
 
 /** Publish; set published_at only on first publish so re-publishing an archived article doesn't bump it. */

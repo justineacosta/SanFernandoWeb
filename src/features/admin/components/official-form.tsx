@@ -40,18 +40,29 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
   const [id, setId] = useState<string | null>(record?.id ?? null);
   const [status, setStatus] = useState<ContentStatus>(record?.status ?? "draft");
   const [values, setValues] = useState<OfficialValues>(record?.values ?? EMPTY_VALUES);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(record?.photoUrl ?? null);
+  const [previewUrl] = useState<string | null>(record?.photoUrl ?? null);
+  // Held, not uploaded — see single-image-uploader.tsx and saveOfficial.
+  const [portrait, setPortrait] = useState<File | null>(null);
+  const [removePortrait, setRemovePortrait] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const set = <K extends keyof OfficialValues>(key: K, value: OfficialValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
+  /** The portrait travels beside the values; nothing reaches storage until this runs. */
+  function portraitForm(): FormData {
+    const fd = new FormData();
+    if (portrait) fd.append("image", portrait);
+    if (removePortrait) fd.append("removeImage", "1");
+    return fd;
+  }
+
   function handleSave(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveOfficial(id, values);
+      const result = await saveOfficial(id, values, portraitForm());
       if (result.error) {
         setError(result.error);
         return;
@@ -68,11 +79,14 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
    * even though it's visibly on screen. Reuses the `saveOfficial` path (which
    * also handles the brand-new, no-id-yet case) and only transitions status
    * once that save has actually succeeded.
+   *
+   * Uploads deferring to Save makes this more necessary, not less: the chosen
+   * portrait is still only a File in this component until saveOfficial runs.
    */
   function handlePublish() {
     setError(null);
     startTransition(async () => {
-      const saveResult = await saveOfficial(id, values);
+      const saveResult = await saveOfficial(id, values, portraitForm());
       if (saveResult.error) {
         setError(saveResult.error);
         return;
@@ -141,15 +155,15 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
         <div>
           <h3 className="mb-2 text-sm font-medium text-ink-700">Portrait</h3>
           <SingleImageUploader
-            folder="officials"
-            src={values.photoPath}
+            idPrefix="official"
+            existingSrc={values.photoPath}
+            existingPreviewUrl={previewUrl}
             alt={values.photoAlt}
-            previewUrl={previewUrl}
-            onChange={(next) => {
-              set("photoPath", next.src);
-              set("photoAlt", next.alt);
-              setPreviewUrl(next.previewUrl);
-            }}
+            onAltChange={(next) => set("photoAlt", next)}
+            file={portrait}
+            onFileChange={setPortrait}
+            removeExisting={removePortrait}
+            onRemoveExistingChange={setRemovePortrait}
           />
           <p className="mt-2 text-xs text-ink-500">
             Square photos look best — the card crops to a square. Required before publishing.

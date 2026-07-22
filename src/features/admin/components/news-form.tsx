@@ -11,7 +11,7 @@ import {
   saveNewsArticle,
   submitNewsForReview,
 } from "@/features/admin/actions/news";
-import { NewsPhotoUploader } from "./news-photo-uploader";
+import { NewsPhotoUploader, type PendingPhoto } from "./news-photo-uploader";
 
 export interface NewsEditRecord {
   id: string;
@@ -54,8 +54,14 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
     const firstActive = categories.find((c) => c.isActive);
     return { ...EMPTY_VALUES, categoryId: firstActive?.id ?? "" };
   });
-  // NewsPhotoUploader owns photo state internally after mount; this is only its seed.
-  const photos = record?.photos ?? [];
+  // NewsPhotoUploader owns saved-photo state internally after mount; this is
+  // only its seed, replaced when a save attaches new photos. `photoVersion`
+  // remounts it so the seed is re-read.
+  const [photos, setPhotos] = useState<GalleryPhoto[]>(record?.photos ?? []);
+  const [photoVersion, setPhotoVersion] = useState(0);
+  // Photos chosen but not yet uploaded — they travel with Save, so cancelling
+  // the drawer leaves nothing in storage.
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -80,13 +86,26 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveNewsArticle(id, values);
+      const fd = new FormData();
+      pendingPhotos.forEach((p) => {
+        fd.append("photos", p.file);
+        fd.append("photoAlts", p.alt);
+      });
+      const result = await saveNewsArticle(id, values, fd);
+      const wasNew = id === null;
+      // The id lands even on an error: the article may well have been written
+      // and only its photos failed, and a retry must update that row rather
+      // than create a second one.
+      if (result.id) setId(result.id);
+      if (result.photos) {
+        setPhotos(result.photos);
+        setPendingPhotos([]);
+        setPhotoVersion((v) => v + 1);
+      }
       if (result.error) {
         setError(result.error);
         return;
       }
-      const wasNew = id === null;
-      if (result.id) setId(result.id);
       onSaved(wasNew ? "Draft saved." : "Post updated.", wasNew);
     });
   }
@@ -168,13 +187,13 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
         </Field>
         <div>
           <h3 className="mb-2 text-sm font-medium text-ink-700">Photos</h3>
-          {id ? (
-            <NewsPhotoUploader articleId={id} photos={photos} />
-          ) : (
-            <p className="rounded-2xl border border-dashed border-ink-200 p-4 text-sm text-ink-500">
-              Save this post as a draft first, then come back to add up to 3 photos.
-            </p>
-          )}
+          <NewsPhotoUploader
+            key={photoVersion}
+            articleId={id}
+            photos={photos}
+            pending={pendingPhotos}
+            onPendingChange={setPendingPhotos}
+          />
         </div>
         {error ? (
           <p role="alert" className="text-sm font-medium text-danger">

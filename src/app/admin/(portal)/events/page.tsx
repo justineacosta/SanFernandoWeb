@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminEventsPage() {
-  await requirePermission("manage-news");
+  const user = await requirePermission("manage-news");
   const events = await listEvents();
-  return <EventsManager events={events} />;
+  return <EventsManager events={events} isSuperAdmin={user.isSuperAdmin} />;
 }

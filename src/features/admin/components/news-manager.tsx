@@ -13,6 +13,7 @@ import {
   Plus,
   RotateCcw,
   Send,
+  Trash2,
 } from "lucide-react";
 import type { AdminAnnouncementRow, AdminNewsArticleRow, NewsCategoryRow } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -29,12 +30,14 @@ import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { cn } from "@/lib/utils";
 import {
   archiveAnnouncement,
+  deleteAnnouncement,
   getAnnouncementForEditAction,
   publishAnnouncement,
   restoreAnnouncement,
 } from "@/features/admin/actions/announcements";
 import {
   archiveNewsArticle,
+  deleteNewsArticle,
   getNewsArticleForEditAction,
   publishNewsArticle,
   restoreNewsArticle,
@@ -65,20 +68,26 @@ interface NewsManagerProps {
   articles: AdminNewsArticleRow[];
   announcements: AdminAnnouncementRow[];
   categories: NewsCategoryRow[];
+  /**
+   * Presentation only — it decides whether Delete is offered on an archived
+   * row. `deleteNewsArticle` / `deleteAnnouncement` re-check with
+   * `checkSuperAdmin()`, because a Server Action is a public HTTP endpoint.
+   */
+  isSuperAdmin: boolean;
 }
 
 /**
  * A row action awaiting confirmation. Null when no dialog is open.
  *
- * There is no delete here at all: news and announcements are the barangay's
- * public record and are taken down, not erased. Their media lives behind
- * `image_src` / `cover_src` URLs plus child photo rows, so a correct delete
- * needs the URL-to-Storage-path work that sub-project 7 owns.
+ * Delete appears only on an archived row, only for a SuperAdmin, and removes
+ * the post's photos from Storage along with the row (sub-project 7).
  */
-type PendingAction = { kind: Tab; action: "archive" | "restore"; id: string; title: string } | null;
+type PendingAction =
+  | { kind: Tab; action: "archive" | "restore" | "delete"; id: string; title: string }
+  | null;
 
 /** News & announcements: tabbed card grids, search/category/status filters, drawer editors backed by real actions. */
-export function NewsManager({ articles, announcements, categories }: NewsManagerProps) {
+export function NewsManager({ articles, announcements, categories, isSuperAdmin }: NewsManagerProps) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("news");
   const [search, setSearch] = useState("");
@@ -176,8 +185,9 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
     });
   };
 
-  // Creating a new post must keep the drawer open so the photo uploader (which
-  // needs an article id) becomes reachable in place; editing still closes as before.
+  // Creating a new post keeps the drawer open so the workflow buttons (which
+  // need an article id) become reachable in place; editing still closes as
+  // before. Photos no longer need this — they save with the post.
   /*
    * Global-search results link here as /admin/news?tab=…&edit=<id>. Two
    * modules share this page, so the id alone would be ambiguous — the tab
@@ -222,21 +232,32 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
     const { kind, action, id, title } = confirming;
     setActionPending(true);
     startTransition(async () => {
+      const isNews = kind === "news";
       const result =
         action === "archive"
-          ? kind === "news"
+          ? isNews
             ? await archiveNewsArticle(id)
             : await archiveAnnouncement(id)
-          : kind === "news"
-            ? await restoreNewsArticle(id)
-            : await restoreAnnouncement(id);
+          : action === "restore"
+            ? isNews
+              ? await restoreNewsArticle(id)
+              : await restoreAnnouncement(id)
+            : isNews
+              ? await deleteNewsArticle(id)
+              : await deleteAnnouncement(id);
       setActionPending(false);
       setConfirming(null);
       if (result.error) {
         showError(result.error);
         return;
       }
-      showToast(action === "archive" ? `Archived ${title}.` : `Restored ${title} as a draft.`);
+      showToast(
+        action === "archive"
+          ? `Archived ${title}.`
+          : action === "restore"
+            ? `Restored ${title} as a draft.`
+            : `Deleted ${title}.`,
+      );
       router.refresh();
     });
   };
@@ -269,6 +290,17 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
         onSelect: () =>
           setConfirming({ kind, action: "restore", id: record.id, title: record.title }),
       });
+      // Delete is offered to a SuperAdmin only, and only here. A disabled item
+      // for everyone else would just teach people to click it.
+      if (isSuperAdmin) {
+        actions.push({
+          label: "Delete permanently",
+          icon: Trash2,
+          tone: "danger",
+          onSelect: () =>
+            setConfirming({ kind, action: "delete", id: record.id, title: record.title }),
+        });
+      }
     } else if (record.status !== "published") {
       actions.push({
         label: "Publish",
@@ -560,16 +592,26 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
       <ConfirmDialog
         open={confirming !== null}
         title={
-          confirming?.action === "restore"
+          confirming?.action === "delete"
             ? confirming.kind === "news"
-              ? "Restore this post?"
-              : "Restore this announcement?"
-            : confirming?.kind === "news"
-              ? "Archive this post?"
-              : "Archive this announcement?"
+              ? "Delete this post?"
+              : "Delete this announcement?"
+            : confirming?.action === "restore"
+              ? confirming.kind === "news"
+                ? "Restore this post?"
+                : "Restore this announcement?"
+              : confirming?.kind === "news"
+                ? "Archive this post?"
+                : "Archive this announcement?"
         }
         body={
-          confirming?.action === "restore" ? (
+          confirming?.action === "delete" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.title}</strong>
+              {confirming.kind === "news" ? " and its photos" : " and its image"} will be removed
+              permanently. There is no undo. Archiving keeps the record — this does not.
+            </>
+          ) : confirming?.action === "restore" ? (
             <>
               <strong className="font-semibold text-ink-900">{confirming.title}</strong> comes
               back as a <strong className="font-semibold text-ink-900">draft</strong>, not onto
@@ -582,7 +624,13 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
             </>
           )
         }
-        confirmLabel={confirming?.action === "restore" ? "Restore" : "Archive"}
+        confirmLabel={
+          confirming?.action === "delete"
+            ? "Delete"
+            : confirming?.action === "restore"
+              ? "Restore"
+              : "Archive"
+        }
         pending={actionPending}
         onConfirm={runConfirmed}
         onCancel={() => setConfirming(null)}

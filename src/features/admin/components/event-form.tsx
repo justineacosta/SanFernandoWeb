@@ -45,9 +45,9 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
   const [id, setId] = useState<string | null>(record?.id ?? null);
   const [status, setStatus] = useState<ContentStatus>(record?.status ?? "draft");
   const [values, setValues] = useState<EventValues>(record?.values ?? EMPTY_VALUES);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(
-    record?.values.coverSrc ? photoUrl(record.values.coverSrc) : null,
-  );
+  // Held, not uploaded — see single-image-uploader.tsx and saveEvent.
+  const [cover, setCover] = useState<File | null>(null);
+  const [removeCover, setRemoveCover] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -58,7 +58,10 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveEvent(id, values);
+      const fd = new FormData();
+      if (cover) fd.append("image", cover);
+      if (removeCover) fd.append("removeImage", "1");
+      const result = await saveEvent(id, values, fd);
       if (result.error) {
         setError(result.error);
         return;
@@ -172,14 +175,15 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
         <div>
           <h3 className="mb-2 text-sm font-medium text-ink-700">Cover Image</h3>
           <SingleImageUploader
-            folder="events"
-            src={values.coverSrc}
+            idPrefix="event"
+            existingSrc={values.coverSrc}
+            existingPreviewUrl={values.coverSrc ? photoUrl(values.coverSrc) : null}
             alt={values.coverAlt}
-            previewUrl={previewUrl}
-            onChange={(next) => {
-              setValues((prev) => ({ ...prev, coverSrc: next.src, coverAlt: next.alt }));
-              setPreviewUrl(next.previewUrl);
-            }}
+            onAltChange={(next) => set("coverAlt", next)}
+            file={cover}
+            onFileChange={setCover}
+            removeExisting={removeCover}
+            onRemoveExistingChange={setRemoveCover}
           />
         </div>
         {error ? (

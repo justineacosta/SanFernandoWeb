@@ -68,8 +68,19 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   `guardDelete()` in `src/lib/archive.ts`, never by the UI alone. Every manager has an
   **Active | Archived** view (`ViewToggle`); `archived` is not a status-dropdown value.
   Restore returns a record to `draft`, never to `published`, and files a `restore` audit
-  entry. News/announcements/events have **no delete action at all** — deferred to
-  sub-project 7 with the rest of the Storage-lifecycle work.
+  entry. News, announcements and events gained their deletes in sub-project 7, on the same
+  two-condition gate, each removing its own media (an article's `news_photos` objects
+  included — the DB cascade drops the rows, not the files).
+- **Uploads defer to Save** (sub-project 7, 2026-07-22): every uploader is a *pure file
+  picker* making no network calls — `PdfUploader`, `MultiFileUploader`, `SingleImageUploader`,
+  and `NewsPhotoUploader`'s pending list. The save Server Action uploads server-side and
+  **compensating-deletes** the object if the row write fails, so "a storage object exists only
+  if a row references it" holds by construction. Copy `saveLegislative`'s `fail()` helper for
+  any new one. `src/lib/media.ts` (not a `"use server"` module, deliberately unaudited) holds
+  `uploadSingleImage` / `removeStoredImage` / `discardImage`. The one exception is
+  `AchievementPhotoUploader`: its editor has no Save button to defer to, so it stays eager —
+  see the sub-project 7 spec §2.4 before "fixing" it. `scripts/report-orphaned-media.mjs`
+  lists unreferenced objects and never deletes.
 - **Feature modules own everything for a route:** `src/features/<name>/` =
   `data.ts` (typed mock content) + `components/` (section components) + `index.ts`
   (barrel re-exports, kept in page order). Pages import only from the barrel.

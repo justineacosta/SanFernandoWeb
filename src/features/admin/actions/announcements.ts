@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AnnouncementValues, AuditActionType, ContentStatus, SessionUser } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
-import { statusPatch } from "@/lib/archive";
+import { guardDelete, statusPatch } from "@/lib/archive";
 import { recordActivity } from "@/lib/audit";
+import { discardImage, removeStoredImage, uploadSingleImage } from "@/lib/media";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getAnnouncementForEdit } from "@/features/admin/queries/announcements";
 
@@ -47,6 +48,7 @@ export async function getAnnouncementForEditAction(
 export async function saveAnnouncement(
   id: string | null,
   values: AnnouncementValues,
+  imageForm: FormData,
 ): Promise<SaveResult> {
   const actor = await checkPermission("manage-news");
   if (!actor) return { error: NOT_FOUND, id: null };
@@ -55,7 +57,44 @@ export async function saveAnnouncement(
 
   const admin = createSupabaseAdminClient();
 
+  // Upload a newly chosen image up front — the only side effect before the row
+  // write, so every failure past this point must delete the object it just
+  // created. `fail()` does that.
+  const incoming = imageForm.get("image");
+  const removeImage = imageForm.get("removeImage") === "1";
+  let uploadedPath: string | null = null;
+  if (incoming instanceof File && incoming.size > 0) {
+    const uploaded = await uploadSingleImage("announcements", incoming);
+    if (uploaded.error) return { error: uploaded.error, id: null };
+    uploadedPath = uploaded.src;
+  }
+
+  async function fail(error: string): Promise<SaveResult> {
+    if (uploadedPath) {
+      const removed = await removeStoredImage(uploadedPath);
+      if (removed.error) {
+        console.error(`Orphaned storage object (compensating delete failed): ${uploadedPath}`);
+      }
+    }
+    return { error, id: null };
+  }
+
+  // A new upload wins; an explicit remove clears the slot; otherwise the stored
+  // value carries through untouched.
+  const nextImageSrc = uploadedPath ?? (removeImage ? null : parsed.data.imageSrc);
+  const nextImageAlt = nextImageSrc ? parsed.data.imageAlt : "";
+
   if (id) {
+    // Read the stored path before overwriting it: whatever it pointed at is
+    // orphaned by this save unless it survives into nextImageSrc.
+    const { data: existing, error: readErr } = await admin
+      .from("announcements")
+      .select("image_src")
+      .eq("id", id)
+      .maybeSingle();
+    if (readErr) return fail("Could not save the announcement.");
+    if (!existing) return fail("Announcement not found.");
+
     const { data: updated, error } = await admin
       .from("announcements")
       .update({
@@ -63,14 +102,19 @@ export async function saveAnnouncement(
         date: parsed.data.date,
         excerpt: parsed.data.excerpt,
         urgent: parsed.data.urgent,
-        image_src: parsed.data.imageSrc,
-        image_alt: parsed.data.imageAlt,
+        image_src: nextImageSrc,
+        image_alt: nextImageAlt,
       })
       .eq("id", id)
       .select("id")
       .maybeSingle();
-    if (error) return { error: "Could not save the announcement.", id: null };
-    if (!updated) return { error: "Announcement not found.", id: null };
+    if (error) return fail("Could not save the announcement.");
+    if (!updated) return fail("Announcement not found.");
+
+    const previous = existing.image_src as string | null;
+    if (previous && previous !== nextImageSrc) {
+      await discardImage(previous, "announcement image replaced");
+    }
     await recordActivity(actor, {
       type: "update",
       action: "updated announcement",
@@ -89,13 +133,13 @@ export async function saveAnnouncement(
       date: parsed.data.date,
       excerpt: parsed.data.excerpt,
       urgent: parsed.data.urgent,
-      image_src: parsed.data.imageSrc,
-      image_alt: parsed.data.imageAlt,
+      image_src: nextImageSrc,
+      image_alt: nextImageAlt,
       status: "draft",
     })
     .select("id")
     .single();
-  if (error || !inserted) return { error: "Could not create the announcement.", id: null };
+  if (error || !inserted) return fail("Could not create the announcement.");
   await recordActivity(actor, {
     type: "create",
     action: "created announcement",
@@ -173,6 +217,40 @@ export async function restoreAnnouncement(id: string): Promise<ActionResult> {
     "restore",
     "restored announcement",
   );
+}
+
+/**
+ * Hard delete — SuperAdmin only, and only from `archived` (umbrella §3.2).
+ *
+ * Deferred out of sub-project 6 because removing the image needs the storage
+ * lifecycle work this sub-project does; archiving remains the normal way to
+ * take an announcement off the site.
+ */
+export async function deleteAnnouncement(id: string): Promise<ActionResult> {
+  const guard = await guardDelete<{ title: string; image_src: string | null }>(
+    "announcements",
+    id,
+    "title, image_src",
+  );
+  if (!guard.ok) return { error: guard.error };
+  const { actor, row: existing } = guard;
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.from("announcements").delete().eq("id", id);
+  if (error) return { error: "Could not delete the announcement." };
+
+  // Only once the row is gone: an object deleted ahead of a failed row delete
+  // would leave a live announcement pointing at nothing.
+  await discardImage(existing.image_src, "announcement deleted");
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted announcement",
+    entityType: "announcement",
+    entityId: id,
+    entityLabel: existing.title,
+  });
+  revalidate();
+  return { error: null };
 }
 
 /** Publish; set published_at only on first publish so re-publishing an archived announcement doesn't bump it. */

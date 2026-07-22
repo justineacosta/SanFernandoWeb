@@ -40,9 +40,10 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
   const [id, setId] = useState<string | null>(record?.id ?? null);
   const [status, setStatus] = useState<ContentStatus>(record?.status ?? "draft");
   const [values, setValues] = useState<AnnouncementValues>(record?.values ?? EMPTY_VALUES);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(
-    record?.values.imageSrc ? photoUrl(record.values.imageSrc) : null,
-  );
+  // The chosen image is held here, not uploaded: see single-image-uploader.tsx
+  // and saveAnnouncement for why nothing touches storage until Save runs.
+  const [image, setImage] = useState<File | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -53,7 +54,10 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveAnnouncement(id, values);
+      const fd = new FormData();
+      if (image) fd.append("image", image);
+      if (removeImage) fd.append("removeImage", "1");
+      const result = await saveAnnouncement(id, values, fd);
       if (result.error) {
         setError(result.error);
         return;
@@ -123,14 +127,15 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
         <div>
           <h3 className="mb-2 text-sm font-medium text-ink-700">Image</h3>
           <SingleImageUploader
-            folder="announcements"
-            src={values.imageSrc}
+            idPrefix="announcement"
+            existingSrc={values.imageSrc}
+            existingPreviewUrl={values.imageSrc ? photoUrl(values.imageSrc) : null}
             alt={values.imageAlt}
-            previewUrl={previewUrl}
-            onChange={(next) => {
-              setValues((prev) => ({ ...prev, imageSrc: next.src, imageAlt: next.alt }));
-              setPreviewUrl(next.previewUrl);
-            }}
+            onAltChange={(next) => set("imageAlt", next)}
+            file={image}
+            onFileChange={setImage}
+            removeExisting={removeImage}
+            onRemoveExistingChange={setRemoveImage}
           />
         </div>
         {error ? (

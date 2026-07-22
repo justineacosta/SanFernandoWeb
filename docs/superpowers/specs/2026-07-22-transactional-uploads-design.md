@@ -169,4 +169,30 @@ A and B are independent. C depends on neither but shares the media-cleanup helpe
 
 ## 5. What the browser confirmed
 
-_Filled in after implementation._
+Driven per `.claude/skills/verify/SKILL.md` against staging, with the session stubbed as both
+roles. `scripts/report-orphaned-media.mjs` gave the baseline before and after: **12 objects, 12
+referenced, 0 orphans** both times — everything created during verification was removed.
+
+- **The bug, in one gesture.** Announcement drawer, image picked, preview reads *"Uploads when
+  you save"*, Cancel → `announcements/` still holds **0 objects**. That is what used to leak.
+- **Save uploads it.** Same drawer completed → 1 object, and the row's `image_src` is that
+  exact path.
+- **Replacing cleans up.** Swap the image, save → still **1** object; the old one is gone and
+  the row points at the new one. This is the leak announcements and events had since the
+  feature shipped — neither save action removed a replaced image.
+- **Removing is deferred too.** "Remove" shows *"The image will be removed when you save"*;
+  after saving, 0 objects and `image_src` is NULL.
+- **The compensating delete runs.** With a save forced to fail after the upload (temporary
+  stub, since removed): the error surfaced, no row was created, and `announcements/` was left
+  at **0 objects**.
+- **News photos commit with the post.** A brand new post took two photos in one pass — the
+  *"save this post as a draft first"* message is gone — producing 2 rows and 2 objects, every
+  row pointing at one.
+- **Delete is gated as sub-project 6 requires.** On an archived announcement a staff member
+  with `manage-news` sees *View details / Restore*; a SuperAdmin also sees *Delete
+  permanently*. Deleting removed the row and its object.
+- **The stale-tab guard holds for the new actions.** Two tabs on the archived news view; one
+  restored the post, the other clicked Delete → *"Archive this record first. Only archived
+  records can be deleted permanently."* The post and both photo rows survived.
+- **Deleting a post takes its photos with it.** The probe post, re-archived and deleted:
+  row gone, 2 photo rows gone, `news/<id>/` down to 0 objects.

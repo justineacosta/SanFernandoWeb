@@ -9,7 +9,7 @@ import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getOfficialForEdit } from "@/features/admin/queries/officials";
 import { PUBLIC_MEDIA_BUCKET } from "@/lib/storage";
-import { removeStoredImage } from "./media";
+import { discardImage, removeStoredImage, uploadSingleImage } from "@/lib/media";
 
 export interface ActionResult {
   error: string | null;
@@ -105,6 +105,7 @@ export async function getOfficialForEditAction(id: string) {
 export async function saveOfficial(
   id: string | null,
   values: OfficialValues,
+  portraitForm: FormData,
 ): Promise<SaveResult> {
   const actor = await checkPermission("manage-officials");
   if (!actor) return { error: NOT_FOUND, id: null };
@@ -117,13 +118,36 @@ export async function saveOfficial(
   const base = slugify(parsed.data.name);
   if (!base) return { error: "Enter a name with letters or numbers.", id: null };
 
+  // Upload first, then compensate on any later failure — see saveAnnouncement.
+  const incoming = portraitForm.get("image");
+  const removePortrait = portraitForm.get("removeImage") === "1";
+  let uploadedPath: string | null = null;
+  if (incoming instanceof File && incoming.size > 0) {
+    const uploaded = await uploadSingleImage("officials", incoming);
+    if (uploaded.error) return { error: uploaded.error, id: null };
+    uploadedPath = uploaded.src;
+  }
+
+  async function fail(error: string): Promise<SaveResult> {
+    if (uploadedPath) {
+      const removed = await removeStoredImage(uploadedPath);
+      if (removed.error) {
+        console.error(`Orphaned storage object (compensating delete failed): ${uploadedPath}`);
+      }
+    }
+    return { error, id: null };
+  }
+
+  const nextPhotoPath = uploadedPath ?? (removePortrait ? null : parsed.data.photoPath);
+  const nextPhotoAlt = nextPhotoPath ? parsed.data.photoAlt : "";
+
   const patch = {
     name: parsed.data.name,
     role: parsed.data.role,
     group: parsed.data.group,
     badge: parsed.data.badge,
-    photo_path: parsed.data.photoPath,
-    photo_alt: parsed.data.photoAlt,
+    photo_path: nextPhotoPath,
+    photo_alt: nextPhotoAlt,
     term: parsed.data.term,
     email: parsed.data.email,
     phone: parsed.data.phone,
@@ -136,8 +160,8 @@ export async function saveOfficial(
       .select("status, slug, photo_path, published_at")
       .eq("id", id)
       .maybeSingle();
-    if (readErr) return { error: "Could not save the official.", id: null };
-    if (!existing) return { error: "Official not found.", id: null };
+    if (readErr) return fail("Could not save the official.");
+    if (!existing) return fail("Official not found.");
 
     // Lock the slug once EVER published (not just currently published) — a
     // shared or bookmarked profile URL must not move under whoever holds it,
@@ -146,7 +170,7 @@ export async function saveOfficial(
     let slug = existing.slug as string;
     if (!everPublished) {
       const slugResult = await uniqueSlug(admin, base, id);
-      if (!slugResult.ok) return { error: slugResult.error, id: null };
+      if (!slugResult.ok) return fail(slugResult.error);
       slug = slugResult.slug;
     }
 
@@ -159,26 +183,20 @@ export async function saveOfficial(
       query = query.is("published_at", null);
     }
     const { data: updated, error } = await query.select("id").maybeSingle();
-    if (error) return { error: "Could not save the official.", id: null };
+    if (error) return fail("Could not save the official.");
     if (!updated) {
-      return {
-        error: everPublished
+      return fail(
+        everPublished
           ? "Official not found."
           : "This official was published while you were editing. Reopen and try again.",
-        id: null,
-      };
+      );
     }
 
     // Deferred delete: only once the row no longer references the old
     // portrait. A remote URL is left alone by removeStoredImage.
     const oldPath = existing.photo_path as string | null;
-    if (oldPath && oldPath !== parsed.data.photoPath) {
-      const removed = await removeStoredImage(oldPath);
-      if (removed.error) {
-        // A failed cleanup must not fail the save the user just made, but the
-        // orphan it leaves is invisible otherwise — log the path for a human.
-        console.error(`Orphaned storage object (portrait cleanup failed): ${oldPath}`);
-      }
+    if (oldPath && oldPath !== nextPhotoPath) {
+      await discardImage(oldPath, "portrait replaced");
     }
 
     await recordActivity(actor, {
@@ -193,7 +211,7 @@ export async function saveOfficial(
   }
 
   const slugResult = await uniqueSlug(admin, base, null);
-  if (!slugResult.ok) return { error: slugResult.error, id: null };
+  if (!slugResult.ok) return fail(slugResult.error);
 
   // New officials land at the end of the directory.
   const { data: last } = await admin
@@ -209,7 +227,7 @@ export async function saveOfficial(
     .insert({ ...patch, slug: slugResult.slug, sort_order: nextOrder })
     .select("id")
     .single();
-  if (error || !data) return { error: "Could not create the official.", id: null };
+  if (error || !data) return fail("Could not create the official.");
 
   await recordActivity(actor, {
     type: "create",

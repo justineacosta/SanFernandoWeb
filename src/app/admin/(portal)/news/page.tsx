@@ -16,7 +16,12 @@ export default async function AdminNewsPage() {
   ]);
   return (
     <>
-      <NewsManager articles={articles} announcements={announcements} categories={categories} />
+      <NewsManager
+        articles={articles}
+        announcements={announcements}
+        categories={categories}
+        isSuperAdmin={user.isSuperAdmin}
+      />
       {user.isSuperAdmin ? (
         <div className="mt-8">
           <NewsCategoriesPanel categories={categories} />

@@ -1,88 +1,29 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { GalleryPhoto } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import {
-  ALLOWED_IMAGE_TYPES,
-  MAX_IMAGE_BYTES,
-  PUBLIC_MEDIA_BUCKET,
-  extForType,
-  newsPhotoPath,
-  photoUrl,
-} from "@/lib/storage";
+import { PUBLIC_MEDIA_BUCKET } from "@/lib/storage";
 
 export interface ActionResult {
   error: string | null;
 }
-
-const MAX_PHOTOS = 3;
 
 function revalidate() {
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
 }
 
-async function currentPhotos(admin: ReturnType<typeof createSupabaseAdminClient>, articleId: string) {
-  const { data } = await admin
-    .from("news_photos")
-    .select("id, src, alt, sort_order")
-    .eq("article_id", articleId)
-    .order("sort_order", { ascending: true });
-  return data ?? [];
-}
-
-export async function uploadNewsPhotos(
-  articleId: string,
-  formData: FormData,
-): Promise<{ error: string | null; photos: GalleryPhoto[] }> {
-  const actor = await checkPermission("manage-news");
-  if (!actor) return { error: NOT_FOUND, photos: [] };
-  const admin = createSupabaseAdminClient();
-
-  const files = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
-  if (files.length === 0) return { error: "Choose at least one photo.", photos: [] };
-
-  const existing = await currentPhotos(admin, articleId);
-  if (existing.length + files.length > MAX_PHOTOS) {
-    return { error: `A post can have at most ${MAX_PHOTOS} photos.`, photos: [] };
-  }
-  for (const file of files) {
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
-      return { error: "Photos must be JPG, PNG, or WebP.", photos: [] };
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      return { error: "Each photo must be 2 MB or smaller.", photos: [] };
-    }
-  }
-
-  let sortOrder = existing.reduce((max, p) => Math.max(max, p.sort_order), -1);
-  for (const file of files) {
-    const path = newsPhotoPath(articleId, extForType(file.type));
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const { error: upErr } = await admin.storage
-      .from(PUBLIC_MEDIA_BUCKET)
-      .upload(path, buffer, { contentType: file.type, upsert: false });
-    if (upErr) return { error: "Upload failed. Try again.", photos: [] };
-    sortOrder += 1;
-    const { error: insErr } = await admin
-      .from("news_photos")
-      .insert({ article_id: articleId, src: path, alt: "", sort_order: sortOrder });
-    if (insErr) return { error: "Upload failed. Try again.", photos: [] };
-  }
-
-  await recordActivity(actor, {
-    type: "file_upload",
-    action: "uploaded news photos",
-    entityType: "news article",
-    entityId: articleId,
-  });
-  revalidate();
-  const refreshed = await currentPhotos(admin, articleId);
-  return { error: null, photos: refreshed.map((p) => ({ id: p.id, src: photoUrl(p.src), alt: p.alt })) };
-}
+/*
+ * Uploading lives in saveNewsArticle, not here.
+ *
+ * The uploader used to call an `uploadNewsPhotos` action on file-select, which
+ * meant a photo could only be attached to an article that already existed —
+ * hence the old "save this post as a draft first" message. Sub-project 7 moved
+ * the write into the article's own save so a new post and its photos commit
+ * together. The actions left in this file all act on rows that already exist.
+ */
 
 export async function reorderNewsPhotos(
   articleId: string,
