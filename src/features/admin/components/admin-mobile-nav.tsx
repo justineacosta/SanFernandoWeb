@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
@@ -12,6 +12,9 @@ import { FADE_QUICK, POP } from "@/lib/motion";
 import { groupNavItems } from "@/lib/admin-nav";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
+
+/** Never fires; the store is a constant, so nothing ever needs re-reading. */
+const noopSubscribe = () => () => {};
 
 /**
  * Hamburger + floating card menu for the admin portal on small screens.
@@ -34,9 +37,6 @@ import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
  * the card insets from the bar's padding edge and the scrim collapses into an
  * invisible strip.
  */
-/** Never fires; the store is a constant, so nothing ever needs re-reading. */
-const noopSubscribe = () => () => {};
-
 export function AdminMobileNav({
   isSuperAdmin,
   permissions,
@@ -72,6 +72,19 @@ export function AdminMobileNav({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, close]);
+
+  // Drives the bottom fade. Measured rather than assumed, because how much
+  // fits depends on the viewport and on how many modules this viewer may see —
+  // someone with two permissions has nothing to scroll and should see no hint.
+  // Runs from the ref callback on open and from every scroll after that.
+  const [hasMoreBelow, setHasMoreBelow] = useState(false);
+
+  const measureOverflow = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return;
+    setHasMoreBelow(
+      element.scrollTop + element.clientHeight < element.scrollHeight - 1,
+    );
+  }, []);
 
   const menu = (
     <MotionConfig reducedMotion="user">
@@ -109,49 +122,68 @@ export function AdminMobileNav({
               // gutter, so the card floats clear of it instead of hanging off
               // it. Capped well short of the viewport: the point is a card that
               // scrolls, not a sheet that happens to fit thirteen rows.
-              className="no-scrollbar pointer-events-auto absolute inset-x-4 top-22 max-h-[65dvh] overflow-y-auto rounded-3xl border border-ink-200/70 bg-white/95 p-3 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.25)] backdrop-blur-xl"
+              //
+              // The card is the chrome and does not scroll; the list inside it
+              // does. That split is what lets the fade sit still at the bottom
+              // edge instead of riding along with the rows.
+              className="pointer-events-auto absolute inset-x-4 top-22 flex max-h-[65dvh] flex-col overflow-hidden rounded-3xl border border-ink-200/70 bg-white/95 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.25)] backdrop-blur-xl"
             >
-              <div className="flex flex-col gap-5">
-                {groups.map((section) => (
-                  <div key={section.group}>
-                    <p className="mb-2 flex items-center gap-2 px-4 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-ink-500 before:h-px before:w-4 before:shrink-0 before:bg-brand-400/40 before:content-['']">
-                      {section.label}
-                    </p>
-                    <ul className="flex flex-col gap-1">
-                      {section.items.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = item.exact
-                          ? pathname === item.href
-                          : pathname.startsWith(item.href);
-                        return (
-                          <li key={item.href}>
-                            <Link
-                              href={item.href}
-                              onClick={close}
-                              aria-current={isActive ? "page" : undefined}
-                              className={cn(
-                                "flex items-center gap-3 rounded-full px-4 py-3 text-sm font-medium transition-colors duration-(--duration-quick)",
-                                isActive
-                                  ? "bg-brand-50 text-ink-900"
-                                  : "text-ink-600 hover:bg-ink-50 hover:text-ink-900",
-                              )}
-                            >
-                              <Icon
+              <div
+                ref={measureOverflow}
+                onScroll={(event) => measureOverflow(event.currentTarget)}
+                className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-3"
+              >
+                <div className="flex flex-col gap-5">
+                  {groups.map((section) => (
+                    <div key={section.group}>
+                      <p className="mb-2 flex items-center gap-2 px-4 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-ink-500 before:h-px before:w-4 before:shrink-0 before:bg-brand-400/40 before:content-['']">
+                        {section.label}
+                      </p>
+                      <ul className="flex flex-col gap-1">
+                        {section.items.map((item) => {
+                          const Icon = item.icon;
+                          const isActive = item.exact
+                            ? pathname === item.href
+                            : pathname.startsWith(item.href);
+                          return (
+                            <li key={item.href}>
+                              <Link
+                                href={item.href}
+                                onClick={close}
+                                aria-current={isActive ? "page" : undefined}
                                 className={cn(
-                                  "h-5 w-5 shrink-0",
-                                  isActive ? "text-brand-600" : "text-ink-400",
+                                  "flex items-center gap-3 rounded-full px-4 py-3 text-sm font-medium transition-colors duration-(--duration-quick)",
+                                  isActive
+                                    ? "bg-brand-50 text-ink-900"
+                                    : "text-ink-600 hover:bg-ink-50 hover:text-ink-900",
                                 )}
-                                aria-hidden="true"
-                              />
-                              <span className="truncate">{item.label}</span>
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
+                              >
+                                <Icon
+                                  className={cn(
+                                    "h-5 w-5 shrink-0",
+                                    isActive
+                                      ? "text-brand-600"
+                                      : "text-ink-400",
+                                  )}
+                                  aria-hidden="true"
+                                />
+                                <span className="truncate">{item.label}</span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
               </div>
+              <div
+                aria-hidden="true"
+                className={cn(
+                  "pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-white via-white/70 to-transparent transition-opacity duration-(--duration-quick)",
+                  hasMoreBelow ? "opacity-100" : "opacity-0",
+                )}
+              />
             </motion.nav>
           </motion.div>
         ) : null}
