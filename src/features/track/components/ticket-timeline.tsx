@@ -143,14 +143,24 @@ export function TicketTimeline({ ticket }: { ticket: TicketLookupResult }) {
   const steps = buildSteps(ticket);
 
   return (
-    <ol className="space-y-6">
-      {steps.map((step) => {
+    <ol>
+      {steps.map((step, index) => {
         const Icon = step.state === "failed" ? XCircle : step.state === "done" ? CheckCircle2 : Circle;
+        const isLast = index === steps.length - 1;
         return (
-          <li key={step.title} className="flex gap-4">
+          <li key={step.title} className={cn("relative flex gap-4", !isLast && "pb-6")}>
+            {!isLast ? (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "absolute bottom-0 left-[9px] top-6 w-0.5",
+                  step.state === "done" ? "bg-brand-200" : "bg-ink-200",
+                )}
+              />
+            ) : null}
             <Icon
               className={cn(
-                "mt-0.5 h-5 w-5 shrink-0",
+                "relative mt-0.5 h-5 w-5 shrink-0 bg-white",
                 step.state === "failed" && "text-danger",
                 step.state === "done" && "text-brand-500",
                 step.state === "current" && "text-brand-400",
@@ -167,7 +177,7 @@ export function TicketTimeline({ ticket }: { ticket: TicketLookupResult }) {
               >
                 {step.title}
                 {step.date ? (
-                  <span className="ml-2 text-xs font-medium text-ink-500">
+                  <span className="ml-2 text-xs font-medium tabular-nums text-ink-500">
                     {formatDate(step.date)}
                   </span>
                 ) : null}

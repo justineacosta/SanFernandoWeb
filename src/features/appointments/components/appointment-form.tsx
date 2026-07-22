@@ -5,7 +5,9 @@ import Link from "next/link";
 import { CheckCircle2, Copy } from "lucide-react";
 import type { PublicAppointmentValues } from "@/types";
 import { Button } from "@/components/ui/button";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { Card } from "@/components/ui/card";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
 import { manilaToday } from "@/lib/format";
 import { useFieldValidation } from "@/hooks/use-field-validation";
@@ -78,20 +80,21 @@ export function AppointmentForm() {
 
   if (ticketNo) {
     return (
-      <Card className="rounded-3xl p-8">
-        <CheckCircle2 className="mb-4 h-12 w-12 text-brand-500" aria-hidden="true" />
-        <h2 className="mb-2 font-display text-2xl font-bold text-ink-900">
-          Appointment requested
+      <Card className="rounded-3xl p-8 text-center">
+        <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-brand-500" aria-hidden="true" />
+        <Eyebrow className="mb-3 justify-center">Request received</Eyebrow>
+        <h2 className="mb-2 font-display text-3xl font-bold tracking-tight text-ink-900">
+          Appointment <BrandStroke>requested</BrandStroke>
         </h2>
-        <p className="mb-6 text-ink-600">
+        <p className="mx-auto mb-6 max-w-md text-ink-600">
           Keep this ticket number. You will need it — with your last name — to check your
           status at any time.
         </p>
-        <div className="mb-6 rounded-2xl border border-brand-200 bg-brand-100/50 p-6 text-center">
+        <div className="mb-6 rounded-2xl border border-brand-200 bg-brand-50 p-6 text-center">
           <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">
             Your ticket number
           </p>
-          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-ink-900">
+          <p className="mt-2 font-display text-4xl font-bold tabular-nums tracking-tight text-brand-600">
             {ticketNo}
           </p>
           <button
@@ -107,7 +110,7 @@ export function AppointmentForm() {
           Barangay staff will confirm your schedule — the date and time you picked are a
           request, not a booking. Track this number to see the confirmed slot.
         </p>
-        <div className="mb-6 mt-6 rounded-2xl border border-ink-200 bg-ink-50 p-6">
+        <div className="mb-6 mt-6 rounded-2xl border border-ink-200 bg-ink-50 p-6 text-left">
           <p className="mb-2 text-sm font-semibold text-ink-900">What happens next</p>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-ink-600">
             <li>Barangay staff check the schedule you asked for.</li>
@@ -115,7 +118,7 @@ export function AppointmentForm() {
             <li>Track your ticket number anytime to see your confirmed schedule.</li>
           </ol>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
           <Link
             href={`/track?ticket=${encodeURIComponent(ticketNo)}`}
             className="text-sm font-semibold text-brand-700 hover:underline"
