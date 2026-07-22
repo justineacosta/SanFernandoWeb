@@ -234,39 +234,46 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
             </p>
           )}
         </div>
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        ) : null}
       </div>
       {/*
         Archive and Delete moved to the row's actions menu (sub-project 5): a
         destructive action should not require opening an editor you did not
         want to open. Publish stays here because it must persist the on-screen
         values first — see handlePublish.
+
+        The error lives in this footer, not in the scrolling body above it: it
+        is usually the server refusing to publish for want of a portrait or alt
+        text, and a message explaining a button must be visible from that
+        button. Below the achievements editor it never was.
       */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 p-6">
-        <div className="flex flex-wrap gap-2">
-          {id && status !== "published" ? (
-            <Button
-              type="button"
-              variant="accent"
-              disabled={pending}
-              onClick={handlePublish}
-            >
-              Publish
+      <div className="border-t border-ink-200/70 p-6">
+        {error ? (
+          <p role="alert" className="mb-4 text-sm font-medium text-danger">
+            {error}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {status !== "published" ? (
+              <Button
+                type="button"
+                variant="accent"
+                disabled={pending}
+                onClick={handlePublish}
+              >
+                Publish
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-3">
+            <DraftSavedNote savedAt={draft.savedAt} />
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancel
             </Button>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-3">
-          <DraftSavedNote savedAt={draft.savedAt} />
-          <Button type="button" variant="ghost" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : id ? "Save Changes" : "Add Official"}
-          </Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : id ? "Save Changes" : "Add Official"}
+            </Button>
+          </div>
         </div>
       </div>
     </form>

@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  Send,
   Trash2,
   UserCheck,
   Users,
@@ -224,6 +225,26 @@ export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerPr
     });
   };
 
+  /**
+   * Publish straight from the row, like News, Events and Projects.
+   *
+   * The failure path matters more than the success one here: setOfficialStatus
+   * refuses to publish an official with no portrait or no portrait alt text,
+   * and before this the refusal had nowhere to surface — the drawer rendered it
+   * below a long scrolling form. An error toast is the whole point.
+   */
+  const publish = (id: string, name: string) => {
+    startTransition(async () => {
+      const result = await setOfficialStatus(id, "published");
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(`Published ${name}.`);
+      router.refresh();
+    });
+  };
+
   const actionsFor = (record: AdminOfficialRow): RowAction[] => {
     const archived = record.status === "archived";
     const actions: RowAction[] = [
@@ -258,6 +279,12 @@ export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerPr
         icon: Archive,
         tone: "danger",
         onSelect: () => setConfirming({ kind: "archive", id: record.id, name: record.name }),
+      });
+    } else {
+      actions.push({
+        label: "Publish",
+        icon: Send,
+        onSelect: () => publish(record.id, record.name),
       });
     }
     return actions;
