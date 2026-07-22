@@ -229,4 +229,41 @@ enormous drop.
 
 ## 6. What the browser confirmed
 
-*(filled in after verification)*
+Driven per `.claude/skills/verify/SKILL.md` against staging with `0021` applied, the session
+stubbed as two different users (stubs since removed). Every probe record was deleted and the
+seed order restored afterwards: 27 items, 4 blocks, 6 storage objects — exactly the seed.
+
+- **The claim §2.5 exists to make.** Rewrote the mission in the manager; the public `/about`
+  did **not** contain the new text before Save and **did** immediately after. Restoring the
+  original put it back. Revalidation works, so an edit is not invisible for an hour.
+- **Permission gating.** A staff account holding only `manage-news` got the portal's 404 page
+  at `/admin/site-content`, and the sidebar did not list it.
+- **No lifecycle UI.** No Active | Archived toggle and no status chip anywhere in the manager,
+  as §2.3 requires.
+- **Drag and keyboard both reorder.** A pointer drag from row 1 to row 3 rewrote `sort_order`
+  and the public home page rendered the new order. One `ArrowDown` on a focused handle moved
+  an item exactly one place and persisted it — the accessibility claim in §2.11 holds without
+  a mouse.
+- **Uploads still defer to Save (sub-project 7).** Picking a slide image showed *"Uploads when
+  you save"*; cancelling the drawer left `site/` at 6 objects. Saving wrote both the row and
+  the object, and the slide appeared on the home page.
+- **Delete takes the image with it.** Deleting that slide removed the row, the storage object,
+  and the public rendering, returning `site/` to the 6 seeded files.
+- **A blanked block hides its card, not its section.** Clearing the mission stored SQL `NULL`;
+  `/about` dropped the "Our Mission" card while keeping "Our Vision" and the core values row.
+- **Validation is server-side and specific.** An absolute URL in a quick service's link was
+  refused with *"Links must be in-site paths starting with / — for example /services."*
+- **Autosave reaches the new drawers.** A half-typed statistic wrote
+  `sf-draft:v1:<user>:site-item:new-glance_stats`, survived Esc, and was offered back — with
+  the field still empty until Restore was clicked.
+
+Two defects were found and fixed here:
+
+- **A hydration mismatch from `@dnd-kit`.** It numbers its `aria-describedby` ids from a
+  module-level counter, so several lists on one page desynchronise between server and client.
+  Fixed by passing a React `useId()` as the `DndContext` id.
+- **`/about` was prerendered with no revalidate window.** A build made before `0021` was
+  applied would have served the empty-state About page indefinitely, since nothing short of a
+  CMS save would regenerate it. Now `revalidate = 3600`, matching `/`.
+
+`npm run typecheck`, `npx eslint src/`, and `npm run build` are clean; 62/62 Vitest cases pass.

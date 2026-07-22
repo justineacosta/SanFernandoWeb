@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -67,6 +67,13 @@ export function SortableList<T>({
   noun,
   className,
 }: SortableListProps<T>) {
+  // dnd-kit derives its `DndDescribedBy-N` aria ids from a module-level
+  // counter, so with several lists on one page the server and the client
+  // number them differently and React reports a hydration mismatch. A `useId`
+  // is stable across both renders; passing it as the context id fixes the
+  // numbering at the source.
+  const dndId = useId();
+
   const sensors = useSensors(
     // A small activation distance so a click on a button inside the row is not
     // swallowed as the start of a drag.
@@ -87,6 +94,7 @@ export function SortableList<T>({
 
   return (
     <DndContext
+      id={dndId}
       sensors={sensors}
       collisionDetection={closestCenter}
       modifiers={[restrictToVerticalAxis, restrictToParentElement]}

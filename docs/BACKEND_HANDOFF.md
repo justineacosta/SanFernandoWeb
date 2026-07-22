@@ -901,6 +901,58 @@
 >    point here. It already persists every field on blur; what it lacks is a *draft* model, which
 >    is a redesign of how achievements are created, not a use of this hook.
 
+> **Sub-project 9 shipped 2026-07-22 — Home & About CMS.** Spec:
+> `docs/superpowers/specs/2026-07-22-home-about-cms-design.md`. **Migration `0021`.**
+>
+> ⚠️ **`0021` needs `node scripts/upload-site-images.mjs` run once per environment**, in the same
+> sitting. The migration seeds rows pointing at `public-media/site/…`; without the objects the
+> home page renders broken images. Applied to staging (script run); **production still owes both**,
+> alongside `0012`–`0020`.
+>
+> The two pages a visitor sees first were the two the barangay could not edit. Ten blocks moved
+> out of `src/features/{home,about}/data.ts` and into the database.
+> 1. **Two tables, not seven.** `site_blocks` (four singleton texts, keyed by dotted path) and
+>    `site_items` (all seven ordered collections, discriminated by a `site_block` enum with
+>    generic `label`/`value`/`body` slots). Seven tables would have meant seven near-identical
+>    managers. The per-block meaning of those slots is fixed in one descriptor table,
+>    `src/features/admin/site-blocks.ts`, mirroring the migration.
+> 2. **A CHECK constraint carries the shape** the generic columns would otherwise lose — Postgres
+>    rejects a glance stat with no figure or a hero slide with no image. **Maintenance trap,
+>    documented at the constraint:** it is a `CASE` over the enum with no `ELSE`, so a block added
+>    to the enum without extending the `CASE` is silently unvalidated (unmatched `CASE` → `NULL`
+>    → `CHECK` passes).
+> 3. **No status column, and Save writes live.** A page section is not a record with a lifecycle;
+>    a live/draft pair would double every read path and permit an About page with no published
+>    mission because someone left one in review. Consequently there is no **Active | Archived**
+>    toggle here and no `guardDelete` — deletion is direct, behind `ConfirmDialog`, and removes
+>    the item's storage object (sub-project 7's invariant still binds).
+> 4. **Revalidation is the whole requirement.** Umbrella §3.8 framed this as making the pages
+>    dynamic; `/` was already DB-backed under ISR. Every action calls `revalidatePath("/")` and
+>    `revalidatePath("/about")`, without which an edit is invisible for up to an hour and reads
+>    as a broken CMS. `/about` also gained `revalidate = 3600` — it was prerendered once with no
+>    window, so a build made before `0021` landed would have served the empty state indefinitely.
+> 5. **An empty block hides its section**, since §3.8 requires mission and vision to be blankable
+>    and a blank string in a bordered card looks like a bug. The hero is the exception: with no
+>    slides it keeps its heading and buttons rather than leaving the page starting mid-air.
+> 6. **`manage-site-content` is granted to nobody.** Deliberately omitted from
+>    `STATUS_PRESETS.editor` — presets pre-tick boxes for every account created afterwards, so
+>    including it would hand the front page to the next editor without anyone deciding to.
+>    SuperAdmins bypass the array and see the manager on deploy.
+> 7. **`@dnd-kit` arrived, confined to one primitive.** §6.7 below records that avoiding it was a
+>    deliberate choice; the owner asked for it, so `src/components/ui/sortable-list.tsx` is the
+>    only file that imports it, keyboard sensor wired. Every existing up/down list — news photos,
+>    achievements, officials, projects — is untouched. **Pass a `useId()` as the `DndContext` id:**
+>    dnd-kit numbers its `aria-describedby` ids from a module-level counter, so several lists on
+>    one page hydrate mismatched without it.
+> 8. **The carousel and history images left the bundle** for `public-media/site/`. The Punong
+>    Barangay's portrait did **not** need migrating — §3.8 listed it, but `0012` already moved it
+>    and `CaptainMessageSection` reads the officials table with the static import as a fallback.
+>    The get-involved banner is seeded as its existing `lh3` hotlink and is now replaceable, so
+>    the first edit removes one hotlink from the codebase.
+> 9. **Still hardcoded, by design:** section headings and standfirsts, the About `PageHero`, and
+>    the Join-Community panel. Making every string editable is a page builder, not a CMS.
+>    Individual headings can be promoted to fields on request.
+
 ---
 
 ## 1. Current State
