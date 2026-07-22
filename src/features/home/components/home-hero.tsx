@@ -4,10 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { HeroCarousel } from "./hero-carousel";
-import { HERO_SLIDES } from "@/features/home/data";
+import { listHeroSlides } from "@/features/site-content/queries";
 
 /** Full-panel hero: sliding images fading at the edges behind the welcome text. */
-export function HomeHero() {
+export async function HomeHero() {
+  const slides = await listHeroSlides();
   return (
     <section className="relative overflow-hidden pb-16 pt-28 md:pb-24 md:pt-36">
       <div
@@ -60,7 +61,13 @@ export function HomeHero() {
               </div>
             </div>
           </div>
-          <HeroCarousel slides={HERO_SLIDES} />
+          {/*
+            The one section that survives an empty block (design §2.6): the
+            heading, tagline and buttons above carry the page on their own, so
+            with no slides the hero just loses its image layer instead of
+            leaving the home page starting mid-air.
+          */}
+          {slides.length > 0 ? <HeroCarousel slides={slides} /> : null}
         </div>
       </Container>
     </section>

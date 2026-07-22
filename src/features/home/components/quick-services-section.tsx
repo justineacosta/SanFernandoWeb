@@ -3,10 +3,13 @@ import { Card } from "@/components/ui/card";
 import { IconCircle } from "@/components/ui/icon-circle";
 import { Section } from "@/components/ui/section";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { QUICK_SERVICES } from "@/features/home/data";
+import { listQuickServices } from "@/features/site-content/queries";
 
 /** Six-up grid of the most requested citizen services. */
-export function QuickServicesSection() {
+export async function QuickServicesSection() {
+  const services = await listQuickServices();
+  // A heading with an empty grid under it reads as a broken page (design §2.6).
+  if (services.length === 0) return null;
   return (
     <Section tone="white">
       <SectionHeading
@@ -14,7 +17,7 @@ export function QuickServicesSection() {
         action={{ label: "View All Services", href: "/services" }}
       />
       <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-6">
-        {QUICK_SERVICES.map((service) => (
+        {services.map((service) => (
           <Card
             key={service.title}
             interactive

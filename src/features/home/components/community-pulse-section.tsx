@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { ArrowRight, BarChart2, Calendar, Megaphone } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Section } from "@/components/ui/section";
 import { AnnouncementCard } from "@/components/shared/announcement-card";
 import { EventCard } from "@/components/shared/event-card";
 import { StatCard } from "@/components/shared/stat-card";
-import { GLANCE_STATS } from "@/features/home/data";
 import { listPublishedAnnouncements } from "@/features/announcements/queries";
 import { listUpcomingEvents } from "@/features/events/queries";
+import { listGlanceStats } from "@/features/site-content/queries";
 
 function ViewAllLink({ label, href }: { label: string; href: string }) {
   return (
@@ -23,13 +24,19 @@ function ViewAllLink({ label, href }: { label: string; href: string }) {
 
 /** Three-column dashboard: announcements, upcoming events, and barangay statistics. */
 export async function CommunityPulseSection() {
-  const [announcements, events] = await Promise.all([
+  const [announcements, events, stats] = await Promise.all([
     listPublishedAnnouncements(3),
     listUpcomingEvents(4),
+    listGlanceStats(),
   ]);
   return (
     <Section tone="muted">
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+      {/*
+        Only the glance card is content-managed, so an empty stats block hides
+        that card alone (design §2.6) — announcements and events still belong
+        here. Two columns then, rather than a third of empty row.
+      */}
+      <div className={cn("grid grid-cols-1 gap-8", stats.length > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2")}>
         <Card className="p-6">
           <CardHeader
             title="Announcements"
@@ -62,20 +69,22 @@ export async function CommunityPulseSection() {
           </Button>
         </Card>
 
-        <Card className="p-6">
-          <CardHeader
-            title="Barangay at a Glance"
-            icon={<BarChart2 className="h-5 w-5 text-brand-500" aria-hidden="true" />}
-          />
-          <div className="space-y-4">
-            {GLANCE_STATS.map((stat) => (
-              <StatCard key={stat.label} stat={stat} />
-            ))}
-          </div>
-          <Button href="/transparency" className="mt-6 w-full">
-            More Statistics
-          </Button>
-        </Card>
+        {stats.length > 0 ? (
+          <Card className="p-6">
+            <CardHeader
+              title="Barangay at a Glance"
+              icon={<BarChart2 className="h-5 w-5 text-brand-500" aria-hidden="true" />}
+            />
+            <div className="space-y-4">
+              {stats.map((stat) => (
+                <StatCard key={stat.label} stat={stat} />
+              ))}
+            </div>
+            <Button href="/transparency" className="mt-6 w-full">
+              More Statistics
+            </Button>
+          </Card>
+        ) : null}
       </div>
     </Section>
   );

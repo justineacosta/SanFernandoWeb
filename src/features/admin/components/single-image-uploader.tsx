@@ -21,6 +21,14 @@ interface SingleImageUploaderProps {
   onRemoveExistingChange: (remove: boolean) => void;
   /** Field id prefix, so two uploaders on one page keep distinct label targets. */
   idPrefix: string;
+  /**
+   * Hides the alt-text field. Only for images that are genuinely decorative —
+   * the Get Involved banner is a CSS background behind its own heading, so it
+   * is never announced and has no alt attribute to fill. Asking for alt text
+   * that nothing renders trains editors to ignore the field on the images that
+   * do need it.
+   */
+  decorative?: boolean;
 }
 
 /**
@@ -41,6 +49,7 @@ export function SingleImageUploader({
   removeExisting,
   onRemoveExistingChange,
   idPrefix,
+  decorative = false,
 }: SingleImageUploaderProps) {
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -174,7 +183,7 @@ export function SingleImageUploader({
 
       {error ? <p role="alert" className="text-sm font-medium text-danger">{error}</p> : null}
 
-      {file || showExisting ? (
+      {!decorative && (file || showExisting) ? (
         <Field label="Image description (alt text)" htmlFor={altId}>
           <Input id={altId} value={alt} onChange={(e) => onAltChange(e.target.value)} />
         </Field>

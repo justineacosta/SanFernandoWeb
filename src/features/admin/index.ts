@@ -22,3 +22,5 @@ export { TransparencyProjectsPanel } from "./components/transparency-projects-pa
 export { TransparencyCategoriesPanel } from "./components/transparency-categories-panel";
 export { OfficialsManager } from "./components/officials-manager";
 export { OfficialForm } from "./components/official-form";
+export { SiteContentManager } from "./components/site-content-manager";
+export { SiteItemForm } from "./components/site-item-form";

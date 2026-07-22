@@ -11,6 +11,7 @@ import {
   Megaphone,
   MessagesSquare,
   Newspaper,
+  PanelsTopLeft,
   PartyPopper,
   Scale,
   Settings,
@@ -37,6 +38,7 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Event Calendar", href: "/admin/events", icon: CalendarDays, permission: "manage-news" },
   { label: "News & Announcements", href: "/admin/news", icon: Megaphone, permission: "manage-news" },
   { label: "Officials", href: "/admin/officials", icon: Users, permission: "manage-officials" },
+  { label: "Site Content", href: "/admin/site-content", icon: PanelsTopLeft, permission: "manage-site-content" },
   { label: "Audit Logs", href: "/admin/audit", icon: History, superAdminOnly: true },
   { label: "Settings", href: "/admin/settings", icon: Settings },
 ];

@@ -14,6 +14,16 @@ export const metadata: Metadata = {
     "Discover the history, mission, vision, and milestones of Barangay San Fernando.",
 };
 
+/**
+ * Matches the home page's window. Every site-content action already calls
+ * `revalidatePath("/about")`, so an editor's save appears immediately and this
+ * is not what keeps the page current — it is the backstop. Without it the page
+ * is prerendered once and never re-checked, so a build made before migration
+ * 0021 was applied would serve the empty-state About page indefinitely, with
+ * nothing short of a CMS save or a redeploy to shift it.
+ */
+export const revalidate = 3600;
+
 export default function AboutPage() {
   return (
     <>

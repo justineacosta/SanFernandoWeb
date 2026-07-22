@@ -3,16 +3,21 @@ import { Quote } from "lucide-react";
 import { Section } from "@/components/ui/section";
 import { CAPTAIN } from "@/features/about/data";
 import { getPublishedExecutiveOfficial } from "@/features/officials/queries";
+import { getCaptainMessage } from "@/features/site-content/queries";
 
 /**
  * Portrait and bilingual message from the Punong Barangay. Name, role, and
  * portrait come from the officials table (kept in sync by /admin/officials)
  * so an election only has to be recorded once; they fall back to the static
- * CAPTAIN values if that query returns null. The quoted message itself has
- * no DB counterpart and is always static — see CAPTAIN.message.
+ * CAPTAIN values if that query returns null (design §2.7 keeps that path).
+ * The message itself is a site-content block, stored as one text value and
+ * split into paragraphs on blank lines.
  */
 export async function CaptainMessageSection() {
-  const executive = await getPublishedExecutiveOfficial();
+  const [executive, message] = await Promise.all([
+    getPublishedExecutiveOfficial(),
+    getCaptainMessage(),
+  ]);
   const name = executive?.name ?? CAPTAIN.name;
   const role = executive?.role ?? CAPTAIN.role;
   const photoSrc = executive?.photoUrl ?? CAPTAIN.photo;
@@ -42,17 +47,23 @@ export async function CaptainMessageSection() {
             <p className="text-sm uppercase tracking-wider opacity-80">{role}</p>
           </div>
         </div>
-        <div className="w-full md:w-2/3">
-          <Quote className="mb-4 h-14 w-14 text-ink-300" aria-hidden="true" />
-          <h2 className="mb-6 text-2xl font-semibold tracking-tight text-ink-900">
-            A Message from the Punong Barangay
-          </h2>
-          <div className="space-y-4 text-lg italic leading-relaxed text-ink-700">
-            {CAPTAIN.message.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
+        {/*
+          A cleared message drops the quote column but not the portrait: who
+          leads the barangay is officials-table data and stands without it.
+        */}
+        {message.length > 0 ? (
+          <div className="w-full md:w-2/3">
+            <Quote className="mb-4 h-14 w-14 text-ink-300" aria-hidden="true" />
+            <h2 className="mb-6 text-2xl font-semibold tracking-tight text-ink-900">
+              A Message from the Punong Barangay
+            </h2>
+            <div className="space-y-4 text-lg italic leading-relaxed text-ink-700">
+              {message.map((paragraph) => (
+                <p key={paragraph}>{paragraph}</p>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </Section>
   );
