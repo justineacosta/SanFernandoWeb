@@ -40,6 +40,7 @@ import {
 } from "@/features/admin/actions/officials";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
+import { AdminPageHeader } from "./admin-page-header";
 import { AdminStatCard } from "./admin-stat-card";
 import { ArchivedNote } from "./archived-note";
 import { OfficialForm, type OfficialEditRecord } from "./official-form";
@@ -303,12 +304,16 @@ export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerPr
 
   return (
     <>
-      <div className="mb-6 flex justify-end">
-        <Button onClick={openCreate}>
-          <Plus className="h-5 w-5" aria-hidden="true" />
-          Add New Official
-        </Button>
-      </div>
+      <AdminPageHeader
+        title="Manage Officials"
+        description="The barangay directory as the public sees it — order, sections, and who is currently published."
+        action={
+          <Button onClick={openCreate}>
+            <Plus className="h-5 w-5" aria-hidden="true" />
+            Add New Official
+          </Button>
+        }
+      />
       <div className="mb-6 grid gap-6 sm:grid-cols-3">
         <AdminStatCard icon={UserCheck} label="Published" value={published} />
         <AdminStatCard icon={Users} label="Drafts" value={drafts} tone="secondary" />
@@ -319,49 +324,57 @@ export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerPr
           title="Officials Directory"
           className="mb-0 flex-wrap gap-3 px-6 pt-6"
           action={
-            <div className="flex flex-wrap items-center gap-3">
-              <ViewToggle
-                view={view}
-                archivedCount={archived}
-                noun="officials"
-                onChange={(next) => {
-                  setView(next);
-                  setStatus("all");
-                }}
-              />
-              <AdminFilterBar
-                search={{
-                  id: "official-search",
-                  value: search,
-                  placeholder: "Search name or position...",
-                  onChange: setSearch,
-                }}
-                selects={[
-                  {
-                    id: "official-group-filter",
-                    label: "Section",
-                    value: group,
-                    options: GROUP_OPTIONS,
-                    onChange: setGroup,
-                  },
-                  // Every row in the Archived view holds the same status, so
-                  // the dropdown has nothing left to narrow.
-                  ...(view === "active"
-                    ? [
-                        {
-                          id: "official-status-filter",
-                          label: "Status",
-                          value: status,
-                          options: STATUS_OPTIONS,
-                          onChange: setStatus,
-                        },
-                      ]
-                    : []),
-                ]}
-              />
-            </div>
+            <AdminFilterBar
+              search={{
+                id: "official-search",
+                value: search,
+                placeholder: "Search name or position...",
+                onChange: setSearch,
+              }}
+              selects={[
+                {
+                  id: "official-group-filter",
+                  label: "Section",
+                  value: group,
+                  options: GROUP_OPTIONS,
+                  onChange: setGroup,
+                },
+                // Every row in the Archived view holds the same status, so
+                // the dropdown has nothing left to narrow.
+                ...(view === "active"
+                  ? [
+                      {
+                        id: "official-status-filter",
+                        label: "Status",
+                        value: status,
+                        options: STATUS_OPTIONS,
+                        onChange: setStatus,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
           }
         />
+        {/*
+          The view toggle sits on its own row under the heading rather than in
+          the header's right-hand cluster. In that cluster it shared a wrapping
+          flex row with the filter bar, so switching to Archived — which also
+          drops the Status select — reflowed the toggle itself. Here it cannot
+          move, and because search is the first control in AdminFilterBar,
+          losing a trailing select shifts nothing to its left either.
+        */}
+        <div className="px-6 pb-4 pt-4">
+          <ViewToggle
+            view={view}
+            archivedCount={archived}
+            noun="officials"
+            onChange={(next) => {
+              setView(next);
+              setStatus("all");
+            }}
+          />
+        </div>
         {filtered.length === 0 ? (
           view === "archived" && archived === 0 ? (
             <AdminEmptyState message="Nothing archived. Archived officials are kept here as term history." />
