@@ -35,7 +35,12 @@ export function AdminMobileNav({
             className="absolute inset-0 bg-ink-900/40"
           />
           <div className="absolute left-0 top-0" onClick={close}>
-            <AdminSidebar className="shadow-xl" isSuperAdmin={isSuperAdmin} permissions={permissions} />
+            <AdminSidebar
+              className="shadow-xl"
+              isSuperAdmin={isSuperAdmin}
+              permissions={permissions}
+              collapsed={false}
+            />
           </div>
         </div>
       ) : null}
