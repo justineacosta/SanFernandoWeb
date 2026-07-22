@@ -8,6 +8,7 @@ import { LayoutGroup, MotionConfig, motion } from "motion/react";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { Permission } from "@/types";
 import { cn } from "@/lib/utils";
+import { SPRING_INDICATOR } from "@/lib/motion";
 import { SITE } from "@/constants/site";
 import { groupNavItems } from "@/lib/admin-nav";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -146,7 +147,7 @@ export function AdminSidebar({
                           <motion.span
                             layoutId="active-nav"
                             aria-hidden="true"
-                            transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                            transition={SPRING_INDICATOR}
                             className="absolute inset-0 rounded-lg bg-white/10 ring-1 ring-inset ring-white/10"
                           >
                             <span className="absolute left-0 top-1/2 h-5 w-0.75 -translate-y-1/2 rounded-r-full bg-brand-400" />

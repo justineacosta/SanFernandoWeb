@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import type { SessionUser } from "@/types";
 import { cn } from "@/lib/utils";
+import { POP } from "@/lib/motion";
 import { adminPageTitle } from "@/lib/admin-nav";
 import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
 import { AdminGlobalSearch } from "@/features/admin/components/admin-global-search";
@@ -70,7 +71,7 @@ export function AdminTopBar({ user }: { user: SessionUser }) {
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
+                transition={POP}
                 className="truncate text-lg font-semibold tracking-tight text-ink-900 md:text-xl"
               >
                 {title}

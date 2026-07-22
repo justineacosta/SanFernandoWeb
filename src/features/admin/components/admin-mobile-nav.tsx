@@ -3,6 +3,7 @@
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { Menu, X } from "lucide-react";
 import type { Permission } from "@/types";
+import { FADE_QUICK, SPRING_PANEL } from "@/lib/motion";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { AdminSidebar } from "@/features/admin/components/admin-sidebar";
 
@@ -38,7 +39,7 @@ export function AdminMobileNav({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
+                transition={FADE_QUICK}
                 className="absolute inset-0 bg-ink-900/40 backdrop-blur-[2px]"
               />
               <motion.div
@@ -46,7 +47,7 @@ export function AdminMobileNav({
                 initial={{ x: -288 }}
                 animate={{ x: 0 }}
                 exit={{ x: -288 }}
-                transition={{ type: "spring", stiffness: 380, damping: 40 }}
+                transition={SPRING_PANEL}
                 className="absolute left-0 top-0"
                 onClick={close}
               >
