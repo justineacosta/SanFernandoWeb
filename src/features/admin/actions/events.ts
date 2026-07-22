@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AuditActionType, ContentStatus, EventValues, SessionUser } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
+import { statusPatch } from "@/lib/archive";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getEventForEdit } from "@/features/admin/queries/events";
@@ -171,9 +172,23 @@ export async function archiveEvent(id: string): Promise<ActionResult> {
     actor,
     id,
     ["draft", "in-review", "published"],
-    { status: "archived" },
+    statusPatch(actor, "archived"),
     "archive",
     "archived event",
+  );
+}
+
+/** Bring an archived event back as a draft — not straight back onto the calendar. */
+export async function restoreEvent(id: string): Promise<ActionResult> {
+  const actor = await checkPermission("manage-news");
+  if (!actor) return { error: NOT_FOUND };
+  return applyTransition(
+    actor,
+    id,
+    ["archived"],
+    statusPatch(actor, "draft"),
+    "restore",
+    "restored event",
   );
 }
 
@@ -192,7 +207,9 @@ export async function publishEvent(id: string): Promise<ActionResult> {
   if (!row.title?.trim() || !row.event_date || !row.start_time?.trim() || !row.venue?.trim()) {
     return { error: "Add a title, date, start time, and venue before publishing." };
   }
-  const patch: Record<string, unknown> = { status: "published" };
+  // statusPatch also clears the archive provenance, so publishing straight out
+  // of `archived` does not leave the row claiming it is still archived.
+  const patch = statusPatch(actor, "published");
   if (!row.published_at) patch.published_at = new Date().toISOString();
   const { data, error } = await admin
     .from("events")

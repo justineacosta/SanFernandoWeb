@@ -10,6 +10,7 @@ import {
   Eye,
   Pencil,
   Plus,
+  RotateCcw,
   Trash2,
   UserCheck,
   Users,
@@ -23,6 +24,7 @@ import { Drawer } from "@/components/ui/drawer";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
+import { ViewToggle, type TableView } from "@/components/ui/view-toggle";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useTableSort } from "@/components/ui/use-table-sort";
 import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
@@ -32,6 +34,7 @@ import {
   deleteOfficial,
   getOfficialForEditAction,
   reorderOfficials,
+  restoreOfficial,
   setOfficialStatus,
 } from "@/features/admin/actions/officials";
 import { AdminEmptyState } from "./admin-empty-state";
@@ -40,11 +43,12 @@ import { AdminStatCard } from "./admin-stat-card";
 import { OfficialForm, type OfficialEditRecord } from "./official-form";
 import { StatusChip } from "./status-chip";
 
+// No "archived" here — archived officials live in their own view now, so the
+// dropdown only offers states a live record can hold.
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
   { value: "draft", label: "Draft" },
   { value: "published", label: "Published" },
-  { value: "archived", label: "Archived" },
 ];
 
 const GROUP_OPTIONS = [
@@ -62,21 +66,28 @@ const GROUP_LABELS: Record<AdminOfficialRow["group"], string> = {
 
 interface OfficialsManagerProps {
   officials: AdminOfficialRow[];
+  /**
+   * Decides whether Delete is offered in the Archived view. Presentation only —
+   * `deleteOfficial` re-checks with `checkSuperAdmin()`, because a Server Action
+   * is a public HTTP endpoint and a prop is not a gate.
+   */
+  isSuperAdmin: boolean;
 }
 
 /** A row action awaiting confirmation. Null when no dialog is open. */
 type PendingAction = {
-  kind: "archive" | "delete";
+  kind: "archive" | "delete" | "restore";
   id: string;
   name: string;
 } | null;
 
 /** Officials directory: stat cards, filters, ordered table, drawer editor. */
-export function OfficialsManager({ officials }: OfficialsManagerProps) {
+export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState("all");
   const [status, setStatus] = useState("all");
+  const [view, setView] = useState<TableView>("active");
   const [editing, setEditing] = useState<OfficialEditRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
@@ -94,11 +105,12 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
   const filtered = useMemo(() => {
     const narrowed = officials.filter(
       (record) =>
+        (record.status === "archived") === (view === "archived") &&
         (group === "all" || record.group === group) &&
         (status === "all" || record.status === status),
     );
     return fuzzyFilter(narrowed, search, (record) => haystack(record.name, record.role));
-  }, [officials, search, group, status]);
+  }, [officials, view, search, group, status]);
 
   // `officials` arrives in stored directory order, so a row's index in it IS
   // its order — no separate sortOrder field needed.
@@ -121,9 +133,10 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
   /*
    * Reordering is only coherent while the rows on screen are the whole
    * directory in its stored order: "move up" means "swap with the row above",
-   * and both filtering and sorting by another column break that adjacency.
+   * and filtering, sorting by another column, or looking at the Archived view
+   * all break that adjacency.
    */
-  const reorderable = !filtersActive && sortKey === "order";
+  const reorderable = view === "active" && !filtersActive && sortKey === "order";
 
   const openCreate = () => {
     setEditing(null);
@@ -188,43 +201,62 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
       const result =
         kind === "delete"
           ? await deleteOfficial(id)
-          : await setOfficialStatus(id, "archived");
+          : kind === "restore"
+            ? await restoreOfficial(id)
+            : await setOfficialStatus(id, "archived");
       setActionPending(false);
       setConfirming(null);
       if (result.error) {
         showError(result.error);
         return;
       }
-      showToast(kind === "delete" ? `Deleted ${name}.` : `Archived ${name}.`);
+      showToast(
+        kind === "delete"
+          ? `Deleted ${name}.`
+          : kind === "restore"
+            ? `Restored ${name} as a draft.`
+            : `Archived ${name}.`,
+      );
       router.refresh();
     });
   };
 
   const actionsFor = (record: AdminOfficialRow): RowAction[] => {
+    const archived = record.status === "archived";
     const actions: RowAction[] = [
       {
-        label: record.status === "archived" ? "View details" : "Edit official",
-        icon: record.status === "archived" ? Eye : Pencil,
+        label: archived ? "View details" : "Edit official",
+        icon: archived ? Eye : Pencil,
         onSelect: () => openEdit(record),
         disabled: loadingEditId === record.id,
       },
     ];
-    // Archiving is only meaningful for a record the public can currently see.
-    if (record.status === "published") {
+    if (archived) {
+      actions.push({
+        label: "Restore",
+        icon: RotateCcw,
+        onSelect: () => setConfirming({ kind: "restore", id: record.id, name: record.name }),
+      });
+      // Umbrella §3.2: permanent deletion is SuperAdmin-only, and only from
+      // here. A non-SuperAdmin sees no Delete rather than a disabled one —
+      // showing a control that can never work teaches people to click it.
+      if (isSuperAdmin) {
+        actions.push({
+          label: "Delete",
+          icon: Trash2,
+          tone: "danger",
+          onSelect: () => setConfirming({ kind: "delete", id: record.id, name: record.name }),
+        });
+      }
+    } else if (record.status === "published") {
+      // Archiving is only meaningful for a record the public can currently see.
       actions.push({
         label: "Archive",
         icon: Archive,
         tone: "danger",
-        onSelect: () =>
-          setConfirming({ kind: "archive", id: record.id, name: record.name }),
+        onSelect: () => setConfirming({ kind: "archive", id: record.id, name: record.name }),
       });
     }
-    actions.push({
-      label: "Delete",
-      icon: Trash2,
-      tone: "danger",
-      onSelect: () => setConfirming({ kind: "delete", id: record.id, name: record.name }),
-    });
     return actions;
   };
 
@@ -257,34 +289,53 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
           title="Officials Directory"
           className="mb-0 flex-wrap gap-3 px-6 pt-6"
           action={
-            <AdminFilterBar
-              search={{
-                id: "official-search",
-                value: search,
-                placeholder: "Search name or position...",
-                onChange: setSearch,
-              }}
-              selects={[
-                {
-                  id: "official-group-filter",
-                  label: "Section",
-                  value: group,
-                  options: GROUP_OPTIONS,
-                  onChange: setGroup,
-                },
-                {
-                  id: "official-status-filter",
-                  label: "Status",
-                  value: status,
-                  options: STATUS_OPTIONS,
-                  onChange: setStatus,
-                },
-              ]}
-            />
+            <div className="flex flex-wrap items-center gap-3">
+              <ViewToggle
+                view={view}
+                archivedCount={archived}
+                noun="officials"
+                onChange={(next) => {
+                  setView(next);
+                  setStatus("all");
+                }}
+              />
+              <AdminFilterBar
+                search={{
+                  id: "official-search",
+                  value: search,
+                  placeholder: "Search name or position...",
+                  onChange: setSearch,
+                }}
+                selects={[
+                  {
+                    id: "official-group-filter",
+                    label: "Section",
+                    value: group,
+                    options: GROUP_OPTIONS,
+                    onChange: setGroup,
+                  },
+                  // Every row in the Archived view holds the same status, so
+                  // the dropdown has nothing left to narrow.
+                  ...(view === "active"
+                    ? [
+                        {
+                          id: "official-status-filter",
+                          label: "Status",
+                          value: status,
+                          options: STATUS_OPTIONS,
+                          onChange: setStatus,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            </div>
           }
         />
         {filtered.length === 0 ? (
-          officials.length === 0 ? (
+          view === "archived" && archived === 0 ? (
+            <AdminEmptyState message="Nothing archived. Archived officials are kept here as term history." />
+          ) : officials.length === 0 ? (
             <AdminEmptyState message="No officials yet. Add the first one." />
           ) : (
             <AdminEmptyState message="No officials match your filters." onClear={clearFilters} />
@@ -395,13 +446,25 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
       </Drawer>
       <ConfirmDialog
         open={confirming !== null}
-        title={confirming?.kind === "delete" ? "Delete this official?" : "Archive this official?"}
+        title={
+          confirming?.kind === "delete"
+            ? "Delete this official?"
+            : confirming?.kind === "restore"
+              ? "Restore this official?"
+              : "Archive this official?"
+        }
         body={
           confirming?.kind === "delete" ? (
             <>
-              <strong className="font-semibold text-ink-900">{confirming.name}</strong> and
-              their achievements will be removed permanently. Archiving keeps the record as
-              term history — this does not.
+              <strong className="font-semibold text-ink-900">{confirming.name}</strong>, their
+              portrait, and every achievement photo will be removed permanently. There is no
+              undo. Archiving keeps the record as term history — this does not.
+            </>
+          ) : confirming?.kind === "restore" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.name}</strong> comes
+              back as a <strong className="font-semibold text-ink-900">draft</strong>, not
+              onto the public directory. Publish them again when you are ready.
             </>
           ) : (
             <>
@@ -411,7 +474,13 @@ export function OfficialsManager({ officials }: OfficialsManagerProps) {
             </>
           )
         }
-        confirmLabel={confirming?.kind === "delete" ? "Delete" : "Archive"}
+        confirmLabel={
+          confirming?.kind === "delete"
+            ? "Delete"
+            : confirming?.kind === "restore"
+              ? "Restore"
+              : "Archive"
+        }
         pending={actionPending}
         onConfirm={runConfirmed}
         onCancel={() => setConfirming(null)}

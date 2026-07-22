@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, OfficialValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
+import { guardDelete, statusPatch } from "@/lib/archive";
 import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getOfficialForEdit } from "@/features/admin/queries/officials";
@@ -259,7 +260,7 @@ export async function setOfficialStatus(
     };
   }
 
-  const patch: Record<string, unknown> = { status: nextStatus };
+  const patch = statusPatch(actor, nextStatus);
   if (nextStatus === "published" && !existing.published_at) {
     patch.published_at = new Date().toISOString();
   }
@@ -279,19 +280,20 @@ export async function setOfficialStatus(
 }
 
 /**
- * Hard delete — for mistakes only. Archiving is the normal path for a
- * departure (spec §6): the record is term history worth keeping.
+ * Hard delete — SuperAdmin only, and only from `archived` (umbrella §3.2).
+ * Archiving is the normal path for a departure (spec §6): the record is term
+ * history worth keeping, and this removes the portrait and every achievement
+ * photo with no undo.
  */
 export async function deleteOfficial(id: string): Promise<ActionResult> {
-  const actor = await checkPermission("manage-officials");
-  if (!actor) return { error: NOT_FOUND };
+  const guard = await guardDelete<{ name: string; slug: string; photo_path: string | null }>(
+    "officials",
+    id,
+    "name, slug, photo_path",
+  );
+  if (!guard.ok) return { error: guard.error };
+  const { actor, row: existing } = guard;
   const admin = createSupabaseAdminClient();
-
-  const { data: existing } = await admin
-    .from("officials")
-    .select("name, slug, photo_path")
-    .eq("id", id)
-    .maybeSingle();
 
   // Deleting the official cascades away its achievements and their photo
   // ROWS, but Postgres knows nothing about Storage. Collect the objects while
@@ -324,8 +326,8 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
   const { error } = await admin.from("officials").delete().eq("id", id);
   if (error) return { error: "Could not delete the official." };
 
-  if (existing?.photo_path) {
-    const removed = await removeStoredImage(existing.photo_path as string);
+  if (existing.photo_path) {
+    const removed = await removeStoredImage(existing.photo_path);
     if (removed.error) {
       console.error(`Orphaned storage object (portrait cleanup failed): ${existing.photo_path}`);
     }
@@ -335,9 +337,41 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
     action: "deleted official",
     entityType: "official",
     entityId: id,
-    entityLabel: (existing?.name as string) ?? "",
+    entityLabel: existing.name,
   });
-  revalidate((existing?.slug as string) ?? undefined);
+  revalidate(existing.slug);
+  return { error: null };
+}
+
+/**
+ * Bring an archived official back as a draft — not straight to the public
+ * directory. See `restorePatch`.
+ */
+export async function restoreOfficial(id: string): Promise<ActionResult> {
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("officials")
+    .update(statusPatch(actor, "draft"))
+    .eq("id", id)
+    // Guarded in the WHERE clause so a stale tab cannot "restore" a live record
+    // back down to draft and quietly pull it off the public directory.
+    .eq("status", "archived")
+    .select("name, slug")
+    .maybeSingle();
+  if (error) return { error: "Could not restore the official." };
+  if (!data) return { error: "That official is not archived. Refresh to see the current state." };
+
+  await recordActivity(actor, {
+    type: "restore",
+    action: "restored official",
+    entityType: "official",
+    entityId: id,
+    entityLabel: data.name as string,
+  });
+  revalidate(data.slug as string);
   return { error: null };
 }
 

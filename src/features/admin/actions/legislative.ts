@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, LegislativeValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
+import { guardDelete, statusPatch } from "@/lib/archive";
 import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getLegislativeForEdit } from "@/features/admin/queries/transparency";
@@ -293,7 +294,7 @@ export async function setLegislativeStatus(
     .maybeSingle();
   if (readErr || !existing) return { error: "Document not found." };
 
-  const patch: Record<string, unknown> = { status: nextStatus };
+  const patch = statusPatch(actor, nextStatus);
   if (nextStatus === "published" && !existing.published_at) {
     patch.published_at = new Date().toISOString();
   }
@@ -313,31 +314,59 @@ export async function setLegislativeStatus(
 }
 
 /**
- * Hard delete — for mistakes only. Archiving is the normal path (spec §6):
- * a repealed ordinance is legal history and must stay readable.
+ * Hard delete — SuperAdmin only, and only from `archived` (umbrella §3.2).
+ * Archiving is the normal path (spec §6): a repealed ordinance is legal history
+ * and must stay readable. This removes the PDF too, which is very likely the
+ * barangay's only digital copy.
  */
 export async function deleteLegislative(id: string): Promise<ActionResult> {
-  const actor = await checkPermission("manage-transparency");
-  if (!actor) return { error: NOT_FOUND };
+  const guard = await guardDelete<{ number: string; slug: string; file_path: string | null }>(
+    "legislative_documents",
+    id,
+    "number, slug, file_path",
+  );
+  if (!guard.ok) return { error: guard.error };
+  const { actor, row: existing } = guard;
   const admin = createSupabaseAdminClient();
-
-  const { data: existing } = await admin
-    .from("legislative_documents")
-    .select("number, slug, file_path")
-    .eq("id", id)
-    .maybeSingle();
 
   const { error } = await admin.from("legislative_documents").delete().eq("id", id);
   if (error) return { error: "Could not delete the document." };
 
-  if (existing?.file_path) await removeStoredDocument(existing.file_path as string);
+  if (existing.file_path) await removeStoredDocument(existing.file_path);
   await recordActivity(actor, {
     type: "delete",
     action: "deleted document",
     entityType: "legislative document",
     entityId: id,
-    entityLabel: (existing?.number as string) ?? "",
+    entityLabel: existing.number,
   });
-  revalidate((existing?.slug as string) ?? undefined);
+  revalidate(existing.slug);
+  return { error: null };
+}
+
+/** Bring an archived ordinance back as a draft — not straight back onto the public list. */
+export async function restoreLegislative(id: string): Promise<ActionResult> {
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("legislative_documents")
+    .update(statusPatch(actor, "draft"))
+    .eq("id", id)
+    .eq("status", "archived")
+    .select("number, slug")
+    .maybeSingle();
+  if (error) return { error: "Could not restore the document." };
+  if (!data) return { error: "That document is not archived. Refresh to see the current state." };
+
+  await recordActivity(actor, {
+    type: "restore",
+    action: "restored document",
+    entityType: "legislative document",
+    entityId: id,
+    entityLabel: data.number as string,
+  });
+  revalidate(data.slug as string);
   return { error: null };
 }

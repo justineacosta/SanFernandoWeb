@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Archive, Clock, MapPin, Pencil, Plus, Send } from "lucide-react";
+import { Archive, Clock, Eye, MapPin, Pencil, Plus, RotateCcw, Send } from "lucide-react";
 import type { AdminEventRow } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
+import { ViewToggle, type TableView } from "@/components/ui/view-toggle";
 import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { toCalendarParts } from "@/lib/format";
@@ -21,6 +22,7 @@ import {
   archiveEvent,
   getEventForEditAction,
   publishEvent,
+  restoreEvent,
 } from "@/features/admin/actions/events";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
@@ -32,13 +34,17 @@ import { StatusChip } from "./status-chip";
 
 const PAGE_SIZE = 8;
 
+// No "archived" here — archived events live in their own view now, so the
+// dropdown only offers states a live record can hold.
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
   { value: "draft", label: "Draft" },
   { value: "in-review", label: "In Review" },
   { value: "published", label: "Published" },
-  { value: "archived", label: "Archived" },
 ];
+
+/** A row action awaiting confirmation. Null when no dialog is open. */
+type PendingAction = { kind: "archive" | "restore"; record: AdminEventRow } | null;
 
 interface EventsManagerProps {
   events: AdminEventRow[];
@@ -50,28 +56,32 @@ export function EventsManager({ events }: EventsManagerProps) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
+  const [view, setView] = useState<TableView>("active");
   const [page, setPage] = useState(1);
 
   const [editing, setEditing] = useState<EventEditRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<AdminEventRow | null>(null);
+  const [confirming, setConfirming] = useState<PendingAction>(null);
   const [actionPending, setActionPending] = useState(false);
   const { toast, showToast, showError, dismissToast } = useToast();
   const [, startTransition] = useTransition();
 
   const resetPage = () => setPage(1);
 
+  const archivedCount = events.filter((record) => record.status === "archived").length;
+
   const filtered = useMemo(() => {
     const narrowed = events.filter(
       (record) =>
+        (record.status === "archived") === (view === "archived") &&
         (category === "all" || record.category === category) &&
         (status === "all" || record.status === status),
     );
     return fuzzyFilter(narrowed, search, (record) =>
       haystack(record.title, record.venue),
     );
-  }, [events, search, category, status]);
+  }, [events, view, search, category, status]);
 
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -118,41 +128,57 @@ export function EventsManager({ events }: EventsManagerProps) {
     });
   };
 
-  /** Run the confirmed archive; the dialog stays locked until it answers. */
+  /** Run the confirmed row action; the dialog stays locked until it answers. */
   const runConfirmed = () => {
     if (!confirming) return;
-    const record = confirming;
+    const { kind, record } = confirming;
     setActionPending(true);
     startTransition(async () => {
-      const result = await archiveEvent(record.id);
+      const result = kind === "archive" ? await archiveEvent(record.id) : await restoreEvent(record.id);
       setActionPending(false);
       setConfirming(null);
       if (result.error) {
         showError(result.error);
         return;
       }
-      showToast(`Archived ${record.title}.`);
+      showToast(
+        kind === "archive" ? `Archived ${record.title}.` : `Restored ${record.title} as a draft.`,
+      );
       router.refresh();
     });
   };
 
   /** Events are taken down, not deleted — the calendar is a public record. */
-  const actionsFor = (record: AdminEventRow): RowAction[] => [
-    {
-      label: "Edit event",
-      icon: Pencil,
-      onSelect: () => openEdit(record),
-      disabled: loadingEditId === record.id,
-    },
-    record.status === "published"
-      ? {
-          label: "Archive",
-          icon: Archive,
-          tone: "danger" as const,
-          onSelect: () => setConfirming(record),
-        }
-      : { label: "Publish", icon: Send, onSelect: () => publish(record) },
-  ];
+  const actionsFor = (record: AdminEventRow): RowAction[] => {
+    const archived = record.status === "archived";
+    const actions: RowAction[] = [
+      {
+        label: archived ? "View details" : "Edit event",
+        icon: archived ? Eye : Pencil,
+        onSelect: () => openEdit(record),
+        disabled: loadingEditId === record.id,
+      },
+    ];
+    if (archived) {
+      // Restore, not Publish: it comes back as a draft rather than reappearing
+      // on the public calendar on one click.
+      actions.push({
+        label: "Restore",
+        icon: RotateCcw,
+        onSelect: () => setConfirming({ kind: "restore", record }),
+      });
+    } else if (record.status === "published") {
+      actions.push({
+        label: "Archive",
+        icon: Archive,
+        tone: "danger",
+        onSelect: () => setConfirming({ kind: "archive", record }),
+      });
+    } else {
+      actions.push({ label: "Publish", icon: Send, onSelect: () => publish(record) });
+    }
+    return actions;
+  };
 
   const clearFilters = () => {
     setSearch("");
@@ -200,17 +226,33 @@ export function EventsManager({ events }: EventsManagerProps) {
                     resetPage();
                   },
                 },
-                {
-                  id: "event-status-filter",
-                  label: "Status",
-                  value: status,
-                  options: STATUS_OPTIONS,
-                  onChange: (value) => {
-                    setStatus(value);
-                    resetPage();
-                  },
-                },
+                // Every row in the Archived view holds the same status.
+                ...(view === "active"
+                  ? [
+                      {
+                        id: "event-status-filter",
+                        label: "Status",
+                        value: status,
+                        options: STATUS_OPTIONS,
+                        onChange: (value: string) => {
+                          setStatus(value);
+                          resetPage();
+                        },
+                      },
+                    ]
+                  : []),
               ]}
+            />
+            <ViewToggle
+              className="mt-4"
+              view={view}
+              archivedCount={archivedCount}
+              noun="events"
+              onChange={(next) => {
+                setView(next);
+                setStatus("all");
+                resetPage();
+              }}
             />
           </Card>
           {filtered.length === 0 ? (
@@ -297,15 +339,23 @@ export function EventsManager({ events }: EventsManagerProps) {
       </Drawer>
       <ConfirmDialog
         open={confirming !== null}
-        title="Archive this event?"
+        title={confirming?.kind === "restore" ? "Restore this event?" : "Archive this event?"}
         body={
-          <>
-            <strong className="font-semibold text-ink-900">{confirming?.title}</strong> will be
-            removed from the public calendar. The record is kept and can be published again
-            later.
-          </>
+          confirming?.kind === "restore" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.record.title}</strong>{" "}
+              comes back as a <strong className="font-semibold text-ink-900">draft</strong>, not
+              onto the public calendar. Publish it again when you are ready.
+            </>
+          ) : (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming?.record.title}</strong>{" "}
+              will be removed from the public calendar. The record is kept and can be published
+              again later.
+            </>
+          )
         }
-        confirmLabel="Archive"
+        confirmLabel={confirming?.kind === "restore" ? "Restore" : "Archive"}
         pending={actionPending}
         onConfirm={runConfirmed}
         onCancel={() => setConfirming(null)}

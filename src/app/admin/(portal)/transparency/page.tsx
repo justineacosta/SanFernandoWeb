@@ -25,6 +25,7 @@ export default async function AdminTransparencyPage() {
         documents={files}
         projects={projects}
         categories={categories}
+        isSuperAdmin={user.isSuperAdmin}
       />
       {user.isSuperAdmin ? (
         <div className="mt-8">

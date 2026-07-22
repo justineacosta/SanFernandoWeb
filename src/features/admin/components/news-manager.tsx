@@ -3,11 +3,22 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Archive, ImageIcon, Megaphone, Newspaper, Pencil, Plus, Send } from "lucide-react";
+import {
+  Archive,
+  Eye,
+  ImageIcon,
+  Megaphone,
+  Newspaper,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Send,
+} from "lucide-react";
 import type { AdminAnnouncementRow, AdminNewsArticleRow, NewsCategoryRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ViewToggle, type TableView } from "@/components/ui/view-toggle";
 import { Drawer } from "@/components/ui/drawer";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
@@ -20,11 +31,13 @@ import {
   archiveAnnouncement,
   getAnnouncementForEditAction,
   publishAnnouncement,
+  restoreAnnouncement,
 } from "@/features/admin/actions/announcements";
 import {
   archiveNewsArticle,
   getNewsArticleForEditAction,
   publishNewsArticle,
+  restoreNewsArticle,
 } from "@/features/admin/actions/news";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
@@ -38,12 +51,13 @@ const PAGE_SIZE = 8;
 
 type Tab = "news" | "announcements";
 
+// No "archived" here — archived posts live in their own view now, so the
+// dropdown only offers states a live record can hold.
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
   { value: "draft", label: "Draft" },
   { value: "in-review", label: "In Review" },
   { value: "published", label: "Published" },
-  { value: "archived", label: "Archived" },
 ];
 
 interface NewsManagerProps {
@@ -53,13 +67,14 @@ interface NewsManagerProps {
 }
 
 /**
- * An archive awaiting confirmation. Null when no dialog is open.
+ * A row action awaiting confirmation. Null when no dialog is open.
  *
- * Only archive is confirmed: news and announcements have no delete action —
- * published bulletins are the barangay's public record and are taken down, not
- * erased.
+ * There is no delete here at all: news and announcements are the barangay's
+ * public record and are taken down, not erased. Their media lives behind
+ * `image_src` / `cover_src` URLs plus child photo rows, so a correct delete
+ * needs the URL-to-Storage-path work that sub-project 7 owns.
  */
-type PendingArchive = { kind: Tab; id: string; title: string } | null;
+type PendingAction = { kind: Tab; action: "archive" | "restore"; id: string; title: string } | null;
 
 /** News & announcements: tabbed card grids, search/category/status filters, drawer editors backed by real actions. */
 export function NewsManager({ articles, announcements, categories }: NewsManagerProps) {
@@ -68,13 +83,14 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("all");
   const [status, setStatus] = useState("all");
+  const [view, setView] = useState<TableView>("active");
   const [page, setPage] = useState(1);
 
   const [editingNews, setEditingNews] = useState<NewsEditRecord | null>(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState<AnnouncementEditRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<PendingArchive>(null);
+  const [confirming, setConfirming] = useState<PendingAction>(null);
   const [actionPending, setActionPending] = useState(false);
   const { toast, showToast, showError, dismissToast } = useToast();
   const [, startTransition] = useTransition();
@@ -86,22 +102,35 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
     setSearch("");
     setCategoryId("all");
     setStatus("all");
+    setView("active");
     setPage(1);
   };
+
+  // The toggle's count follows the tab, so it always describes the list below it.
+  const archivedCount = (
+    tab === "news"
+      ? articles.filter((a) => a.status === "archived")
+      : announcements.filter((a) => a.status === "archived")
+  ).length;
 
   const filteredNews = useMemo(() => {
     const narrowed = articles.filter(
       (a) =>
+        (a.status === "archived") === (view === "archived") &&
         (categoryId === "all" || a.categoryId === categoryId) &&
         (status === "all" || a.status === status),
     );
     return fuzzyFilter(narrowed, search, (a) => haystack(a.title, a.category));
-  }, [articles, search, categoryId, status]);
+  }, [articles, view, search, categoryId, status]);
 
   const filteredAnnouncements = useMemo(() => {
-    const narrowed = announcements.filter((a) => status === "all" || a.status === status);
+    const narrowed = announcements.filter(
+      (a) =>
+        (a.status === "archived") === (view === "archived") &&
+        (status === "all" || a.status === status),
+    );
     return fuzzyFilter(narrowed, search, (a) => a.title);
-  }, [announcements, search, status]);
+  }, [announcements, view, search, status]);
 
   const newsPageItems = filteredNews.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const announcementPageItems = filteredAnnouncements.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -186,21 +215,27 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
     });
   };
 
-  /** Run the confirmed archive; the dialog stays locked until it answers. */
+  /** Run the confirmed row action; the dialog stays locked until it answers. */
   const runConfirmed = () => {
     if (!confirming) return;
-    const { kind, id, title } = confirming;
+    const { kind, action, id, title } = confirming;
     setActionPending(true);
     startTransition(async () => {
       const result =
-        kind === "news" ? await archiveNewsArticle(id) : await archiveAnnouncement(id);
+        action === "archive"
+          ? kind === "news"
+            ? await archiveNewsArticle(id)
+            : await archiveAnnouncement(id)
+          : kind === "news"
+            ? await restoreNewsArticle(id)
+            : await restoreAnnouncement(id);
       setActionPending(false);
       setConfirming(null);
       if (result.error) {
         showError(result.error);
         return;
       }
-      showToast(`Archived ${title}.`);
+      showToast(action === "archive" ? `Archived ${title}.` : `Restored ${title} as a draft.`);
       router.refresh();
     });
   };
@@ -211,15 +246,29 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
     record: { id: string; title: string; status: string },
     onEdit: () => void,
   ): RowAction[] => {
+    const archived = record.status === "archived";
     const actions: RowAction[] = [
       {
-        label: kind === "news" ? "Edit post" : "Edit announcement",
-        icon: Pencil,
+        label: archived
+          ? "View details"
+          : kind === "news"
+            ? "Edit post"
+            : "Edit announcement",
+        icon: archived ? Eye : Pencil,
         onSelect: onEdit,
         disabled: loadingEditId === record.id,
       },
     ];
-    if (record.status !== "published") {
+    if (archived) {
+      // Restore, not Publish: it comes back as a draft rather than reappearing
+      // on the public site on one click.
+      actions.push({
+        label: "Restore",
+        icon: RotateCcw,
+        onSelect: () =>
+          setConfirming({ kind, action: "restore", id: record.id, title: record.title }),
+      });
+    } else if (record.status !== "published") {
       actions.push({
         label: "Publish",
         icon: Send,
@@ -230,7 +279,8 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
         label: "Archive",
         icon: Archive,
         tone: "danger",
-        onSelect: () => setConfirming({ kind, id: record.id, title: record.title }),
+        onSelect: () =>
+          setConfirming({ kind, action: "archive", id: record.id, title: record.title }),
       });
     }
     return actions;
@@ -316,17 +366,33 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
                   },
                 ]
               : []),
-            {
-              id: "news-status-filter",
-              label: "Status",
-              value: status,
-              options: STATUS_OPTIONS,
-              onChange: (value) => {
-                setStatus(value);
-                resetPage();
-              },
-            },
+            // Every row in the Archived view holds the same status.
+            ...(view === "active"
+              ? [
+                  {
+                    id: "news-status-filter",
+                    label: "Status",
+                    value: status,
+                    options: STATUS_OPTIONS,
+                    onChange: (value: string) => {
+                      setStatus(value);
+                      resetPage();
+                    },
+                  },
+                ]
+              : []),
           ]}
+        />
+        <ViewToggle
+          className="mt-4"
+          view={view}
+          archivedCount={archivedCount}
+          noun={tab === "news" ? "posts" : "announcements"}
+          onChange={(next) => {
+            setView(next);
+            setStatus("all");
+            resetPage();
+          }}
         />
       </Card>
       {tab === "news" ? (
@@ -490,14 +556,30 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
       </Drawer>
       <ConfirmDialog
         open={confirming !== null}
-        title={confirming?.kind === "news" ? "Archive this post?" : "Archive this announcement?"}
-        body={
-          <>
-            <strong className="font-semibold text-ink-900">{confirming?.title}</strong> will be
-            removed from the public site. The record is kept and can be published again later.
-          </>
+        title={
+          confirming?.action === "restore"
+            ? confirming.kind === "news"
+              ? "Restore this post?"
+              : "Restore this announcement?"
+            : confirming?.kind === "news"
+              ? "Archive this post?"
+              : "Archive this announcement?"
         }
-        confirmLabel="Archive"
+        body={
+          confirming?.action === "restore" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.title}</strong> comes
+              back as a <strong className="font-semibold text-ink-900">draft</strong>, not onto
+              the public site. Publish it again when you are ready.
+            </>
+          ) : (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming?.title}</strong> will be
+              removed from the public site. The record is kept and can be published again later.
+            </>
+          )
+        }
+        confirmLabel={confirming?.action === "restore" ? "Restore" : "Archive"}
         pending={actionPending}
         onConfirm={runConfirmed}
         onCancel={() => setConfirming(null)}

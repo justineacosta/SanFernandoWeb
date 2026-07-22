@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AuditActionType, ContentStatus, GalleryPhoto, NewsArticleValues, SessionUser } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
+import { statusPatch } from "@/lib/archive";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getNewsArticleForEdit } from "@/features/admin/queries/news";
@@ -218,9 +219,23 @@ export async function archiveNewsArticle(id: string): Promise<ActionResult> {
     actor,
     id,
     ["draft", "in-review", "published"],
-    { status: "archived" },
+    statusPatch(actor, "archived"),
     "archive",
     "archived news article",
+  );
+}
+
+/** Bring an archived article back as a draft — not straight back onto the news feed. */
+export async function restoreNewsArticle(id: string): Promise<ActionResult> {
+  const actor = await checkPermission("manage-news");
+  if (!actor) return { error: NOT_FOUND };
+  return applyTransition(
+    actor,
+    id,
+    ["archived"],
+    statusPatch(actor, "draft"),
+    "restore",
+    "restored news article",
   );
 }
 
@@ -237,7 +252,9 @@ export async function publishNewsArticle(id: string): Promise<ActionResult> {
   if (readErr) return { error: "Could not publish the article." };
   if (!row) return { error: "Article not found." };
   if (!row.excerpt?.trim()) return { error: "Add an excerpt before publishing." };
-  const patch: Record<string, unknown> = { status: "published" };
+  // statusPatch also clears the archive provenance, so publishing straight out
+  // of `archived` does not leave the row claiming it is still archived.
+  const patch = statusPatch(actor, "published");
   if (!row.published_at) patch.published_at = new Date().toISOString();
   const { data, error } = await admin
     .from("news_articles")
