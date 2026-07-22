@@ -23,7 +23,7 @@ interface AdminSidebarProps {
   permissions: Permission[];
   /** 72px icon rail instead of the 256px labelled rail. */
   collapsed: boolean;
-  /** Omitted by the mobile drawer, which has nothing to collapse into. */
+  /** Renders the collapse toggle when passed. The fixed rail is the only caller. */
   onToggle?: () => void;
 }
 
@@ -33,9 +33,9 @@ interface AdminSidebarProps {
  * The active row is marked by one shared highlight that glides between links
  * on navigation (Motion `layoutId`). That indicator needs the active check to
  * live here rather than inside NavLink, so links are plain `Link`s with the
- * same exact/prefix matching NavLink uses. The `LayoutGroup` id keeps the
- * fixed rail and the mobile drawer — both mounted at once — from fighting
- * over the same layoutId.
+ * same exact/prefix matching NavLink uses. The `LayoutGroup` id scopes that
+ * layoutId to this instance — the rail is now the only one that renders it,
+ * since the mobile menu draws its own active row in CSS.
  *
  * Thirteen flat links did not scan, so they render under three group headings.
  * Collapsed, the headings become hairline rules — 72px has no room for a word
