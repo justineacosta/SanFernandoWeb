@@ -22,6 +22,10 @@ const LABELS: Record<AdminStatus, string> = {
   resolved: "Resolved",
   dismissed: "Dismissed",
   granted: "Granted",
+  new: "New",
+  in_progress: "In Progress",
+  answered: "Answered",
+  closed: "Closed",
 };
 
 const TONES: Record<AdminStatus, string> = {
@@ -36,10 +40,14 @@ const TONES: Record<AdminStatus, string> = {
   completed: "bg-brand-200 text-brand-800",
   resolved: "bg-brand-200 text-brand-800",
   granted: "bg-brand-200 text-brand-800",
+  // Answering is the inbox's terminal success; it sits with the other four.
+  answered: "bg-brand-200 text-brand-800",
   scheduled: "bg-ink-100 text-ink-700",
   pending: "bg-ink-100 text-ink-700",
   // Untouched intake, like `pending`.
   received: "bg-ink-100 text-ink-700",
+  new: "bg-ink-100 text-ink-700",
+  in_progress: "bg-danger-soft text-danger-soft-fg",
   draft: "bg-ink-100 text-ink-600",
   planning: "bg-ink-100 text-ink-600",
   "in-review": "bg-danger-soft text-danger-soft-fg",
@@ -49,6 +57,8 @@ const TONES: Record<AdminStatus, string> = {
   dismissed: "bg-danger-soft text-danger-soft-fg",
   inactive: "bg-ink-100 text-ink-500",
   archived: "bg-ink-100 text-ink-500",
+  // Closed without a reply — spam, or a duplicate. Not a success.
+  closed: "bg-ink-100 text-ink-500",
 };
 
 interface StatusChipProps {

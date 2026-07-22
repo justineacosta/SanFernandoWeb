@@ -7,13 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 The official website of **Barangay San Fernando, San Nicolas, Ilocos Norte** (Philippines).
 Next.js 16 App Router + React 19 + TypeScript (strict) + Tailwind CSS v4, backed by
 **Supabase** (Postgres + Auth + Storage). The frontend was built first as a fully static
-mock; backend integration is now well underway (migrations `0001`–`0011` applied; `0012`
-applied to staging, still pending on production). Live and DB-backed: auth + account
-self-service, the services catalog, all four ticketing flows (applications / appointments /
-complaints / assistance), news + announcements + events, transparency (legislative documents
+mock; backend integration is now well underway (migrations `0001`–`0011` applied;
+`0012`–`0019` applied to staging, still pending on production). Live and
+DB-backed: auth + account self-service, the services catalog, all four ticketing flows
+(applications / appointments / complaints / assistance), contact inquiries + alert
+subscribers, news + announcements + events, transparency (legislative documents
 / disclosure documents / monitored projects), and the officials directory. What remains
-static lives in typed `data.ts` files — the About, Contact, and home content, plus the admin
-**Dashboard Overview** seed. `docs/BACKEND_HANDOFF.md` is the living integration brief;
+static lives in typed `data.ts` files — the About and home content, the contact channels and
+inquiry subject list, plus the admin **Dashboard Overview** seed. `docs/BACKEND_HANDOFF.md` is the living integration brief;
 `docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan history. Remaining
 work: 2D email (Resend), migrating `lh3`-hotlinked images to owned Storage, and a
 security-hardening pass.

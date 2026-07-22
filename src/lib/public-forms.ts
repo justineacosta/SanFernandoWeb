@@ -60,6 +60,31 @@ export const consentField = z
   .boolean()
   .refine((value) => value === true, "Please agree to the data privacy notice.");
 
+/** Required, unlike `optionalEmailField` — /contact replies by email. */
+export const requiredEmailField = z
+  .string()
+  .trim()
+  .min(1, "Enter your email address.")
+  .email("Enter a valid email address.")
+  .max(254, "Email address is too long.");
+
+/**
+ * One Philippine mobile number in the single form `09XXXXXXXXX`, or null when
+ * the input is not a mobile number at all.
+ *
+ * The three shapes below name the same phone, and residents type all three. The
+ * unique index on `alert_subscribers.mobile` only means something if they are
+ * stored identically — otherwise one person subscribing twice becomes two rows
+ * and two SMS.
+ */
+export function normaliseMobile(input: string): string | null {
+  const digits = input.replace(/\D/g, "");
+  if (/^9\d{9}$/.test(digits)) return `0${digits}`;
+  if (/^09\d{9}$/.test(digits)) return digits;
+  if (/^639\d{9}$/.test(digits)) return `0${digits.slice(2)}`;
+  return null;
+}
+
 /** The identity block every public ticket form opens with. */
 export const residentFields = {
   firstName: firstNameField,

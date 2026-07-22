@@ -1,7 +1,9 @@
 # Public-side UI/UX — Design
 
 **Sub-project 10 of the portal overhaul.** Umbrella: `2026-07-22-portal-overhaul-design.md`
-§4.1. Date: 2026-07-22. Status: **phases A and B shipped**; §2.1 blocked on an owner decision.
+§4.1. Date: 2026-07-22. Status: **phases A, B and D shipped**. Phase D (§8) closed the two
+theatre forms once the owner picked "build the backend"; migration `0019` is applied to
+staging.
 
 ## 1. Why this exists
 
@@ -45,11 +47,11 @@ A resident types a real problem into the contact form, is told it was received, 
 for a reply that cannot come. `BACKEND_HANDOFF.md` §3A/§3B has always listed these as
 pending backend work, but the UI never said so — it claimed success instead.
 
-**This needs an owner decision and is therefore not scoped here.** The choice is between
-building the inquiries/subscribers tables with an admin inbox (a migration, two actions,
-two new admin surfaces — a sub-project of its own), or making the forms honest by pointing
-residents at the real hotline `(077) 600 1082`. Either is defensible; picking one is a
-product call, not an implementation detail. Recorded in §6.
+**This needed an owner decision and was therefore not scoped in phases A–C.** The choice was
+between building the inquiries/subscribers tables with an admin inbox (a migration, two
+actions, two new admin surfaces), or making the forms honest by pointing residents at the
+real hotline `(077) 600 1082`. **The owner chose to build the backend.** That is phase D,
+specified in §8.
 
 ## 3. Decisions
 
@@ -132,6 +134,7 @@ are good and stay. This sub-project only adds inline validation ahead of them.
 | A | Seven `loading.tsx`, three error boundaries | throttled navigation; a forced throw |
 | B | Schemas extracted; blur-then-live + ARIA on the four ticket forms and `/track` | browser drive of each form |
 | C | Mobile pass at 375 px on the four ticket forms and the receipt | screenshots at 375/768/1440 |
+| D | The two theatre forms get a real backend (§8) | a row in the DB, and staff answering it |
 
 ## 5. Risks
 
@@ -164,7 +167,71 @@ mobile pass. Nothing needed changing.
 
 ## 7. Open items
 
-- **The two theatre forms** (§2.1) need the owner's decision: build the inquiries and
-  subscribers backend, or make the forms honest about the hotline. Blocking on that answer.
 - The sidebar's **Emergency Response** button is still a dead stub (carried from the
   table-standards spec §9).
+- **Inquiries are not in the global admin search.** `search_admin_global` is a Postgres
+  function (migration `0018`); adding a branch means another migration. Deferred rather than
+  spent on its own — the inbox has its own fuzzy search over name, email and message body.
+- **No email goes out.** Neither the resident nor the barangay is notified when an inquiry
+  arrives; staff have to open the inbox. That is 2D (Resend), and it is what makes the
+  "within 24-48 business hours" promise on /contact real.
+
+## 8. Phase D — the inquiries backend
+
+### 8.1 What was built
+
+Migration `0019` adds two tables, both with RLS enabled and zero policies like every other
+table: `inquiries` (the identity block minus the address, plus `subject`, `message`, a
+`staff_note`, and `handled_by` as `ON DELETE SET NULL`) and `alert_subscribers`.
+
+- `src/features/contact/{schema.ts,actions.ts}` — `inquirySchema` shared by the form and
+  `submitInquiry`, which rate-limits (5/hour/IP, the complaint budget), validates, and
+  inserts through the service-role client.
+- `src/features/announcements/actions.ts` — `subscribeToAlerts`.
+- Admin: a new `handle-inquiries` permission, `/admin/inquiries`, `listInquiries`,
+  `updateInquiry`, and an inbox built from the sub-project 5 primitives — `RowActions` on
+  the row, `SortableTh`, `AdminFilterBar`, a `loading.tsx`, and `?review=` deep-linking.
+
+### 8.2 Decisions
+
+**The email is required here, unlike the ticket forms.** On `/apply` an email is a courtesy:
+the resident already holds a ticket number and can track the request without one. An inquiry
+has no ticket and nothing to track — the reply address is the entire mechanism, so a message
+with no way back is the defect this phase exists to fix.
+
+**No ticket number, and `/track` is untouched.** Handing back a number that `/track` cannot
+find would be the same false reassurance in a new shape.
+
+**Mobile numbers are normalised before storage.** `0917…`, `+63 917…` and `9175550101` name
+the same phone. The unique index only prevents duplicate SMS if they are stored identically,
+so `normaliseMobile` collapses all three to one form and returns null for anything else.
+
+**No delete on an inquiry, only close.** Spam gets `closed`; nothing lets a staff member
+make a resident's message disappear with no record it arrived. This is the one place the
+table-standards rule ("destructive actions belong on the row") is answered with "there is no
+destructive action".
+
+**Status moves are not guarded in the WHERE clause**, unlike the ticket queues. There is no
+resident-visible state machine and no irreversible side effect at either end, so an inquiry
+closed by mistake is reopened by picking "New" again. A transition guard here would cost
+staff the ability to correct themselves and buy nothing.
+
+**`in_progress` keeps the enum's underscore** rather than being translated to the hyphenated
+form the ticket statuses use. Spelling it two ways would mean mapping on every read and every
+write to win nothing but symmetry.
+
+**Consent is enforced but not stored.** `consentField` rejects a submission without it, so a
+row can only exist if the box was ticked — a column that can only ever hold `true` records
+nothing that the row's own existence does not. `created_at` carries the when. If the
+barangay's DPA reading wants the flag written down anyway, that is a one-column migration.
+
+### 8.3 What the browser confirmed
+
+- `/contact` at 390 px, empty submit: **5 messages, 5 `aria-invalid` fields, focus on the
+  first, zero POSTs**. Typing a valid email cleared its state without another submit.
+- A real send persisted a row and swapped to a "Message received" card naming the address
+  the reply goes to. `+63 917 555 0101` on the alert form stored as `09175550101`.
+- The inbox rendered the row, the kebab moved it to In Progress in one click with a toast,
+  and the drawer saved a note plus "Answered" — writing `handled_by`, `handled_at`, and two
+  `audit_log` entries (`update` "took up inquiry", then `approve` "answered inquiry").
+- Both probe rows were deleted afterwards; staging is clean.

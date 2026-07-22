@@ -519,7 +519,8 @@ export type AdminStatus =
   | ApplicationStatus
   | AppointmentStatus
   | ComplaintStatus
-  | AssistanceStatus;
+  | AssistanceStatus
+  | InquiryStatus;
 
 /** Serializable services row for the admin manager (client boundary: icon travels as a name string). */
 export interface AdminServiceRow {
@@ -599,6 +600,7 @@ export const PERMISSIONS = [
   "process-appointments",
   "handle-complaints",
   "handle-assistance",
+  "handle-inquiries",
   "manage-news",
   "manage-officials",
   "manage-transparency",
@@ -912,4 +914,61 @@ export interface AssistanceCategoryRow {
 }
 export interface AssistanceCategoryValues {
   label: string;
+}
+
+/* ── Contact inquiries & alert subscribers (migration 0019) ───────────── */
+
+/**
+ * Mirrors the `public.inquiry_status` enum. `in_progress` keeps the underscore
+ * the enum was created with rather than the hyphen the ticket statuses use —
+ * spelling it two ways would mean translating on every read and every write to
+ * win nothing but symmetry.
+ *
+ * An inquiry is not a ticket: there is no number, nothing to track publicly, and
+ * no resident-facing state machine. It arrives, someone picks it up, it is
+ * answered — or it is spam and gets closed unanswered.
+ */
+export type InquiryStatus = "new" | "in_progress" | "answered" | "closed";
+
+/** The /contact form's body. `phone` is optional — "" means not given. */
+export interface PublicInquiryValues {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  /** One of INQUIRY_SUBJECTS in `src/features/contact/data.ts`. */
+  subject: string;
+  message: string;
+  /** Data Privacy Act consent — must be true to submit. */
+  consent: boolean;
+}
+
+/** An inbox row for the admin manager: flat and serializable. */
+export interface InquiryRow {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  subject: string;
+  /** The subject's display label, resolved against INQUIRY_SUBJECTS. */
+  subjectLabel: string;
+  message: string;
+  status: InquiryStatus;
+  staffNote: string;
+  /**
+   * Resolved through the `handled_by` foreign key, not a denormalised column
+   * like the ticket tables' `reviewed_by_name`. Deleting the account nulls it;
+   * the audit log is the durable record of who did what.
+   */
+  handledByName: string | null;
+  /** Manila calendar dates (YYYY-MM-DD). */
+  handledAt: string | null;
+  submittedAt: string;
+}
+
+/** The inbox drawer's save body. */
+export interface InquiryUpdateValues {
+  status: InquiryStatus;
+  staffNote: string;
 }

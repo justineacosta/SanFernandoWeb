@@ -779,10 +779,30 @@
 >    for an empty form, no horizontal overflow.
 > 5. **14 new unit tests** pin the extracted schemas (35 total).
 >
-> **Still open on the public side:** the two theatre forms in §3A/§3B below. Neither has a
-> backend, and both currently show a green success message. Fixing that is an owner decision
-> — build the inquiries/subscribers tables with an admin inbox, or make the forms honest
-> about the hotline — so it was deliberately left out of sub-project 10.
+> **Sub-project 10, phase D shipped 2026-07-22 — the two theatre forms now have a backend.**
+> The owner chose "build it" over "point at the hotline". **Migration `0019` (applied to
+> staging)** adds `inquiries` and `alert_subscribers`, both RLS-enabled with zero policies.
+> 1. **`/contact` persists.** `submitInquiry` rate-limits (5/hour/IP), validates with a
+>    schema the form shares, and inserts through the service-role client. The email is
+>    **required** here, unlike the ticket forms: an inquiry has no ticket number and nothing
+>    to track, so the reply address is the whole mechanism. No ticket number comes back —
+>    handing over one `/track` cannot find would be the same lie in a new shape.
+> 2. **The alert signup persists**, with the mobile number normalised to one form
+>    (`normaliseMobile`) so the unique index actually de-duplicates `0917 555 0101` and
+>    `+63 917 555 0101`. Re-subscribing an opted-out number reactivates it.
+> 3. **A new `handle-inquiries` permission and `/admin/inquiries` inbox**, built from the
+>    sub-project 5 primitives. **Existing staff accounts do not have the new permission** —
+>    a SuperAdmin has to tick it in Settings before anyone but a SuperAdmin sees the module.
+> 4. **No delete, only close.** Spam is closed; nothing lets staff make a resident's message
+>    disappear with no record it arrived. Status moves are not guarded in the WHERE clause
+>    (unlike the ticket queues) so a mistake can be undone by picking "New" again.
+> 5. **Consent is enforced but not stored** — see the spec §8.2 for why, and what a
+>    different DPA reading would cost (one column).
+> 6. **17 new unit tests** (45 total) pin the inquiry schema and the mobile normaliser.
+>
+> **Still open:** inquiries are not in the global admin search (`search_admin_global` is a
+> Postgres function — another migration), and nothing emails anyone yet, which is what §2D
+> below is for.
 
 ---
 
@@ -934,21 +954,23 @@ return components — return an icon name (e.g. `"file-text"`) and add a small
 
 ## 3. Backend Work Items (in priority order)
 
-### A. Contact inquiry form — the only true "write" today
-`src/features/contact/components/inquiry-form.tsx` (client component).
-Currently `setTimeout`-fakes success. Fields: `firstName`, `lastName`, `email`,
-`phone?`, `subject` (enum: general | documents | complaint | emergency | others),
-`message`, consent checkbox.
+### A. ~~Contact inquiry form~~ — **BUILT 2026-07-22** (migration `0019`)
+`src/features/contact/` now holds `schema.ts` + `actions.ts` beside the form. `submitInquiry`
+rate-limits, validates, and writes to `inquiries`; staff answer from `/admin/inquiries`
+behind the new `handle-inquiries` permission. See the sub-project 10 phase D changelog entry
+above and spec §8.
 
-**Needed**: `POST /api/inquiries` (or a Next.js Server Action). Add server-side
-validation, rate limiting, spam protection, and persistence + email notification to the
-barangay office. The Data Privacy Act consent checkbox is already in the UI — log consent
-with the record.
+**Still needed**: the email half. Nothing notifies the barangay that a message arrived, and
+nothing acknowledges it to the resident — that is §2D (Resend) below, and it is what makes
+the form's "within 24-48 business hours" promise real.
 
-### B. Newsletter / SMS alerts signup
-`src/features/announcements/components/newsletter-form.tsx` (client). Takes a mobile
-number. **Needed**: `POST /api/subscriptions` + dedupe + (later) an SMS/email dispatch
-pipeline.
+### B. ~~Newsletter / SMS alerts signup~~ — **BUILT 2026-07-22** (migration `0019`)
+`subscribeToAlerts` in `src/features/announcements/actions.ts` writes to
+`alert_subscribers`, normalising the mobile number so the unique index de-duplicates.
+
+**Still needed**: the dispatch pipeline. Numbers are collected; nothing sends to them yet,
+and there is no unsubscribe path other than a direct DB edit (`is_active`,
+`unsubscribed_at` are there for it). Both are prerequisites before the list is used.
 
 ### C. Content management (read APIs or CMS)
 Replace the `data.ts` constants, roughly in order of how often the content changes:

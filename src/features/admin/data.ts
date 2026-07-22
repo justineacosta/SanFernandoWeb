@@ -9,6 +9,7 @@ import {
   Landmark,
   LayoutDashboard,
   Megaphone,
+  MessagesSquare,
   Newspaper,
   PartyPopper,
   Scale,
@@ -20,7 +21,7 @@ import type {
   ContentDraft,
   ContentTypeAction,
   EventCategory,
-  IconNavItem,
+  IconNavItem,
   TeamRole,
 } from "@/types";
 
@@ -31,6 +32,7 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Incident Reports", href: "/admin/complaints", icon: Scale, permission: "handle-complaints" },
   { label: "Appointments", href: "/admin/appointments", icon: CalendarClock, permission: "process-appointments" },
   { label: "Assistance Requests", href: "/admin/assistance", icon: HeartHandshake, permission: "handle-assistance" },
+  { label: "Inquiries", href: "/admin/inquiries", icon: MessagesSquare, permission: "handle-inquiries" },
   { label: "Transparency", href: "/admin/transparency", icon: FileStack, permission: "manage-transparency" },
   { label: "Event Calendar", href: "/admin/events", icon: CalendarDays, permission: "manage-news" },
   { label: "News & Announcements", href: "/admin/news", icon: Megaphone, permission: "manage-news" },
