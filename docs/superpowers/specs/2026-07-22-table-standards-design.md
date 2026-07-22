@@ -1,7 +1,9 @@
 # Table Standards — Design
 
 **Sub-project 5 of the portal overhaul.** Umbrella: `2026-07-22-portal-overhaul-design.md`.
-Date: 2026-07-22. Status: approved, in implementation.
+Date: 2026-07-22. Status: **shipped**, all four phases. Verified by typecheck, lint,
+`npm run test:unit` (21 cases), `npm run test:e2e --project=public`, `npm run build`, and a
+browser drive of every admin route.
 
 ## 1. The problem
 
@@ -171,7 +173,22 @@ Phases A and B ship together as one commit per manager group; phase C ships sepa
   `E2E ` title prefix and delete them in `afterEach`; none touch the officials
   directory or transparency documents, which hold real content.
 
-## 7. Open items
+## 7. What the browser confirmed
+
+- The row menu portals clear of the table: with the trigger at x≈1443 and the table's right
+  edge at 1467, the menu renders inside the viewport and its parent element is
+  `document.body`, not the scroll container.
+- Keyboard: ↓ opens on the first item, ↓ again moves to Archive, End jumps to Delete, Enter
+  opens the dialog with focus on **Cancel**, Escape cancels and returns focus to the kebab.
+- Archive appears only on published rows; every other row offers Edit and Delete.
+- Sorting Officials by name hides the reorder arrows (0 present) and restores them (12) when
+  the Order column is selected again; `aria-sort` tracks the active column.
+- The skeleton is real, not theoretical: 16 pulsing blocks and the live region reading
+  "Loading the officials directory…", replaced by 12 rows.
+- Deep-linking end to end: typing `dela cruz` in the top bar and clicking the hit lands on
+  `/admin/officials` with the **Edit Official** drawer open and no `edit=` left in the URL.
+
+## 8. Open items
 
 - Whether ticket rows should get quick status transitions — deferred to sub-project 6.
 - The sidebar's **Emergency Response** button is a dead stub with no handler. Noted here
