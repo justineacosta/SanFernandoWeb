@@ -264,6 +264,42 @@ export async function archiveTeamUser(id: string): Promise<ActionResult> {
   return { error: null };
 }
 
+/**
+ * Undo of archiveTeamUser. Sign-in is deliberately NOT restored with it:
+ * archiving sets `is_active: false`, and bringing someone back onto the roster
+ * is a smaller decision than handing them a working login. The account returns
+ * to the list marked disabled, and enabling it is a separate, deliberate act.
+ */
+export async function restoreTeamUser(id: string): Promise<ActionResult> {
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
+
+  const admin = createSupabaseAdminClient();
+  const { data: target } = await admin
+    .from("profiles")
+    .select("full_name, is_archived")
+    .eq("id", id)
+    .maybeSingle();
+  if (!target) return { error: "That account no longer exists." };
+  if (!target.is_archived) return { error: "That account is not archived." };
+
+  const { error } = await admin
+    .from("profiles")
+    .update({ is_archived: false })
+    .eq("id", id);
+  if (error) return { error: "Could not restore the account." };
+
+  await recordActivity(actor, {
+    type: "restore",
+    action: "restored user",
+    entityType: "team-user",
+    entityId: id,
+    entityLabel: target.full_name,
+  });
+  revalidatePath("/admin/settings");
+  return { error: null };
+}
+
 /** Hard delete — only for users with no recorded actions (spec §4). */
 export async function deleteTeamUser(id: string): Promise<ActionResult> {
   const actor = await checkSuperAdmin();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Archive, Trash2, Pencil, UserCheck, UserX } from "lucide-react";
+import { Plus, Archive, RotateCcw, Trash2, Pencil, UserCheck, UserX } from "lucide-react";
 import type { Permission, SessionUser, StaffStatusLabel, TeamUser } from "@/types";
 import { PERMISSION_GROUPS, PERMISSION_LABELS, STATUS_PRESETS } from "@/constants/permissions";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   archiveTeamUser,
   createTeamUser,
   deleteTeamUser,
+  restoreTeamUser,
   setTeamUserActive,
   updateTeamUser,
 } from "@/features/admin/actions/users";
@@ -24,6 +25,7 @@ import { AdminFilterBar } from "./admin-filter-bar";
 
 interface TeamManagerProps {
   team: TeamUser[];
+  archived: TeamUser[];
   currentUser: SessionUser;
 }
 
@@ -32,14 +34,26 @@ interface DrawerState {
   user?: TeamUser;
 }
 
-/** A row action awaiting confirmation. Null when no dialog is open. */
-type PendingAction = { kind: "archive" | "delete"; user: TeamUser } | null;
+/**
+ * A row action awaiting confirmation. Null when no dialog is open.
+ *
+ * Enabling and restoring are absent on purpose: they hand access back rather
+ * than take it away, and a confirmation step on a harmless action teaches
+ * people to click through the ones that matter.
+ */
+type PendingAction = { kind: "archive" | "delete" | "disable"; user: TeamUser } | null;
+
+const CONFIRM_COPY = {
+  archive: { title: "Archive this user?", confirmLabel: "Archive" },
+  delete: { title: "Delete this user?", confirmLabel: "Delete" },
+  disable: { title: "Disable sign-in for this user?", confirmLabel: "Disable sign-in" },
+} as const;
 
 const inputClass =
   "w-full rounded-full border border-ink-200 bg-ink-50 px-4 py-2 text-sm text-ink-900 transition-colors focus:border-ink-300 focus:outline-none focus:ring-1 focus:ring-brand-400/30";
 
 /** Team management: list, create/edit drawer with permission checkboxes, row actions. */
-export function TeamManager({ team, currentUser }: TeamManagerProps) {
+export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
   const [search, setSearch] = useState("");
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
   const [confirming, setConfirming] = useState<PendingAction>(null);
@@ -138,9 +152,9 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
   }
 
   /**
-   * Archiving and deleting a colleague's account both went through a bare
-   * click before this — no confirmation of any kind. Both now route through
-   * the dialog, which stays locked until the Server Action answers.
+   * Archiving, disabling, and deleting a colleague's account all went through a
+   * bare click before this — no confirmation of any kind. All three now route
+   * through the dialog, which stays locked until the Server Action answers.
    */
   function runConfirmed() {
     if (!confirming) return;
@@ -148,15 +162,32 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
     setActionPending(true);
     startTransition(async () => {
       const result =
-        kind === "delete" ? await deleteTeamUser(user.id) : await archiveTeamUser(user.id);
+        kind === "delete"
+          ? await deleteTeamUser(user.id)
+          : kind === "disable"
+            ? await setTeamUserActive(user.id, false)
+            : await archiveTeamUser(user.id);
       setActionPending(false);
       setConfirming(null);
       if (result.error) {
         showError(result.error);
         return;
       }
-      showToast(kind === "delete" ? `Deleted ${user.fullName}.` : `Archived ${user.fullName}.`);
+      showToast(
+        kind === "delete"
+          ? `Deleted ${user.fullName}.`
+          : kind === "disable"
+            ? `Disabled ${user.fullName}.`
+            : `Archived ${user.fullName}.`,
+      );
     });
+  }
+
+  function restore(user: TeamUser) {
+    runRowAction(
+      () => restoreTeamUser(user.id),
+      `Restored ${user.fullName} — still disabled until you enable sign-in.`,
+    );
   }
 
   function actionsFor(member: TeamUser): RowAction[] {
@@ -170,11 +201,15 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
         icon: member.isActive ? UserX : UserCheck,
         tone: member.isActive ? ("danger" as const) : ("default" as const),
         disabled: isPending || isSelf,
+        // Disabling locks a colleague out of the portal, so it asks first.
+        // Enabling gives access back and goes straight through.
         onSelect: () =>
-          runRowAction(
-            () => setTeamUserActive(member.id, !member.isActive),
-            member.isActive ? `Disabled ${member.fullName}.` : `Enabled ${member.fullName}.`,
-          ),
+          member.isActive
+            ? setConfirming({ kind: "disable", user: member })
+            : runRowAction(
+                () => setTeamUserActive(member.id, true),
+                `Enabled ${member.fullName}.`,
+              ),
       },
       {
         label: "Archive",
@@ -256,6 +291,50 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
         ))}
       </ul>
       )}
+
+      {/*
+        The archive dialog promises the account "is kept" — before this there
+        was nowhere in the portal to make good on that. Rendered only when
+        something is actually archived, so the common case stays uncluttered.
+      */}
+      {archived.length > 0 ? (
+        <details className="mt-4 rounded-2xl border border-ink-200/70">
+          <summary className="cursor-pointer list-none rounded-2xl px-4 py-3 text-sm font-semibold text-ink-700 hover:bg-ink-50">
+            <span className="inline-flex items-center gap-2">
+              <Archive className="h-4 w-4 text-ink-500" aria-hidden="true" />
+              Archived accounts ({archived.length})
+            </span>
+          </summary>
+          <ul className="divide-y divide-ink-200/70 border-t border-ink-200/70">
+            {archived.map((member) => (
+              <li key={member.id} className="flex items-center justify-between gap-4 p-4">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-ink-700">{member.fullName}</p>
+                  <p className="truncate text-xs text-ink-500">
+                    {member.email} ·{" "}
+                    <span className="capitalize">
+                      {member.isSuperAdmin ? "SuperAdmin" : member.statusLabel}
+                    </span>
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => restore(member)}
+                  disabled={isPending}
+                  aria-label={`Restore ${member.fullName}`}
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                  Restore
+                </Button>
+              </li>
+            ))}
+          </ul>
+          <p className="border-t border-ink-200/70 px-4 py-3 text-xs text-ink-500">
+            Restoring returns the account to the list above with sign-in still off. Enable it
+            from the account&rsquo;s menu when they are ready to work again.
+          </p>
+        </details>
+      ) : null}
 
       <Drawer
         open={drawer !== null}
@@ -378,7 +457,7 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
 
       <ConfirmDialog
         open={confirming !== null}
-        title={confirming?.kind === "delete" ? "Delete this user?" : "Archive this user?"}
+        title={confirming ? CONFIRM_COPY[confirming.kind].title : ""}
         body={
           confirming?.kind === "delete" ? (
             <>
@@ -386,17 +465,24 @@ export function TeamManager({ team, currentUser }: TeamManagerProps) {
               ({confirming.user.email}) will lose their account permanently. Their entries in
               the audit log stay — that record is immutable.
             </>
+          ) : confirming?.kind === "disable" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.user.fullName}</strong>{" "}
+              will be signed out and blocked from the portal on their next page load. They stay
+              on this list with their permissions intact, and you can enable them again from
+              the same menu.
+            </>
           ) : (
             <>
               <strong className="font-semibold text-ink-900">
                 {confirming?.user.fullName}
               </strong>{" "}
               will no longer be able to sign in and will drop off this list. The account is
-              kept and can be restored.
+              kept — restore it from <em>Archived accounts</em> below.
             </>
           )
         }
-        confirmLabel={confirming?.kind === "delete" ? "Delete" : "Archive"}
+        confirmLabel={confirming ? CONFIRM_COPY[confirming.kind].confirmLabel : ""}
         pending={actionPending}
         onConfirm={runConfirmed}
         onCancel={() => setConfirming(null)}

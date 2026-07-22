@@ -12,11 +12,13 @@ import { ToggleSwitch } from "./toggle-switch";
 
 interface SettingsPanelProps {
   team: TeamUser[];
+  /** Archived accounts, shown behind a disclosure so they can be restored. */
+  archived: TeamUser[];
   currentUser: SessionUser;
 }
 
 /** Account settings: profile, security, preferences, team roles. Profile/security/preferences saves are mock. */
-export function SettingsPanel({ team, currentUser }: SettingsPanelProps) {
+export function SettingsPanel({ team, archived, currentUser }: SettingsPanelProps) {
   const [language, setLanguage] = useState("en-US");
   const [prefs, setPrefs] = useState({ emailAlerts: true, browserPush: false, weeklyDigest: true });
 
@@ -87,7 +89,7 @@ export function SettingsPanel({ team, currentUser }: SettingsPanelProps) {
           </Card>
           {currentUser.isSuperAdmin ? (
             <Card className="p-6">
-              <TeamManager team={team} currentUser={currentUser} />
+              <TeamManager team={team} archived={archived} currentUser={currentUser} />
             </Card>
           ) : null}
         </div>
