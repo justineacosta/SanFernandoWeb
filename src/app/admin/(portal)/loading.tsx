@@ -7,7 +7,7 @@ import {
 
 export default function Loading() {
   return (
-    <PageSkeleton what="the dashboard">
+    <PageSkeleton what="the portal">
       <PageHeaderSkeleton action={false} />
       <StatCardsSkeleton count={4} />
       <div className="grid gap-6 lg:grid-cols-2">

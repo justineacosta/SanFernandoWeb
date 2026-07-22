@@ -1054,7 +1054,7 @@
 
 | Route | Page | Composed from |
 | --- | --- | --- |
-| `/admin` | Create Content hub | `ContentHub` → `ContentTypeCard` ×3, `RecentDrafts`, `PublishingActivity` |
+| `/admin` | Redirect (no page) | `firstPermittedPath()` (`src/lib/admin-nav.ts`) sends the user straight to the first module their permissions allow; the Create Content hub this used to render is deleted |
 | `/admin/officials` | Officials Directory | `OfficialsManager` (table + drawer editor, portrait upload, achievements sub-list — `AchievementsEditor` + `AchievementPhotoUploader`); permission `manage-officials` |
 | `/admin/services` | Services Management | `ServicesManager` (table + drawer editor) + `AssistanceCategoriesPanel` (SuperAdmin add/rename/reorder/retire the assistance category picker) |
 | `/admin/applications` | Certificate Applications | `ApplicationsManager` (stat cards + queue + review/create drawers) |
@@ -1066,11 +1066,12 @@
 | `/admin/news` | News & Announcements | `NewsManager` (DB-backed — tabbed News / Announcements card grids + filters + drawer editors + photo uploader) + `NewsCategoriesPanel` (SuperAdmin add/rename/reorder/retire the news category picker); permission `manage-news` |
 | `/admin/settings` | Settings | `SettingsPanel` (profile, security, preferences, team) |
 
-Admin mock data lives in `src/features/admin/data.ts`: hub constants (`ADMIN_NAV_ITEMS`,
-`ADMIN_USER`, `CONTENT_TYPE_ACTIONS`, `RECENT_DRAFTS`, `PUBLISHING_ACTIVITY`) plus one seed
-array still on mocks — `ADMIN_TEAM` — and label maps (`EVENT_CATEGORY_LABELS`,
-`TEAM_ROLE_LABELS`, `DRAFT_STATUS_LABELS`; `EVENT_CATEGORY_LABELS` is still a mock-era label
-map but is now used to label the DB-backed `events.category` enum, not a mock field).
+Admin mock data lives in `src/features/admin/data.ts`: the real nav constant
+(`ADMIN_NAV_ITEMS`) plus one seed array still on mocks — `ADMIN_TEAM`, which nothing renders
+— and label maps (`EVENT_CATEGORY_LABELS`, `TEAM_ROLE_LABELS`; `EVENT_CATEGORY_LABELS` is
+still a mock-era label map but is now used to label the DB-backed `events.category` enum, not
+a mock field). `ADMIN_USER`, `CONTENT_TYPE_ACTIONS`, `RECENT_DRAFTS`, `PUBLISHING_ACTIVITY`,
+and `DRAFT_STATUS_LABELS` were deleted along with the `/admin` content hub they backed.
 Services, applications, news, announcements, events, and (as of 2026-07-20) transparency
 documents are now DB-backed (see the Routes table
 and §2); their old mocks (`ADMIN_SERVICES`, `MOCK_SERVICES`, `ADMIN_APPLICATIONS`,
@@ -1083,10 +1084,10 @@ used were deleted once the DB queries replaced every consumer — as was the who
 that feature), `src/features/transparency/data.ts` (deleted outright — only `queries.ts`
 and `components/` remain in that feature too), and the announcements/events seed arrays in
 `src/features/home/data.ts`.
-Admin entity types in `src/types/index.ts`:
-`ContentDraft` (status: `draft | in-review`), `PublishingActivityEntry`, `ContentTypeAction`,
-plus the envelope/record and `*FormValues` contract types listed in §2. Public routes sit in
-the `app/(public)` route group; admin has its own `app/admin/layout.tsx`.
+Admin entity types in `src/types/index.ts`: the envelope/record and `*FormValues` contract
+types listed in §2. `ContentDraft`, `PublishingActivityEntry`, and `ContentTypeAction` were
+deleted along with the `/admin` content hub they backed. Public routes sit in the
+`app/(public)` route group; admin has its own `app/admin/layout.tsx`.
 
 ### Folder architecture
 
@@ -1229,7 +1230,7 @@ now handles PDF upload + download (10MB cap), separate from `public-media` preci
 because it needed a different type/size policy than images.
 
 ### E. Admin panel + auth
-The admin **UI now exists in full** (`/admin` content hub + sections for services, certificate applications, appointments, complaints, assistance requests, transparency documents, events, news, and settings) and sits behind real auth. Services, applications, the three ticket queues, news, announcements, events, and (as of 2026-07-20) transparency documents are all DB-backed now; only team management (in Settings) and the "Recent Drafts" hub widget remain on mock data (`ADMIN_TEAM`, `RECENT_DRAFTS` in `features/admin/data.ts`). Remaining backend work, in order:
+The admin **UI now exists in full** (`/admin` redirects to the first module the signed-in user is permitted to reach; sections for services, certificate applications, appointments, complaints, assistance requests, transparency documents, events, news, and settings) and sits behind real auth. Services, applications, the three ticket queues, news, announcements, events, and (as of 2026-07-20) transparency documents are all DB-backed now; only team management (in Settings) remains on mock data (`ADMIN_TEAM` in `features/admin/data.ts`) — nothing renders it yet. The old "Recent Drafts" hub widget and its `RECENT_DRAFTS` mock were deleted along with the `/admin` content hub. Remaining backend work, in order:
 
 1. ~~**Auth first** — the `/admin` tree must sit behind a login (middleware guard + session);
    `ADMIN_USER` in `features/admin/data.ts` is the placeholder for the session user.~~

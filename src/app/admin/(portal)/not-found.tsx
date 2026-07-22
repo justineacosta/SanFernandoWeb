@@ -32,7 +32,7 @@ export default function AdminNotFound() {
         the portal.
       </p>
       <Button href="/admin" variant="primary">
-        Back to Dashboard
+        Back to the portal
       </Button>
     </div>
   );

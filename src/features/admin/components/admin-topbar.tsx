@@ -50,7 +50,7 @@ export function AdminTopBar({ user }: { user: SessionUser }) {
   });
 
   return (
-    <header className="sticky top-0 z-40 px-4 pt-4 md:px-8">
+    <header className="sticky top-0 z-40 mx-auto w-full max-w-(--container-page) px-4 pt-4 md:px-8">
       <div
         className={cn(
           "flex h-14 w-full items-center justify-between gap-4 rounded-2xl border px-3 transition-all duration-300 sm:px-5",

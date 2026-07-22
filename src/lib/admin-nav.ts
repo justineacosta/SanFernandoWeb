@@ -23,7 +23,12 @@ export const ADMIN_NAV_GROUP_LABELS: Record<AdminNavGroup, string> = {
   system: "System",
 };
 
-/** Render order. Also the order firstPermittedPath walks. */
+/**
+ * Render order for grouped sections only. `firstPermittedPath` does not
+ * consult this — it walks the flat order of `ADMIN_NAV_ITEMS` via
+ * `visibleNavItems(...)[0]`, so the landing page tracks that array's order,
+ * not this one.
+ */
 const GROUP_ORDER: AdminNavGroup[] = ["requests", "content", "system"];
 
 /** Where a user with no permissions at all still lands. Settings has no gate. */

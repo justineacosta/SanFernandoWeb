@@ -119,12 +119,16 @@ export function AdminSidebar({
                     exact={item.exact}
                     className={cn(
                       "group relative flex h-10 items-center rounded-lg text-sm font-medium text-ink-300 transition-colors hover:bg-white/5 hover:text-white",
-                      collapsed ? "justify-center px-0" : "gap-3 px-3",
+                      collapsed ? "w-10 justify-center px-0" : "gap-3 px-3",
                     )}
                     activeClassName="bg-white/10 text-white before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-brand-400 [&>svg]:text-brand-400"
                   >
                     <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                    {!collapsed ? <span className="truncate">{item.label}</span> : null}
+                    {!collapsed ? (
+                      <span className="truncate">{item.label}</span>
+                    ) : (
+                      <span className="sr-only">{item.label}</span>
+                    )}
                   </NavLink>
                 );
                 return (

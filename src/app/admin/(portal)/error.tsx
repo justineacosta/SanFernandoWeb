@@ -40,7 +40,7 @@ export default function AdminPortalError({
             Try again
           </Button>
           <Button variant="outline" href="/admin">
-            Back to the dashboard
+            Back to the portal
           </Button>
         </div>
         {error.digest ? (

@@ -22,6 +22,8 @@ export const SITE = {
   address: "Barangay San Fernando, San Nicolas, Ilocos Norte, Philippines",
   addressLines: ["Barangay San Fernando,", "San Nicolas, Ilocos Norte, Philippines"],
   phone: "(077) 600 1082",
+  /** Same number as `phone`, in dialable E.164 form — use for every `tel:` href. */
+  phoneTel: "+63776001082",
   email: "info@brgy-sanfernando.gov.ph",
   officeHours: "Mon - Fri: 8:00 AM - 5:00 PM",
   sealImage: barangaySealLogo,

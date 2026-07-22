@@ -25,7 +25,7 @@ export function ActionCenterBanner() {
             </div>
           </div>
           <div className="relative flex flex-col gap-4 sm:flex-row">
-            <Button href="tel:+63776001082" variant="primary" size="lg">
+            <Button href={`tel:${SITE.phoneTel}`} variant="primary" size="lg">
               <Phone className="h-5 w-5" aria-hidden="true" />
               Emergency Hotline: {SITE.phone}
             </Button>

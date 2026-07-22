@@ -4,9 +4,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const AUDIT_PAGE_SIZE = 10;
 
-const COLUMNS =
-  "id, actor_name, action_type, action, entity_type, entity_id, entity_label, detail, created_at";
-
 interface Row {
   id: number;
   actor_name: string;
@@ -31,28 +28,6 @@ function toEntry(row: Row): AuditEntry {
     detail: row.detail,
     createdAt: row.created_at,
   };
-}
-
-/**
- * Recent entries for the dashboard panel.
- *
- * Reads through the SERVICE-ROLE client. Migration 0014 drops the permissive
- * `for select to authenticated` policy migration 0001 created, so audit_log now
- * matches every other table: RLS enabled with no policies, and the explicit
- * permission check in the calling page is the entire gate.
- */
-export async function listRecentActivity(limit = 8): Promise<AuditEntry[]> {
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("audit_log")
-    .select(COLUMNS)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error || !data) {
-    if (error) console.error("listRecentActivity failed:", error.message);
-    return [];
-  }
-  return (data as Row[]).map(toEntry);
 }
 
 export type AuditSortKey = "created_at" | "actor_name" | "action_type" | "entity_type";

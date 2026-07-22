@@ -28,7 +28,7 @@ export function MapSection() {
             src={MAP_IMAGE}
             alt="Map showing the location of the San Fernando Barangay Hall"
             fill
-            sizes="(min-width: 768px) 100vw, 100vw"
+            sizes="(min-width: 1280px) 1280px, 100vw"
             className="object-cover"
           />
           <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-ink-200 bg-white/95 p-6 shadow-xl backdrop-blur-md md:right-auto md:w-80">
