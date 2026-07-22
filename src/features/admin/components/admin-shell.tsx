@@ -45,7 +45,7 @@ export function AdminShell({ user, defaultCollapsed, children }: AdminShellProps
       />
       <div
         className={cn(
-          "flex min-h-screen w-full flex-1 flex-col transition-[margin] duration-200",
+          "flex min-h-screen w-full flex-1 flex-col transition-[margin] duration-200 ease-out-soft",
           collapsed ? "md:ml-18" : "md:ml-64",
         )}
       >

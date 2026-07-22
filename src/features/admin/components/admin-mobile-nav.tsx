@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { Menu, X } from "lucide-react";
 import type { Permission } from "@/types";
 import { useDisclosure } from "@/hooks/use-disclosure";
@@ -26,24 +27,40 @@ export function AdminMobileNav({
       >
         {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
       </button>
-      {isOpen ? (
-        <div className="fixed inset-0 z-50">
-          <button
-            type="button"
-            aria-label="Close admin menu"
-            onClick={close}
-            className="absolute inset-0 bg-ink-900/40"
-          />
-          <div className="absolute left-0 top-0" onClick={close}>
-            <AdminSidebar
-              className="shadow-xl"
-              isSuperAdmin={isSuperAdmin}
-              permissions={permissions}
-              collapsed={false}
-            />
-          </div>
-        </div>
-      ) : null}
+      <MotionConfig reducedMotion="user">
+        <AnimatePresence>
+          {isOpen ? (
+            <motion.div key="admin-drawer" className="fixed inset-0 z-50">
+              <motion.button
+                type="button"
+                aria-label="Close admin menu"
+                onClick={close}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 bg-ink-900/40 backdrop-blur-[2px]"
+              />
+              <motion.div
+                // −288 clears the 256px rail plus its shadow before unmount.
+                initial={{ x: -288 }}
+                animate={{ x: 0 }}
+                exit={{ x: -288 }}
+                transition={{ type: "spring", stiffness: 380, damping: 40 }}
+                className="absolute left-0 top-0"
+                onClick={close}
+              >
+                <AdminSidebar
+                  className="shadow-floating"
+                  isSuperAdmin={isSuperAdmin}
+                  permissions={permissions}
+                  collapsed={false}
+                />
+              </motion.div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </MotionConfig>
     </div>
   );
 }
