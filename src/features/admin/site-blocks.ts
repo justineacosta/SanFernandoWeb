@@ -55,33 +55,6 @@ export const SITE_BLOCK_SPECS: SiteBlockSpec[] = [
     image: { required: true, fit: false },
   },
   {
-    block: "quick_services",
-    page: "home",
-    title: "Quick services",
-    description: "The six shortcut cards under the hero. Each links somewhere on this site.",
-    noun: "quick services",
-    itemNoun: "service",
-    fields: [
-      ICON_FIELD,
-      { key: "label", label: "Title", type: "text", required: true },
-      {
-        key: "value",
-        label: "Link text",
-        hint: "The wording under the title, e.g. “Apply Online”.",
-        type: "text",
-        required: true,
-      },
-      {
-        key: "href",
-        label: "Links to",
-        hint: "A path on this site, starting with a slash — e.g. /services.",
-        type: "href",
-        required: true,
-      },
-    ],
-    image: null,
-  },
-  {
     block: "glance_stats",
     page: "home",
     title: "Barangay at a glance",
@@ -171,7 +144,8 @@ export const SITE_BLOCK_SPECS: SiteBlockSpec[] = [
 
 export function specFor(block: SiteBlock): SiteBlockSpec {
   // Every SiteBlock has a spec above; the non-null assertion is safe because
-  // both lists are derived from the same union.
+  // both lists are derived from the same union. Quick Services was removed
+  // from BOTH in 0022 — never from one alone.
   return SITE_BLOCK_SPECS.find((spec) => spec.block === block)!;
 }
 

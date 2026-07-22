@@ -3,7 +3,6 @@ import { cache } from "react";
 import type {
   HeroSlide,
   Milestone,
-  QuickService,
   SiteBlock,
   SiteBlockKey,
   Stat,
@@ -88,15 +87,6 @@ export async function listHeroSlides(): Promise<HeroSlide[]> {
   return (await itemsFor("hero_slides")).map((row) => ({
     src: photoUrl(row.image_path!),
     alt: row.image_alt ?? "",
-  }));
-}
-
-export async function listQuickServices(): Promise<QuickService[]> {
-  return (await itemsFor("quick_services")).map((row) => ({
-    title: row.label!,
-    ctaLabel: row.value!,
-    href: row.href!,
-    icon: resolveIcon(row.icon_name ?? ""),
   }));
 }
 

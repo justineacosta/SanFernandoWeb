@@ -81,14 +81,6 @@ const iconNameSchema = requiredText("Choose an icon.").refine(
   "Choose an icon from the list.",
 );
 
-// Quick-service cards render as site navigation, so the link must stay in-site.
-// `//evil.example` is rejected alongside `https://…`: it starts with a slash but
-// is a protocol-relative URL that leaves the site.
-const hrefSchema = requiredText("Enter the page this card opens.").refine(
-  (href) => /^\/(?!\/)/.test(href),
-  "Links must be in-site paths starting with / — for example /services.",
-);
-
 // The path is resolved server-side (an upload this action just performed, or
 // the path the row already held), never taken from the request body. The regex
 // is belt-and-braces against a future caller that passes one through, and
@@ -166,23 +158,6 @@ const BLOCK_SCHEMAS: Record<SiteBlock, z.ZodType<ItemColumns>> = {
         ...EMPTY_COLUMNS,
         image_path: v.imagePath,
         image_alt: v.imageAlt,
-      }),
-    ),
-
-  quick_services: z
-    .object({
-      label: requiredText("Enter the service name."),
-      value: requiredText("Enter the button label."),
-      href: hrefSchema,
-      iconName: iconNameSchema,
-    })
-    .transform(
-      (v): ItemColumns => ({
-        ...EMPTY_COLUMNS,
-        label: v.label,
-        value: v.value,
-        href: v.href,
-        icon_name: v.iconName,
       }),
     ),
 
@@ -287,7 +262,6 @@ const SITE_BLOCK_KEY_LABELS: Record<SiteBlockKey, string> = {
 
 const SITE_BLOCK_LABELS: Record<SiteBlock, string> = {
   hero_slides: "Hero carousel",
-  quick_services: "Quick services",
   glance_stats: "Barangay at a glance",
   involvement_items: "Get involved",
   core_values: "Core values",

@@ -608,12 +608,15 @@ export interface ValueItem {
 }
 
 /* --------------------------- Site content CMS (plan 9) -------------------------- */
-/* The editable Home and About blocks. Mirrors migration 0021 — the enum below and  */
-/* `public.site_block` must change together.                                        */
+/* The editable Home and About blocks.                                              */
+/*                                                                                  */
+/* This union NO LONGER mirrors the SQL `site_block` enum exactly: migration 0022    */
+/* removed Quick Services from the CMS, and Postgres cannot drop an enum value, so   */
+/* 'quick_services' survives in the database as an unreachable label. Every value    */
+/* HERE must still exist in the enum — the drift only runs one way.                  */
 
 export const SITE_BLOCKS = [
   "hero_slides",
-  "quick_services",
   "glance_stats",
   "involvement_items",
   "core_values",
