@@ -1,6 +1,7 @@
 import { Phone, Siren } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
+import { SITE } from "@/constants/site";
 
 /** Red 24/7 emergency action-center strip below the directory. */
 export function ActionCenterBanner() {
@@ -24,9 +25,9 @@ export function ActionCenterBanner() {
             </div>
           </div>
           <div className="relative flex flex-col gap-4 sm:flex-row">
-            <Button href="tel:911" variant="primary" size="lg">
+            <Button href="tel:+63776001082" variant="primary" size="lg">
               <Phone className="h-5 w-5" aria-hidden="true" />
-              Emergency Hotline: 911
+              Emergency Hotline: {SITE.phone}
             </Button>
             <Button href="/assistance/new" variant="outline-white" size="lg">
               Request Assistance
