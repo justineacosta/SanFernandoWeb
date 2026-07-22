@@ -28,6 +28,7 @@ import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
 import { AdminPagination } from "./admin-pagination";
+import { ArchivedNote } from "./archived-note";
 import { EventForm, type EventEditRecord } from "./event-form";
 import { MiniCalendar } from "./mini-calendar";
 import { StatusChip } from "./status-chip";
@@ -299,6 +300,7 @@ export function EventsManager({ events }: EventsManagerProps) {
                             <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
                             {record.venue}
                           </p>
+                          {view === "archived" ? <ArchivedNote {...record} /> : null}
                         </div>
                       </div>
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 pt-4">

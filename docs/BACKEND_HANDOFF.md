@@ -804,6 +804,34 @@
 > Postgres function — another migration), and nothing emails anyone yet, which is what §2D
 > below is for.
 
+> **Sub-project 6 shipped 2026-07-22 — archive & restore.** Spec:
+> `docs/superpowers/specs/2026-07-22-archive-restore-design.md`. **Migration `0020`**
+> (applied to staging) adds `archived_at` / `archived_by` to the seven content tables.
+>
+> Reading the code first showed this was mostly a **safety fix**, not a build: the archive
+> substrate already existed on all seven tables, restore-by-republish worked, the public
+> boundary already filtered on `published`, and the category hide-flag from umbrella §3.6
+> shipped long ago. What was missing was the rule on top.
+> 1. **Delete now requires SuperAdmin *and* an already-archived record.** Before this, every
+>    content delete sat behind `checkPermission(<module>)` and ignored the record's status —
+>    so anyone with `manage-transparency` could permanently erase a *published* ordinance and
+>    its PDF in one click. `guardDelete()` in `src/lib/archive.ts` enforces both conditions in
+>    one read; it is a shared helper because a check repeated in four places gets forgotten in
+>    one, and Server Actions are public HTTP endpoints a stale tab reaches directly.
+> 2. **Restore is a first-class action on all seven types, and returns the record to
+>    `draft`** — never straight back to `published`. It also fills in the `restore` audit
+>    type, which had been in `AUDIT_ACTIONS` since `0014` with nothing ever writing it.
+> 3. **An Active | Archived view toggle** (`src/components/ui/view-toggle.tsx`) replaces
+>    "archived" as a status-dropdown value across six manager surfaces. Delete only ever
+>    appears in the Archived view, only for a SuperAdmin — a non-SuperAdmin sees no Delete
+>    rather than a disabled one. Reorder arrows hide there, same rule as under a filter.
+> 4. **News, announcements and events get Restore but still no Delete.** They have none today;
+>    adding three new destructive actions here is backwards, and their media lives behind
+>    `image_src`/`cover_src` URLs plus child photo rows, so a correct delete needs the
+>    URL→Storage-path work sub-project 7 owns. Deferred there deliberately.
+> 5. `deleteAchievement` is deliberately untouched — a sub-record inside a parent's drawer,
+>    whose soft state is the existing `is_visible` toggle.
+
 ---
 
 ## 1. Current State

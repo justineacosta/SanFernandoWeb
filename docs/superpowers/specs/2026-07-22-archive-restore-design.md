@@ -23,12 +23,12 @@ sub-project is.
 
 ### 1.1 The defect
 
-Seven Server Actions permanently destroy a record and its Storage objects behind nothing
-but the module permission, from any state including `published`:
+Four Server Actions permanently destroy a record and its Storage objects behind nothing but
+the module permission, from any state including `published`:
 
-`deleteOfficial`, `deleteLegislative`, `deleteTransparencyDocument`,
-`deleteTransparencyProject`, `deleteAchievement`, and the two `deleteX` paths reachable from
-the news and events drawers.
+`deleteOfficial`, `deleteLegislative`, `deleteTransparencyDocument`, and
+`deleteTransparencyProject`. (`deleteAchievement` is a fifth, excluded for the reason in
+§2.6; `deleteTeamUser` is already SuperAdmin-gated and is not content.)
 
 A staff member holding `manage-transparency` can therefore erase a published ordinance — the
 row and its PDF — in one click. That PDF is a public legal record and very likely the
@@ -122,7 +122,21 @@ looking at the Archived view holds a module permission and nothing more, so with
 columns they cannot see how long a record has been sitting there. Rows archived before the
 migration keep NULLs and read "archived before 22 July 2026" rather than inventing a date.
 
-### 2.6 Achievements are deliberately excluded
+### 2.6 News, announcements and events get Restore but no Delete — yet
+
+Those three have **no delete action at all** today; they can only be archived. Their Archived
+view therefore offers Restore and nothing else.
+
+Writing three new delete actions would be *adding* destructive capability in the sub-project
+whose entire purpose is to reduce it — and it is not free work. Their media is stored as
+`image_src` / `cover_src` **URLs** plus child `news_photos` rows, so a correct delete has to
+turn a public URL back into a Storage path to avoid orphaning every image it touches. That is
+exactly the row/object lifecycle problem sub-project 7 exists to solve.
+
+So: deferred to 7, deliberately. An archived article accumulates until then, which costs a
+row and hurts nobody.
+
+### 2.7 Achievements are deliberately excluded
 
 `deleteAchievement` stays on `manage-officials`. An achievement is a sub-record edited inside
 an official's drawer, not a table row: it has no `content_status`, its soft state is the
@@ -153,16 +167,27 @@ B is the safety fix and can ship without C. C without B would be decoration.
   SuperAdmin and that person is away, nothing can be purged. Accepted: purging is rare and
   archiving — which anyone with the module permission can do — is what stops publication.
 
-## 5. Verification
+## 5. What the browser confirmed
 
-Browser-driven, per `.claude/skills/verify/SKILL.md`, with the session stubbed both ways:
+Migration `0020` was applied by the owner on 2026-07-22. Driven per
+`.claude/skills/verify/SKILL.md`, with the session stubbed as both roles.
 
-1. As a **non-SuperAdmin** with `manage-transparency`: the Archived view offers Restore and
-   **no Delete**, and calling `deleteLegislative` directly returns `"Not found."`.
-2. As a **SuperAdmin**: Delete on an *active* record is not offered, and calling the action
-   on a published row is refused by the status check.
-3. Archive → the row leaves the Active view, appears under Archived with "archived today by
-   …", and disappears from the public page.
-4. Restore → the row returns to the Active view as **Draft**, not Published, and the audit
-   log holds a `restore` entry.
-5. Delete from the Archived view as SuperAdmin → row and Storage objects gone.
+- **The Archived view is a real place.** Officials: 12 active rows with reorder arrows and a
+  status dropdown; one archived row with **no arrows and no dropdown**, reading
+  *"Archived July 22, 2026 by Justine Acosta"* — provenance written by `statusPatch` and read
+  back through the `archived_by` foreign key.
+- **Delete is SuperAdmin-only in the UI.** SuperAdmin sees View details / Restore / Delete;
+  the same row as a non-SuperAdmin with `manage-officials` shows **View details / Restore**
+  and no Delete at all.
+- **The status guard holds against a stale tab** — the case it exists for. Two tabs open on
+  the Archived view; one restored the record, then the other clicked Delete. The action
+  refused: *"Archive this record first. Only archived records can be deleted permanently."*
+  Nothing was deleted.
+- **The permitted path still works.** The same throwaway project, re-archived, deleted
+  cleanly as SuperAdmin and left the Archived view empty.
+- **Restore returns records to Draft, not Published** — checked on an official and an
+  ordinance, both at the DB level. The audit log now carries `restore` entries
+  (*"restored official"*, *"restored document"*), the first ever written, including one by a
+  non-SuperAdmin — restore is not gated on SuperAdmin, only delete is.
+- Everything touched during verification was put back: both records republished, the
+  throwaway project deleted, no archive stamps left on any live row.

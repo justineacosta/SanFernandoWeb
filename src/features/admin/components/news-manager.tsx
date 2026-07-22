@@ -43,6 +43,7 @@ import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
 import { AdminPagination } from "./admin-pagination";
+import { ArchivedNote } from "./archived-note";
 import { AnnouncementForm, type AnnouncementEditRecord } from "./announcement-form";
 import { NewsForm, type NewsEditRecord } from "./news-form";
 import { StatusChip } from "./status-chip";
@@ -433,6 +434,7 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
                     <h3 className="mb-2 line-clamp-2 font-display text-lg font-semibold tracking-tight text-ink-900">
                       {record.title}
                     </h3>
+                    {view === "archived" ? <ArchivedNote {...record} /> : null}
                     {record.excerpt ? (
                       <p className="line-clamp-3 text-sm text-ink-600">{record.excerpt}</p>
                     ) : (
@@ -495,6 +497,7 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
                   <h3 className="mb-2 line-clamp-2 font-display text-lg font-semibold tracking-tight text-ink-900">
                     {record.title}
                   </h3>
+                  {view === "archived" ? <ArchivedNote {...record} /> : null}
                   {record.excerpt ? (
                     <p className="line-clamp-3 text-sm text-ink-600">{record.excerpt}</p>
                   ) : (

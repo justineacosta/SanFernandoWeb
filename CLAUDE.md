@@ -8,7 +8,7 @@ The official website of **Barangay San Fernando, San Nicolas, Ilocos Norte** (Ph
 Next.js 16 App Router + React 19 + TypeScript (strict) + Tailwind CSS v4, backed by
 **Supabase** (Postgres + Auth + Storage). The frontend was built first as a fully static
 mock; backend integration is now well underway (migrations `0001`–`0011` applied;
-`0012`–`0019` applied to staging, still pending on production). Live and
+`0012`–`0020` applied to staging, still pending on production). Live and
 DB-backed: auth + account self-service, the services catalog, all four ticketing flows
 (applications / appointments / complaints / assistance), contact inquiries + alert
 subscribers, news + announcements + events, transparency (legislative documents
@@ -62,6 +62,14 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   **Destructive actions belong on the row, not in the drawer.** Reorder arrows are hidden
   whenever a filter, a search, or a non-`order` sort is active — "move up" only means
   something when the row above is the one that would be swapped.
+- **Archive vs delete** (sub-project 6, migration `0020`): archiving is a soft delete anyone
+  with the module permission may do; **permanent deletion is SuperAdmin-only and reachable
+  only from a record already `archived`** — both conditions enforced server-side by
+  `guardDelete()` in `src/lib/archive.ts`, never by the UI alone. Every manager has an
+  **Active | Archived** view (`ViewToggle`); `archived` is not a status-dropdown value.
+  Restore returns a record to `draft`, never to `published`, and files a `restore` audit
+  entry. News/announcements/events have **no delete action at all** — deferred to
+  sub-project 7 with the rest of the Storage-lifecycle work.
 - **Feature modules own everything for a route:** `src/features/<name>/` =
   `data.ts` (typed mock content) + `components/` (section components) + `index.ts`
   (barrel re-exports, kept in page order). Pages import only from the barrel.

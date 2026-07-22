@@ -1,5 +1,6 @@
-import type { ContentStatus, SessionUser } from "@/types";
+import type { ArchiveMeta, ContentStatus, SessionUser } from "@/types";
 import { NOT_FOUND, checkSuperAdmin } from "@/lib/auth";
+import { toManilaDate } from "@/lib/format";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -45,6 +46,30 @@ export function statusPatch(actor: SessionUser, next: ContentStatus): Record<str
  * `string | null` does not narrow a union, so `if (guard.error)` would leave
  * `actor` possibly null in every caller.
  */
+/* ── Read side: showing who archived a record, and when ───────────────────── */
+
+/**
+ * Append to any admin list query's `.select()` to pick up archive provenance.
+ * The name comes through the foreign key rather than a denormalised column —
+ * see `InquiryRow.handledByName` for the same trade-off.
+ */
+export const ARCHIVE_SELECT = "archived_at, archived_by_profile:archived_by (full_name)";
+
+/** The two columns as PostgREST returns them. */
+export interface ArchiveMetaRow {
+  archived_at: string | null;
+  // supabase-js types every embed as an array; a many-to-one FK returns one row.
+  archived_by_profile: { full_name: string } | null;
+}
+
+/** Map a row's archive columns onto the shape the admin tables render. */
+export function toArchiveMeta(row: ArchiveMetaRow): ArchiveMeta {
+  return {
+    archivedAt: row.archived_at ? toManilaDate(row.archived_at) : null,
+    archivedByName: row.archived_by_profile?.full_name ?? null,
+  };
+}
+
 type GuardResult<T> = { ok: true; actor: SessionUser; row: T } | { ok: false; error: string };
 
 /**

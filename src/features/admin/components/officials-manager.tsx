@@ -40,6 +40,7 @@ import {
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminStatCard } from "./admin-stat-card";
+import { ArchivedNote } from "./archived-note";
 import { OfficialForm, type OfficialEditRecord } from "./official-form";
 import { StatusChip } from "./status-chip";
 
@@ -410,6 +411,7 @@ export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerPr
                           <div>
                             <p className="font-semibold text-ink-900">{record.name}</p>
                             <p className="text-ink-500">{record.role}</p>
+                            {view === "archived" ? <ArchivedNote {...record} /> : null}
                           </div>
                         </div>
                       </td>

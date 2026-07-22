@@ -43,6 +43,7 @@ import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
 import { AdminPagination } from "./admin-pagination";
+import { ArchivedNote } from "./archived-note";
 import { LegislativeManager } from "./legislative-manager";
 import { StatusChip } from "./status-chip";
 import { TransparencyDocumentForm, type TransparencyDocumentEditRecord } from "./transparency-document-form";
@@ -423,6 +424,7 @@ export function TransparencyManager({
                           </td>
                           <td className="max-w-90 px-6 py-4">
                             <p className="font-semibold text-ink-900">{record.title}</p>
+                            {docView === "archived" ? <ArchivedNote {...record} /> : null}
                           </td>
                           <td className="px-6 py-4 text-ink-600">{record.categoryLabel}</td>
                           <td className="px-6 py-4 text-ink-600">{formatOptionalDate(record.dateReleased)}</td>

@@ -38,6 +38,7 @@ import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPagination } from "./admin-pagination";
 import { AdminStatCard } from "./admin-stat-card";
+import { ArchivedNote } from "./archived-note";
 import { LegislativeForm, type LegislativeEditRecord } from "./legislative-form";
 import { StatusChip } from "./status-chip";
 
@@ -336,6 +337,7 @@ export function LegislativeManager({ documents, isSuperAdmin }: LegislativeManag
                       <td className="max-w-90 px-6 py-4">
                         <p className="font-semibold text-ink-900">{record.title}</p>
                         <p className="truncate text-ink-500">{record.number}</p>
+                        {view === "archived" ? <ArchivedNote {...record} /> : null}
                       </td>
                       <td className="px-6 py-4">
                         <Badge variant={record.docType === "ordinance" ? "soft" : "neutral"}>

@@ -9,6 +9,7 @@ import type {
   TransparencyDocumentValues,
   TransparencyProjectValues,
 } from "@/types";
+import { ARCHIVE_SELECT, toArchiveMeta, type ArchiveMetaRow } from "@/lib/archive";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { documentUrl } from "@/lib/storage";
 
@@ -16,7 +17,7 @@ export async function listAdminLegislative(): Promise<AdminLegislativeRow[]> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("legislative_documents")
-    .select("id, slug, doc_type, number, title, date_approved, status, file_path")
+    .select(`id, slug, doc_type, number, title, date_approved, status, file_path, ${ARCHIVE_SELECT}`)
     // Pending (undated) documents sort first — the repo owner's explicit
     // call, stated explicitly rather than relying on Postgres's NULLS FIRST
     // default for DESC (see 0010 migration).
@@ -33,6 +34,7 @@ export async function listAdminLegislative(): Promise<AdminLegislativeRow[]> {
     status: row.status as ContentStatus,
     hasFile: Boolean(row.file_path),
     fileUrl: row.file_path ? documentUrl(row.file_path as string) : null,
+    ...toArchiveMeta(row as unknown as ArchiveMetaRow),
   }));
 }
 
@@ -66,13 +68,15 @@ export async function listAdminTransparencyDocuments(): Promise<AdminTransparenc
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("transparency_documents")
-    .select("id, title, category_id, date_released, status, transparency_categories(label)")
+    .select(
+      `id, title, category_id, date_released, status, transparency_categories(label), ${ARCHIVE_SELECT}`,
+    )
     .order("date_released", { ascending: false, nullsFirst: true });
   if (error || !data) return [];
-  const rows = data as unknown as {
+  const rows = data as unknown as (ArchiveMetaRow & {
     id: string; title: string; category_id: string; date_released: string | null;
     status: ContentStatus; transparency_categories: { label: string } | null;
-  }[];
+  })[];
   const counts = new Map<string, number>();
   if (rows.length > 0) {
     // Guard the empty case: `.in("owner_id", [])` on a uuid column can error.
@@ -93,6 +97,7 @@ export async function listAdminTransparencyDocuments(): Promise<AdminTransparenc
     dateReleased: row.date_released,
     status: row.status,
     fileCount: counts.get(row.id) ?? 0,
+    ...toArchiveMeta(row),
   }));
 }
 
@@ -134,14 +139,14 @@ export async function listAdminTransparencyProjects(): Promise<AdminTransparency
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("transparency_projects")
-    .select("id, name, progress, sort_order, status, date")
+    .select(`id, name, progress, sort_order, status, date, ${ARCHIVE_SELECT}`)
     .order("sort_order", { ascending: true });
 
   if (error || !data) return [];
-  const rows = data as unknown as {
+  const rows = data as unknown as (ArchiveMetaRow & {
     id: string; name: string; progress: number; sort_order: number;
     status: ContentStatus; date: string | null;
-  }[];
+  })[];
   const counts = new Map<string, number>();
   if (rows.length > 0) {
     // Guard the empty case: `.in("owner_id", [])` on a uuid column can error.
@@ -161,6 +166,7 @@ export async function listAdminTransparencyProjects(): Promise<AdminTransparency
     sortOrder: row.sort_order,
     status: row.status,
     date: row.date,
+    ...toArchiveMeta(row),
     fileCount: counts.get(row.id) ?? 0,
   }));
 }

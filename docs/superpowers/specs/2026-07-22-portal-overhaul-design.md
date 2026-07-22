@@ -297,6 +297,15 @@ Rationale for the ordering:
   run at any point. It is numbered last only because it was added to the programme after
   the other nine; see §4.1.
 
+### 4.0 The migration column above is the plan, not the record
+
+**Noted 2026-07-22.** The numbers in §4 were assigned before anything shipped and have since
+drifted — sub-project 4 needed three migrations (`0015`–`0017`), the global search took
+`0018`, and sub-project 10's phase D took `0019` when the owner chose to build the inquiries
+backend. **Archive & restore therefore landed on `0020`, not `0016`**, and sub-project 9 will
+take whatever is next free. The table is left as written because this document records the
+decisions as they were made; `supabase/migrations/` is the authority on what exists.
+
 ### 4.1 Sub-project 10 — the public side is in scope too
 
 **Added 2026-07-22, on the owner's instruction, after sub-project 5 shipped.** The original

@@ -34,6 +34,7 @@ import {
   setTransparencyProjectStatus,
 } from "@/features/admin/actions/transparency-projects";
 import { AdminFilterBar } from "./admin-filter-bar";
+import { ArchivedNote } from "./archived-note";
 import { StatusChip } from "./status-chip";
 import { TransparencyProjectForm, type TransparencyProjectEditRecord } from "./transparency-project-form";
 
@@ -271,6 +272,7 @@ export function TransparencyProjectsPanel({
                     ? ` · ${project.fileCount} file${project.fileCount === 1 ? "" : "s"}`
                     : ""}
                 </p>
+                {view === "archived" ? <ArchivedNote {...project} /> : null}
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <StatusChip status={project.status} />

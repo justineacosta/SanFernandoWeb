@@ -1,9 +1,10 @@
 import "server-only";
 import type { AdminEventRow, ContentStatus, EventCategory, EventValues } from "@/types";
+import { ARCHIVE_SELECT, toArchiveMeta, type ArchiveMetaRow } from "@/lib/archive";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { photoUrl } from "@/lib/storage";
 
-interface Row {
+interface Row extends ArchiveMetaRow {
   id: string;
   title: string;
   category: EventCategory;
@@ -18,15 +19,14 @@ interface Row {
   status: ContentStatus;
 }
 
-const COLUMNS =
-  "id, title, category, event_date, start_time, end_time, venue, capacity, description, cover_src, cover_alt, status";
+const COLUMNS = `id, title, category, event_date, start_time, end_time, venue, capacity, description, cover_src, cover_alt, status, ${ARCHIVE_SELECT}`;
 
 /** All events for the admin manager list, soonest event date first. */
 export async function listEvents(): Promise<AdminEventRow[]> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.from("events").select(COLUMNS).order("event_date", { ascending: true });
   if (error || !data) return [];
-  return (data as Row[]).map((r) => ({
+  return (data as unknown as Row[]).map((r) => ({
     id: r.id,
     title: r.title,
     category: r.category,
@@ -41,6 +41,7 @@ export async function listEvents(): Promise<AdminEventRow[]> {
     status: r.status,
     coverSrc: r.cover_src ? photoUrl(r.cover_src) : null,
     coverAlt: r.cover_alt,
+    ...toArchiveMeta(r),
   }));
 }
 
@@ -51,7 +52,7 @@ export async function getEventForEdit(
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.from("events").select(COLUMNS).eq("id", id).maybeSingle();
   if (error || !data) return null;
-  const row = data as Row;
+  const row = data as unknown as Row;
   return {
     values: {
       title: row.title,

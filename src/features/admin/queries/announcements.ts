@@ -1,10 +1,11 @@
 import "server-only";
 import type { AdminAnnouncementRow, AnnouncementValues, ContentStatus } from "@/types";
+import { ARCHIVE_SELECT, toArchiveMeta, type ArchiveMetaRow } from "@/lib/archive";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { photoUrl } from "@/lib/storage";
 import { formatDate, toManilaDate } from "@/lib/format";
 
-interface Row {
+interface Row extends ArchiveMetaRow {
   id: string;
   title: string;
   date: string;
@@ -21,10 +22,12 @@ export async function listAnnouncements(): Promise<AdminAnnouncementRow[]> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("announcements")
-    .select("id, title, date, excerpt, image_src, image_alt, urgent, status, updated_at")
+    .select(
+      `id, title, date, excerpt, image_src, image_alt, urgent, status, updated_at, ${ARCHIVE_SELECT}`,
+    )
     .order("updated_at", { ascending: false });
   if (error || !data) return [];
-  return (data as Row[]).map((r) => ({
+  return (data as unknown as Row[]).map((r) => ({
     id: r.id,
     title: r.title,
     // `date` is a bare Postgres `date` column, not a timestamptz — pass it
@@ -36,6 +39,7 @@ export async function listAnnouncements(): Promise<AdminAnnouncementRow[]> {
     imageSrc: r.image_src ? photoUrl(r.image_src) : null,
     imageAlt: r.image_alt,
     updatedLabel: formatDate(toManilaDate(r.updated_at)),
+    ...toArchiveMeta(r),
   }));
 }
 

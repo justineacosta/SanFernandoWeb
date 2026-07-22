@@ -128,7 +128,7 @@ export interface OfficialValues {
 }
 
 /** Admin table row. */
-export interface AdminOfficialRow {
+export interface AdminOfficialRow extends ArchiveMeta {
   id: string;
   slug: string;
   name: string;
@@ -187,6 +187,21 @@ export interface CommunityEvent {
 
 export type ContentStatus = "draft" | "in-review" | "published" | "archived";
 
+/**
+ * Archive provenance (migration 0020), carried by every admin row type whose
+ * table has an Archived view.
+ *
+ * Both are null on a live record, and null on anything archived before the
+ * migration — the view says "archived earlier" rather than inventing a date.
+ * The audit log holds the same facts, but it is SuperAdmin-only, so the staff
+ * member looking at the Archived view could not otherwise see them.
+ */
+export interface ArchiveMeta {
+  /** Manila calendar date (YYYY-MM-DD). */
+  archivedAt: string | null;
+  archivedByName: string | null;
+}
+
 export interface NewsCategoryRow {
   id: string;
   label: string;
@@ -223,7 +238,7 @@ export interface NewsArticleDetail extends NewsArticleListItem {
 }
 
 /** Admin list rows. */
-export interface AdminNewsArticleRow {
+export interface AdminNewsArticleRow extends ArchiveMeta {
   id: string;
   slug: string;
   title: string;
@@ -237,7 +252,7 @@ export interface AdminNewsArticleRow {
   updatedLabel: string;
   publishedLabel: string | null;
 }
-export interface AdminAnnouncementRow {
+export interface AdminAnnouncementRow extends ArchiveMeta {
   id: string;
   title: string;
   date: string;
@@ -248,7 +263,7 @@ export interface AdminAnnouncementRow {
   imageAlt: string;
   updatedLabel: string;
 }
-export interface AdminEventRow {
+export interface AdminEventRow extends ArchiveMeta {
   id: string;
   title: string;
   category: EventCategory;
@@ -382,7 +397,7 @@ export interface TransparencyCategoryRow {
 
 /* Admin rows (serializable — cross the client boundary into the manager). */
 
-export interface AdminLegislativeRow {
+export interface AdminLegislativeRow extends ArchiveMeta {
   id: string;
   slug: string;
   docType: LegislativeType;
@@ -394,7 +409,7 @@ export interface AdminLegislativeRow {
   fileUrl: string | null;
 }
 
-export interface AdminTransparencyDocumentRow {
+export interface AdminTransparencyDocumentRow extends ArchiveMeta {
   id: string;
   title: string;
   categoryId: string;
@@ -404,7 +419,7 @@ export interface AdminTransparencyDocumentRow {
   fileCount: number;
 }
 
-export interface AdminTransparencyProjectRow {
+export interface AdminTransparencyProjectRow extends ArchiveMeta {
   id: string;
   name: string;
   progress: number;
