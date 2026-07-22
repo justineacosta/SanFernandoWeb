@@ -11,6 +11,9 @@ import {
   saveNewsArticle,
   submitNewsForReview,
 } from "@/features/admin/actions/news";
+import { useFormDraft } from "@/hooks/use-form-draft";
+import { useAdminUserId } from "./admin-user-context";
+import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import { NewsPhotoUploader, type PendingPhoto } from "./news-photo-uploader";
 
 export interface NewsEditRecord {
@@ -64,6 +67,7 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const draft = useFormDraft(useAdminUserId(), "news", id, values);
 
   // Active categories only for new posts; editing keeps the current category
   // selectable even if it has since been retired.
@@ -106,6 +110,7 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
         setError(result.error);
         return;
       }
+      draft.clear();
       onSaved(wasNew ? "Draft saved." : "Post updated.", wasNew);
     });
   }
@@ -132,6 +137,17 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        {draft.recovered && draft.recoveredLabel ? (
+          <DraftRecoveryBar
+            savedAtLabel={draft.recoveredLabel}
+            hasFileState={pendingPhotos.length > 0}
+            onRestore={() => {
+              setValues(draft.recovered!.values);
+              draft.dismiss();
+            }}
+            onDiscard={draft.discard}
+          />
+        ) : null}
         <Field label="Title" htmlFor="news-title">
           <Input
             id="news-title"
@@ -264,7 +280,8 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
             </Button>
           ) : null}
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <DraftSavedNote savedAt={draft.savedAt} />
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

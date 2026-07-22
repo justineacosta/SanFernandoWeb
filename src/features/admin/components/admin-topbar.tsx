@@ -1,8 +1,8 @@
-import { Bell, CircleHelp, LogOut } from "lucide-react";
+import { Bell, CircleHelp } from "lucide-react";
 import type { SessionUser } from "@/types";
-import { signOut } from "@/features/admin/actions/auth";
 import { AdminGlobalSearch } from "@/features/admin/components/admin-global-search";
 import { AdminMobileNav } from "@/features/admin/components/admin-mobile-nav";
+import { SignOutButton } from "@/features/admin/components/sign-out-button";
 
 function initialsOf(fullName: string): string {
   return fullName
@@ -56,15 +56,7 @@ export function AdminTopBar({ user }: { user: SessionUser }) {
           >
             {initialsOf(user.fullName) || "?"}
           </span>
-          <form action={signOut}>
-            <button
-              type="submit"
-              aria-label="Sign out"
-              className="rounded-full p-2 text-ink-600 transition-colors hover:bg-ink-50"
-            >
-              <LogOut className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </form>
+          <SignOutButton />
         </div>
       </div>
     </header>

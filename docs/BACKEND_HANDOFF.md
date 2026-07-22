@@ -868,6 +868,39 @@
 >    it never deletes, because a sweeper acting on its own judgement is what umbrella §3.3
 >    rejected. Staging currently reports 0 orphans.
 
+> **Sub-project 8 shipped 2026-07-22 — autosave.** Spec:
+> `docs/superpowers/specs/2026-07-22-autosave-design.md`. **No migration.**
+>
+> `Drawer` closes on Esc and on an overlay click with no confirmation, so three paragraphs into
+> a news body one stray keypress lost the lot. The seven draft-capable drawers now keep a local
+> recovery copy.
+> 1. **It writes to the browser, never to Postgres — for existing records as much as new ones.**
+>    Umbrella §3.7 allows a database write once a record exists; reading the save actions says
+>    that is unsafe. Editing a published record does not change its status: `saveAnnouncement`
+>    updates the row in place and calls `revalidatePath("/")`, so a timed database write would
+>    push half-rewritten text onto the live home page with no click and no review. Browser
+>    storage satisfies §3.7 by construction. Cross-device resume is the accepted cost.
+> 2. **No new Server Actions**, therefore no new public endpoints to gate and nothing to exclude
+>    from the audit log (§3.7's third bullet dissolves rather than being implemented).
+> 3. **`useFormDraft(userId, scope, recordId, values)`** (`src/hooks/use-form-draft.ts`) owns all
+>    storage access; the pure key/expiry/cap/compare helpers live in `src/lib/form-draft.ts` and
+>    are unit-tested. Each form gained about four lines and keeps its own `useState`.
+> 4. **Text only, by construction.** The hook is handed `values`, and `File` state lives outside
+>    `values` in all seven forms — so staged uploads stay staged (§3.7) without a rule anyone has
+>    to remember. The recovery bar says images are not restored.
+> 5. **Restore is offered, never applied.** For an existing record the server may have moved on;
+>    silently reinstating a stale snapshot over someone else's correction would be data loss
+>    dressed as recovery.
+> 6. **Keys are `sf-draft:v1:<userId>:<scope>:<recordId|new>`**, scoped to the user because a
+>    barangay workstation is plausibly shared, and cleared on sign-out (`SignOutButton`).
+>    7-day expiry, 256 KB cap, every storage call wrapped so private browsing degrades to
+>    "no autosave" rather than a broken form.
+> 7. **The status line reads "Recovery copy saved on this device", never "Saved."** The wording is
+>    load-bearing: an editor must not read it as "this is on the site".
+> 8. **Achievements were re-examined and stayed out.** Sub-project 7 deferred its missing commit
+>    point here. It already persists every field on blur; what it lacks is a *draft* model, which
+>    is a redesign of how achievements are created, not a use of this hook.
+
 ---
 
 ## 1. Current State

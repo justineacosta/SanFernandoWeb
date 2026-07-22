@@ -4,6 +4,9 @@ import { useState, useTransition } from "react";
 import type { ContentStatus, TransparencyProjectValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
+import { useFormDraft } from "@/hooks/use-form-draft";
+import { useAdminUserId } from "./admin-user-context";
+import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import {
   saveTransparencyProject,
   setTransparencyProjectStatus,
@@ -40,6 +43,7 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
   const [keptIds, setKeptIds] = useState<string[]>(record?.files.map((f) => f.id) ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const draft = useFormDraft(useAdminUserId(), "transparency-project", id, values);
 
   const set = <K extends keyof TransparencyProjectValues>(
     key: K,
@@ -59,6 +63,7 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
         return;
       }
       if (result.id) setId(result.id);
+      draft.clear();
       onSaved("Project saved.");
     });
   }
@@ -81,6 +86,17 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        {draft.recovered && draft.recoveredLabel ? (
+          <DraftRecoveryBar
+            savedAtLabel={draft.recoveredLabel}
+            hasFileState={newFiles.length > 0}
+            onRestore={() => {
+              setValues(draft.recovered!.values);
+              draft.dismiss();
+            }}
+            onDiscard={draft.discard}
+          />
+        ) : null}
         <Field label="Name" htmlFor="transparency-project-name">
           <Input
             id="transparency-project-name"
@@ -183,7 +199,8 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
             </Button>
           ) : null}
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <DraftSavedNote savedAt={draft.savedAt} />
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

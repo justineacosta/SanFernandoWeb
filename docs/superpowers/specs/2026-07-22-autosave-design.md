@@ -158,17 +158,31 @@ anonymous drafts to choose between, which is a feature nobody asked for.
   Recording the second look so the deferral does not silently expire.
 - Ticket review drawers, settings, and account forms — not draft-capable (§3.7).
 
-## 6. What the browser must confirm
+## 6. What the browser confirmed
 
-Per `.claude/skills/verify/SKILL.md`, driven against staging.
+Driven per `.claude/skills/verify/SKILL.md` against staging, with the session stubbed as two
+different users (stubs since removed). Every record created was deleted afterwards.
 
-1. Type into a new announcement, press **Esc**, reopen → recovery bar offers the text.
-2. **Restore** brings the text back; **Discard** removes the bar and the key.
-3. Save successfully → the key is gone, and reopening offers nothing.
-4. Pick an image, type, Esc, reopen, Restore → text returns, image does not, and the bar
-   says so. `announcements/` still holds 0 new objects.
-5. Edit a **published** announcement, type, wait 5 s, do not save → the public page is
-   unchanged and the row is untouched. This is §2.1's whole reason for existing.
-6. Two users on one browser profile: A's snapshot is not offered to B.
-7. Sign out → every `sf-draft:v1:` key is gone.
-8. A news body over 256 KB → no write, no error, form still saves normally.
+- **The loss this exists to stop.** Typed a title and excerpt into a new announcement, pressed
+  **Esc**, reopened → *"Unsaved changes from just now"*, and Restore brought both fields back.
+  Before Restore the fields were **empty**: the copy is offered, never applied (§2.4).
+- **Discard** removed the bar and the key together; reopening offered nothing.
+- **A save clears it.** Key present before Save, `[]` after, row written as `draft`.
+- **Images are excluded, and it says so.** The bar reads *"Kept on this device only. Text is
+  restored; any chosen images are not."* `announcements/` held 0 objects throughout — picking a
+  file and cancelling still leaks nothing, so sub-project 7's invariant is intact.
+- **A published record does not change — §2.1's whole reason for existing.** Edited a published
+  announcement to *"SP8 HALF-REWRITTEN must not go live"*, waited 4 s, did not save. The row's
+  title and excerpt were untouched, the public `/announcements` page did not contain the text,
+  and the only thing written was a local key. Reopening then offered the edit back.
+- **Per-user scoping holds.** With user A's snapshot in `localStorage`, signing in as B and
+  opening the same drawer offered nothing; A's key was still there, untouched.
+- **Sign-out clears everything.** 1 key before, `[]` after.
+- **The size cap is silent, not broken.** A 270 KB body wrote no key and showed no status note;
+  shrinking the field resumed autosave on the next debounce, and the post saved normally.
+- **All seven forms.** announcement, news, event, official, legislative,
+  transparency-document, transparency-project — each wrote a correctly scoped key, showed
+  *"Recovery copy saved on this device"*, and offered the bar on reopen.
+
+`npm run typecheck`, `npx eslint src/`, and `npm run build` are clean; 62/62 Vitest cases pass
+(45 before, +17 here).

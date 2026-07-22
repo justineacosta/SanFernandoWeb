@@ -4,7 +4,10 @@ import { useState, useTransition } from "react";
 import type { ContentStatus, LegislativeValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { useFormDraft } from "@/hooks/use-form-draft";
 import { saveLegislative, setLegislativeStatus } from "@/features/admin/actions/legislative";
+import { useAdminUserId } from "./admin-user-context";
+import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import { PdfUploader } from "./pdf-uploader";
 
 export interface LegislativeEditRecord {
@@ -43,6 +46,7 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
   const [removeFile, setRemoveFile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const draft = useFormDraft(useAdminUserId(), "legislative", id, values);
 
   const set = <K extends keyof LegislativeValues>(key: K, value: LegislativeValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -60,6 +64,7 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
         return;
       }
       if (result.id) setId(result.id);
+      draft.clear();
       onSaved("Document saved.");
     });
   }
@@ -82,6 +87,17 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        {draft.recovered && draft.recoveredLabel ? (
+          <DraftRecoveryBar
+            savedAtLabel={draft.recoveredLabel}
+            hasFileState={file !== null}
+            onRestore={() => {
+              setValues(draft.recovered!.values);
+              draft.dismiss();
+            }}
+            onDiscard={draft.discard}
+          />
+        ) : null}
         <Field label="Type" htmlFor="legislative-type">
           <Select
             id="legislative-type"
@@ -203,7 +219,8 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
             </Button>
           ) : null}
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <DraftSavedNote savedAt={draft.savedAt} />
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

@@ -4,6 +4,9 @@ import { useState, useTransition } from "react";
 import type { ContentStatus, TransparencyCategoryRow, TransparencyDocumentValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/form";
+import { useFormDraft } from "@/hooks/use-form-draft";
+import { useAdminUserId } from "./admin-user-context";
+import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import {
   saveTransparencyDocument,
   setTransparencyDocumentStatus,
@@ -50,6 +53,7 @@ export function TransparencyDocumentForm({
   const [keptIds, setKeptIds] = useState<string[]>(record?.files.map((f) => f.id) ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const draft = useFormDraft(useAdminUserId(), "transparency-document", id, values);
 
   // Active categories only for new documents; editing keeps the current category
   // selectable even if it has since been retired.
@@ -75,6 +79,7 @@ export function TransparencyDocumentForm({
         return;
       }
       if (result.id) setId(result.id);
+      draft.clear();
       onSaved("Document saved.");
     });
   }
@@ -97,6 +102,17 @@ export function TransparencyDocumentForm({
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        {draft.recovered && draft.recoveredLabel ? (
+          <DraftRecoveryBar
+            savedAtLabel={draft.recoveredLabel}
+            hasFileState={newFiles.length > 0}
+            onRestore={() => {
+              setValues(draft.recovered!.values);
+              draft.dismiss();
+            }}
+            onDiscard={draft.discard}
+          />
+        ) : null}
         <Field label="Title" htmlFor="transparency-doc-title">
           <Input
             id="transparency-doc-title"
@@ -199,7 +215,8 @@ export function TransparencyDocumentForm({
             </Button>
           ) : null}
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <DraftSavedNote savedAt={draft.savedAt} />
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

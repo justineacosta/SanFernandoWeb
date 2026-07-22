@@ -81,6 +81,17 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   `AchievementPhotoUploader`: its editor has no Save button to defer to, so it stays eager —
   see the sub-project 7 spec §2.4 before "fixing" it. `scripts/report-orphaned-media.mjs`
   lists unreferenced objects and never deletes.
+- **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
+  The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
+  (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
+  JSON snapshot of `values` into `localStorage` under
+  `sf-draft:v1:<userId>:<scope>:<recordId|new>`. **It must never write to Postgres:** editing a
+  published record does not change its status, so a timed DB write would push unreviewed text
+  onto the live site. Files stay out because the hook is handed `values` and `File` state lives
+  outside it — don't "fix" that by passing file state in. Restore is **offered, never applied**
+  (the server may have moved on). The status line says *"Recovery copy saved on this device"*,
+  never "Saved". `AchievementsEditor` is out of scope: it saves each field on blur and has no
+  draft model to hook into.
 - **Feature modules own everything for a route:** `src/features/<name>/` =
   `data.ts` (typed mock content) + `components/` (section components) + `index.ts`
   (barrel re-exports, kept in page order). Pages import only from the barrel.

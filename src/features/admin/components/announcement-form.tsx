@@ -5,6 +5,9 @@ import type { AnnouncementValues, ContentStatus } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
 import { photoUrl } from "@/lib/storage";
+import { useFormDraft } from "@/hooks/use-form-draft";
+import { useAdminUserId } from "./admin-user-context";
+import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import {
   archiveAnnouncement,
   publishAnnouncement,
@@ -46,6 +49,7 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
   const [removeImage, setRemoveImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const draft = useFormDraft(useAdminUserId(), "announcement", id, values);
 
   const set = <K extends keyof AnnouncementValues>(key: K, value: AnnouncementValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -64,6 +68,9 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
       }
       const wasNew = id === null;
       if (result.id) setId(result.id);
+      // The work is on the server: drop the recovery copy and re-baseline, so
+      // the autosave effect does not immediately write it back.
+      draft.clear();
       onSaved(wasNew ? "Draft saved." : "Announcement updated.");
     });
   }
@@ -90,6 +97,17 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        {draft.recovered && draft.recoveredLabel ? (
+          <DraftRecoveryBar
+            savedAtLabel={draft.recoveredLabel}
+            hasFileState={image !== null || removeImage}
+            onRestore={() => {
+              setValues(draft.recovered!.values);
+              draft.dismiss();
+            }}
+            onDiscard={draft.discard}
+          />
+        ) : null}
         <Field label="Title" htmlFor="announcement-title">
           <Input
             id="announcement-title"
@@ -207,7 +225,8 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
             </Button>
           ) : null}
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <DraftSavedNote savedAt={draft.savedAt} />
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

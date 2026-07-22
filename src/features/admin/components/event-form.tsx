@@ -5,7 +5,10 @@ import type { ContentStatus, EventValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { photoUrl } from "@/lib/storage";
+import { useFormDraft } from "@/hooks/use-form-draft";
 import { EVENT_CATEGORY_LABELS } from "@/features/admin/data";
+import { useAdminUserId } from "./admin-user-context";
+import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import {
   archiveEvent,
   publishEvent,
@@ -50,6 +53,7 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
   const [removeCover, setRemoveCover] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const draft = useFormDraft(useAdminUserId(), "event", id, values);
 
   const set = <K extends keyof EventValues>(key: K, value: EventValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -68,6 +72,7 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
       }
       const wasNew = id === null;
       if (result.id) setId(result.id);
+      draft.clear();
       onSaved(wasNew ? "Draft saved." : "Event updated.");
     });
   }
@@ -94,6 +99,17 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        {draft.recovered && draft.recoveredLabel ? (
+          <DraftRecoveryBar
+            savedAtLabel={draft.recoveredLabel}
+            hasFileState={cover !== null || removeCover}
+            onRestore={() => {
+              setValues(draft.recovered!.values);
+              draft.dismiss();
+            }}
+            onDiscard={draft.discard}
+          />
+        ) : null}
         <Field label="Event Title" htmlFor="event-title">
           <Input
             id="event-title"
@@ -255,7 +271,8 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
             </Button>
           ) : null}
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <DraftSavedNote savedAt={draft.savedAt} />
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

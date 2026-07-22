@@ -4,8 +4,11 @@ import { useState, useTransition } from "react";
 import type { AdminAchievement, ContentStatus, OfficialValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { useFormDraft } from "@/hooks/use-form-draft";
 import { saveOfficial, setOfficialStatus } from "@/features/admin/actions/officials";
 import { AchievementsEditor } from "./achievements-editor";
+import { useAdminUserId } from "./admin-user-context";
+import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import { SingleImageUploader } from "./single-image-uploader";
 
 export interface OfficialEditRecord {
@@ -46,6 +49,7 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
   const [removePortrait, setRemovePortrait] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const draft = useFormDraft(useAdminUserId(), "official", id, values);
 
   const set = <K extends keyof OfficialValues>(key: K, value: OfficialValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -68,6 +72,7 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
         return;
       }
       if (result.id) setId(result.id);
+      draft.clear();
       onSaved("Official saved.");
     });
   }
@@ -110,6 +115,17 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        {draft.recovered && draft.recoveredLabel ? (
+          <DraftRecoveryBar
+            savedAtLabel={draft.recoveredLabel}
+            hasFileState={portrait !== null || removePortrait}
+            onRestore={() => {
+              setValues(draft.recovered!.values);
+              draft.dismiss();
+            }}
+            onDiscard={draft.discard}
+          />
+        ) : null}
         <Field label="Full Name" htmlFor="official-name">
           <Input
             id="official-name"
@@ -242,7 +258,8 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
             </Button>
           ) : null}
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <DraftSavedNote savedAt={draft.savedAt} />
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
