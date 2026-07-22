@@ -1,7 +1,7 @@
 # Public-side UI/UX — Design
 
 **Sub-project 10 of the portal overhaul.** Umbrella: `2026-07-22-portal-overhaul-design.md`
-§4.1. Date: 2026-07-22. Status: **design**.
+§4.1. Date: 2026-07-22. Status: **phases A and B shipped**; §2.1 blocked on an owner decision.
 
 ## 1. Why this exists
 
@@ -144,7 +144,25 @@ are good and stay. This sub-project only adds inline validation ahead of them.
   where nothing streams would render a skeleton that never shows; the route list in §2 is
   the authority on which routes get one.
 
-## 6. Open items
+## 6. What the browser confirmed
+
+- **The Suspense decision holds.** `/services` renders 30 pulsing blocks while its `h1`
+  already reads "Official Services Directory"; likewise for news, the legislative archive,
+  and uploads. A route-level `loading.tsx` would have greyed those headings out.
+- **The error boundary is real.** Forcing `listServices()` to throw renders the branded page
+  inside the site chrome, with the working hotline and a reference code, and the raw message
+  does not appear anywhere in the DOM.
+- **Validation speaks before the network does.** Submitting an empty form on all four routes
+  at 390 px: 8 / 6 / 6 / 6 messages, the same count of `aria-invalid` fields, focus on the
+  first invalid one, **zero POSTs fired**, no horizontal overflow, and typing into the
+  focused field clears its state without another submit.
+- A field that has never been blurred stays silent even while invalid — checked on the
+  complaint narrative.
+
+Phase C folded into B: the forms were already responsive, and the 390 px runs above are the
+mobile pass. Nothing needed changing.
+
+## 7. Open items
 
 - **The two theatre forms** (§2.1) need the owner's decision: build the inquiries and
   subscribers backend, or make the forms honest about the hotline. Blocking on that answer.

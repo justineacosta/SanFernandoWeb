@@ -755,6 +755,35 @@
 > It reuses the primitives sub-project 5 built rather than growing public equivalents, so
 > both halves of the site behave the same way. It gets its own spec first.
 
+> **Sub-project 10, phases A and B shipped 2026-07-22.** Spec:
+> `docs/superpowers/specs/2026-07-22-public-side-uiux-design.md`. No migration.
+> 1. **Streaming, not whole-page skeletons.** Every public list route is a static `PageHero`
+>    followed by one async leaf section, so a route-level `loading.tsx` would have flashed
+>    the heading — which needs no data — as a grey block on every navigation. The async
+>    sections are wrapped in `<Suspense>` instead. The archive and uploads boundaries are
+>    keyed on the query, so changing a search re-suspends rather than leaving stale rows
+>    looking current. Detail routes (`[slug]`) do get `loading.tsx`: they await the record
+>    before they can render their own title.
+> 2. **Three error boundaries** where there were none: `(public)/error.tsx`,
+>    `admin/(portal)/error.tsx`, and `global-error.tsx` (own `<html>`, inline styles — a
+>    root-layout crash may be the design system itself failing). **None print
+>    `error.message`**; all show `digest` so a resident's report matches a log line.
+> 3. **The four public schemas left their `"use server"` files.** A `"use server"` module may
+>    only export async functions, so no client component could import them — the real reason
+>    the forms had no inline validation. Each now lives in `schema.ts` beside its action,
+>    with the five shared identity fields in `src/lib/public-forms.ts`. Action and form
+>    import the same object; the server still validates and remains the authority.
+> 4. **Blur-then-live validation** on all four forms, plus `aria-invalid` (which *is* the red
+>    treatment, so the two cannot drift), `role="alert"` messages, `aria-describedby`, and
+>    focus moving to the first invalid field on submit. Verified at 390 px: zero POSTs fired
+>    for an empty form, no horizontal overflow.
+> 5. **14 new unit tests** pin the extracted schemas (35 total).
+>
+> **Still open on the public side:** the two theatre forms in §3A/§3B below. Neither has a
+> backend, and both currently show a green success message. Fixing that is an owner decision
+> — build the inquiries/subscribers tables with an admin inbox, or make the forms honest
+> about the hotline — so it was deliberately left out of sub-project 10.
+
 ---
 
 ## 1. Current State
