@@ -11,6 +11,7 @@ import {
   Plus,
   RotateCcw,
   ScrollText,
+  Send,
   Trash2,
 } from "lucide-react";
 import type { AdminLegislativeRow } from "@/types";
@@ -174,6 +175,19 @@ export function LegislativeManager({ documents, isSuperAdmin }: LegislativeManag
     });
   };
 
+  /** Publish straight from the row, like News, Events, Projects and Officials. */
+  const publish = (id: string, name: string) => {
+    startTransition(async () => {
+      const result = await setLegislativeStatus(id, "published");
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(`Published ${name}.`);
+      router.refresh();
+    });
+  };
+
   const actionsFor = (record: AdminLegislativeRow): RowAction[] => {
     const archived = record.status === "archived";
     const actions: RowAction[] = [
@@ -206,6 +220,13 @@ export function LegislativeManager({ documents, isSuperAdmin }: LegislativeManag
         icon: Archive,
         tone: "danger",
         onSelect: () => setConfirming({ kind: "archive", id: record.id, name: record.number }),
+      });
+    } else {
+      // Draft or in-review: publishing is the row's forward action.
+      actions.push({
+        label: "Publish",
+        icon: Send,
+        onSelect: () => publish(record.id, record.number),
       });
     }
     return actions;

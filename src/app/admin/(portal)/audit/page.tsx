@@ -1,12 +1,11 @@
-import type { Metadata } from "next";
 import type { AuditActionType } from "@/types";
 import { AUDIT_ACTIONS } from "@/types";
-import { requireSuperAdmin } from "@/lib/auth";
+import { gatedMetadata, requireSuperAdmin } from "@/lib/auth";
 import { AdminPageHeader } from "@/features/admin/components/admin-page-header";
 import { AuditLogManager } from "@/features/admin/components/audit-log-manager";
 import type { AuditSortKey } from "@/features/admin/queries/audit";
 
-export const metadata: Metadata = { title: "Audit Logs" };
+export const generateMetadata = gatedMetadata("superadmin", "Audit Logs");
 
 const SORT_KEYS: AuditSortKey[] = ["created_at", "actor_name", "action_type", "entity_type"];
 

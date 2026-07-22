@@ -1,4 +1,5 @@
 import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import type { Permission, SessionUser, StaffStatusLabel } from "@/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -62,6 +63,30 @@ export async function requirePermission(permission: Permission): Promise<Session
   const user = await requireSessionUser();
   if (!user.isSuperAdmin && !user.permissions.includes(permission)) notFound();
   return user;
+}
+
+/* ── Metadata gate ────────────────────────────────────────────────────────── */
+
+/**
+ * `generateMetadata` for a gated page. The page body 404s an unpermitted load
+ * so the module stays hidden, but a static `metadata` export is resolved
+ * regardless of what the render throws — the browser tab would still name the
+ * module over the not-found page. Returning {} instead falls back to the admin
+ * layout's default title ("Admin"), which names nothing. `getSessionUser` is
+ * cache()d, so the page's own gate costs no second lookup.
+ */
+export function gatedMetadata(
+  permission: Permission | "superadmin",
+  title: string,
+): () => Promise<Metadata> {
+  return async () => {
+    const user = await getSessionUser();
+    if (!user) return {};
+    if (!user.isSuperAdmin && (permission === "superadmin" || !user.permissions.includes(permission))) {
+      return {};
+    }
+    return { title };
+  };
 }
 
 /* ── Server Action gates: never throw ─────────────────────────────────────── */

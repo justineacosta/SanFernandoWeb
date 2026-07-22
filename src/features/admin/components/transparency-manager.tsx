@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  Send,
   Trash2,
 } from "lucide-react";
 import type {
@@ -222,6 +223,19 @@ export function TransparencyManager({
     });
   };
 
+  /** Publish straight from the row, like News, Events, Projects and Officials. */
+  const publishDocument = (id: string, name: string) => {
+    startTransition(async () => {
+      const result = await setTransparencyDocumentStatus(id, "published");
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(`Published ${name}.`);
+      router.refresh();
+    });
+  };
+
   const documentActions = (record: AdminTransparencyDocumentRow): RowAction[] => {
     const archived = record.status === "archived";
     const actions: RowAction[] = [
@@ -253,6 +267,13 @@ export function TransparencyManager({
         icon: Archive,
         tone: "danger",
         onSelect: () => setConfirming({ kind: "archive", id: record.id, name: record.title }),
+      });
+    } else {
+      // Draft or in-review: publishing is the row's forward action.
+      actions.push({
+        label: "Publish",
+        icon: Send,
+        onSelect: () => publishDocument(record.id, record.title),
       });
     }
     return actions;
