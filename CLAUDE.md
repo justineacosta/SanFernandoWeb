@@ -8,13 +8,13 @@ The official website of **Barangay San Fernando, San Nicolas, Ilocos Norte** (Ph
 Next.js 16 App Router + React 19 + TypeScript (strict) + Tailwind CSS v4, backed by
 **Supabase** (Postgres + Auth + Storage). The frontend was built first as a fully static
 mock; backend integration is now well underway (migrations `0001`–`0011` applied;
-`0012`–`0021` applied to staging, still pending on production). Live and
+`0012`–`0022` applied to staging, still pending on production). Live and
 DB-backed: auth + account self-service, the services catalog, all four ticketing flows
 (applications / appointments / complaints / assistance), contact inquiries + alert
 subscribers, news + announcements + events, transparency (legislative documents
 / disclosure documents / monitored projects), and the officials directory. What remains
-static lives in typed `data.ts` files — the contact channels and inquiry subject list, plus
-the admin **Dashboard Overview** seed. The Home and About pages became DB-backed in
+static lives in typed `data.ts` files — the contact channels and inquiry subject list, and
+the home page's six Quick Services cards. The Home and About pages became DB-backed in
 sub-project 9 (`0021`). `docs/BACKEND_HANDOFF.md` is the living integration brief;
 `docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan history. Remaining
 work: 2D email (Resend), migrating `lh3`-hotlinked images to owned Storage, and a
@@ -50,9 +50,25 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   route and Server Action goes through `requireSessionUser` / `requirePermission(...)` /
   `requireSuperAdmin()` in `src/lib/auth.ts`. Managers are DB-backed with real
   draft→in-review→published→archived workflows and drawer editors that **persist through
-  Server Actions**; only the **Dashboard Overview** still renders mock seed from
-  `features/admin/data.ts` (the nav is real, but `RECENT_DRAFTS` / `PUBLISHING_ACTIVITY` /
-  `ADMIN_TEAM` are placeholder).
+  Server Actions**. Every manager is now DB-backed; the mock Dashboard Overview was deleted
+  in the 2026-07-22 polish pass and **`/admin` is a redirect**, not a page — it sends the
+  signed-in user to the first nav entry they may reach (`firstPermittedPath`; Settings is
+  ungated, so a target always exists and it cannot loop). `ADMIN_TEAM` in
+  `features/admin/data.ts` is the last placeholder constant left, and nothing renders it.
+- **The nav gate is one module, not a predicate copied four times.** `src/lib/admin-nav.ts`
+  holds pure helpers over `ADMIN_NAV_ITEMS` — `canSeeNavItem` / `visibleNavItems` /
+  `groupNavItems` / `firstPermittedPath` / `adminPageTitle` — consumed by the sidebar, the
+  mobile drawer, the `/admin` redirect and the top bar's title. It is the only unit-tested
+  code in the admin portal (`tests/unit/admin-nav.test.ts`), because it is the only pure
+  logic. **`adminPageTitle` is permission-gated on purpose:** the portal 404s on unpermitted
+  routes so those modules stay hidden, but the layout renders *above* that 404, so an
+  ungated lookup would print the module's name over the not-found page. Nav items are
+  grouped **Requests / Content / System**, and the flat order of that table decides where
+  each user lands after login. The sidebar collapses to a 72px icon rail; its state is a
+  `sf-admin-sidebar` **cookie read server-side in the layout**, never `localStorage` in an
+  effect — an effect runs after paint, so the rail would render expanded and snap shut on
+  every load. `AdminShell` owns that state because the fixed rail and the main column's
+  compensating margin have to move together.
 - **Admin table standards** (sub-project 5, 2026-07-22) are shared primitives, not per-manager
   code: `RowActions` (the row kebab — Edit / Publish / Archive / Delete; portals to
   `document.body` because every admin table sits in `overflow-x-auto`), `ConfirmDialog`
@@ -94,7 +110,7 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   never "Saved". `AchievementsEditor` is out of scope: it saves each field on blur and has no
   draft model to hook into.
 - **Home and About are database-backed content, not code** (sub-project 9, migration `0021`).
-  Ten blocks live in `site_blocks` (four singleton texts) + `site_items` (seven ordered
+  Nine blocks live in `site_blocks` (four singleton texts) + `site_items` (five ordered
   collections in one table, discriminated by a `site_block` enum with generic
   `label`/`value`/`body` slots whose per-block meaning is fixed in
   `src/features/admin/site-blocks.ts`). **There is no status column and Save writes live** — a
@@ -141,19 +157,25 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
 - Content changes for the **still-static** features go in that feature's `data.ts`, never
   hardcoded in components. Content for **DB-backed** features (services, tickets, news,
   transparency, officials, and the Home/About page blocks) is edited through the admin portal
-  and lives in Supabase — not in the repo. `src/features/home/data.ts` no longer exists, and
+  and lives in Supabase — not in the repo. `src/features/home/data.ts` holds only
+  `QUICK_SERVICES`, which **came back out of the CMS** in the 2026-07-22 polish pass
+  (migration `0022` deleted its rows): six links to this site's own routes change when the
+  routes change, which is a deploy, not an edit. Don't put them back.
   `src/features/about/data.ts` retains only the `CAPTAIN` name/role/photo fallback.
 - Placeholder reality: transparency documents now serve **real** Supabase-hosted PDFs/images,
   so the old `"#"` download stubs are gone; remaining `"#"` hrefs are in-page anchors / not-
-  yet-wired links (contact map, captain message, hero CTA). The barangay hotline is **real**
-  (`(077) 600 1082` in `SITE.phone` / `EMERGENCY_HOTLINES[0]`); other phone numbers, emails,
+  yet-wired links (the contact page's "Get Directions", captain message, hero CTA). The
+  barangay hotline is **real** (`(077) 600 1082` in `SITE.phone` / `EMERGENCY_HOTLINES[0]`)
+  and the officials page's 24/7 Action Center dials it rather than 911; other phones, emails,
   and office hours are still placeholder-shaped (correct names, not real contact data). Most
   images are hotlinked from `lh3.googleusercontent.com` (allow-listed in `next.config.ts`)
   and must eventually move to owned Storage (`public-media` exists). The home hero carousel and
   the About history images moved to `public-media/site/` in sub-project 9 (`0021`); like
   `src/images/officials/`, the files in `src/images/carousel/` now stay in the repo only as the
   source for `scripts/upload-site-images.mjs`, not as an app dependency. The remaining bundled
-  static import is the barangay seal (`src/images/logo/`, `SITE.sealImage`).
+  static imports are the barangay seal (`src/images/logo/`, `SITE.sealImage`) and the barangay
+  map (`src/images/map/san-fernando-map.png`, `MAP_IMAGE` on the contact page) — the map is
+  bundled deliberately: one file, no admin surface, changes only when the boundary does.
   The other 11 officials' portraits live in Supabase Storage (`public-media/officials/`,
   migration `0012`); `src/images/officials/` is likewise script source only. The **Punong
   Barangay's** portrait is still a bundled static import, but only as the *fallback* in the

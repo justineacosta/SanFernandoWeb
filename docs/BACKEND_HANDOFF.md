@@ -2,9 +2,13 @@
 
 > **Current status (2026-07-22):** backend integration is well underway on **Supabase**
 > (Postgres + Auth + Storage) — migrations `0001`–`0013` applied to staging **and
-> production**; **`0014`–`0018` (audit log v2, audit fuzzy search, fuzzy search, the
-> `fuzzy_match` wildcard fix, global admin search) are applied to staging only** and still
-> need to reach production at deploy time. Auth, the services catalog,
+> production**; **`0014`–`0022` are applied to staging only** (audit log v2, audit fuzzy
+> search, fuzzy search, the `fuzzy_match` wildcard fix, global admin search, inquiries +
+> subscribers, archive provenance, site content, and the officials `members` section) and
+> still need to reach production at deploy time. ⚠️ **`0021` additionally requires
+> `node scripts/upload-site-images.mjs` once per environment**, and **`0022` is written but
+> not yet applied anywhere** — until the owner applies it, saving an official into the
+> Barangay Members section fails with an unknown-enum-label error. Auth, the services catalog,
 > all four ticket flows, news/announcements/events, transparency (documents + projects,
 > multi-file + optional dates), the officials directory, and each official's achievements
 > timeline are DB-backed and merged to `main`. See **§1 Current State** for the accurate
@@ -952,6 +956,64 @@
 > 9. **Still hardcoded, by design:** section headings and standfirsts, the About `PageHero`, and
 >    the Join-Community panel. Making every string editable is a page builder, not a CMS.
 >    Individual headings can be promoted to fields on request.
+
+> **Admin polish pass shipped 2026-07-22.** Spec:
+> `docs/superpowers/specs/2026-07-22-admin-polish-design.md`. **Migration `0022`.**
+> Not a sub-project of the portal-overhaul umbrella — that programme finished at nine. This is
+> the list of defects and rough edges found by *using* the finished portal.
+>
+> 1. **Officials could not be published, and the reason was invisible.** Two independent causes.
+>    `OfficialsManager` was one of three managers with no **Publish** in its row menu (News,
+>    Events and Projects have one; Legislative and Transparency also do not), so the only
+>    control lived in the drawer behind an `id &&` guard — a new official had to be saved,
+>    closed and reopened before a publish button existed anywhere. And when `setOfficialStatus`
+>    refused (no portrait, or no portrait alt text) the message rendered as the last child of a
+>    scrolling body while the button sat in a fixed footer, so nobody ever saw it. **The two
+>    server-side guards are correct and were not touched** — the public card leads with the
+>    portrait and a government site cannot ship an empty `alt`. What changed is that the
+>    refusal now arrives as an error toast, and the drawer's error moved into the footer beside
+>    the button it explains. **Legislative and Transparency keep drawer-only publishing** — they
+>    share the pattern but not the bug report, and neither hides its button behind a prior save.
+> 2. **A fourth directory section, `members`** (`0022`), rendered as **"Barangay Members"** below
+>    Administration and labelled just "Members" in the admin. `ALTER TYPE … ADD VALUE` cannot
+>    have its new label *used* in the transaction that adds it, so `0022` only declares it —
+>    **never add a seed row using `'members'` to that migration.**
+> 3. **Quick Services left the CMS and went back to code**, reversing that one-tenth of
+>    sub-project 9. Six links to this site's own routes change when the routes change, which is
+>    a deploy, not an edit; `src/features/home/data.ts` exists again to hold them. The block was
+>    removed from **both** `SITE_BLOCKS` and `SITE_BLOCK_SPECS` — `specFor` ends in a non-null
+>    assertion whose invariant is "every `SiteBlock` has a spec", so removing one alone is a
+>    silent crash. **Documented drift:** Postgres cannot drop an enum value, so `quick_services`
+>    survives in the SQL `site_block` enum and as an unreachable branch of `0021`'s CHECK. The
+>    TS union no longer mirrors the enum exactly, and the drift runs one way only — every value
+>    in the union must still exist in the enum.
+> 4. **`/admin` is a redirect, not a dashboard.** The Content Hub's three panels were a mock
+>    "Recent Drafts" list, a duplicate of the audit log `/admin/audit` already owns, and three
+>    shortcut cards; with the first two removed at the owner's request there was nothing to land
+>    on. It now sends each user to the first nav entry they may reach. Settings is ungated, so a
+>    target always exists and the redirect cannot loop. `ADMIN_USER` went with the hub — the last
+>    `lh3` hotlink in the admin seed data.
+> 5. **One nav gate, in `src/lib/admin-nav.ts`.** The predicate deciding which links a user sees
+>    was inline in the sidebar and about to be copied into the redirect and the title bar. It is
+>    now pure functions over a list, and **the only unit-tested code in the admin portal** —
+>    which is the point of keeping them pure: they take the list as an argument, so the tests
+>    never load a React component or lucide-react. Nav items are grouped Requests / Content /
+>    System, and the flat order of that table decides where each user lands after login.
+> 6. **`adminPageTitle` is permission-gated, and that is a disclosure control, not politeness.**
+>    The portal 404s on unpermitted routes so those modules stay hidden — but the layout, and
+>    therefore the top bar, renders *above* that 404. An ungated lookup would print
+>    "Applications" over the not-found page and undo the gating. A test pins this.
+> 7. **The sidebar collapses to a 72px icon rail, and its state is a cookie read server-side.**
+>    Not `localStorage` in an effect: an effect runs after paint, so the rail would render
+>    expanded and snap shut on every single load. `AdminShell` owns the state because the fixed
+>    rail and the main column's compensating margin have to move together or the layout tears.
+> 8. **Three dead stubs deleted:** the sidebar's Emergency Response button and the top bar's
+>    Notifications and Help buttons. All three were wired to nothing. A control that never works
+>    teaches people to stop trying controls.
+> 9. **The real barangay map** replaced the `lh3` placeholder on `/contact`, bundled like the
+>    seal and rendered through `next/image` rather than a CSS background. Its greyscale wash is
+>    gone — that existed to make a stock photo recede, and a real map is content. The officials
+>    page's 24/7 Action Center now dials `(077) 600 1082` from `SITE.phone` instead of `911`.
 
 ---
 
