@@ -1,6 +1,7 @@
 import { ArrowUpRight, Sparkles } from "lucide-react";
 import { SITE } from "@/constants/site";
 import { Badge } from "@/components/ui/badge";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { HeroCarousel } from "./hero-carousel";
@@ -29,23 +30,9 @@ export async function HomeHero() {
               </Badge>
               <h1 className="text-balance font-display text-4xl font-semibold leading-[1.05] tracking-tight text-ink-900 sm:text-5xl md:text-6xl">
                 Barangay{" "}
-                <span className="relative whitespace-nowrap">
+                <BrandStroke draw>
                   <span className="text-gradient-brand">San Fernando</span>
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 300 14"
-                    className="absolute -bottom-2 left-0 h-2 w-full text-brand-400"
-                    fill="none"
-                    preserveAspectRatio="none"
-                  >
-                    <path
-                      d="M2 11C57 4 130 4 187 9C229 12 269 11 298 6"
-                      stroke="currentColor"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
+                </BrandStroke>
               </h1>
               <p className="mt-6 text-lg font-medium text-ink-700 md:text-xl">{SITE.tagline}</p>
               <p className="mt-3 max-w-2xl text-balance text-base leading-relaxed text-ink-600 md:text-lg">
