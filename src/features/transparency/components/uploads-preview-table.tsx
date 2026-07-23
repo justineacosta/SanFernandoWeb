@@ -71,11 +71,6 @@ export function UploadsPreviewTable({ items, pageSize }: UploadsPreviewTableProp
                 <dd className="tabular-nums text-ink-900">{formatOptionalDate(item.date)}</dd>
               </div>
             </dl>
-            {item.files.length === 0 && !item.href ? (
-              <p className="mt-3 border-t border-ink-200/70 pt-3 text-sm text-ink-500">
-                At the barangay hall
-              </p>
-            ) : null}
           </li>
         ))}
       </ul>
@@ -118,17 +113,14 @@ export function UploadsPreviewTable({ items, pageSize }: UploadsPreviewTableProp
                 <td className="px-6 py-4 tabular-nums text-ink-600">
                   {formatOptionalDate(item.date)}
                 </td>
-                <td className="px-6 py-4 text-right">
-                  <span className="flex items-center justify-end gap-2">
-                    {item.files.length === 0 && !item.href ? (
-                      <span className="text-sm text-ink-500">At the barangay hall</span>
-                    ) : null}
+                <td className="px-6 py-4">
+                  <div className="flex justify-end">
                     <RecordActions
                       label={item.title}
                       viewHref={item.href}
                       files={item.files}
                     />
-                  </span>
+                  </div>
                 </td>
               </tr>
             ))}

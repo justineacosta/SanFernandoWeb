@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/form";
 import { Section } from "@/components/ui/section";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { listPublishedDocumentsByCategory } from "@/features/transparency/queries";
-import { FileDownloads } from "./file-downloads";
+import { RecordActions } from "./record-actions";
 import { ProjectsCard } from "./projects-card";
 
 /** Bento grid of public disclosure categories: budgets, projects, financials, ordinances. */
@@ -50,7 +50,7 @@ export async function DisclosureGrid() {
                       {formatOptionalDate(doc.dateReleased)}
                     </span>
                   </span>
-                  <FileDownloads files={doc.files} recordTitle={doc.title} align="right" />
+                  <RecordActions label={doc.title} files={doc.files} />
                 </div>
               ))
             )}

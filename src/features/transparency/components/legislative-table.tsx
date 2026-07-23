@@ -236,11 +236,6 @@ function LegislativeCard({ doc }: { doc: LegislativeDetail }) {
       >
         {doc.summary}
       </p>
-      {files.length === 0 ? (
-        <p className="mt-3 border-t border-ink-200/70 pt-3 text-sm text-ink-500">
-          At the barangay hall
-        </p>
-      ) : null}
     </li>
   );
 }
@@ -281,17 +276,14 @@ function LegislativeRow({ doc }: { doc: LegislativeDetail }) {
         <td className="whitespace-nowrap px-6 py-4 tabular-nums text-ink-600">
           {formatDateApproved(doc.dateApproved)}
         </td>
-        <td className="px-6 py-4 text-right">
-          <span className="flex items-center justify-end gap-2">
-            {files.length === 0 ? (
-              <span className="text-sm text-ink-500">At the barangay hall</span>
-            ) : null}
+        <td className="px-6 py-4">
+          <div className="flex justify-end">
             <RecordActions
               label={doc.number}
               viewHref={`/transparency/legislative/${doc.slug}`}
               files={files}
             />
-          </span>
+          </div>
         </td>
       </tr>
       <tr id={panelId} hidden={!isOpen} className="bg-ink-50/60">
