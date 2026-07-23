@@ -93,10 +93,14 @@ export function AdminGlobalSearch() {
   const groups = groupHits(hits);
 
   return (
-    // w-64 is the preferred width, not a fixed one: min-w-0 lets it shrink
+    // w-80 is the preferred width, not a fixed one: min-w-0 lets it shrink
     // when the bar is tight (between md and ~980px the sidebar takes 256px
     // and the right-hand cluster would otherwise overflow the viewport).
-    <div ref={containerRef} className="relative hidden w-64 min-w-0 sm:block">
+    // The results panel below is w-full rather than a second fixed width, so
+    // it stays exactly as wide as the input at every size — shrinking
+    // included. A second hardcoded width would agree at one viewport and
+    // drift at every other.
+    <div ref={containerRef} className="relative hidden w-80 min-w-0 sm:block">
       <Search
         className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-500"
         aria-hidden="true"
@@ -140,7 +144,7 @@ export function AdminGlobalSearch() {
           id={listId}
           role="listbox"
           aria-label="Search results"
-          className="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-96 overflow-y-auto rounded-2xl border border-ink-200/70 bg-white p-2 shadow-xl"
+          className="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-full overflow-y-auto rounded-2xl border border-ink-200/70 bg-white p-2 shadow-xl"
         >
           {groups.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-ink-500">

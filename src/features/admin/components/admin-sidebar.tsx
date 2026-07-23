@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LayoutGroup, MotionConfig, motion } from "motion/react";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Permission } from "@/types";
 import { cn } from "@/lib/utils";
 import { SPRING_INDICATOR } from "@/lib/motion";
@@ -281,24 +281,34 @@ export function AdminSidebar({
         </div>
 
         {onToggle ? (
-          // Straddles the right border, centred on the seal row, so it reads as
-          // a handle on the rail's edge rather than a header control. The
-          // wrapper carries the placement because Tooltip measures its own
-          // span: hang the positioning off the button and that span collapses
-          // to zero, taking the tooltip somewhere else entirely.
-          <div className="absolute -right-3.5 top-11 z-10 -translate-y-1/2">
+          // A half-disc handle flush against the rail's right edge, so it reads
+          // as a tab on the edge rather than a header control. The wrapper
+          // carries the placement because Tooltip measures its own span: hang
+          // the positioning off the button and that span collapses to zero,
+          // taking the tooltip somewhere else entirely.
+          //
+          // -right-5 puts the tab entirely outside the rail (it was -right-3.5,
+          // half of the old 28px disc, which straddled the border instead).
+          // border-l-0 stops the flat edge being outlined against the rail it
+          // is meant to be part of, and the shadow points right because that is
+          // now the only side light falls off.
+          <div className="absolute -right-5 top-11 z-10 -translate-y-1/2">
             <Tooltip label={collapsed ? "Expand sidebar" : "Collapse sidebar"}>
               <button
                 type="button"
                 onClick={handleToggle}
                 aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                 aria-expanded={!collapsed}
-                className="flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-ink-950 text-ink-400 shadow-[0_2px_10px_rgb(0_0_0/0.4)] transition-colors duration-(--duration-quick) hover:border-brand-400/50 hover:bg-ink-900 hover:text-brand-400"
+                className="flex h-11 w-5 items-center justify-center rounded-r-full border border-l-0 border-white/15 bg-ink-950 text-ink-400 shadow-[2px_0_10px_rgb(0_0_0/0.4)] transition-colors duration-(--duration-quick) hover:border-brand-400/50 hover:bg-ink-900 hover:text-brand-400"
               >
+                {/*
+                  A panel glyph is unreadable across 20px of usable width. The
+                  chevron points the way the click moves the rail.
+                */}
                 {collapsed ? (
-                  <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 ) : (
-                  <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 )}
               </button>
             </Tooltip>
