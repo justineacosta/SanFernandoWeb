@@ -200,11 +200,25 @@ The `At the barangay hall` sentence is deleted from all four call sites:
   `LegislativeRow` and the mobile `LegislativeCard`)
 - `src/features/transparency/components/uploads-preview-table.tsx` (both renderings)
 - `src/features/transparency/components/uploads-browse.tsx` (both renderings)
-- `src/features/transparency/components/file-downloads.tsx`
+- `src/features/transparency/components/disclosure-grid.tsx`, via the
+  `FileDownloads` component it renders
 
-`file-downloads.tsx` exists only to render that sentence or a list of links. Once
-the sentence is gone, the implementer checks whether it still has callers and
-deletes the module if it does not, rather than leaving a dead file behind.
+That last one was missed in the first pass of this design and is worth stating
+plainly, because it is the surface the owner screenshotted. `FileDownloads`
+(`file-downloads.tsx`) is **not** dead code: `DisclosureGrid` uses it for the
+"Annual Budget Reports" list on `/transparency`, where a document with a file
+shows `DOWNLOAD` and one without shows `At the barangay hall` — two different
+affordances in the same column of the same card.
+
+`DisclosureGrid` therefore swaps `FileDownloads` for `RecordActions`, giving that
+list the same kebab as every other transparency surface. `file-downloads.tsx` is
+then genuinely unreferenced and is deleted, along with its `FileDownloads` export
+from `src/features/transparency/index.ts`.
+
+Note the deliberate asymmetry with `RecordActions`, which is **not** in that
+barrel: it is a client component, and widening the barrel is the path by which a
+client component reaches the `server-only` `queries.ts`. `DisclosureGrid` imports
+it directly from `./record-actions`, as the other call sites do.
 
 The doc comment on `RecordActions` that currently explains the `null` return is
 rewritten; leaving it would document behaviour that no longer exists.
