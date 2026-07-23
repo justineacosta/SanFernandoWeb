@@ -299,7 +299,7 @@ export function AdminSidebar({
                 onClick={handleToggle}
                 aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                 aria-expanded={!collapsed}
-                className="flex h-11 w-5 items-center justify-center rounded-r-full border border-l-0 border-white/15 bg-ink-950 text-ink-400 shadow-[2px_0_10px_rgb(0_0_0/0.4)] transition-colors duration-(--duration-quick) hover:border-brand-400/50 hover:bg-ink-900 hover:text-brand-400"
+                className="flex h-10 w-5 items-center justify-center rounded-r-full border border-l-0 border-white/15 bg-ink-950 text-ink-400 shadow-[2px_0_10px_rgb(0_0_0/0.4)] transition-colors duration-(--duration-quick) hover:border-brand-400/50 hover:bg-ink-900 hover:text-brand-400"
               >
                 {/*
                   A panel glyph is unreadable across 20px of usable width. The
