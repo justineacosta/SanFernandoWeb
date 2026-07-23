@@ -200,12 +200,12 @@ create trigger profiles_updated_at
   for each row execute function public.set_updated_at();
 
 -- ── Audit log ───────────────────────────────────────────────────────────────
--- Append-only and genuinely immutable (§15). recordActivity() in
+-- Append-only and genuinely immutable (§14). recordActivity() in
 -- src/lib/audit.ts is the only writer.
 --
 -- actor_id is deliberately NOT a foreign key. 0001 declared it
 -- `references auth.users (id) on delete set null`; that ON DELETE is an UPDATE
--- against audit_log, which §15's trigger rejects — so deleting any staff member
+-- against audit_log, which §14's trigger rejects — so deleting any staff member
 -- who had ever acted would raise instead of succeeding. actor_name is
 -- denormalised onto every row so the trail still reads correctly after an
 -- account is removed, which is what "the audit log never points at a ghost"
@@ -1776,5 +1776,4 @@ commit;
 --     site are placeholder-shaped. The barangay hotline (077) 600 1082 is real.
 --   • about.captain_message is invented text presented as the Punong Barangay's
 --     own words. Replace before launch.
---   • Seeded documents have no PDFs attached.
 -- ============================================================================
