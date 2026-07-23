@@ -1025,3 +1025,60 @@ export interface InquiryUpdateValues {
   status: InquiryStatus;
   staffNote: string;
 }
+
+/**
+ * Site feedback (sub-project 10) — about this website, not barangay business.
+ *
+ * Anonymous by design: nothing here identifies the sender, which is why there
+ * is no consent field and no reply path. `/contact` remains the channel for
+ * anything a resident needs an answer to.
+ */
+export type FeedbackCategory = "general" | "bug" | "feature" | "complaint" | "praise";
+
+/**
+ * Four states, all of which StatusChip already labels and tones. `answered`
+ * would be a lie: nobody can answer a row with no address on it.
+ */
+export type FeedbackStatus = "new" | "in_progress" | "resolved" | "dismissed";
+
+/** The widget's body. The screenshot travels separately, in FormData. */
+export interface PublicFeedbackValues {
+  category: FeedbackCategory;
+  subject: string;
+  message: string;
+  /** 0 means "not rated" — stored as null. */
+  rating: number;
+  /** The path the widget was opened on, e.g. "/transparency". Never a query string. */
+  pagePath: string;
+}
+
+/** A queue row for the admin panel: flat and serializable. */
+export interface FeedbackRow {
+  id: string;
+  category: FeedbackCategory;
+  /** Display label, resolved against FEEDBACK_CATEGORIES. */
+  categoryLabel: string;
+  subject: string;
+  message: string;
+  rating: number | null;
+  pagePath: string;
+  /**
+   * A signed URL valid for ten minutes, or null when no screenshot was
+   * attached (or signing failed). The bucket is private, so there is no stable
+   * public URL to store.
+   */
+  screenshotUrl: string | null;
+  status: FeedbackStatus;
+  staffNote: string;
+  /** Resolved through `handled_by`; null once the account is gone. */
+  handledByName: string | null;
+  /** Manila calendar dates (YYYY-MM-DD). */
+  handledAt: string | null;
+  submittedAt: string;
+}
+
+/** The triage drawer's save body. */
+export interface FeedbackUpdateValues {
+  status: FeedbackStatus;
+  staffNote: string;
+}
