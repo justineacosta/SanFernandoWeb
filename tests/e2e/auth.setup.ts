@@ -23,7 +23,10 @@ setup("authenticate", async ({ page }) => {
 
   await page.goto("/admin/login");
   await page.getByLabel("Email").fill(email!);
-  await page.getByLabel("Password").fill(password!);
+  // Addressed by role, not label: `getByLabel("Password")` also matches the
+  // show/hide toggle's "Show password" aria-label, and two matches is a strict
+  // mode violation that failed every run of the admin project.
+  await page.getByRole("textbox", { name: "Password" }).fill(password!);
   await page.getByRole("button", { name: "Sign in" }).click();
 
   // The portal, not the login page — proves the session cookie took.
