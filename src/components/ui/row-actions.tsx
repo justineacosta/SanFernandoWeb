@@ -12,7 +12,16 @@ import { POP } from "@/lib/motion";
 export interface RowAction {
   label: string;
   icon: LucideIcon;
-  onSelect: () => void;
+  /** Callback items (the admin managers). Supply exactly one of this and `href`. */
+  onSelect?: () => void;
+  /**
+   * Link items (the public transparency tables). Rendered as a real <a>: a
+   * Download that is a <button> silently breaks middle-click, open-in-new-tab
+   * and right-click-save, which is most of how people take a file.
+   */
+  href?: string;
+  /** Links only. */
+  newTab?: boolean;
   /** Destructive items are separated and coloured. */
   tone?: "default" | "danger";
   disabled?: boolean;
@@ -29,6 +38,9 @@ const MENU_WIDTH = 208; // w-52
 const ITEM_HEIGHT = 40;
 const MENU_PADDING = 8;
 const GAP = 6;
+// A document can carry more files than fit on screen. Past this the menu
+// scrolls internally, and the flip calculation must not trust the raw count.
+const MENU_MAX_HEIGHT = 320;
 
 /**
  * The kebab menu that carries Edit / Archive / Delete for a table row.
@@ -79,7 +91,7 @@ export function RowActions({ label, actions, className }: RowActionsProps) {
   // Move DOM focus with the roving index so the menu is genuinely keyboard-driven.
   useEffect(() => {
     if (!open) return;
-    const items = menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+    const items = menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]');
     items?.[activeIndex]?.focus();
   }, [open, activeIndex]);
 
@@ -132,12 +144,15 @@ export function RowActions({ label, actions, className }: RowActionsProps) {
 
   const select = (action: RowAction) => {
     close();
-    action.onSelect();
+    action.onSelect?.();
   };
 
   let menu: React.ReactNode = null;
   if (open && rect && enabled.length > 0) {
-    const height = enabled.length * ITEM_HEIGHT + MENU_PADDING * 2;
+    const height = Math.min(
+      enabled.length * ITEM_HEIGHT + MENU_PADDING * 2,
+      MENU_MAX_HEIGHT,
+    );
     const spaceBelow = window.innerHeight - rect.bottom;
     const flip = spaceBelow < height + GAP && rect.top > height + GAP;
     const top = flip ? rect.top - height - GAP : rect.bottom + GAP;
@@ -158,6 +173,8 @@ export function RowActions({ label, actions, className }: RowActionsProps) {
             top,
             left,
             width: MENU_WIDTH,
+            maxHeight: MENU_MAX_HEIGHT,
+            overflowY: "auto",
             transformOrigin: flip ? "bottom right" : "top right",
           }}
           className="fixed z-70 rounded-2xl border border-ink-200/70 bg-white p-2 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.28)]"
@@ -166,23 +183,47 @@ export function RowActions({ label, actions, className }: RowActionsProps) {
             const Icon = action.icon;
             const danger = action.tone === "danger";
             const firstDanger = danger && enabled[index - 1]?.tone !== "danger" && index > 0;
-            return (
+            const itemClass = cn(
+              "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors",
+              danger
+                ? "text-danger hover:bg-danger-soft"
+                : "text-ink-700 hover:bg-ink-50 hover:text-ink-900",
+              firstDanger && "mt-2 border-t border-ink-200/70 pt-3",
+            );
+            const content = (
+              <>
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">{action.label}</span>
+              </>
+            );
+            // Two files can share a label, so the label alone is not a key.
+            const key = `${index}-${action.label}`;
+
+            return action.href ? (
+              <a
+                key={key}
+                role="menuitem"
+                href={action.href}
+                target={action.newTab ? "_blank" : undefined}
+                rel={action.newTab ? "noopener noreferrer" : undefined}
+                tabIndex={index === activeIndex ? 0 : -1}
+                // Navigation is the anchor's job; this only tidies the menu up
+                // behind it, without stealing focus from wherever the link went.
+                onClick={() => close(false)}
+                className={itemClass}
+              >
+                {content}
+              </a>
+            ) : (
               <button
-                key={action.label}
+                key={key}
                 type="button"
                 role="menuitem"
                 tabIndex={index === activeIndex ? 0 : -1}
                 onClick={() => select(action)}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors",
-                  danger
-                    ? "text-danger hover:bg-danger-soft"
-                    : "text-ink-700 hover:bg-ink-50 hover:text-ink-900",
-                  firstDanger && "mt-2 border-t border-ink-200/70 pt-3",
-                )}
+                className={itemClass}
               >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {action.label}
+                {content}
               </button>
             );
           })}
