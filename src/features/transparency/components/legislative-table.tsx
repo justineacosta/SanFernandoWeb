@@ -4,6 +4,7 @@ import { Fragment, useId, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDateApproved } from "@/lib/format";
+import { legislativeSortKey } from "@/lib/legislative-number";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { useTableSort } from "@/components/ui/use-table-sort";
 import { SortableTh } from "@/components/ui/sortable-th";
@@ -33,7 +34,9 @@ type Accessors = Record<string, (row: LegislativeDetail) => string | number | nu
 // Hoisted out of the render: useTableSort memoises on the accessors object, so
 // a fresh literal every render would re-sort every render.
 const SORT_ACCESSORS: Accessors = {
-  number: (doc) => doc.number,
+  // Not doc.number: that is a display string, and localeCompare on it buries
+  // the year behind the sequence ("No. 11-2023" would sort after "No. 05-2024").
+  number: (doc) => legislativeSortKey(doc.year, doc.seqNo),
   title: (doc) => doc.title,
   date: (doc) => doc.dateApproved,
 };
@@ -66,7 +69,9 @@ export function LegislativeTable({
   const sortable = sort === "client";
   const { sorted, sortKey, sortDir, toggle } = useTableSort(
     documents,
-    { key: sortable ? "date" : "", dir: "desc" },
+    // Descending is not cosmetic: legislativeSortKey encodes "year desc,
+    // sequence asc" as one descending comparison. Ascending gives the mirror.
+    { key: sortable ? "number" : "", dir: "desc" },
     sortable ? SORT_ACCESSORS : NO_ACCESSORS,
   );
 
@@ -101,9 +106,10 @@ export function LegislativeTable({
         Below md the table becomes stacked cards carrying the same data and the
         same expandable summary. Five columns cannot fit a phone, and a table
         that scrolls sideways inside the page reads as the page itself sliding.
-        Sorting controls are omitted on mobile: the rows arrive newest-first,
-        which is the useful order, and a sort bar would cost more room than it
-        earns. Only one of the two renderings is ever in the a11y tree.
+        Sorting controls are omitted on mobile: the rows arrive newest year
+        first counting up within the year, which is the useful order, and a
+        sort bar would cost more room than it earns. Only one of the two
+        renderings is ever in the a11y tree.
       */}
       <ul className="space-y-3 md:hidden">
         {empty ? (

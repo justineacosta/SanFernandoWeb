@@ -28,6 +28,7 @@ import { useTableSort } from "@/components/ui/use-table-sort";
 import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateApproved } from "@/lib/format";
+import { legislativeSortKey } from "@/lib/legislative-number";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
   deleteLegislative,
@@ -107,7 +108,7 @@ export function LegislativeManager({ documents, isSuperAdmin }: LegislativeManag
     filtered,
     { key: "date", dir: "desc" },
     {
-      number: (r) => r.number,
+      number: (r) => legislativeSortKey(r.year, r.seqNo),
       title: (r) => r.title,
       date: (r) => r.dateApproved,
       status: (r) => r.status,
