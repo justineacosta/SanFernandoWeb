@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/form";
 import { Section } from "@/components/ui/section";
 import { formatOptionalDate } from "@/lib/format";
 import { searchUploads } from "@/features/transparency/queries";
-import { FileDownloads } from "./file-downloads";
+import { Pagination } from "@/components/ui/pagination";
+import { RecordActions } from "./record-actions";
 
 type SortKey = "date" | "title" | "type";
 type SortDir = "asc" | "desc";
@@ -148,7 +149,15 @@ export async function UploadsBrowse({
                 key={item.key}
                 className="rounded-2xl border border-ink-200/70 bg-white p-4 shadow-sm"
               >
-                <p className="font-medium text-ink-900">{item.title}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium text-ink-900">{item.title}</p>
+                  <RecordActions
+                    label={item.title}
+                    viewHref={item.href}
+                    files={item.files}
+                    className="-mr-2 -mt-1"
+                  />
+                </div>
                 <dl className="mt-3 space-y-1.5 text-sm">
                   <div className="flex items-baseline justify-between gap-4">
                     <dt className="text-ink-500">Type</dt>
@@ -165,18 +174,11 @@ export async function UploadsBrowse({
                     </div>
                   ) : null}
                 </dl>
-                <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-ink-200/70 pt-3 text-sm">
-                  {item.href ? (
-                    <Link
-                      href={item.href}
-                      className="font-semibold uppercase text-ink-900 hover:underline"
-                    >
-                      View
-                      <span className="sr-only"> {item.title}</span>
-                    </Link>
-                  ) : null}
-                  <FileDownloads files={item.files} recordTitle={item.title} align="left" />
-                </div>
+                {item.files.length === 0 && !item.href ? (
+                  <p className="mt-3 border-t border-ink-200/70 pt-3 text-sm text-ink-500">
+                    At the barangay hall
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -208,7 +210,7 @@ export async function UploadsBrowse({
                   Progress
                 </th>
                 <th scope="col" className="px-6 py-4 text-right">
-                  Files
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -222,17 +224,16 @@ export async function UploadsBrowse({
                     {item.progress !== null ? `${item.progress}%` : "—"}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex flex-col items-end gap-1">
-                      {item.href ? (
-                        <Link
-                          href={item.href}
-                          className="text-sm font-semibold uppercase text-ink-900 hover:underline"
-                        >
-                          View
-                        </Link>
+                    <span className="flex items-center justify-end gap-2">
+                      {item.files.length === 0 && !item.href ? (
+                        <span className="text-sm text-ink-500">At the barangay hall</span>
                       ) : null}
-                      <FileDownloads files={item.files} recordTitle={item.title} align="right" />
-                    </div>
+                      <RecordActions
+                        label={item.title}
+                        viewHref={item.href}
+                        files={item.files}
+                      />
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -243,27 +244,14 @@ export async function UploadsBrowse({
       )}
 
       {lastPage > 1 ? (
-        <nav aria-label="Pagination" className="mt-8 flex items-center justify-center gap-4">
-          {safePage > 1 ? (
-            <Link
-              href={hrefFor(q, type, sort, dir, safePage - 1)}
-              className="font-semibold text-ink-900 hover:underline"
-            >
-              ← Previous
-            </Link>
-          ) : null}
-          <span className="text-sm text-ink-500">
-            Page {safePage} of {lastPage}
-          </span>
-          {safePage < lastPage ? (
-            <Link
-              href={hrefFor(q, type, sort, dir, safePage + 1)}
-              className="font-semibold text-ink-900 hover:underline"
-            >
-              Next →
-            </Link>
-          ) : null}
-        </nav>
+        <Pagination
+          className="mt-8"
+          page={safePage}
+          pageSize={first.pageSize}
+          total={total}
+          hrefFor={(target) => hrefFor(q, type, sort, dir, target)}
+          label="Transparency uploads"
+        />
       ) : null}
     </Section>
   );
