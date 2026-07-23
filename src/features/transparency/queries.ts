@@ -303,7 +303,7 @@ export async function searchUploads({ q, type, sort, dir, page }: {
   return { items: items.slice(from, from + UPLOADS_PAGE_SIZE), total, pageSize: UPLOADS_PAGE_SIZE };
 }
 
-/** Most recent 5 uploads across all three sources — the /transparency preview. */
+/** Most recent uploads across all three sources — the /transparency preview. */
 export async function listLatestUploads(limit = 5): Promise<UploadBrowseItem[]> {
   const items = await allUploadItems();
   items.sort((a, b) => compareItems(a, b, "date", "desc"));
