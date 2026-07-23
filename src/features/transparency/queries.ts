@@ -16,13 +16,15 @@ import { documentUrl } from "@/lib/storage";
 export const LEGISLATIVE_PAGE_SIZE = 10;
 
 const LIST_COLUMNS =
-  "id, slug, doc_type, number, title, date_approved, file_path, file_size_bytes";
+  "id, slug, doc_type, number, seq_no, year, title, date_approved, file_path, file_size_bytes";
 
 interface LegislativeRow {
   id: string;
   slug: string;
   doc_type: LegislativeType;
   number: string;
+  seq_no: number;
+  year: number;
   title: string;
   date_approved: string | null;
   summary?: string;
@@ -35,6 +37,8 @@ function toListItem(row: LegislativeRow): LegislativeListItem {
     id: row.id,
     slug: row.slug,
     docType: row.doc_type,
+    seqNo: row.seq_no,
+    year: row.year,
     number: row.number,
     title: row.title,
     dateApproved: row.date_approved,
@@ -54,10 +58,12 @@ export async function listRecentLegislative(
     .select(`${LIST_COLUMNS}, summary`)
     .eq("status", "published")
     .eq("doc_type", docType)
-    // Pending (undated) documents sort first — the repo owner's explicit
-    // call. Postgres puts NULLs first on a DESC order by default, but say so
-    // explicitly rather than lean on that default (see 0010 migration).
-    .order("date_approved", { ascending: false, nullsFirst: true })
+    // Newest year first, counting up inside it — the owner's call, and the
+    // order the /transparency preview tables re-apply client-side. Replaces
+    // the old date_approved ordering: a document is numbered before it is
+    // approved, so date could not express this.
+    .order("year", { ascending: false })
+    .order("seq_no", { ascending: true })
     .limit(limit);
 
   if (error || !data) return [];

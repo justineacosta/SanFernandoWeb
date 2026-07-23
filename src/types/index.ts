@@ -332,6 +332,9 @@ export interface LegislativeListItem {
   id: string;
   slug: string;
   docType: LegislativeType;
+  /** Sequence within the year, 1–9999. Composed into `number` for display. */
+  seqNo: number;
+  year: number;
   number: string;
   title: string;
   /** ISO date approved, or null when the document is pending approval. */
@@ -406,6 +409,9 @@ export interface AdminLegislativeRow extends ArchiveMeta {
   id: string;
   slug: string;
   docType: LegislativeType;
+  /** Sequence within the year, 1–9999. Composed into `number` for display. */
+  seqNo: number;
+  year: number;
   number: string;
   title: string;
   dateApproved: string | null;
@@ -438,7 +444,8 @@ export interface AdminTransparencyProjectRow extends ArchiveMeta {
 
 export interface LegislativeValues {
   docType: LegislativeType;
-  number: string;
+  seqNo: number;
+  year: number;
   title: string;
   /** ISO date, or null while pending approval. The action stores an empty
    *  string from the date input as SQL NULL. */

@@ -30,7 +30,7 @@ export type DraftScope =
   | "announcement"
   | "event"
   | "official"
-  | "legislative"
+  | "legislative-v2"
   | "transparency-document"
   | "transparency-project"
   | "site-item"

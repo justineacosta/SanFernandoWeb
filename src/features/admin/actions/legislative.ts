@@ -7,6 +7,7 @@ import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { guardDelete, statusPatch } from "@/lib/archive";
 import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { MAX_SEQ_NO, formatLegislativeNumber } from "@/lib/legislative-number";
 import { getLegislativeForEdit } from "@/features/admin/queries/transparency";
 import { removeStoredDocument, uploadDocumentPdf } from "./documents";
 
@@ -20,7 +21,11 @@ export interface SaveResult {
 
 const schema = z.object({
   docType: z.enum(["ordinance", "resolution"]),
-  number: z.string().trim().min(3, "Enter the official document number."),
+  // Mirrors the check constraints in migration 0024 exactly. The upper bound
+  // is load-bearing: legislativeSortKey multiplies the year by MAX_SEQ_NO + 1,
+  // so a wider sequence would sort into the neighbouring year.
+  seqNo: z.number().int().min(1).max(MAX_SEQ_NO),
+  year: z.number().int().min(1900).max(2200),
   title: z.string().trim().min(3, "Enter a title."),
   // Date approved is optional — a document can exist (and be uploaded) before
   // it's approved. An empty string means "not yet approved"; it is converted
@@ -97,9 +102,14 @@ export async function saveLegislative(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
   }
+  const number = formatLegislativeNumber(
+    parsed.data.docType,
+    parsed.data.seqNo,
+    parsed.data.year,
+  );
 
   const admin = createSupabaseAdminClient();
-  const base = slugify(`${parsed.data.number} ${parsed.data.title}`);
+  const base = slugify(`${number} ${parsed.data.title}`);
   if (!base) return { error: "Enter a number and title with letters or numbers.", id: null };
 
   // Upload a newly chosen file (if any) up front — this is the only side
@@ -168,7 +178,9 @@ export async function saveLegislative(
       .from("legislative_documents")
       .update({
         doc_type: parsed.data.docType,
-        number: parsed.data.number,
+        number,
+        seq_no: parsed.data.seqNo,
+        year: parsed.data.year,
         title: parsed.data.title,
         date_approved: normalizeDateApproved(parsed.data.dateApproved),
         summary: parsed.data.summary,
@@ -201,7 +213,13 @@ export async function saveLegislative(
           : query.eq("file_path", existingFilePath);
     }
     const { data: updated, error } = await query.select("id").maybeSingle();
-    if (error) return fail("Could not save the document.");
+    if (error) {
+      return fail(
+        error.code === "23505"
+          ? `${number} already exists.`
+          : "Could not save the document.",
+      );
+    }
     // Zero rows means one of the WHERE guards above didn't hold anymore.
     // Report that explicitly instead of falling through to
     // recordActivity/revalidate, which would log and announce a save that
@@ -231,7 +249,7 @@ export async function saveLegislative(
       action: "updated document",
       entityType: "legislative document",
       entityId: id,
-      entityLabel: parsed.data.number,
+      entityLabel: number,
     });
     revalidate(slug);
     return { error: null, id };
@@ -245,7 +263,9 @@ export async function saveLegislative(
     .insert({
       slug: slugResult.slug,
       doc_type: parsed.data.docType,
-      number: parsed.data.number,
+      number,
+      seq_no: parsed.data.seqNo,
+      year: parsed.data.year,
       title: parsed.data.title,
       date_approved: normalizeDateApproved(parsed.data.dateApproved),
       summary: parsed.data.summary,
@@ -254,14 +274,20 @@ export async function saveLegislative(
     })
     .select("id")
     .single();
-  if (error || !data) return fail("Could not create the document.");
+  if (error || !data) {
+    return fail(
+      error?.code === "23505"
+        ? `${number} already exists.`
+        : "Could not create the document.",
+    );
+  }
 
   await recordActivity(actor, {
     type: "create",
     action: "created document",
     entityType: "legislative document",
     entityId: data.id,
-    entityLabel: parsed.data.number,
+    entityLabel: number,
   });
   revalidate(slugResult.slug);
   return { error: null, id: data.id };

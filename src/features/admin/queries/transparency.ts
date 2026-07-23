@@ -17,7 +17,7 @@ export async function listAdminLegislative(): Promise<AdminLegislativeRow[]> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("legislative_documents")
-    .select(`id, slug, doc_type, number, title, date_approved, status, file_path, ${ARCHIVE_SELECT}`)
+    .select(`id, slug, doc_type, number, seq_no, year, title, date_approved, status, file_path, ${ARCHIVE_SELECT}`)
     // Pending (undated) documents sort first — the repo owner's explicit
     // call, stated explicitly rather than relying on Postgres's NULLS FIRST
     // default for DESC (see 0010 migration).
@@ -28,6 +28,8 @@ export async function listAdminLegislative(): Promise<AdminLegislativeRow[]> {
     id: row.id as string,
     slug: row.slug as string,
     docType: row.doc_type as LegislativeType,
+    seqNo: row.seq_no as number,
+    year: row.year as number,
     number: row.number as string,
     title: row.title as string,
     dateApproved: row.date_approved as string | null,
@@ -44,7 +46,7 @@ export async function getLegislativeForEdit(
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("legislative_documents")
-    .select("doc_type, number, title, date_approved, summary, file_path, file_size_bytes, status")
+    .select("doc_type, number, seq_no, year, title, date_approved, summary, file_path, file_size_bytes, status")
     .eq("id", id)
     .maybeSingle();
 
@@ -52,7 +54,8 @@ export async function getLegislativeForEdit(
   return {
     values: {
       docType: data.doc_type as LegislativeType,
-      number: data.number as string,
+      seqNo: data.seq_no as number,
+      year: data.year as number,
       title: data.title as string,
       dateApproved: data.date_approved as string | null,
       summary: (data.summary as string) ?? "",

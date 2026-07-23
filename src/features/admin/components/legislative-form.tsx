@@ -10,6 +10,7 @@ import { useAdminUserId } from "./admin-user-context";
 import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import { FormSectionLabel } from "@/components/ui/form-section-label";
 import { PdfUploader } from "./pdf-uploader";
+import { MAX_SEQ_NO, formatLegislativeNumber } from "@/lib/legislative-number";
 
 export interface LegislativeEditRecord {
   id: string;
@@ -26,7 +27,8 @@ interface LegislativeFormProps {
 
 const EMPTY_VALUES: LegislativeValues = {
   docType: "ordinance",
-  number: "",
+  seqNo: 1,
+  year: new Date().getFullYear(),
   title: "",
   dateApproved: "",
   summary: "",
@@ -47,7 +49,7 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
   const [removeFile, setRemoveFile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const draft = useFormDraft(useAdminUserId(), "legislative", id, values);
+  const draft = useFormDraft(useAdminUserId(), "legislative-v2", id, values);
 
   const set = <K extends keyof LegislativeValues>(key: K, value: LegislativeValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -109,16 +111,41 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
             <option value="resolution">Resolution</option>
           </Select>
         </Field>
-        <Field label="Document Number" htmlFor="legislative-number">
-          <Input
-            id="legislative-number"
-            placeholder="e.g. Ordinance No. 01-2025"
-            value={values.number}
-            onChange={(event) => set("number", event.target.value)}
-            required
-            minLength={3}
-          />
-        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Number" htmlFor="legislative-seq-no">
+            <Input
+              id="legislative-seq-no"
+              type="number"
+              min={1}
+              max={MAX_SEQ_NO}
+              value={values.seqNo}
+              onChange={(event) => set("seqNo", event.target.valueAsNumber || 0)}
+              required
+            />
+          </Field>
+          <Field label="Year" htmlFor="legislative-year">
+            <Input
+              id="legislative-year"
+              type="number"
+              min={1900}
+              max={2200}
+              value={values.year}
+              onChange={(event) => set("year", event.target.valueAsNumber || 0)}
+              required
+            />
+          </Field>
+        </div>
+        {/*
+          The composed number is what the public sees and what search matches,
+          but nobody types it — show it so the encoder can check the three
+          fields produced what they meant.
+        */}
+        <p className="-mt-2 text-sm text-ink-600">
+          Document number:{" "}
+          <span className="font-semibold text-ink-900">
+            {formatLegislativeNumber(values.docType, values.seqNo, values.year)}
+          </span>
+        </p>
         <Field label="Title" htmlFor="legislative-title">
           <Input
             id="legislative-title"
