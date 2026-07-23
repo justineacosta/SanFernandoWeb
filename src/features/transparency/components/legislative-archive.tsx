@@ -4,7 +4,8 @@ import type { LegislativeType } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/form";
 import { Section } from "@/components/ui/section";
-import { formatDateApproved } from "@/lib/format";
+import { Pagination } from "@/components/ui/pagination";
+import { LegislativeTable } from "./legislative-table";
 import { searchLegislative } from "@/features/transparency/queries";
 
 const TYPE_TABS: { value: LegislativeType | "all"; label: string }[] = [
@@ -89,39 +90,25 @@ export async function LegislativeArchive({
           No ordinances or resolutions match that search. Try a different number or keyword.
         </p>
       ) : (
-        <ul className="space-y-4">
-          {items.map((doc) => (
-            <li key={doc.id} className="rounded-2xl border border-ink-200 p-6 transition-colors hover:border-brand-400">
-              <Link href={`/transparency/legislative/${doc.slug}`} className="block">
-                <p className="text-sm font-semibold uppercase tracking-wider text-ink-500">
-                  {doc.number} · {formatDateApproved(doc.dateApproved)}
-                </p>
-                <h3 className="mt-1 font-display text-xl font-semibold tracking-tight text-ink-900">
-                  {doc.title}
-                </h3>
-                <p className="mt-2 line-clamp-2 text-ink-600">{doc.summary}</p>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        // sort="none": the order comes from the RPC, so client sorting would
+        // reorder one page of several and quietly misrepresent the rest. No
+        // previewPageSize either — the paging below is URL state.
+        <LegislativeTable
+          caption="Published ordinances and resolutions"
+          documents={items}
+          sort="none"
+        />
       )}
 
       {lastPage > 1 ? (
-        <nav aria-label="Pagination" className="mt-8 flex items-center justify-center gap-4">
-          {safePage > 1 ? (
-            <Link href={hrefFor(q, docType, safePage - 1)} className="font-semibold text-ink-900 hover:underline">
-              ← Previous
-            </Link>
-          ) : null}
-          <span className="text-sm text-ink-500">
-            Page {safePage} of {lastPage}
-          </span>
-          {safePage < lastPage ? (
-            <Link href={hrefFor(q, docType, safePage + 1)} className="font-semibold text-ink-900 hover:underline">
-              Next →
-            </Link>
-          ) : null}
-        </nav>
+        <Pagination
+          className="mt-8"
+          page={safePage}
+          pageSize={pageSize}
+          total={total}
+          hrefFor={(target) => hrefFor(q, docType, target)}
+          label="Legislative archive"
+        />
       ) : null}
     </Section>
   );
