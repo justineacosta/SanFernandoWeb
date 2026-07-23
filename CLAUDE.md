@@ -56,6 +56,9 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   signed-in user to the first nav entry they may reach (`firstPermittedPath`; Settings is
   ungated, so a target always exists and it cannot loop). `ADMIN_TEAM` in
   `features/admin/data.ts` is the last placeholder constant left, and nothing renders it.
+  User management is its own SuperAdmin-only module at `/admin/users` (`TeamManager`, an
+  Active|Archived table like the other managers); **Settings keeps only profile, security
+  and preferences** — it no longer holds the team card.
 - **The nav gate is one module, not a predicate copied four times.** `src/lib/admin-nav.ts`
   holds pure helpers over `ADMIN_NAV_ITEMS` — `canSeeNavItem` / `visibleNavItems` /
   `groupNavItems` / `firstPermittedPath` / `adminPageTitle` — consumed by the sidebar, the
