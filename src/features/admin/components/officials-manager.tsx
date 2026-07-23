@@ -320,42 +320,6 @@ export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerPr
         <AdminStatCard icon={UserX} label="Archived" value={archived} tone="danger" />
       </div>
       <Card>
-        <CardHeader
-          title="Officials Directory"
-          className="mb-0 flex-wrap gap-3 px-6 pt-6"
-          action={
-            <AdminFilterBar
-              search={{
-                id: "official-search",
-                value: search,
-                placeholder: "Search name or position...",
-                onChange: setSearch,
-              }}
-              selects={[
-                {
-                  id: "official-group-filter",
-                  label: "Section",
-                  value: group,
-                  options: GROUP_OPTIONS,
-                  onChange: setGroup,
-                },
-                // Every row in the Archived view holds the same status, so
-                // the dropdown has nothing left to narrow.
-                ...(view === "active"
-                  ? [
-                      {
-                        id: "official-status-filter",
-                        label: "Status",
-                        value: status,
-                        options: STATUS_OPTIONS,
-                        onChange: setStatus,
-                      },
-                    ]
-                  : []),
-              ]}
-            />
-          }
-        />
         {/*
           The view toggle sits on its own row under the heading rather than in
           the header's right-hand cluster. In that cluster it shared a wrapping
@@ -364,8 +328,45 @@ export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerPr
           move, and because search is the first control in AdminFilterBar,
           losing a trailing select shifts nothing to its left either.
         */}
-        <div className="px-6 pb-4 pt-4">
+        <div className="border-b border-ink-200/70 px-6 pb-4 pt-6">
+          <CardHeader
+            title="Officials Directory"
+            className="mb-0 flex-wrap gap-3 border-b-0 pb-0"
+            action={
+              <AdminFilterBar
+                search={{
+                  id: "official-search",
+                  value: search,
+                  placeholder: "Search name or position...",
+                  onChange: setSearch,
+                }}
+                selects={[
+                  {
+                    id: "official-group-filter",
+                    label: "Section",
+                    value: group,
+                    options: GROUP_OPTIONS,
+                    onChange: setGroup,
+                  },
+                  // Every row in the Archived view holds the same status, so
+                  // the dropdown has nothing left to narrow.
+                  ...(view === "active"
+                    ? [
+                        {
+                          id: "official-status-filter",
+                          label: "Status",
+                          value: status,
+                          options: STATUS_OPTIONS,
+                          onChange: setStatus,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            }
+          />
           <ViewToggle
+            className="mt-4"
             view={view}
             archivedCount={archived}
             noun="officials"

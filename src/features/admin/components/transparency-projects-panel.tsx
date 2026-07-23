@@ -240,22 +240,23 @@ export function TransparencyProjectsPanel({
             New Project
           </Button>
         </div>
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <ViewToggle
-            view={view}
-            archivedCount={archivedCount}
-            noun="projects"
-            onChange={setView}
-          />
-          <AdminFilterBar
-            search={{
-              id: "transparency-project-search",
-              value: search,
-              placeholder: "Search projects...",
-              onChange: setSearch,
-            }}
-          />
-        </div>
+        {/* Search first, then the view toggle on its own row — the same order
+            the other transparency panels use. */}
+        <AdminFilterBar
+          search={{
+            id: "transparency-project-search",
+            value: search,
+            placeholder: "Search projects...",
+            onChange: setSearch,
+          }}
+        />
+        <ViewToggle
+          className="mb-4 mt-4"
+          view={view}
+          archivedCount={archivedCount}
+          noun="projects"
+          onChange={setView}
+        />
         {error ? (
           <p role="alert" className="mb-4 text-sm font-medium text-danger">
             {error}

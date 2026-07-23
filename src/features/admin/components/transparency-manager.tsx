@@ -364,21 +364,17 @@ export function TransparencyManager({
             </Button>
           </div>
           <Card>
-            <CardHeader
-              title="Document Directory"
-              className="mb-0 flex-wrap gap-3 px-6 pt-6"
-              action={
-                <div className="flex flex-wrap items-center gap-3">
-                  <ViewToggle
-                    view={docView}
-                    archivedCount={archivedDocuments}
-                    noun="documents"
-                    onChange={(next) => {
-                      setDocView(next);
-                      setDocStatus("all");
-                      setDocPage(1);
-                    }}
-                  />
+            {/*
+              The view toggle sits on its own row under the heading rather than
+              in the header's right-hand cluster, where it shared a wrapping
+              flex row with the filter bar and moved whenever switching to
+              Archived dropped the Status select.
+            */}
+            <div className="border-b border-ink-200/70 px-6 pb-4 pt-6">
+              <CardHeader
+                title="Document Directory"
+                className="mb-0 flex-wrap gap-3 border-b-0 pb-0"
+                action={
                   <AdminFilterBar
                     search={{
                       id: "transparency-doc-search",
@@ -420,9 +416,20 @@ export function TransparencyManager({
                         : []),
                     ]}
                   />
-                </div>
-              }
-            />
+                }
+              />
+              <ViewToggle
+                className="mt-4"
+                view={docView}
+                archivedCount={archivedDocuments}
+                noun="documents"
+                onChange={(next) => {
+                  setDocView(next);
+                  setDocStatus("all");
+                  setDocPage(1);
+                }}
+              />
+            </div>
             {filteredDocuments.length === 0 ? (
               docView === "archived" && archivedDocuments === 0 ? (
                 <AdminEmptyState message="Nothing archived. A superseded budget or report is kept here, not deleted." />
