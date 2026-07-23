@@ -8,11 +8,12 @@ The official website of **Barangay San Fernando, San Nicolas, Ilocos Norte** (Ph
 Next.js 16 App Router + React 19 + TypeScript (strict) + Tailwind CSS v4, backed by
 **Supabase** (Postgres + Auth + Storage). The frontend was built first as a fully static
 mock; backend integration is now well underway (migrations `0001`–`0011` applied;
-`0012`–`0022` applied to staging, still pending on production). Live and
+`0012`–`0023` applied to staging, still pending on production). Live and
 DB-backed: auth + account self-service, the services catalog, all four ticketing flows
 (applications / appointments / complaints / assistance), contact inquiries + alert
-subscribers, news + announcements + events, transparency (legislative documents
-/ disclosure documents / monitored projects), and the officials directory. What remains
+subscribers, anonymous site feedback, news + announcements + events, transparency
+(legislative documents / disclosure documents / monitored projects), and the officials
+directory. What remains
 static lives in typed `data.ts` files — the contact channels and inquiry subject list, and
 the home page's six Quick Services cards. The Home and About pages became DB-backed in
 sub-project 9 (`0021`). `docs/BACKEND_HANDOFF.md` is the living integration brief;
@@ -88,6 +89,17 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   entry. News, announcements and events gained their deletes in sub-project 7, on the same
   two-condition gate, each removing its own media (an article's `news_photos` objects
   included — the DB cascade drops the rows, not the files).
+- **Feedback is anonymous, and that shapes everything about it** (sub-project 10, migration
+  `0023`). The floating widget on the public side stores no name, email or IP, so there is no
+  consent field, no reply path and no `/track` entry — `/contact` stays the channel for anything
+  needing an answer. Screenshots live in the **private** `feedback-media` bucket and are read
+  through ten-minute signed URLs minted in the query layer, because a screenshot can contain the
+  sender's own account page; it is the project's only private bucket, so `photoUrl`-style
+  helpers deliberately have no twin for it. `feedback` is also the one table whose delete is not
+  gated on `archived`: SuperAdmin, from a `dismissed` row only, because an anonymous endpoint
+  that accepts images needs a janitor. Inquiries still have no delete at all. The widget is
+  mounted once in `PublicShell` as a **sibling** of the header — nesting it inside the
+  `backdrop-filter` chrome would break its `position: fixed`.
 - **Uploads defer to Save** (sub-project 7, 2026-07-22): every uploader is a *pure file
   picker* making no network calls — `PdfUploader`, `MultiFileUploader`, `SingleImageUploader`,
   and `NewsPhotoUploader`'s pending list. The save Server Action uploads server-side and
@@ -202,6 +214,10 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   "Barangay Sampaguita" design placeholder) — any "Sampaguita" appearing in `src/` is a
   regression. San Nicolas is a **municipality** (write "Municipal …", not "City …"), and the
   Ilocos Norte area code is (077).
+- The admin nav entry is **`Inquiries & Feedback`** at the unchanged `/admin/inquiries` route —
+  two tabs, one `handle-inquiries` permission, since the same people work both queues. Its tab
+  strip is `src/components/ui/tab-pills.tsx`; `transparency-manager.tsx` still carries its own
+  hand-rolled copy of that markup and is a pending mechanical follow-up.
 - `stitch/` holds the original design-tool HTML exports — reference material only, ignored
   by ESLint, not part of the app. Newer exports (`stitch_tabbed_content_manager/` — source
   of the admin screens) sit untracked at the repo root by choice: don't commit or delete them.

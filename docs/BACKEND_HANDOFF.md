@@ -1190,6 +1190,33 @@ the form's "within 24-48 business hours" promise real.
 and there is no unsubscribe path other than a direct DB edit (`is_active`,
 `unsubscribed_at` are there for it). Both are prerequisites before the list is used.
 
+### B2. ~~Site feedback widget~~ — **BUILT 2026-07-23** (migration `0023`)
+A floating button on every public page (mounted once in `PublicShell`) opens an anonymous
+form for feedback about the **website** — bugs, broken pages, suggestions, praise.
+`submitFeedback` in `src/features/feedback/actions.ts` rate-limits (3/hour/IP), validates with
+Zod, uploads an optional screenshot, and writes to `feedback`. Staff triage it from the
+**Feedback** tab of `/admin/inquiries`, behind the same `handle-inquiries` permission.
+
+`feedback` columns: `category` (enum: general/bug/feature/complaint/praise), `subject`,
+`message`, `rating` (1–5, null = unrated), `page_path` (captured, path only), `screenshot_path`,
+`status` (enum: new/in_progress/resolved/dismissed), `staff_note`, `handled_by`, `handled_at`.
+
+**No PII by design** — no name, no email, no stored IP. So there is no DPA consent field and
+**no reply path**: staff cannot follow up on a report, ever. `/contact` remains the channel for
+anything a resident needs an answer to.
+
+Screenshots live in a **private** `feedback-media` bucket with no read policy; the admin query
+mints ten-minute signed URLs in one batch per page load. This is the only private bucket in the
+project, because a screenshot can contain the sender's own account page or ticket.
+
+**Still needed**:
+- **Staff notification on arrival.** Nothing tells anyone a report came in; the queue is
+  checked, not pushed. Blocked on §2D (Resend).
+- **Spam housekeeping.** The endpoint is anonymous and accepts images. `deleteFeedback` is
+  SuperAdmin-only and reachable only from a `dismissed` row, and it removes the screenshot —
+  but nothing prunes automatically, so a flood needs a human. `scripts/report-orphaned-media.mjs`
+  does not cover `feedback-media`.
+
 ### C. Content management (read APIs or CMS)
 Replace the `data.ts` constants, roughly in order of how often the content changes:
 
