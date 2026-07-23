@@ -1468,7 +1468,9 @@ Old snapshots are then never matched and expire on their own.
 npm run typecheck && npm run lint && npm run test:unit
 ```
 
-Expected: all exit 0. `typecheck` is the real gate here — it names every consumer of the three changed types. If it flags `legislative-manager.tsx`, leave it: Task 8 owns that file.
+Expected: all exit 0. `typecheck` is the real gate here — it names every consumer of the three changed types.
+
+This task is self-contained: `LegislativeValues` has exactly three consumers (`actions/legislative.ts`, `legislative-form.tsx`, `queries/transparency.ts`), and this task changes all three. `legislative-manager.tsx` reads `AdminLegislativeRow.number`, which survives — `number` is removed only from `LegislativeValues`. If typecheck fails here, something in this task is incomplete; do not defer it to Task 8.
 
 - [ ] **Step 10: Commit**
 
@@ -1558,7 +1560,7 @@ The column still **displays** `record.number`; only what it sorts on changes.
 npm run typecheck && npm run lint && npm run test:unit
 ```
 
-Expected: all exit 0, including any `legislative-manager.tsx` error Task 7 deferred.
+Expected: all exit 0.
 
 - [ ] **Step 6: Commit**
 
@@ -1630,5 +1632,5 @@ The final report must end with a plain-sentence list of what to look at, no jarg
 
 - **Task 6 ships unexecuted SQL.** That is the standing state of this repo's migrations; the owner applies them. Do not attempt to run it and do not claim it verified.
 - **Tasks 1–2, 3–4 and 5–8 are independent groups.** If a task in one group blocks, the others can still proceed.
-- **Task 7 will leave `legislative-manager.tsx` failing typecheck** until Task 8 runs. That is expected and called out in both tasks.
+- **Every task's commit must pass typecheck and lint on its own.** No task depends on a later one to compile: `LegislativeValues` has exactly three consumers and Task 7 changes all three, while `legislative-manager.tsx` reads `AdminLegislativeRow.number`, which survives the change.
 - The `.superpowers/sdd/` scratch directory is shared across every past run in this repo and its filenames collide. Namespace anything written there for this plan with a `pln-` prefix.
