@@ -53,7 +53,9 @@
 -- ARCHITECTURAL POSTURE (unchanged from the source migrations)
 -- ------------------------------------------------------------
 -- Every table has RLS ENABLED WITH ZERO POLICIES, with four deliberate
--- exceptions listed at §10. The service-role client, called behind an explicit
+-- exceptions: public.profiles (§4), public.services and
+-- public.assistance_categories (§5), and storage.objects (§11, two policies).
+-- The service-role client, called behind an explicit
 -- requirePermission(...) / requireSuperAdmin() check in src/lib/auth.ts, is the
 -- entire authorization gate; the public/published boundary is the
 -- .eq("status","published") filter in the query layer. Never expose the
@@ -1136,8 +1138,10 @@ create trigger site_items_updated_at
 --   public-documents  PDFs and document images, 10MB.
 --   feedback-media    PRIVATE. Screenshots attached to anonymous site feedback.
 --
--- storage.objects is the ONLY table in this schema that gets an RLS policy —
--- public read, so a browser can fetch an uploaded file. There is no
+-- storage.objects is the ONLY storage table in this schema that gets an RLS
+-- policy (see "ARCHITECTURAL POSTURE" above for the other three
+-- policy-carrying tables) — public read, so a browser can fetch an uploaded
+-- file. There is no
 -- anon/authenticated write policy: uploads go through the service-role client,
 -- which bypasses RLS, after the Server Action re-checks type and size
 -- server-side (never trusting the client).

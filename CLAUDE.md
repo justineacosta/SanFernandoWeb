@@ -149,7 +149,22 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   Server Actions are public HTTP endpoints, so every write re-validates its input with Zod
   at runtime. Never expose the service-role key to the client. Migrations live in
   `supabase/migrations/`; the owner applies them **manually** against live Supabase staging —
-  never assume a migration is applied without confirmation. zod is **v4** (not v3).
+  never assume a migration is applied without confirmation. **Two paths to a schema, and they
+  don't mix.** For a **new environment** (production, a fresh staging, a local dev database)
+  standing up from nothing, apply `supabase/baseline/0000_baseline_2026-07-23.sql` instead of
+  replaying the numbered migrations one by one — it is a single-transaction squash of `0001`–
+  `0023` that assumes an empty `public` schema and deliberately ships **without** the demo seed
+  content those early migrations insert (`0007_news_content.sql` and `0009_transparency.sql`
+  seed placeholder news, announcements, events, and legislative/transparency documents), so a
+  fresh production apply doesn't land mock content on the live public site. For an **existing
+  environment** that already has some of `0001`–`0023` applied, keep applying the individual
+  numbered migrations it is missing, in order, exactly as before — the baseline assumes an
+  empty schema and will fail loudly against one that already has any of them. Either way, a new
+  environment still needs the two upload scripts the baseline's own checklist names
+  (`scripts/upload-official-portraits.mjs`, `scripts/upload-site-images.mjs`) before the
+  officials directory and the Home/About pages render real images. The baseline is a prepared
+  artifact, not a proven one — it has not been executed against any real database yet. zod is
+  **v4** (not v3).
 - **Server Components by default.** Client components (`"use client"`) only for real
   interactivity: `SiteHeader` scroll state, mobile navs, `Accordion`, `LegislativeTable`
   (collapsible rows), inquiry + newsletter forms, and the admin portal's managers/drawer

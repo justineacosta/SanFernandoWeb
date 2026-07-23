@@ -1021,6 +1021,25 @@
 >    gone — that existed to make a stock photo recede, and a real map is content. The officials
 >    page's 24/7 Action Center now dials `(077) 600 1082` from `SITE.phone` instead of `911`.
 
+> **Production baseline added 2026-07-23.** `supabase/baseline/0000_baseline_2026-07-23.sql` is
+> a single-transaction squash of migrations `0001`–`0023`, building the *final* schema state on
+> an **empty** `public` schema — it is not a replay, and it deliberately ships **without** the
+> demo seed content `0007_news_content.sql` and `0009_transparency.sql` insert, so a fresh
+> production apply doesn't land placeholder news/announcements/events/legislative/transparency
+> content on the live public site. **Two paths, and they don't mix:**
+> 1. **New environment** (production, a fresh staging, a local dev database) standing up from
+>    nothing: apply the baseline file alone, not the numbered migrations in sequence. It assumes
+>    an empty schema and fails loudly against one that already has any of `0001`–`0023` applied —
+>    that's intended, not a bug to work around.
+> 2. **Existing environment** that already has some of `0001`–`0023`: keep applying the
+>    individual numbered migrations it is missing, in order, exactly as every entry above
+>    describes. The baseline is not a substitute for that path.
+> Either way, the same two upload scripts already required by `0012` and `0021` are still
+> required once per environment — `scripts/upload-official-portraits.mjs` and
+> `scripts/upload-site-images.mjs` — or the officials directory and the Home/About pages render
+> broken images. **The baseline is a prepared artifact, not a proven one:** it has not been
+> executed against any real database yet.
+
 ---
 
 ## 1. Current State
