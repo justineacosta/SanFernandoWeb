@@ -215,10 +215,16 @@ list the same kebab as every other transparency surface. `file-downloads.tsx` is
 then genuinely unreferenced and is deleted, along with its `FileDownloads` export
 from `src/features/transparency/index.ts`.
 
-Note the deliberate asymmetry with `RecordActions`, which is **not** in that
-barrel: it is a client component, and widening the barrel is the path by which a
-client component reaches the `server-only` `queries.ts`. `DisclosureGrid` imports
-it directly from `./record-actions`, as the other call sites do.
+`RecordActions`'s own barrel export goes with it. Every call site already
+imports it directly from `./record-actions`, and nothing reaches it through the
+barrel — which is just as well, because that barrel also re-exports Server
+Components that import the `server-only` `queries.ts`. A client component
+pulling `RecordActions` from there would drag `queries.ts` across the boundary
+and fail the build. `DisclosureGrid` therefore imports it directly, as the other
+three call sites do.
+
+(An earlier draft of this design claimed `RecordActions` was already absent from
+that barrel. It was not — the export was there, and this work removes it.)
 
 The doc comment on `RecordActions` that currently explains the `null` return is
 rewritten; leaving it would document behaviour that no longer exists.
