@@ -3,9 +3,12 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   ALLOWED_IMAGE_TYPES,
+  FEEDBACK_MEDIA_BUCKET,
   MAX_IMAGE_BYTES,
+  MAX_SCREENSHOT_BYTES,
   PUBLIC_MEDIA_BUCKET,
   extForType,
+  feedbackScreenshotPath,
   photoUrl,
 } from "@/lib/storage";
 
@@ -119,4 +122,63 @@ export async function discardImage(src: string | null, context: string): Promise
   if (!src) return;
   const { error } = await removeStoredImage(src);
   if (error) console.error(`Orphaned storage object (${context}): ${src}`);
+}
+
+/**
+ * Upload one feedback screenshot into the private bucket.
+ *
+ * A separate function from `uploadSingleImage` rather than a new `ImageFolder`:
+ * that helper writes to `public-media` and hands back a public URL, and neither
+ * is true here. `url` comes back null on purpose — a private object has no
+ * stable URL, and the admin queue signs one per page load.
+ *
+ * As with every uploader here, persisting the returned `src` is the caller's
+ * job, and so is deleting the object if the row write then fails.
+ */
+export async function uploadFeedbackScreenshot(file: File): Promise<UploadResult> {
+  if (file.size === 0) return { error: "Choose an image.", src: null, url: null };
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
+    return { error: "Screenshots must be JPG, PNG, or WebP.", src: null, url: null };
+  }
+  if (file.size > MAX_SCREENSHOT_BYTES) {
+    return { error: "The screenshot must be 2 MB or smaller.", src: null, url: null };
+  }
+
+  const path = feedbackScreenshotPath(extForType(file.type));
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.storage
+    .from(FEEDBACK_MEDIA_BUCKET)
+    .upload(path, buffer, { contentType: file.type, upsert: false });
+  if (error) return { error: "Upload failed. Try again.", src: null, url: null };
+
+  return { error: null, src: path, url: null };
+}
+
+/**
+ * Delete a feedback screenshot. `removeStoredImage`'s allow-list is
+ * public-media-specific, so this keeps its own — `feedback/` is the only prefix
+ * ever written into that bucket, and an arbitrary string must never reach
+ * storage.remove().
+ */
+export async function removeFeedbackScreenshot(path: string): Promise<ActionResult> {
+  if (!/^feedback\//.test(path)) return { error: "That screenshot cannot be removed." };
+  if (path.split("/").some((segment) => segment === "..")) {
+    return { error: "That screenshot cannot be removed." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.storage.from(FEEDBACK_MEDIA_BUCKET).remove([path]);
+  if (error) return { error: "Could not remove the screenshot." };
+  return { error: null };
+}
+
+/** Best-effort cleanup, mirroring `discardImage`: logs an orphan, never throws. */
+export async function discardFeedbackScreenshot(
+  path: string | null,
+  context: string,
+): Promise<void> {
+  if (!path) return;
+  const { error } = await removeFeedbackScreenshot(path);
+  if (error) console.error(`Orphaned screenshot (${context}): ${path}`);
 }
