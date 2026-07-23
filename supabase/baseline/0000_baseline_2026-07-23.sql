@@ -702,14 +702,15 @@ create trigger transparency_categories_updated_at
   for each row execute function public.set_updated_at();
 
 -- ── Legislative documents (ordinances & resolutions) ────────────────────────
--- Ordered by date_approved, NOT published_at: a 2023 ordinance may be uploaded
--- after a 2024 one, and the archive requires newest-approved-first.
+-- The public tables order by (year desc, seq_no asc) since 0024: newest year
+-- first, counting up by sequence within it. The date_approved indexes below
+-- still back the admin listing's default order.
 --
 -- date_approved is NULLABLE (0010): a document can be uploaded before it is
 -- approved — the draft PDF, number and title all exist ahead of the date. Such
--- rows render "Pending Approval" and SORT FIRST, above approved ones. That is a
--- product decision, not merely the NULLS-FIRST-on-DESC default, so the indexes
--- state `nulls first` explicitly and every query passes it too.
+-- rows render "Pending Approval". On the date_approved-ordered admin listing
+-- they SORT FIRST, above approved ones — a product decision, not merely the
+-- NULLS-FIRST-on-DESC default, so those indexes state `nulls first` explicitly.
 create table public.legislative_documents (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
@@ -1330,7 +1331,7 @@ end $$;
  * The status filter lives here rather than in the caller so the public
  * boundary stays in one place — this function can only ever return rows the
  * public may already read. Rows come newest year first, counting up by
- * sequence within the year (matching migration 0024 and listRecentLegislative).
+ * sequence within the year (year desc, seq_no asc), since migration 0024.
  */
 create or replace function public.search_legislative_documents(
   p_q        text default '',
