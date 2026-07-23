@@ -298,10 +298,16 @@ export function TransparencyManager({
         title="Transparency"
         description="Manage ordinances, resolutions, public documents, and project monitoring."
       />
+      {/*
+        The three-tab pill is wider than a narrow phone. It scrolls inside its
+        own container — like the wide tables do — rather than growing the page:
+        the pill keeps its shape and the whole document stops panning sideways.
+      */}
+      <div className="mb-6 max-w-full overflow-x-auto no-scrollbar">
       <div
         role="tablist"
         aria-label="Transparency content type"
-        className="mb-6 inline-flex rounded-full border border-ink-200/70 bg-white p-1"
+        className="inline-flex rounded-full border border-ink-200/70 bg-white p-1"
       >
         <button
           type="button"
@@ -309,7 +315,7 @@ export function TransparencyManager({
           aria-selected={tab === "legislative"}
           onClick={() => switchTab("legislative")}
           className={cn(
-            "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+            "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors",
             tab === "legislative" ? "bg-brand-500 text-ink-900" : "text-ink-600 hover:bg-ink-50",
           )}
         >
@@ -322,7 +328,7 @@ export function TransparencyManager({
           aria-selected={tab === "documents"}
           onClick={() => switchTab("documents")}
           className={cn(
-            "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+            "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors",
             tab === "documents" ? "bg-brand-500 text-ink-900" : "text-ink-600 hover:bg-ink-50",
           )}
         >
@@ -335,13 +341,14 @@ export function TransparencyManager({
           aria-selected={tab === "projects"}
           onClick={() => switchTab("projects")}
           className={cn(
-            "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
+            "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors",
             tab === "projects" ? "bg-brand-500 text-ink-900" : "text-ink-600 hover:bg-ink-50",
           )}
         >
           <FolderKanban className="h-4 w-4" aria-hidden="true" />
           Projects
         </button>
+      </div>
       </div>
 
       {tab === "legislative" ? (

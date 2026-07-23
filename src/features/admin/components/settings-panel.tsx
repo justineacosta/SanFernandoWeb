@@ -28,8 +28,15 @@ export function SettingsPanel({ team, archived, currentUser }: SettingsPanelProp
         title="Settings"
         description="Manage your account preferences and system configuration."
       />
+      {/*
+        min-w-0 on both grid items is load-bearing. A grid item defaults to
+        min-width:auto, flooring its track at the item's min-content width — so
+        on the single-column mobile grid the widest card pushes the track past
+        the viewport and the whole page pans sideways. min-w-0 lets the track
+        collapse to the viewport; the truncating rows inside then shrink with it.
+      */}
       <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card className="p-8">
             <h3 className="font-display text-xl font-semibold tracking-tight text-ink-900">
               Profile Information
@@ -49,7 +56,7 @@ export function SettingsPanel({ team, archived, currentUser }: SettingsPanelProp
             <AccountSecurityForm />
           </Card>
         </div>
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card className="p-6">
             <h3 className="mb-4 font-display text-lg font-semibold tracking-tight text-ink-900">
               Preferences

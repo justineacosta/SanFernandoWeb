@@ -110,8 +110,8 @@ export function NewsCategoriesPanel({ categories }: NewsCategoriesPanelProps) {
   return (
     <>
       <Card className="p-6">
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
             <h3 className="font-display text-lg font-semibold tracking-tight text-ink-900">
               News Categories
             </h3>

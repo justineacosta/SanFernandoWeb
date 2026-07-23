@@ -130,7 +130,19 @@ export async function AuditLogManager(params: Params) {
                   {SORT_COLUMNS.map((column) => {
                     const active = current.sort === column.key;
                     return (
-                      <th key={column.key} scope="col" className="px-6 py-4">
+                      // Sort state rides on aria-sort here, as it does in the
+                      // shared SortableTh — not an sr-only span. That span was
+                      // `absolute` with no positioned ancestor, so on the widest
+                      // (rightmost) active column it resolved against <html> and
+                      // grew the document past the viewport, panning the page.
+                      <th
+                        key={column.key}
+                        scope="col"
+                        aria-sort={
+                          active ? (current.dir === "asc" ? "ascending" : "descending") : "none"
+                        }
+                        className="px-6 py-4"
+                      >
                         <Link
                           href={sortHrefFor(current, column.key)}
                           className="inline-flex items-center gap-1 hover:text-ink-900"
@@ -139,11 +151,6 @@ export async function AuditLogManager(params: Params) {
                           {active ? (
                             <span aria-hidden="true">{current.dir === "asc" ? "▲" : "▼"}</span>
                           ) : null}
-                          <span className="sr-only">
-                            {active
-                              ? `, sorted ${current.dir === "asc" ? "ascending" : "descending"}`
-                              : ""}
-                          </span>
                         </Link>
                       </th>
                     );
