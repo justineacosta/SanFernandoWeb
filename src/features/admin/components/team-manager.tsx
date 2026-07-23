@@ -5,12 +5,16 @@ import { Plus, Archive, RotateCcw, Trash2, Pencil, UserCheck, UserX } from "luci
 import type { Permission, SessionUser, StaffStatusLabel, TeamUser } from "@/types";
 import { PERMISSION_GROUPS, PERMISSION_LABELS, STATUS_PRESETS } from "@/constants/permissions";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrength } from "@/components/ui/password-strength";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
+import { useTableSort } from "@/components/ui/use-table-sort";
+import { ViewToggle, type TableView } from "@/components/ui/view-toggle";
 import { useToast } from "@/hooks/use-toast";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
@@ -21,8 +25,10 @@ import {
   setTeamUserActive,
   updateTeamUser,
 } from "@/features/admin/actions/users";
+import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
+import { AdminPagination } from "./admin-pagination";
 
 interface TeamManagerProps {
   team: TeamUser[];
@@ -53,9 +59,30 @@ const CONFIRM_COPY = {
 const inputClass =
   "w-full rounded-full border border-ink-200 bg-ink-50 px-4 py-2 text-sm text-ink-900 transition-colors focus:border-ink-300 focus:outline-none focus:ring-1 focus:ring-brand-400/30";
 
+const PAGE_SIZE = 10;
+
+/** The role shown in the table and matched by the filter. */
+function roleLabel(user: TeamUser): string {
+  return user.isSuperAdmin ? "SuperAdmin" : user.statusLabel === "editor" ? "Editor" : "Staff";
+}
+
+/**
+ * `useTableSort` memoises on this object, so it must be a module-level
+ * constant — a fresh literal every render would re-sort every render.
+ */
+const SORT_ACCESSORS: Record<string, (row: TeamUser) => string | number | null> = {
+  name: (u) => u.fullName,
+  email: (u) => u.email,
+  role: (u) => roleLabel(u),
+  status: (u) => (u.isActive ? "Active" : "Disabled"),
+};
+
 /** Team management: list, create/edit drawer with permission checkboxes, row actions. */
 export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<TableView>("active");
+  const [role, setRole] = useState("all");
+  const [page, setPage] = useState(1);
   const [drawer, setDrawer] = useState<DrawerState | null>(null);
   const [confirming, setConfirming] = useState<PendingAction>(null);
   const [actionPending, setActionPending] = useState(false);
@@ -195,6 +222,25 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
     // Nobody may disable, archive, or delete their own account — that is the
     // one mistake with no way back into the portal.
     const isSelf = member.id === currentUser.id;
+
+    if (view === "archived") {
+      return [
+        {
+          label: "Restore",
+          icon: RotateCcw,
+          disabled: isPending,
+          onSelect: () => restore(member),
+        },
+        {
+          label: "Delete",
+          icon: Trash2,
+          tone: "danger" as const,
+          disabled: isPending || isSelf,
+          onSelect: () => setConfirming({ kind: "delete", user: member }),
+        },
+      ];
+    }
+
     return [
       { label: "Edit user", icon: Pencil, onSelect: () => openEdit(member) },
       {
@@ -219,27 +265,25 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
         disabled: isPending || isSelf,
         onSelect: () => setConfirming({ kind: "archive", user: member }),
       },
-      {
-        label: "Delete",
-        icon: Trash2,
-        tone: "danger" as const,
-        disabled: isPending || isSelf,
-        onSelect: () => setConfirming({ kind: "delete", user: member }),
-      },
     ];
   }
 
-  const visible = useMemo(
-    () =>
-      fuzzyFilter(team, search, (member) =>
-        haystack(
-          member.fullName,
-          member.email,
-          member.isSuperAdmin ? "SuperAdmin" : member.statusLabel,
-        ),
-      ),
-    [team, search],
+  const source = view === "active" ? team : archived;
+
+  const filtered = useMemo(() => {
+    const narrowed = source.filter((member) => role === "all" || roleLabel(member) === role);
+    return fuzzyFilter(narrowed, search, (member) =>
+      haystack(member.fullName, member.email, roleLabel(member)),
+    );
+  }, [source, search, role]);
+
+  const { sorted, sortKey, sortDir, toggle } = useTableSort(
+    filtered,
+    { key: "name", dir: "asc" },
+    SORT_ACCESSORS,
   );
+
+  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <>
@@ -254,91 +298,118 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
         }
       />
 
-      <AdminFilterBar
-        className="mb-4"
-        search={{
-          id: "team-user-search",
-          value: search,
-          placeholder: "Search users...",
-          onChange: setSearch,
-        }}
-      />
-
-      {visible.length === 0 ? (
-        <p className="rounded-2xl border border-ink-200/70 p-8 text-center text-sm text-ink-500">
-          {search.trim() ? "No users match your search." : "No users yet."}
-        </p>
-      ) : (
-      <ul className="divide-y divide-ink-200/70 rounded-2xl border border-ink-200/70">
-        {visible.map((member) => (
-          <li key={member.id} className="flex items-center justify-between gap-4 p-4">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-ink-900">
-                {member.fullName}
-                {member.id === currentUser.id ? (
-                  <span className="ml-2 text-xs font-medium text-brand-600">(you)</span>
-                ) : null}
-              </p>
-              <p className="truncate text-xs text-ink-500">
-                {member.email} ·{" "}
-                <span className="capitalize">
-                  {member.isSuperAdmin ? "SuperAdmin" : member.statusLabel}
-                </span>{" "}
-                · {member.isSuperAdmin ? "all permissions" : `${member.permissions.length} permission(s)`}
-                {member.isActive ? "" : " · disabled"}
-              </p>
+      <Card>
+        <div className="border-b border-ink-200/70 px-6 pb-4 pt-6">
+          <AdminFilterBar
+            search={{
+              id: "team-user-search",
+              value: search,
+              placeholder: "Search users...",
+              onChange: (value) => {
+                setSearch(value);
+                setPage(1);
+              },
+            }}
+            selects={
+              // Every archived account is off the roster for the same reason,
+              // so the role filter has nothing left to narrow there.
+              view === "active"
+                ? [
+                    {
+                      id: "team-user-role-filter",
+                      label: "Role",
+                      value: role,
+                      options: [
+                        { value: "all", label: "All Roles" },
+                        { value: "SuperAdmin", label: "SuperAdmin" },
+                        { value: "Editor", label: "Editor" },
+                        { value: "Staff", label: "Staff" },
+                      ],
+                      onChange: (value) => {
+                        setRole(value);
+                        setPage(1);
+                      },
+                    },
+                  ]
+                : []
+            }
+          />
+          <ViewToggle
+            className="mt-4"
+            view={view}
+            archivedCount={archived.length}
+            noun="users"
+            onChange={(next) => {
+              setView(next);
+              setRole("all");
+              setPage(1);
+            }}
+          />
+        </div>
+        {sorted.length === 0 ? (
+          view === "archived" ? (
+            <AdminEmptyState message="Nothing archived. Archived accounts are kept here so they can be restored." />
+          ) : (
+            <AdminEmptyState
+              message="No users match your filters."
+              onClear={() => {
+                setSearch("");
+                setRole("all");
+                setPage(1);
+              }}
+            />
+          )
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-160 text-left text-sm">
+                <thead>
+                  <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
+                    <SortableTh label="Name" sortKey="name" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Email" sortKey="email" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Role" sortKey="role" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <th scope="col" className="px-6 py-4">Permissions</th>
+                    <SortableTh label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <th scope="col" className="px-6 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageItems.map((member) => (
+                    <tr key={member.id} className="border-b border-ink-200/40 last:border-b-0">
+                      <td className="px-6 py-4 font-semibold text-ink-900">
+                        {member.fullName}
+                        {member.id === currentUser.id ? (
+                          <span className="ml-2 text-xs font-medium text-brand-600">(you)</span>
+                        ) : null}
+                      </td>
+                      <td className="px-6 py-4 text-ink-600">{member.email}</td>
+                      <td className="px-6 py-4 text-ink-600">{roleLabel(member)}</td>
+                      <td className="px-6 py-4 text-ink-600">
+                        {member.isSuperAdmin ? "All" : `${member.permissions.length} permission(s)`}
+                      </td>
+                      <td className="px-6 py-4 text-ink-600">
+                        {member.isActive ? "Active" : "Disabled"}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end">
+                          <RowActions label={member.fullName} actions={actionsFor(member)} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <RowActions label={member.fullName} actions={actionsFor(member)} />
-            </div>
-          </li>
-        ))}
-      </ul>
-      )}
-
-      {/*
-        The archive dialog promises the account "is kept" — before this there
-        was nowhere in the portal to make good on that. Rendered only when
-        something is actually archived, so the common case stays uncluttered.
-      */}
-      {archived.length > 0 ? (
-        <details className="mt-4 rounded-2xl border border-ink-200/70">
-          <summary className="cursor-pointer list-none rounded-2xl px-4 py-3 text-sm font-semibold text-ink-700 hover:bg-ink-50">
-            <span className="inline-flex items-center gap-2">
-              <Archive className="h-4 w-4 text-ink-500" aria-hidden="true" />
-              Archived accounts ({archived.length})
-            </span>
-          </summary>
-          <ul className="divide-y divide-ink-200/70 border-t border-ink-200/70">
-            {archived.map((member) => (
-              <li key={member.id} className="flex items-center justify-between gap-4 p-4">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-ink-700">{member.fullName}</p>
-                  <p className="truncate text-xs text-ink-500">
-                    {member.email} ·{" "}
-                    <span className="capitalize">
-                      {member.isSuperAdmin ? "SuperAdmin" : member.statusLabel}
-                    </span>
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => restore(member)}
-                  disabled={isPending}
-                  aria-label={`Restore ${member.fullName}`}
-                >
-                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                  Restore
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <p className="border-t border-ink-200/70 px-4 py-3 text-xs text-ink-500">
-            Restoring returns the account to the list above with sign-in still off. Enable it
-            from the account&rsquo;s menu when they are ready to work again.
-          </p>
-        </details>
-      ) : null}
+            <AdminPagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={sorted.length}
+              onPageChange={setPage}
+              className="px-6 py-4"
+            />
+          </>
+        )}
+      </Card>
 
       <Drawer
         open={drawer !== null}
@@ -482,7 +553,7 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
                 {confirming?.user.fullName}
               </strong>{" "}
               will no longer be able to sign in and will drop off this list. The account is
-              kept — restore it from <em>Archived accounts</em> below.
+              kept — restore it from the <em>Archived</em> view.
             </>
           )
         }

@@ -312,6 +312,20 @@ export async function deleteTeamUser(id: string): Promise<ActionResult> {
   }
 
   const admin = createSupabaseAdminClient();
+
+  // Umbrella §3.2: permanent deletion is reachable only from a record that is
+  // already archived. The UI hides Delete outside the Archived view, but the
+  // UI is never the gate — this action is a public HTTP endpoint.
+  const { data: target } = await admin
+    .from("profiles")
+    .select("is_archived")
+    .eq("id", id)
+    .maybeSingle();
+  if (!target) return { error: "That account no longer exists." };
+  if (!target.is_archived) {
+    return { error: "Archive this account before deleting it." };
+  }
+
   const { count, error: countError } = await admin
     .from("audit_log")
     .select("id", { count: "exact", head: true })
