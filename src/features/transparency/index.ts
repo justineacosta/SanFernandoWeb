@@ -3,6 +3,7 @@ export { DisclosureGrid } from "./components/disclosure-grid";
 export { ProjectsCard } from "./components/projects-card";
 export { DocumentDownloadCard } from "./components/document-download-card";
 export { FileDownloads } from "./components/file-downloads";
+export { RecordActions } from "./components/record-actions";
 export { PdfViewer } from "./components/pdf-viewer";
 export { LatestUploadsSection } from "./components/latest-uploads-section";
 export { LegislativeSection } from "./components/legislative-section";
