@@ -1329,7 +1329,8 @@ end $$;
  *
  * The status filter lives here rather than in the caller so the public
  * boundary stays in one place — this function can only ever return rows the
- * public may already read. Undated ("pending") documents sort first.
+ * public may already read. Rows come newest year first, counting up by
+ * sequence within the year (matching migration 0024 and listRecentLegislative).
  */
 create or replace function public.search_legislative_documents(
   p_q        text default '',
