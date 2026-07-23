@@ -16,7 +16,6 @@ import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { updateInquiry } from "@/features/admin/actions/inquiries";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
-import { AdminPageHeader } from "./admin-page-header";
 import { AdminPagination } from "./admin-pagination";
 import { AdminStatCard } from "./admin-stat-card";
 import { InquiryDrawer, INQUIRY_STATUS_OPTIONS } from "./inquiry-drawer";
@@ -24,18 +23,20 @@ import { StatusChip } from "./status-chip";
 
 const PAGE_SIZE = 8;
 
-interface InquiriesManagerProps {
+interface InquiriesPanelProps {
   inquiries: InquiryRow[];
+  /** False while the other tab is showing: only the visible panel consumes ?review=. */
+  active: boolean;
 }
 
 /**
- * The contact-form inbox.
+ * The contact-form inbox, as one tab of the Inquiries & Feedback page.
  *
  * Not a ticket queue: an inquiry has no number, nothing for a resident to
  * track, and no walk-in counterpart to encode — so there is no "New" button and
  * no receipt. Every row arrived from /contact.
  */
-export function InquiriesManager({ inquiries }: InquiriesManagerProps) {
+export function InquiriesPanel({ inquiries, active }: InquiriesPanelProps) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -76,15 +77,20 @@ export function InquiriesManager({ inquiries }: InquiriesManagerProps) {
   const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const open = openId ? (inquiries.find((record) => record.id === openId) ?? null) : null;
 
-  // Global-search results link here as ?review=<id>.
-  useEditDeepLink("review", (id) => {
-    if (inquiries.some((record) => record.id === id)) {
-      setFormError(null);
-      setOpenId(id);
-    } else {
-      showError("That inquiry no longer exists.");
-    }
-  });
+  // Global-search results link here as ?review=<id>. Gated on `active` so the
+  // feedback panel's deep link is not consumed by whichever mounted first.
+  useEditDeepLink(
+    "review",
+    (id) => {
+      if (inquiries.some((record) => record.id === id)) {
+        setFormError(null);
+        setOpenId(id);
+      } else {
+        showError("That inquiry no longer exists.");
+      }
+    },
+    active,
+  );
 
   const closeDrawer = () => {
     setOpenId(null);
@@ -124,10 +130,6 @@ export function InquiriesManager({ inquiries }: InquiriesManagerProps) {
 
   return (
     <>
-      <AdminPageHeader
-        title="Inquiries"
-        description="Messages residents sent through the contact form."
-      />
       <div className="mb-6 grid gap-6 sm:grid-cols-3">
         <AdminStatCard icon={MessagesSquare} label="Total Inquiries" value={inquiries.length} />
         <AdminStatCard

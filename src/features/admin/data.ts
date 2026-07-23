@@ -25,7 +25,7 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Incident Reports", href: "/admin/complaints", icon: Scale, permission: "handle-complaints", group: "requests" },
   { label: "Appointments", href: "/admin/appointments", icon: CalendarClock, permission: "process-appointments", group: "requests" },
   { label: "Assistance Requests", href: "/admin/assistance", icon: HeartHandshake, permission: "handle-assistance", group: "requests" },
-  { label: "Inquiries", href: "/admin/inquiries", icon: MessagesSquare, permission: "handle-inquiries", group: "requests" },
+  { label: "Inquiries & Feedback", href: "/admin/inquiries", icon: MessagesSquare, permission: "handle-inquiries", group: "requests" },
   { label: "News & Announcements", href: "/admin/news", icon: Megaphone, permission: "manage-news", group: "content" },
   { label: "Event Calendar", href: "/admin/events", icon: CalendarDays, permission: "manage-news", group: "content" },
   { label: "Transparency", href: "/admin/transparency", icon: FileStack, permission: "manage-transparency", group: "content" },

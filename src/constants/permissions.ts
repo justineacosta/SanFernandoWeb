@@ -5,7 +5,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "process-appointments": "Process appointments",
   "handle-complaints": "Handle complaints",
   "handle-assistance": "Handle assistance requests",
-  "handle-inquiries": "Answer contact inquiries",
+  "handle-inquiries": "Answer inquiries & site feedback",
   "manage-news": "Manage news, announcements & events",
   "manage-officials": "Manage officials",
   "manage-transparency": "Manage transparency documents",

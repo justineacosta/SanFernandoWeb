@@ -23,6 +23,7 @@ export const SEARCH_MODULES = [
   "appointments",
   "complaints",
   "assistance",
+  "feedback",
 ] as const;
 
 export type SearchModule = (typeof SEARCH_MODULES)[number];
@@ -61,6 +62,7 @@ export const MODULE_PERMISSION: Record<SearchModule, Permission | null> = {
   appointments: "process-appointments",
   complaints: "handle-complaints",
   assistance: "handle-assistance",
+  feedback: "handle-inquiries",
 };
 
 /** Group heading and manager page per module. */
@@ -77,6 +79,7 @@ export const MODULE_META: Record<SearchModule, { label: string; href: string }> 
   appointments: { label: "Appointments", href: "/admin/appointments" },
   complaints: { label: "Incident Reports", href: "/admin/complaints" },
   assistance: { label: "Assistance Requests", href: "/admin/assistance" },
+  feedback: { label: "Feedback", href: "/admin/inquiries" },
 };
 
 /** Modules whose manager page shows several tabs, and which tab holds them. */
@@ -86,14 +89,20 @@ const MODULE_TAB: Partial<Record<SearchModule, string>> = {
   legislative: "legislative",
   documents: "documents",
   projects: "projects",
+  feedback: "feedback",
 };
 
-/** Ticket modules open a review drawer rather than an editor. */
+/**
+ * Modules whose hit opens a review drawer rather than an editor. Feedback is
+ * here for the same reason the ticket flows are: there is nothing to edit, only
+ * a report to read and triage.
+ */
 const TICKET_MODULES: SearchModule[] = [
   "applications",
   "appointments",
   "complaints",
   "assistance",
+  "feedback",
 ];
 
 /**
