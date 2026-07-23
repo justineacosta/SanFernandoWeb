@@ -27,3 +27,27 @@ test.describe("transparency search", () => {
     await expect(page.getByRole("main")).toBeVisible();
   });
 });
+
+test.describe("transparency row actions", () => {
+  test("a row kebab opens a menu of links, and Escape closes it", async ({ page }) => {
+    await page.goto("/transparency");
+    await expect(page.getByRole("main")).toBeVisible();
+
+    const kebabs = page.getByRole("button", { name: /^Actions for / });
+    const count = await kebabs.count();
+    // An environment with nothing published renders no kebabs. That is a valid
+    // state, not a failure — the baseline ships without demo content.
+    test.skip(count === 0, "no published transparency records in this environment");
+
+    const kebab = kebabs.first();
+    await kebab.click();
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    // Every item is a link: View goes to a detail page, each Download to a file.
+    await expect(menu.getByRole("menuitem").first()).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(kebab).toBeFocused();
+  });
+});
