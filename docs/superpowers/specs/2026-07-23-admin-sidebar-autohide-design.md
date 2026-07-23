@@ -117,6 +117,19 @@ is no new Vitest coverage to write. Verified in the browser via `.claude/skills/
 6. The toggle sits on the border, is not clipped, and pins / unpins.
 7. The `sf-admin-sidebar` cookie survives a reload and a peek never changes it.
 
+## Addendum — found during implementation
+
+The nav rows' `Tooltip` wrappers are **removed**, which the design above did not anticipate.
+Two reasons, one cosmetic and one a bug:
+
+- The peek *is* the label reveal. Hovering a collapsed row now opens the panel and shows the
+  real label, so the tooltip fired underneath the opening panel and said the same word twice.
+- Wrapping the link only when collapsed made `expanded` swap the element type at that
+  position, so React remounted the very link that had just been focused. Tabbing into the
+  rail expanded it and dropped focus to `<body>`, and `Escape` then went nowhere — caught by
+  check 5 below, which failed on the first run. The row markup is now identical in both
+  states, and the label is one `<span>` whose class changes rather than two spans swapped.
+
 ## Out of scope
 
 - `AdminMobileNav` — separate component, separate model, unchanged.

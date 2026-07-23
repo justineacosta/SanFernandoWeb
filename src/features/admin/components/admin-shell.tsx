@@ -22,6 +22,10 @@ interface AdminShellProps {
  * The initial value comes from the server via a cookie rather than from
  * localStorage in an effect: an effect runs after paint, so a collapsed
  * sidebar would render expanded and snap shut on every load.
+ *
+ * This is the *pinned* state only. The rail also peeks open on hover, which it
+ * owns itself and never reports back: a peek is a glance, not a preference, so
+ * it neither writes the cookie nor moves the margin below.
  */
 export function AdminShell({ user, defaultCollapsed, children }: AdminShellProps) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
@@ -37,7 +41,9 @@ export function AdminShell({ user, defaultCollapsed, children }: AdminShellProps
   return (
     <div className="flex min-h-screen bg-white">
       <AdminSidebar
-        className="fixed left-0 top-0 z-30 hidden md:flex"
+        // No z-index here on purpose: the rail raises its own while it peeks
+        // open, and tailwind-merge would let this class win over that one.
+        className="fixed left-0 top-0 hidden md:flex"
         isSuperAdmin={user.isSuperAdmin}
         permissions={user.permissions}
         collapsed={collapsed}
