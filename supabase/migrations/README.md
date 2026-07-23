@@ -1,6 +1,6 @@
 # supabase/migrations/
 
-Numbered, one-way migrations (`0001`–`0023` as of 2026-07-23), applied manually by the repo
+Numbered, one-way migrations (`0001`–`0024` as of 2026-07-23), applied manually by the repo
 owner against live Supabase environments — see `CLAUDE.md` and `docs/BACKEND_HANDOFF.md` for
 the current per-environment status.
 

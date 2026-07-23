@@ -153,11 +153,11 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   don't mix.** For a **new environment** (production, a fresh staging, a local dev database)
   standing up from nothing, apply `supabase/baseline/0000_baseline_2026-07-23.sql` instead of
   replaying the numbered migrations one by one — it is a single-transaction squash of `0001`–
-  `0023` that assumes an empty `public` schema and deliberately ships **without** the demo seed
+  `0024` that assumes an empty `public` schema and deliberately ships **without** the demo seed
   content those early migrations insert (`0007_news_content.sql` and `0009_transparency.sql`
   seed placeholder news, announcements, events, and legislative/transparency documents), so a
   fresh production apply doesn't land mock content on the live public site. For an **existing
-  environment** that already has some of `0001`–`0023` applied, keep applying the individual
+  environment** that already has some of `0001`–`0024` applied, keep applying the individual
   numbered migrations it is missing, in order, exactly as before — the baseline assumes an
   empty schema and will fail loudly against one that already has any of them. Either way, a new
   environment still needs the two upload scripts the baseline's own checklist names

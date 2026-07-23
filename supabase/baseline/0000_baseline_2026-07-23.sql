@@ -1,11 +1,11 @@
 -- ============================================================================
 -- Barangay San Fernando — CONSOLIDATED BASELINE SCHEMA
--- Squash of migrations 0001–0023, as of 2026-07-23.
+-- Squash of migrations 0001–0024, as of 2026-07-23.
 -- ============================================================================
 --
 -- WHAT THIS IS
 -- ------------
--- One file that builds the *final state* of migrations 0001 through 0023 on an
+-- One file that builds the *final state* of migrations 0001 through 0024 on an
 -- empty database, in a single transaction. It is not a replay: columns that a
 -- later migration dropped are never created, columns that a later migration
 -- relaxed are declared relaxed, and functions appear once in their final form.
@@ -14,7 +14,7 @@
 -- --------------
 --   • Standing up a NEW environment (production, a fresh staging, a local dev
 --     database) from nothing.
---   • NOT for an environment that already has any of 0001–0023 applied. This
+--   • NOT for an environment that already has any of 0001–0024 applied. This
 --     file assumes an empty `public` schema and will fail loudly on a database
 --     that already has these objects — which is the intended behaviour. To
 --     bring an existing environment forward, apply the individual numbered
@@ -28,7 +28,7 @@
 -- scripts the officials directory and the home/About pages render broken
 -- images. Original migrations 0012 and 0021 carry the same warning.
 --
--- HOW IT DIFFERS FROM RUNNING 0001–0023 IN SEQUENCE
+-- HOW IT DIFFERS FROM RUNNING 0001–0024 IN SEQUENCE
 -- --------------------------------------------------
 -- The end state is identical. Three mechanical differences, all deliberate:
 --
@@ -682,7 +682,7 @@ create trigger events_updated_at
   for each row execute function public.set_updated_at();
 
 -- ════════════════════════════════════════════════════════════════════════════
--- 7. TRANSPARENCY                                  [0009, 0010, 0011, 0016, 0020]
+-- 7. TRANSPARENCY                            [0009, 0010, 0011, 0016, 0020, 0024]
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- ── Categories ──────────────────────────────────────────────────────────────
@@ -715,6 +715,8 @@ create table public.legislative_documents (
   slug text not null unique,
   doc_type public.legislative_type not null,
   number text not null,
+  seq_no int not null,
+  year int not null,
   title text not null,
   date_approved date,
   summary text not null default '',
@@ -725,12 +727,17 @@ create table public.legislative_documents (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   archived_at timestamptz,
-  archived_by uuid references public.profiles (id) on delete set null
+  archived_by uuid references public.profiles (id) on delete set null,
+  constraint legislative_documents_seq_no_range check (seq_no > 0 and seq_no < 10000),
+  constraint legislative_documents_year_range check (year between 1900 and 2200),
+  constraint legislative_documents_number_unique unique (doc_type, year, seq_no)
 );
 create index legislative_documents_status_date_idx
   on public.legislative_documents (status, date_approved desc nulls first);
 create index legislative_documents_type_status_date_idx
   on public.legislative_documents (doc_type, status, date_approved desc nulls first);
+create index legislative_documents_type_status_year_seq_idx
+  on public.legislative_documents (doc_type, status, year desc, seq_no asc);
 create index legislative_documents_search_trgm_idx
   on public.legislative_documents using gin (
     (lower(number || ' ' || title || ' ' || coalesce(summary, ''))) gin_trgm_ops
@@ -1177,7 +1184,7 @@ create policy "public read public-documents" on storage.objects
   for select to public using (bucket_id = 'public-documents');
 
 -- ════════════════════════════════════════════════════════════════════════════
--- 12. SEARCH FUNCTIONS                        [0015, 0016, 0017, 0018, 0023]
+-- 12. SEARCH FUNCTIONS                  [0015, 0016, 0017, 0018, 0023, 0024]
 -- ════════════════════════════════════════════════════════════════════════════
 
 /**
@@ -1356,7 +1363,7 @@ as $$
           d.number || ' ' || d.title || ' ' || coalesce(d.summary, ''),
           p_q
         )
-  order by d.date_approved desc nulls first, d.id desc
+  order by d.year desc, d.seq_no asc, d.id desc
   limit greatest(p_limit, 1) offset greatest(p_offset, 0);
 $$;
 
