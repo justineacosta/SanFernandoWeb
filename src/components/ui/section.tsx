@@ -11,8 +11,17 @@ const tones = {
 
 export type SectionTone = keyof typeof tones;
 
+const spacings = {
+  normal: "py-12 md:py-16",
+  spacious: "py-16 md:py-24",
+} as const;
+
+export type SectionSpacing = keyof typeof spacings;
+
 interface SectionProps extends React.HTMLAttributes<HTMLElement> {
   tone?: SectionTone;
+  /** `spacious` for a page's major landing moments; default keeps the current rhythm. */
+  spacing?: SectionSpacing;
   /** Render children inside the standard page container. */
   contained?: boolean;
 }
@@ -20,13 +29,14 @@ interface SectionProps extends React.HTMLAttributes<HTMLElement> {
 /** Vertical page section with a background tone and standard rhythm. */
 export function Section({
   tone = "default",
+  spacing = "normal",
   contained = true,
   className,
   children,
   ...props
 }: SectionProps) {
   return (
-    <section className={cn("py-12 md:py-16", tones[tone], className)} {...props}>
+    <section className={cn(spacings[spacing], tones[tone], className)} {...props}>
       {contained ? <Container>{children}</Container> : children}
     </section>
   );

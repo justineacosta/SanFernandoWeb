@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { NewsCategoryValues } from "@/types";
-import { requireSuperAdmin } from "@/lib/auth";
+import { NOT_FOUND, checkSuperAdmin } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -38,7 +38,8 @@ function slugify(title: string): string {
 export async function createNewsCategory(
   values: NewsCategoryValues,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = categorySchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -67,7 +68,13 @@ export async function createNewsCategory(
   });
   if (error) return { error: "Could not create the category." };
 
-  await recordActivity(actor, "added news category", "news category", id, parsed.data.label);
+  await recordActivity(actor, {
+    type: "create",
+    action: "added news category",
+    entityType: "news category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
   return { error: null };
@@ -78,7 +85,8 @@ export async function renameNewsCategory(
   id: string,
   values: NewsCategoryValues,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = categorySchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -91,7 +99,13 @@ export async function renameNewsCategory(
     .eq("id", id);
   if (error) return { error: "Could not rename the category." };
 
-  await recordActivity(actor, "renamed news category", "news category", id, parsed.data.label);
+  await recordActivity(actor, {
+    type: "update",
+    action: "renamed news category",
+    entityType: "news category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
   return { error: null };
@@ -106,7 +120,8 @@ export async function setNewsCategoryActive(
   id: string,
   isActive: boolean,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { error } = await admin
     .from("news_categories")
@@ -114,12 +129,12 @@ export async function setNewsCategoryActive(
     .eq("id", id);
   if (error) return { error: "Could not update the category." };
 
-  await recordActivity(
-    actor,
-    isActive ? "restored news category" : "retired news category",
-    "news category",
-    id,
-  );
+  await recordActivity(actor, {
+    type: isActive ? "restore" : "archive",
+    action: isActive ? "restored news category" : "retired news category",
+    entityType: "news category",
+    entityId: id,
+  });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
   return { error: null };
@@ -140,7 +155,8 @@ export async function moveNewsCategory(
   id: string,
   direction: "up" | "down",
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data: rows, error: readError } = await admin
     .from("news_categories")
@@ -171,7 +187,12 @@ export async function moveNewsCategory(
     .eq("id", neighbour.id);
   if (secondError) return { error: "Could not reorder categories." };
 
-  await recordActivity(actor, "reordered news categories", "news category", id);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered news categories",
+    entityType: "news category",
+    entityId: id,
+  });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
   return { error: null };

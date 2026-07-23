@@ -33,8 +33,11 @@ export default async function ArticlePage({ params }: PageProps) {
 
   const paragraphs = article.body.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 
+  // pt-32/md:pt-44 clears the fixed SiteHeader, matching the officials and
+  // legislative detail pages. Without it the "Back to News" link renders
+  // underneath the header and cannot be clicked at all.
   return (
-    <Container className="py-12 md:py-16">
+    <Container className="pb-12 pt-32 md:pb-16 md:pt-44">
       <div className="mx-auto max-w-3xl">
         <Link
           href="/announcements"

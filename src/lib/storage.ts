@@ -76,3 +76,20 @@ export function formatFileSize(bytes: number | null): string {
   if (mb >= 1) return `${mb.toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
+
+/**
+ * Feedback screenshots. A PRIVATE bucket, unlike the two above: a screenshot of
+ * the page a resident was on can contain their own account page or ticket. There
+ * is deliberately no `feedbackScreenshotUrl()` twin of `photoUrl` for the same
+ * reason — every read has to mint a short-lived signed URL through the admin
+ * client, which is why signing lives in `features/admin/queries/feedback.ts`.
+ */
+export const FEEDBACK_MEDIA_BUCKET = "feedback-media";
+
+/** Same ceiling as every other image on the site. */
+export const MAX_SCREENSHOT_BYTES = MAX_IMAGE_BYTES;
+
+/** Storage object path for a feedback screenshot: `feedback/<uuid>.<ext>`. */
+export function feedbackScreenshotPath(ext: string): string {
+  return `feedback/${crypto.randomUUID()}.${ext}`;
+}

@@ -1,12 +1,11 @@
-import type { Metadata } from "next";
-import { requirePermission } from "@/lib/auth";
+import { gatedMetadata, requirePermission } from "@/lib/auth";
 import { OfficialsManager } from "@/features/admin";
 import { listAdminOfficials } from "@/features/admin/queries/officials";
 
-export const metadata: Metadata = { title: "Officials" };
+export const generateMetadata = gatedMetadata("manage-officials", "Officials");
 
 export default async function AdminOfficialsPage() {
-  await requirePermission("manage-officials");
+  const user = await requirePermission("manage-officials");
   const officials = await listAdminOfficials();
-  return <OfficialsManager officials={officials} />;
+  return <OfficialsManager officials={officials} isSuperAdmin={user.isSuperAdmin} />;
 }

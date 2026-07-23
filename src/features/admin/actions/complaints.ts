@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ComplaintCloseValues, ComplaintReviewValues, WalkInComplaintValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { manilaToday } from "@/lib/format";
@@ -91,7 +91,8 @@ export async function reviewComplaint(
   id: string,
   values: ComplaintReviewValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("handle-complaints");
+  const actor = await checkPermission("handle-complaints");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = reviewSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid review." };
@@ -116,13 +117,16 @@ export async function reviewComplaint(
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That report was already reviewed. Refresh to see its status." };
 
-  await recordActivity(
-    actor,
-    parsed.data.status === "dismissed" ? "dismissed complaint" : "took up complaint",
-    "complaint",
-    data.ticket_no,
-    parsed.data.remarks || undefined,
-  );
+  const dismissed = parsed.data.status === "dismissed";
+  await recordActivity(actor, {
+    // "took up" moves the report into mediation — a status move, not a verdict.
+    type: dismissed ? "reject" : "update",
+    action: dismissed ? "dismissed complaint" : "took up complaint",
+    entityType: "complaint",
+    entityId: data.ticket_no,
+    entityLabel: data.ticket_no,
+    detail: parsed.data.remarks || undefined,
+  });
   revalidatePath("/admin/complaints");
   return { error: null };
 }
@@ -132,7 +136,8 @@ export async function closeComplaint(
   id: string,
   values: ComplaintCloseValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("handle-complaints");
+  const actor = await checkPermission("handle-complaints");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = closeSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid decision." };
@@ -157,20 +162,25 @@ export async function closeComplaint(
     return { error: "Only reports under review can be closed. Refresh to see its status." };
   }
 
-  await recordActivity(
-    actor,
-    parsed.data.status === "resolved" ? "resolved complaint" : "dismissed complaint",
-    "complaint",
-    data.ticket_no,
-    parsed.data.remarks || undefined,
-  );
+  const resolved = parsed.data.status === "resolved";
+  await recordActivity(actor, {
+    // Resolved is the positive terminal outcome; it files with approve so a
+    // reviewer filtering decisions sees all four flows' outcomes together.
+    type: resolved ? "approve" : "reject",
+    action: resolved ? "resolved complaint" : "dismissed complaint",
+    entityType: "complaint",
+    entityId: data.ticket_no,
+    entityLabel: data.ticket_no,
+    detail: parsed.data.remarks || undefined,
+  });
   revalidatePath("/admin/complaints");
   return { error: null };
 }
 
 /** Encode a walk-in complainant into the same queue (spec §3: one queue, online + office). */
 export async function createWalkInComplaint(values: WalkInComplaintValues): Promise<ActionResult> {
-  const actor = await requirePermission("handle-complaints");
+  const actor = await checkPermission("handle-complaints");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = walkInSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -200,7 +210,12 @@ export async function createWalkInComplaint(values: WalkInComplaintValues): Prom
     return { error: "Could not encode the report." };
   }
 
-  await recordActivity(actor, "encoded walk-in complaint", "complaint", data.ticket_no);
+  await recordActivity(actor, {
+    type: "create",
+    action: "encoded walk-in complaint",
+    entityType: "complaint",
+    entityId: data.ticket_no,
+  });
   revalidatePath("/admin/complaints");
   return { error: null };
 }

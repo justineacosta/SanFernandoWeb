@@ -1,21 +1,52 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ImageIcon, Megaphone, Newspaper, Pencil, Plus } from "lucide-react";
+import {
+  Archive,
+  Eye,
+  ImageIcon,
+  Megaphone,
+  Newspaper,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Send,
+  Trash2,
+} from "lucide-react";
 import type { AdminAnnouncementRow, AdminNewsArticleRow, NewsCategoryRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ViewToggle, type TableView } from "@/components/ui/view-toggle";
 import { Drawer } from "@/components/ui/drawer";
+import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { cn } from "@/lib/utils";
-import { getAnnouncementForEditAction } from "@/features/admin/actions/announcements";
-import { getNewsArticleForEditAction } from "@/features/admin/actions/news";
+import {
+  archiveAnnouncement,
+  deleteAnnouncement,
+  getAnnouncementForEditAction,
+  publishAnnouncement,
+  restoreAnnouncement,
+} from "@/features/admin/actions/announcements";
+import {
+  archiveNewsArticle,
+  deleteNewsArticle,
+  getNewsArticleForEditAction,
+  publishNewsArticle,
+  restoreNewsArticle,
+} from "@/features/admin/actions/news";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
 import { AdminPagination } from "./admin-pagination";
+import { ArchivedNote } from "./archived-note";
 import { AnnouncementForm, type AnnouncementEditRecord } from "./announcement-form";
 import { NewsForm, type NewsEditRecord } from "./news-form";
 import { StatusChip } from "./status-chip";
@@ -24,33 +55,54 @@ const PAGE_SIZE = 8;
 
 type Tab = "news" | "announcements";
 
+// No "archived" here — archived posts live in their own view now, so the
+// dropdown only offers states a live record can hold.
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
   { value: "draft", label: "Draft" },
   { value: "in-review", label: "In Review" },
   { value: "published", label: "Published" },
-  { value: "archived", label: "Archived" },
 ];
 
 interface NewsManagerProps {
   articles: AdminNewsArticleRow[];
   announcements: AdminAnnouncementRow[];
   categories: NewsCategoryRow[];
+  /**
+   * Presentation only — it decides whether Delete is offered on an archived
+   * row. `deleteNewsArticle` / `deleteAnnouncement` re-check with
+   * `checkSuperAdmin()`, because a Server Action is a public HTTP endpoint.
+   */
+  isSuperAdmin: boolean;
 }
 
+/**
+ * A row action awaiting confirmation. Null when no dialog is open.
+ *
+ * Delete appears only on an archived row, only for a SuperAdmin, and removes
+ * the post's photos from Storage along with the row (sub-project 7).
+ */
+type PendingAction =
+  | { kind: Tab; action: "archive" | "restore" | "delete"; id: string; title: string }
+  | null;
+
 /** News & announcements: tabbed card grids, search/category/status filters, drawer editors backed by real actions. */
-export function NewsManager({ articles, announcements, categories }: NewsManagerProps) {
+export function NewsManager({ articles, announcements, categories, isSuperAdmin }: NewsManagerProps) {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("news");
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("all");
   const [status, setStatus] = useState("all");
+  const [view, setView] = useState<TableView>("active");
   const [page, setPage] = useState(1);
 
   const [editingNews, setEditingNews] = useState<NewsEditRecord | null>(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState<AnnouncementEditRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<PendingAction>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [, startTransition] = useTransition();
 
   const resetPage = () => setPage(1);
@@ -60,25 +112,35 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
     setSearch("");
     setCategoryId("all");
     setStatus("all");
+    setView("active");
     setPage(1);
   };
 
+  // The toggle's count follows the tab, so it always describes the list below it.
+  const archivedCount = (
+    tab === "news"
+      ? articles.filter((a) => a.status === "archived")
+      : announcements.filter((a) => a.status === "archived")
+  ).length;
+
   const filteredNews = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return articles.filter(
+    const narrowed = articles.filter(
       (a) =>
+        (a.status === "archived") === (view === "archived") &&
         (categoryId === "all" || a.categoryId === categoryId) &&
-        (status === "all" || a.status === status) &&
-        (q === "" || a.title.toLowerCase().includes(q)),
+        (status === "all" || a.status === status),
     );
-  }, [articles, search, categoryId, status]);
+    return fuzzyFilter(narrowed, search, (a) => haystack(a.title, a.category));
+  }, [articles, view, search, categoryId, status]);
 
   const filteredAnnouncements = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return announcements.filter(
-      (a) => (status === "all" || a.status === status) && (q === "" || a.title.toLowerCase().includes(q)),
+    const narrowed = announcements.filter(
+      (a) =>
+        (a.status === "archived") === (view === "archived") &&
+        (status === "all" || a.status === status),
     );
-  }, [announcements, search, status]);
+    return fuzzyFilter(narrowed, search, (a) => a.title);
+  }, [announcements, view, search, status]);
 
   const newsPageItems = filteredNews.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const announcementPageItems = filteredAnnouncements.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -95,7 +157,7 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
       try {
         const detail = await getNewsArticleForEditAction(row.id);
         if (!detail) {
-          setToast("Could not load that post.");
+          showError("Could not load that post.");
           return;
         }
         setEditingNews({ id: row.id, values: detail.values, status: detail.status, photos: detail.photos });
@@ -112,7 +174,7 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
       try {
         const detail = await getAnnouncementForEditAction(row.id);
         if (!detail) {
-          setToast("Could not load that announcement.");
+          showError("Could not load that announcement.");
           return;
         }
         setEditingAnnouncement({ id: row.id, values: detail.values, status: detail.status });
@@ -123,11 +185,138 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
     });
   };
 
-  // Creating a new post must keep the drawer open so the photo uploader (which
-  // needs an article id) becomes reachable in place; editing still closes as before.
+  // Creating a new post keeps the drawer open so the workflow buttons (which
+  // need an article id) become reachable in place; editing still closes as
+  // before. Photos no longer need this — they save with the post.
+  /*
+   * Global-search results link here as /admin/news?tab=…&edit=<id>. Two
+   * modules share this page, so the id alone would be ambiguous — the tab
+   * says which list to look in, and switching to it is part of arriving.
+   */
+  useEditDeepLink("edit", (id) => {
+    const article = articles.find((r) => r.id === id);
+    if (article) {
+      setTab("news");
+      openEditNews(article);
+      return;
+    }
+    const announcement = announcements.find((r) => r.id === id);
+    if (announcement) {
+      setTab("announcements");
+      openEditAnnouncement(announcement);
+      return;
+    }
+    showError("That post no longer exists.");
+  });
+
   const handleSaved = (message: string, keepOpen = false) => {
     if (!keepOpen) setDrawerOpen(false);
-    setToast(message);
+    showToast(message);
+  };
+
+  const publish = (kind: Tab, id: string, title: string) => {
+    startTransition(async () => {
+      const result = kind === "news" ? await publishNewsArticle(id) : await publishAnnouncement(id);
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(`Published ${title}.`);
+      router.refresh();
+    });
+  };
+
+  /** Run the confirmed row action; the dialog stays locked until it answers. */
+  const runConfirmed = () => {
+    if (!confirming) return;
+    const { kind, action, id, title } = confirming;
+    setActionPending(true);
+    startTransition(async () => {
+      const isNews = kind === "news";
+      const result =
+        action === "archive"
+          ? isNews
+            ? await archiveNewsArticle(id)
+            : await archiveAnnouncement(id)
+          : action === "restore"
+            ? isNews
+              ? await restoreNewsArticle(id)
+              : await restoreAnnouncement(id)
+            : isNews
+              ? await deleteNewsArticle(id)
+              : await deleteAnnouncement(id);
+      setActionPending(false);
+      setConfirming(null);
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(
+        action === "archive"
+          ? `Archived ${title}.`
+          : action === "restore"
+            ? `Restored ${title} as a draft.`
+            : `Deleted ${title}.`,
+      );
+      router.refresh();
+    });
+  };
+
+  /** Shared between the two card grids — the workflow is identical. */
+  const actionsFor = (
+    kind: Tab,
+    record: { id: string; title: string; status: string },
+    onEdit: () => void,
+  ): RowAction[] => {
+    const archived = record.status === "archived";
+    const actions: RowAction[] = [
+      {
+        label: archived
+          ? "View details"
+          : kind === "news"
+            ? "Edit post"
+            : "Edit announcement",
+        icon: archived ? Eye : Pencil,
+        onSelect: onEdit,
+        disabled: loadingEditId === record.id,
+      },
+    ];
+    if (archived) {
+      // Restore, not Publish: it comes back as a draft rather than reappearing
+      // on the public site on one click.
+      actions.push({
+        label: "Restore",
+        icon: RotateCcw,
+        onSelect: () =>
+          setConfirming({ kind, action: "restore", id: record.id, title: record.title }),
+      });
+      // Delete is offered to a SuperAdmin only, and only here. A disabled item
+      // for everyone else would just teach people to click it.
+      if (isSuperAdmin) {
+        actions.push({
+          label: "Delete permanently",
+          icon: Trash2,
+          tone: "danger",
+          onSelect: () =>
+            setConfirming({ kind, action: "delete", id: record.id, title: record.title }),
+        });
+      }
+    } else if (record.status !== "published") {
+      actions.push({
+        label: "Publish",
+        icon: Send,
+        onSelect: () => publish(kind, record.id, record.title),
+      });
+    } else {
+      actions.push({
+        label: "Archive",
+        icon: Archive,
+        tone: "danger",
+        onSelect: () =>
+          setConfirming({ kind, action: "archive", id: record.id, title: record.title }),
+      });
+    }
+    return actions;
   };
 
   const clearFilters = () => {
@@ -184,6 +373,7 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
       <Card className="mb-6 p-5">
         <AdminFilterBar
           search={{
+            id: "news-search",
             value: search,
             placeholder: tab === "news" ? "Search posts..." : "Search announcements...",
             onChange: (value) => {
@@ -209,23 +399,46 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
                   },
                 ]
               : []),
-            {
-              id: "news-status-filter",
-              label: "Status",
-              value: status,
-              options: STATUS_OPTIONS,
-              onChange: (value) => {
-                setStatus(value);
-                resetPage();
-              },
-            },
+            // Every row in the Archived view holds the same status.
+            ...(view === "active"
+              ? [
+                  {
+                    id: "news-status-filter",
+                    label: "Status",
+                    value: status,
+                    options: STATUS_OPTIONS,
+                    onChange: (value: string) => {
+                      setStatus(value);
+                      resetPage();
+                    },
+                  },
+                ]
+              : []),
           ]}
+        />
+        <ViewToggle
+          className="mt-4"
+          view={view}
+          archivedCount={archivedCount}
+          noun={tab === "news" ? "posts" : "announcements"}
+          onChange={(next) => {
+            setView(next);
+            setStatus("all");
+            resetPage();
+          }}
         />
       </Card>
       {tab === "news" ? (
         filteredNews.length === 0 ? (
           <Card>
-            <AdminEmptyState message="No posts match your filters." onClear={clearFilters} />
+            <AdminEmptyState
+              message={
+                articles.length === 0
+                  ? "No posts yet — write the first one."
+                  : "No posts match your filters."
+              }
+              onClear={clearFilters}
+            />
           </Card>
         ) : (
           <>
@@ -260,6 +473,7 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
                     <h3 className="mb-2 line-clamp-2 font-display text-lg font-semibold tracking-tight text-ink-900">
                       {record.title}
                     </h3>
+                    {view === "archived" ? <ArchivedNote {...record} /> : null}
                     {record.excerpt ? (
                       <p className="line-clamp-3 text-sm text-ink-600">{record.excerpt}</p>
                     ) : (
@@ -269,15 +483,10 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
                       <span className="text-sm text-ink-500">
                         {record.photoCount} photo{record.photoCount === 1 ? "" : "s"}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => openEditNews(record)}
-                        disabled={loadingEditId === record.id}
-                        aria-label={`Edit ${record.title}`}
-                        className="rounded-full p-2 text-brand-700 transition-colors hover:bg-brand-100 disabled:opacity-40"
-                      >
-                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                      </button>
+                      <RowActions
+                        label={record.title}
+                        actions={actionsFor("news", record, () => openEditNews(record))}
+                      />
                     </div>
                   </div>
                 </Card>
@@ -294,7 +503,14 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
         )
       ) : filteredAnnouncements.length === 0 ? (
         <Card>
-          <AdminEmptyState message="No announcements match your filters." onClear={clearFilters} />
+          <AdminEmptyState
+            message={
+              announcements.length === 0
+                ? "No announcements yet — create the first one."
+                : "No announcements match your filters."
+            }
+            onClear={clearFilters}
+          />
         </Card>
       ) : (
         <>
@@ -327,6 +543,7 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
                   <h3 className="mb-2 line-clamp-2 font-display text-lg font-semibold tracking-tight text-ink-900">
                     {record.title}
                   </h3>
+                  {view === "archived" ? <ArchivedNote {...record} /> : null}
                   {record.excerpt ? (
                     <p className="line-clamp-3 text-sm text-ink-600">{record.excerpt}</p>
                   ) : (
@@ -334,15 +551,12 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
                   )}
                   <div className="mt-auto flex items-center justify-between pt-4">
                     <span className="text-sm text-ink-500">Updated {record.updatedLabel}</span>
-                    <button
-                      type="button"
-                      onClick={() => openEditAnnouncement(record)}
-                      disabled={loadingEditId === record.id}
-                      aria-label={`Edit ${record.title}`}
-                      className="rounded-full p-2 text-brand-700 transition-colors hover:bg-brand-100 disabled:opacity-40"
-                    >
-                      <Pencil className="h-4 w-4" aria-hidden="true" />
-                    </button>
+                    <RowActions
+                      label={record.title}
+                      actions={actionsFor("announcements", record, () =>
+                        openEditAnnouncement(record),
+                      )}
+                    />
                   </div>
                 </div>
               </Card>
@@ -389,7 +603,55 @@ export function NewsManager({ articles, announcements, categories }: NewsManager
           )
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      <ConfirmDialog
+        open={confirming !== null}
+        title={
+          confirming?.action === "delete"
+            ? confirming.kind === "news"
+              ? "Delete this post?"
+              : "Delete this announcement?"
+            : confirming?.action === "restore"
+              ? confirming.kind === "news"
+                ? "Restore this post?"
+                : "Restore this announcement?"
+              : confirming?.kind === "news"
+                ? "Archive this post?"
+                : "Archive this announcement?"
+        }
+        body={
+          confirming?.action === "delete" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.title}</strong>
+              {confirming.kind === "news" ? " and its photos" : " and its image"} will be removed
+              permanently. There is no undo. Archiving keeps the record — this does not.
+            </>
+          ) : confirming?.action === "restore" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.title}</strong> comes
+              back as a <strong className="font-semibold text-ink-900">draft</strong>, not onto
+              the public site. Publish it again when you are ready.
+            </>
+          ) : (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming?.title}</strong> will be
+              removed from the public site. The record is kept and can be published again later.
+            </>
+          )
+        }
+        confirmLabel={
+          confirming?.action === "delete"
+            ? "Delete"
+            : confirming?.action === "restore"
+              ? "Restore"
+              : "Archive"
+        }
+        pending={actionPending}
+        onConfirm={runConfirmed}
+        onCancel={() => setConfirming(null)}
+      />
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

@@ -4,12 +4,11 @@ import { useState, useTransition } from "react";
 import type { AdminAchievement, ContentStatus, OfficialValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
-import {
-  deleteOfficial,
-  saveOfficial,
-  setOfficialStatus,
-} from "@/features/admin/actions/officials";
+import { useFormDraft } from "@/hooks/use-form-draft";
+import { saveOfficial, setOfficialStatus } from "@/features/admin/actions/officials";
 import { AchievementsEditor } from "./achievements-editor";
+import { useAdminUserId } from "./admin-user-context";
+import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import { SingleImageUploader } from "./single-image-uploader";
 
 export interface OfficialEditRecord {
@@ -44,39 +43,37 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
   const [id, setId] = useState<string | null>(record?.id ?? null);
   const [status, setStatus] = useState<ContentStatus>(record?.status ?? "draft");
   const [values, setValues] = useState<OfficialValues>(record?.values ?? EMPTY_VALUES);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(record?.photoUrl ?? null);
+  const [previewUrl] = useState<string | null>(record?.photoUrl ?? null);
+  // Held, not uploaded — see single-image-uploader.tsx and saveOfficial.
+  const [portrait, setPortrait] = useState<File | null>(null);
+  const [removePortrait, setRemovePortrait] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const draft = useFormDraft(useAdminUserId(), "official", id, values);
 
   const set = <K extends keyof OfficialValues>(key: K, value: OfficialValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
+
+  /** The portrait travels beside the values; nothing reaches storage until this runs. */
+  function portraitForm(): FormData {
+    const fd = new FormData();
+    if (portrait) fd.append("image", portrait);
+    if (removePortrait) fd.append("removeImage", "1");
+    return fd;
+  }
 
   function handleSave(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveOfficial(id, values);
+      const result = await saveOfficial(id, values, portraitForm());
       if (result.error) {
         setError(result.error);
         return;
       }
       if (result.id) setId(result.id);
+      draft.clear();
       onSaved("Official saved.");
-    });
-  }
-
-  function runTransition(nextStatus: ContentStatus, message: string) {
-    const currentId = id;
-    if (!currentId) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await setOfficialStatus(currentId, nextStatus);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      setStatus(nextStatus);
-      onSaved(message);
     });
   }
 
@@ -87,11 +84,14 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
    * even though it's visibly on screen. Reuses the `saveOfficial` path (which
    * also handles the brand-new, no-id-yet case) and only transitions status
    * once that save has actually succeeded.
+   *
+   * Uploads deferring to Save makes this more necessary, not less: the chosen
+   * portrait is still only a File in this component until saveOfficial runs.
    */
   function handlePublish() {
     setError(null);
     startTransition(async () => {
-      const saveResult = await saveOfficial(id, values);
+      const saveResult = await saveOfficial(id, values, portraitForm());
       if (saveResult.error) {
         setError(saveResult.error);
         return;
@@ -112,26 +112,20 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
     });
   }
 
-  function handleDelete() {
-    const currentId = id;
-    if (!currentId) return;
-    if (!window.confirm("Delete this official? Archiving keeps the record — this does not.")) {
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const result = await deleteOfficial(currentId);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      onSaved("Official deleted.");
-    });
-  }
-
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        {draft.recovered && draft.recoveredLabel ? (
+          <DraftRecoveryBar
+            savedAtLabel={draft.recoveredLabel}
+            hasFileState={portrait !== null || removePortrait}
+            onRestore={() => {
+              setValues(draft.recovered!.values);
+              draft.dismiss();
+            }}
+            onDiscard={draft.discard}
+          />
+        ) : null}
         <Field label="Full Name" htmlFor="official-name">
           <Input
             id="official-name"
@@ -161,6 +155,7 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
             <option value="executive">Chief Executive</option>
             <option value="council">Barangay Council</option>
             <option value="administration">Administration</option>
+            <option value="members">Members</option>
           </Select>
         </Field>
         <Field label="Badge (optional)" htmlFor="official-badge">
@@ -177,15 +172,15 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
         <div>
           <h3 className="mb-2 text-sm font-medium text-ink-700">Portrait</h3>
           <SingleImageUploader
-            folder="officials"
-            src={values.photoPath}
+            idPrefix="official"
+            existingSrc={values.photoPath}
+            existingPreviewUrl={previewUrl}
             alt={values.photoAlt}
-            previewUrl={previewUrl}
-            onChange={(next) => {
-              set("photoPath", next.src);
-              set("photoAlt", next.alt);
-              setPreviewUrl(next.previewUrl);
-            }}
+            onAltChange={(next) => set("photoAlt", next)}
+            file={portrait}
+            onFileChange={setPortrait}
+            removeExisting={removePortrait}
+            onRemoveExistingChange={setRemovePortrait}
           />
           <p className="mt-2 text-xs text-ink-500">
             Square photos look best — the card crops to a square. Required before publishing.
@@ -239,47 +234,46 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
             </p>
           )}
         </div>
+      </div>
+      {/*
+        Archive and Delete moved to the row's actions menu (sub-project 5): a
+        destructive action should not require opening an editor you did not
+        want to open. Publish stays here because it must persist the on-screen
+        values first — see handlePublish.
+
+        The error lives in this footer, not in the scrolling body above it: it
+        is usually the server refusing to publish for want of a portrait or alt
+        text, and a message explaining a button must be visible from that
+        button. Below the achievements editor it never was.
+      */}
+      <div className="border-t border-ink-200/70 p-6">
         {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
+          <p role="alert" className="mb-4 text-sm font-medium text-danger">
             {error}
           </p>
         ) : null}
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 p-6">
-        <div className="flex flex-wrap gap-2">
-          {id && status !== "published" ? (
-            <Button
-              type="button"
-              variant="accent"
-              disabled={pending}
-              onClick={handlePublish}
-            >
-              Publish
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {status !== "published" ? (
+              <Button
+                type="button"
+                variant="accent"
+                disabled={pending}
+                onClick={handlePublish}
+              >
+                Publish
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-3">
+            <DraftSavedNote savedAt={draft.savedAt} />
+            <Button type="button" variant="ghost" onClick={onCancel}>
+              Cancel
             </Button>
-          ) : null}
-          {id && status === "published" ? (
-            <Button
-              type="button"
-              variant="outline-danger"
-              disabled={pending}
-              onClick={() => runTransition("archived", "Archived.")}
-            >
-              Archive
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : id ? "Save Changes" : "Add Official"}
             </Button>
-          ) : null}
-          {id ? (
-            <Button type="button" variant="outline-danger" disabled={pending} onClick={handleDelete}>
-              Delete
-            </Button>
-          ) : null}
-        </div>
-        <div className="flex gap-3">
-          <Button type="button" variant="ghost" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : id ? "Save Changes" : "Add Official"}
-          </Button>
+          </div>
         </div>
       </div>
     </form>

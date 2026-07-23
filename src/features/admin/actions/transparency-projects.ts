@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, TransparencyProjectValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
-import { recordActivity } from "@/lib/audit";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
+import { guardDelete, statusPatch } from "@/lib/archive";
+import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTransparencyProjectForEdit } from "@/features/admin/queries/transparency";
 import { MAX_FILES_PER_RECORD } from "@/lib/storage";
@@ -48,7 +49,7 @@ function revalidate() {
  * panel fetches full detail — including files — only when a drawer opens.
  */
 export async function getTransparencyProjectForEditAction(id: string) {
-  await requirePermission("manage-transparency");
+  if (!(await checkPermission("manage-transparency"))) return null;
   return getTransparencyProjectForEdit(id);
 }
 
@@ -57,7 +58,8 @@ export async function saveTransparencyProject(
   values: TransparencyProjectValues,
   formData: FormData,
 ): Promise<SaveResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND, id: null };
   const parsed = schema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
@@ -152,7 +154,13 @@ export async function saveTransparencyProject(
     if (error) { await cleanupUploads(); return { error: "Could not save the project's files.", id: null }; }
   }
 
-  await recordActivity(actor, id ? "updated project" : "created project", "transparency project", projectId, parsed.data.name);
+  await recordActivity(actor, {
+    type: id ? "update" : "create",
+    action: id ? "updated project" : "created project",
+    entityType: "transparency project",
+    entityId: projectId,
+    entityLabel: parsed.data.name,
+  });
   revalidate();
   return { error: null, id: projectId };
 }
@@ -165,7 +173,8 @@ export async function setTransparencyProjectStatus(
   id: string,
   status: ContentStatus,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
 
   const statusResult = statusSchema.safeParse(status);
   if (!statusResult.success) {
@@ -182,7 +191,7 @@ export async function setTransparencyProjectStatus(
     .maybeSingle();
   if (readErr || !existing) return { error: "Project not found." };
 
-  const patch: Record<string, unknown> = { status: nextStatus };
+  const patch = statusPatch(actor, nextStatus);
   if (nextStatus === "published" && !existing.published_at) {
     patch.published_at = new Date().toISOString();
   }
@@ -190,27 +199,26 @@ export async function setTransparencyProjectStatus(
   const { error } = await admin.from("transparency_projects").update(patch).eq("id", id);
   if (error) return { error: "Could not update the project." };
 
-  await recordActivity(
-    actor,
-    `${nextStatus} project`,
-    "transparency project",
-    id,
-    existing.name as string,
-  );
+  await recordActivity(actor, {
+    type: auditTypeForStatus(nextStatus),
+    action: `${nextStatus} project`,
+    entityType: "transparency project",
+    entityId: id,
+    entityLabel: existing.name as string,
+  });
   revalidate();
   return { error: null };
 }
 
-/** Hard delete — for mistakes only. Archiving is the normal path for a finished project. */
+/**
+ * Hard delete — SuperAdmin only, and only from `archived` (umbrella §3.2).
+ * Archiving is the normal path for a finished project.
+ */
 export async function deleteTransparencyProject(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const guard = await guardDelete<{ name: string }>("transparency_projects", id, "name");
+  if (!guard.ok) return { error: guard.error };
+  const { actor, row: existing } = guard;
   const admin = createSupabaseAdminClient();
-
-  const { data: existing } = await admin
-    .from("transparency_projects")
-    .select("name")
-    .eq("id", id)
-    .maybeSingle();
 
   // Collect the project's file objects before the parent row goes away.
   const { data: fileRows } = await admin
@@ -229,13 +237,40 @@ export async function deleteTransparencyProject(id: string): Promise<ActionResul
     for (const f of files) await removeStoredDocument(f.path);
   }
 
-  await recordActivity(
-    actor,
-    "deleted project",
-    "transparency project",
-    id,
-    (existing?.name as string) ?? "",
-  );
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted project",
+    entityType: "transparency project",
+    entityId: id,
+    entityLabel: existing.name,
+  });
+  revalidate();
+  return { error: null };
+}
+
+/** Bring an archived project back as a draft — not straight back onto the public list. */
+export async function restoreTransparencyProject(id: string): Promise<ActionResult> {
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("transparency_projects")
+    .update(statusPatch(actor, "draft"))
+    .eq("id", id)
+    .eq("status", "archived")
+    .select("name")
+    .maybeSingle();
+  if (error) return { error: "Could not restore the project." };
+  if (!data) return { error: "That project is not archived. Refresh to see the current state." };
+
+  await recordActivity(actor, {
+    type: "restore",
+    action: "restored project",
+    entityType: "transparency project",
+    entityId: id,
+    entityLabel: data.name as string,
+  });
   revalidate();
   return { error: null };
 }
@@ -256,7 +291,8 @@ export async function moveTransparencyProject(
   id: string,
   direction: "up" | "down",
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data: rows, error: readError } = await admin
     .from("transparency_projects")
@@ -287,7 +323,12 @@ export async function moveTransparencyProject(
     .eq("id", neighbour.id);
   if (secondError) return { error: "Could not reorder projects." };
 
-  await recordActivity(actor, "reordered projects", "transparency project", id);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered projects",
+    entityType: "transparency project",
+    entityId: id,
+  });
   revalidate();
   return { error: null };
 }

@@ -8,6 +8,7 @@
  */
 @theme {
   /* Brand — amber */
+  --color-brand-50: #fffbeb;
   --color-brand-100: #fef3c7;
   --color-brand-200: #fde68a;
   --color-brand-300: #fcd34d;
@@ -37,12 +38,25 @@
   --color-danger-soft-fg: #b91c1c;
   --color-danger-bright: #f87171; /* red accents on dark ink surfaces */
 
+  /* Semantic success — green-700 on green-100 meets AA for chip-size text */
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
+
   /* Typography */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
 
-  /* Elevation */
+  /* Elevation — the ad-hoc shadow literals in Button/Card/Toast collapse into these */
   --shadow-ambient: 0px 8px 30px rgb(0 0 0 / 0.06);
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -12px rgb(0 0 0 / 0.08);
+  --shadow-floating: 0 24px 60px -20px rgb(0 0 0 / 0.18);
+  --shadow-brand-glow: 0 8px 24px rgb(245 158 11 / 0.35);
+  --shadow-brand-glow-lg: 0 14px 38px rgb(245 158 11 / 0.5);
+
+  /* Motion vocabulary — quick for micro-interactions, reveal for entrances */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-quick: 150ms;
+  --duration-reveal: 600ms;
 
   /* Layout */
   --container-page: 80rem;
@@ -80,7 +94,33 @@
   color: transparent;
 }
 
+/*
+ * Scrolls, but paints no scrollbar. For overlay panels where a desktop
+ * scrollbar would cut across a rounded edge and the clipped content is
+ * affordance enough. Touch scrollbars already overlay and auto-hide, so this
+ * only changes what a mouse sees.
+ */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @layer base {
+  /*
+   * There is deliberately no `html { overflow-x: hidden }` here. It was added
+   * to stop the transparency tables growing the root scroll area, but it only
+   * hid them — the tables still forced a 500px minimum document width, and
+   * Firefox panned anyway. They now stack into cards below md, so nothing
+   * overflows and the mask is not needed.
+   *
+   * Do not reintroduce it. It suppresses the symptom of a real layout bug and
+   * leaves the next one invisible, which is exactly how the last two survived.
+   * Wide content scrolls inside its own overflow-x-auto container; if a page
+   * pans sideways, find the element that is too wide and fix it there.
+   */
+
   body {
     @apply bg-white text-ink-900 font-sans antialiased;
   }
@@ -96,5 +136,77 @@
 
   ::selection {
     @apply bg-brand-100 text-brand-800;
+  }
+
+  /*
+   * Baseline keyboard focus ring.
+   *
+   * Tailwind emits utilities in a later cascade layer, so anything that already
+   * declares its own focus treatment (form fields' soft brand ring, Button's
+   * outline) still wins. This only reaches controls that previously showed
+   * nothing at all — most of the admin portal's icon-only buttons.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Motion system (overhaul spec §5). Three patterns only:
+ * 1. hero-seq — the home hero's one page-load orchestration (pure CSS delays)
+ * 2. reveal-pending/reveal-in — scroll reveals, driven by <Reveal> (public only)
+ * 3. micro-interactions — plain transitions using --duration-quick
+ */
+@layer components {
+  .reveal-pending {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  .reveal-in {
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      opacity var(--duration-reveal) var(--ease-out-soft),
+      transform var(--duration-reveal) var(--ease-out-soft);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  .hero-seq {
+    animation: fade-up 0.6s var(--ease-out-soft) both;
+    animation-delay: var(--seq-delay, 0ms);
+  }
+  .hero-seq-1 { --seq-delay: 0ms; }
+  .hero-seq-2 { --seq-delay: 120ms; }
+  .hero-seq-3 { --seq-delay: 280ms; }
+  .hero-seq-4 { --seq-delay: 420ms; }
+
+  .stroke-draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: stroke-draw 0.6s var(--ease-out-soft) 550ms forwards;
+  }
+}
+
+@keyframes stroke-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-pending {
+    opacity: 1;
+    transform: none;
+  }
+  .reveal-in {
+    transition: none;
+  }
+  .hero-seq {
+    animation: none;
+  }
+  .stroke-draw {
+    animation: none;
+    stroke-dashoffset: 0;
   }
 }

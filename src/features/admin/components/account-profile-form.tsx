@@ -5,6 +5,7 @@ import type { SessionUser } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { Toast } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 import { updateMyProfile } from "@/features/admin/actions/account";
 
 function initialsOf(fullName: string): string {
@@ -20,7 +21,7 @@ export function AccountProfileForm({ currentUser }: { currentUser: SessionUser }
   const [fullName, setFullName] = useState(currentUser.fullName);
   const [phone, setPhone] = useState(currentUser.phone ?? "");
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   function submit(event: React.FormEvent) {
@@ -32,7 +33,7 @@ export function AccountProfileForm({ currentUser }: { currentUser: SessionUser }
         setError(result.error);
         return;
       }
-      setToast("Profile saved.");
+      showToast("Profile saved.");
     });
   }
 
@@ -79,7 +80,9 @@ export function AccountProfileForm({ currentUser }: { currentUser: SessionUser }
           </div>
         </form>
       </div>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

@@ -1,7 +1,11 @@
+"use client";
+
+import { MotionConfig, motion } from "motion/react";
 import { CheckCircle2, Circle, XCircle } from "lucide-react";
 import type { TicketKind, TicketLookupResult, TicketStatus } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
+import { riseVariants, staggerContainer } from "@/lib/motion";
 
 interface Step {
   title: string;
@@ -143,40 +147,56 @@ export function TicketTimeline({ ticket }: { ticket: TicketLookupResult }) {
   const steps = buildSteps(ticket);
 
   return (
-    <ol className="space-y-6">
-      {steps.map((step) => {
-        const Icon = step.state === "failed" ? XCircle : step.state === "done" ? CheckCircle2 : Circle;
-        return (
-          <li key={step.title} className="flex gap-4">
-            <Icon
-              className={cn(
-                "mt-0.5 h-5 w-5 shrink-0",
-                step.state === "failed" && "text-danger",
-                step.state === "done" && "text-brand-500",
-                step.state === "current" && "text-brand-400",
-                step.state === "todo" && "text-ink-300",
-              )}
-              aria-hidden="true"
-            />
-            <div>
-              <p
+    <MotionConfig reducedMotion="user">
+      <motion.ol variants={staggerContainer(0.12)} initial="hidden" animate="visible">
+        {steps.map((step, index) => {
+          const Icon = step.state === "failed" ? XCircle : step.state === "done" ? CheckCircle2 : Circle;
+          const isLast = index === steps.length - 1;
+          return (
+            <motion.li
+              key={step.title}
+              variants={riseVariants}
+              className={cn("relative flex gap-4", !isLast && "pb-6")}
+            >
+              {!isLast ? (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "absolute bottom-0 left-[9px] top-6 w-0.5",
+                    step.state === "done" ? "bg-brand-200" : "bg-ink-200",
+                  )}
+                />
+              ) : null}
+              <Icon
                 className={cn(
-                  "font-semibold",
-                  step.state === "todo" ? "text-ink-400" : "text-ink-900",
+                  "relative mt-0.5 h-5 w-5 shrink-0 bg-white",
+                  step.state === "failed" && "text-danger",
+                  step.state === "done" && "text-brand-500",
+                  step.state === "current" && "text-brand-400",
+                  step.state === "todo" && "text-ink-300",
                 )}
-              >
-                {step.title}
-                {step.date ? (
-                  <span className="ml-2 text-xs font-medium text-ink-500">
-                    {formatDate(step.date)}
-                  </span>
-                ) : null}
-              </p>
-              <p className="text-sm text-ink-600">{step.detail}</p>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+                aria-hidden="true"
+              />
+              <div>
+                <p
+                  className={cn(
+                    "font-semibold",
+                    step.state === "todo" ? "text-ink-400" : "text-ink-900",
+                  )}
+                >
+                  {step.title}
+                  {step.date ? (
+                    <span className="ml-2 text-xs font-medium tabular-nums text-ink-500">
+                      {formatDate(step.date)}
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-sm text-ink-600">{step.detail}</p>
+              </div>
+            </motion.li>
+          );
+        })}
+      </motion.ol>
+    </MotionConfig>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Container } from "@/components/ui/container";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
 import { ContactDetails, InquiryForm, MapSection } from "@/features/contact";
 
@@ -14,7 +15,7 @@ export default function ContactPage() {
     <>
       <PageHero
         align="center"
-        title="Connect with Your Barangay"
+        title={<><BrandStroke>Connect</BrandStroke> with Your Barangay</>}
         description="We are here to serve you. Reach out for inquiries, feedback, or official requests. Our team is ready to assist the citizens of San Fernando."
       />
       <Container className="py-12 md:py-16">

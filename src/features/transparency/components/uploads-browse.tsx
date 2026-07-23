@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/form";
 import { Section } from "@/components/ui/section";
 import { formatOptionalDate } from "@/lib/format";
 import { searchUploads } from "@/features/transparency/queries";
-import { FileDownloads } from "./file-downloads";
+import { Pagination } from "@/components/ui/pagination";
+import { RecordActions } from "./record-actions";
 
 type SortKey = "date" | "title" | "type";
 type SortDir = "asc" | "desc";
@@ -134,7 +135,49 @@ export async function UploadsBrowse({
           No uploads match that search. Try a different title or keyword.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-3xl border border-ink-200/70 bg-white">
+        <>
+          {/*
+            Below md the table becomes stacked cards, matching the two tables on
+            /transparency. Five columns cannot fit a phone, and a table that
+            scrolls sideways inside the page reads as the page itself sliding.
+            The sort headers are desktop-only; sorting here is plain URL state,
+            so a phone still lands on whatever order the link carried.
+          */}
+          <ul className="space-y-3 md:hidden">
+            {items.map((item) => (
+              <li
+                key={item.key}
+                className="rounded-2xl border border-ink-200/70 bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium text-ink-900">{item.title}</p>
+                  <RecordActions
+                    label={item.title}
+                    viewHref={item.href}
+                    files={item.files}
+                    className="-mr-2 -mt-1"
+                  />
+                </div>
+                <dl className="mt-3 space-y-1.5 text-sm">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <dt className="text-ink-500">Type</dt>
+                    <dd className="text-ink-900">{TYPE_LABELS[item.type]}</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-4">
+                    <dt className="text-ink-500">Date</dt>
+                    <dd className="tabular-nums text-ink-900">{formatOptionalDate(item.date)}</dd>
+                  </div>
+                  {item.progress !== null ? (
+                    <div className="flex items-baseline justify-between gap-4">
+                      <dt className="text-ink-500">Progress</dt>
+                      <dd className="tabular-nums text-ink-900">{item.progress}%</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-3xl border border-ink-200/70 bg-white md:block">
           <table className="w-full text-left text-sm">
             <caption className="sr-only">Published legislative documents, documents, and projects</caption>
             <thead>
@@ -162,61 +205,45 @@ export async function UploadsBrowse({
                   Progress
                 </th>
                 <th scope="col" className="px-6 py-4 text-right">
-                  Files
+                  Actions
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-200/70">
               {items.map((item) => (
-                <tr key={item.key} className="transition-colors hover:bg-ink-50">
+                <tr key={item.key} className="transition-colors duration-(--duration-quick) hover:bg-ink-50">
                   <td className="px-6 py-4 font-medium text-ink-900">{item.title}</td>
                   <td className="px-6 py-4 text-ink-600">{TYPE_LABELS[item.type]}</td>
-                  <td className="px-6 py-4 text-ink-600">{formatOptionalDate(item.date)}</td>
-                  <td className="px-6 py-4 text-ink-600">
+                  <td className="px-6 py-4 tabular-nums text-ink-600">{formatOptionalDate(item.date)}</td>
+                  <td className="px-6 py-4 tabular-nums text-ink-600">
                     {item.progress !== null ? `${item.progress}%` : "—"}
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex flex-col items-end gap-1">
-                      {item.href ? (
-                        <Link
-                          href={item.href}
-                          className="text-sm font-semibold uppercase text-ink-900 hover:underline"
-                        >
-                          View
-                        </Link>
-                      ) : null}
-                      <FileDownloads files={item.files} recordTitle={item.title} align="right" />
+                  <td className="px-6 py-4">
+                    <div className="flex justify-end">
+                      <RecordActions
+                        label={item.title}
+                        viewHref={item.href}
+                        files={item.files}
+                      />
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       {lastPage > 1 ? (
-        <nav aria-label="Pagination" className="mt-8 flex items-center justify-center gap-4">
-          {safePage > 1 ? (
-            <Link
-              href={hrefFor(q, type, sort, dir, safePage - 1)}
-              className="font-semibold text-ink-900 hover:underline"
-            >
-              ← Previous
-            </Link>
-          ) : null}
-          <span className="text-sm text-ink-500">
-            Page {safePage} of {lastPage}
-          </span>
-          {safePage < lastPage ? (
-            <Link
-              href={hrefFor(q, type, sort, dir, safePage + 1)}
-              className="font-semibold text-ink-900 hover:underline"
-            >
-              Next →
-            </Link>
-          ) : null}
-        </nav>
+        <Pagination
+          className="mt-8"
+          page={safePage}
+          pageSize={first.pageSize}
+          total={total}
+          hrefFor={(target) => hrefFor(q, type, sort, dir, target)}
+          label="Transparency uploads"
+        />
       ) : null}
     </Section>
   );

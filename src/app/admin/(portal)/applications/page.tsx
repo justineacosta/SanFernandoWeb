@@ -1,11 +1,8 @@
-import type { Metadata } from "next";
-import { requirePermission } from "@/lib/auth";
+import { gatedMetadata, requirePermission } from "@/lib/auth";
 import { ApplicationsManager } from "@/features/admin";
 import { listApplications, listApplicationServices } from "@/features/admin/queries/applications";
 
-export const metadata: Metadata = {
-  title: "Applications",
-};
+export const generateMetadata = gatedMetadata("process-applications", "Applications");
 
 export default async function AdminApplicationsPage() {
   await requirePermission("process-applications");

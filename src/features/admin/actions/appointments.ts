@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AppointmentReviewValues, WalkInAppointmentValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { manilaToday, manilaTodayNextYear } from "@/lib/format";
@@ -90,7 +90,8 @@ export async function reviewAppointment(
   id: string,
   values: AppointmentReviewValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("process-appointments");
+  const actor = await checkPermission("process-appointments");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = reviewSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid review." };
@@ -118,20 +119,23 @@ export async function reviewAppointment(
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That appointment was already reviewed. Refresh to see its status." };
 
-  await recordActivity(
-    actor,
-    parsed.data.status === "confirmed" ? "confirmed appointment" : "declined appointment",
-    "appointment",
-    data.ticket_no,
-    parsed.data.remarks || undefined,
-  );
+  const confirmed = parsed.data.status === "confirmed";
+  await recordActivity(actor, {
+    type: confirmed ? "approve" : "reject",
+    action: confirmed ? "confirmed appointment" : "declined appointment",
+    entityType: "appointment",
+    entityId: data.ticket_no,
+    entityLabel: data.ticket_no,
+    detail: parsed.data.remarks || undefined,
+  });
   revalidatePath("/admin/appointments");
   return { error: null };
 }
 
 /** Mark a confirmed appointment as completed after the resident's visit. */
 export async function completeAppointment(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("process-appointments");
+  const actor = await checkPermission("process-appointments");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("appointments")
@@ -150,7 +154,12 @@ export async function completeAppointment(id: string): Promise<ActionResult> {
     return { error: "Only confirmed appointments can be completed. Refresh to see its status." };
   }
 
-  await recordActivity(actor, "completed appointment", "appointment", data.ticket_no);
+  await recordActivity(actor, {
+    type: "update",
+    action: "completed appointment",
+    entityType: "appointment",
+    entityId: data.ticket_no,
+  });
   revalidatePath("/admin/appointments");
   return { error: null };
 }
@@ -159,7 +168,8 @@ export async function completeAppointment(id: string): Promise<ActionResult> {
 export async function createWalkInAppointment(
   values: WalkInAppointmentValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("process-appointments");
+  const actor = await checkPermission("process-appointments");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = walkInSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -188,7 +198,12 @@ export async function createWalkInAppointment(
     return { error: "Could not encode the appointment." };
   }
 
-  await recordActivity(actor, "encoded walk-in appointment", "appointment", data.ticket_no);
+  await recordActivity(actor, {
+    type: "create",
+    action: "encoded walk-in appointment",
+    entityType: "appointment",
+    entityId: data.ticket_no,
+  });
   revalidatePath("/admin/appointments");
   return { error: null };
 }

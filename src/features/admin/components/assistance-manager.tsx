@@ -12,8 +12,13 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
+import { useTableSort } from "@/components/ui/use-table-sort";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
   createWalkInAssistance,
   decideAssistance,
@@ -48,7 +53,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const activeCategories = useMemo(
@@ -61,21 +66,49 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
   const underReviewCount = requests.filter((record) => record.status === "under-review").length;
 
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return requests.filter(
+    const narrowed = requests.filter(
       (record) =>
-        (query === "" ||
-          `${record.firstName} ${record.lastName}`.toLowerCase().includes(query) ||
-          record.ticketNo.toLowerCase().includes(query)) &&
         (categoryId === "all" || record.categoryId === categoryId) &&
         (status === "all" || record.status === status),
     );
+    return fuzzyFilter(narrowed, search, (record) =>
+      haystack(
+        record.firstName,
+        record.lastName,
+        record.ticketNo,
+        record.contactNumber,
+        record.email,
+        record.categoryLabel,
+      ),
+    );
   }, [requests, search, categoryId, status]);
 
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Newest first by default — the queue is worked from the top.
+  const { sorted, sortKey, sortDir, toggle } = useTableSort(
+    filtered,
+    { key: "filed", dir: "desc" },
+    {
+      resident: (r) => `${r.lastName} ${r.firstName}`,
+      category: (r) => r.categoryLabel,
+      filed: (r) => r.submittedAt,
+      status: (r) => r.status,
+    },
+  );
+
+  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const reviewing = reviewingId
     ? (requests.find((record) => record.id === reviewingId) ?? null)
     : null;
+
+  // Global-search results link here as ?review=<id>.
+  useEditDeepLink("review", (id) => {
+    if (requests.some((record) => record.id === id)) {
+      setFormError(null);
+      setReviewingId(id);
+    } else {
+      showError("That request no longer exists.");
+    }
+  });
 
   const closeReview = () => {
     setReviewingId(null);
@@ -91,7 +124,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
         return;
       }
       closeReview();
-      setToast(
+      showToast(
         values.status === "under-review"
           ? "Request taken up for review."
           : "Request declined.",
@@ -108,7 +141,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
         return;
       }
       closeReview();
-      setToast(values.status === "granted" ? "Request granted." : "Request declined.");
+      showToast(values.status === "granted" ? "Request granted." : "Request declined.");
     });
   };
 
@@ -122,7 +155,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
       }
       setCreateOpen(false);
       setPage(1);
-      setToast("Walk-in request encoded.");
+      showToast("Walk-in request encoded.");
     });
   };
 
@@ -172,6 +205,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
           action={
             <AdminFilterBar
               search={{
+                id: "assistance-search",
                 value: search,
                 placeholder: "Search name or ticket no…",
                 onChange: (value) => {
@@ -228,10 +262,10 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
               <table className="w-full min-w-160 text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    <th scope="col" className="px-6 py-4">Resident</th>
-                    <th scope="col" className="px-6 py-4">Category</th>
-                    <th scope="col" className="px-6 py-4">Date Filed</th>
-                    <th scope="col" className="px-6 py-4">Status</th>
+                    <SortableTh label="Resident" sortKey="resident" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Category" sortKey="category" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Date Filed" sortKey="filed" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
                     <th scope="col" className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -304,7 +338,9 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

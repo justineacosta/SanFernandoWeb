@@ -18,6 +18,9 @@ export interface SocialLink {
   icon: LucideIcon;
 }
 
+/** Sidebar section. Labels and render order live in `src/lib/admin-nav.ts`. */
+export type AdminNavGroup = "requests" | "content" | "system";
+
 export interface IconNavItem extends NavItem {
   icon: LucideIcon;
   /** Match the route exactly instead of by prefix. */
@@ -26,6 +29,8 @@ export interface IconNavItem extends NavItem {
   superAdminOnly?: boolean;
   /** Render only for users holding this permission (page is permission-gated). */
   permission?: Permission;
+  /** Sidebar section. See ADMIN_NAV_GROUP_LABELS in src/lib/admin-nav.ts. */
+  group: AdminNavGroup;
 }
 
 /* ------------------------------------ Media ------------------------------------ */
@@ -86,7 +91,7 @@ export interface WasteCollectionSlot {
 
 /* ----------------------------------- Officials ---------------------------------- */
 
-export type OfficialGroup = "executive" | "council" | "administration";
+export type OfficialGroup = "executive" | "council" | "administration" | "members";
 
 /**
  * Public directory card. `photoUrl` is always resolved — publishing requires a
@@ -128,7 +133,7 @@ export interface OfficialValues {
 }
 
 /** Admin table row. */
-export interface AdminOfficialRow {
+export interface AdminOfficialRow extends ArchiveMeta {
   id: string;
   slug: string;
   name: string;
@@ -187,6 +192,21 @@ export interface CommunityEvent {
 
 export type ContentStatus = "draft" | "in-review" | "published" | "archived";
 
+/**
+ * Archive provenance (migration 0020), carried by every admin row type whose
+ * table has an Archived view.
+ *
+ * Both are null on a live record, and null on anything archived before the
+ * migration — the view says "archived earlier" rather than inventing a date.
+ * The audit log holds the same facts, but it is SuperAdmin-only, so the staff
+ * member looking at the Archived view could not otherwise see them.
+ */
+export interface ArchiveMeta {
+  /** Manila calendar date (YYYY-MM-DD). */
+  archivedAt: string | null;
+  archivedByName: string | null;
+}
+
 export interface NewsCategoryRow {
   id: string;
   label: string;
@@ -223,7 +243,7 @@ export interface NewsArticleDetail extends NewsArticleListItem {
 }
 
 /** Admin list rows. */
-export interface AdminNewsArticleRow {
+export interface AdminNewsArticleRow extends ArchiveMeta {
   id: string;
   slug: string;
   title: string;
@@ -237,7 +257,7 @@ export interface AdminNewsArticleRow {
   updatedLabel: string;
   publishedLabel: string | null;
 }
-export interface AdminAnnouncementRow {
+export interface AdminAnnouncementRow extends ArchiveMeta {
   id: string;
   title: string;
   date: string;
@@ -248,7 +268,7 @@ export interface AdminAnnouncementRow {
   imageAlt: string;
   updatedLabel: string;
 }
-export interface AdminEventRow {
+export interface AdminEventRow extends ArchiveMeta {
   id: string;
   title: string;
   category: EventCategory;
@@ -312,6 +332,9 @@ export interface LegislativeListItem {
   id: string;
   slug: string;
   docType: LegislativeType;
+  /** Sequence within the year, 1–9999. Composed into `number` for display. */
+  seqNo: number;
+  year: number;
   number: string;
   title: string;
   /** ISO date approved, or null when the document is pending approval. */
@@ -382,10 +405,13 @@ export interface TransparencyCategoryRow {
 
 /* Admin rows (serializable — cross the client boundary into the manager). */
 
-export interface AdminLegislativeRow {
+export interface AdminLegislativeRow extends ArchiveMeta {
   id: string;
   slug: string;
   docType: LegislativeType;
+  /** Sequence within the year, 1–9999. Composed into `number` for display. */
+  seqNo: number;
+  year: number;
   number: string;
   title: string;
   dateApproved: string | null;
@@ -394,7 +420,7 @@ export interface AdminLegislativeRow {
   fileUrl: string | null;
 }
 
-export interface AdminTransparencyDocumentRow {
+export interface AdminTransparencyDocumentRow extends ArchiveMeta {
   id: string;
   title: string;
   categoryId: string;
@@ -404,7 +430,7 @@ export interface AdminTransparencyDocumentRow {
   fileCount: number;
 }
 
-export interface AdminTransparencyProjectRow {
+export interface AdminTransparencyProjectRow extends ArchiveMeta {
   id: string;
   name: string;
   progress: number;
@@ -418,7 +444,8 @@ export interface AdminTransparencyProjectRow {
 
 export interface LegislativeValues {
   docType: LegislativeType;
-  number: string;
+  seqNo: number;
+  year: number;
   title: string;
   /** ISO date, or null while pending approval. The action stores an empty
    *  string from the date input as SQL NULL. */
@@ -451,37 +478,6 @@ export interface TransparencyCategoryValues {
 }
 
 /* ------------------------------------- Admin ------------------------------------ */
-
-export type DraftStatus = "draft" | "in-review";
-
-export interface ContentDraft {
-  title: string;
-  /** Relative edit label, e.g. "2 hours ago" — becomes a timestamp once backed by an API. */
-  editedLabel: string;
-  author: string;
-  status: DraftStatus;
-  icon: LucideIcon;
-}
-
-export interface PublishingActivityEntry {
-  /** Display timestamp, e.g. "Today, 09:45 AM". */
-  dateLabel: string;
-  title: string;
-  description: string;
-  /** Link to the live page, when the item is published and public. */
-  liveHref?: string;
-  /** Highlight the timeline dot (most recent entry). */
-  highlight?: boolean;
-}
-
-export interface ContentTypeAction {
-  title: string;
-  description: string;
-  href: string;
-  icon: LucideIcon;
-  /** Icon housing tone. */
-  tone: "primary" | "secondary" | "deep";
-}
 
 /* ----------------------- Admin content management (mock CMS) --------------------- */
 /* Envelope types wrapping the public entities the admin portal manages. These are    */
@@ -523,7 +519,8 @@ export type AdminStatus =
   | ApplicationStatus
   | AppointmentStatus
   | ComplaintStatus
-  | AssistanceStatus;
+  | AssistanceStatus
+  | InquiryStatus;
 
 /** Serializable services row for the admin manager (client boundary: icon travels as a name string). */
 export interface AdminServiceRow {
@@ -595,6 +592,65 @@ export interface ValueItem {
   description: string;
 }
 
+/* --------------------------- Site content CMS (plan 9) -------------------------- */
+/* The editable Home and About blocks.                                              */
+/*                                                                                  */
+/* This union NO LONGER mirrors the SQL `site_block` enum exactly: migration 0022    */
+/* removed Quick Services from the CMS, and Postgres cannot drop an enum value, so   */
+/* 'quick_services' survives in the database as an unreachable label. Every value    */
+/* HERE must still exist in the enum — the drift only runs one way.                  */
+
+export const SITE_BLOCKS = [
+  "hero_slides",
+  "glance_stats",
+  "involvement_items",
+  "core_values",
+  "history_entries",
+  "milestones",
+] as const;
+
+export type SiteBlock = (typeof SITE_BLOCKS)[number];
+
+/** Singleton text blocks, keyed by dotted path (site_blocks.key). */
+export const SITE_BLOCK_KEYS = [
+  "about.mission",
+  "about.vision",
+  "about.captain_message",
+  "home.cta_image",
+] as const;
+
+export type SiteBlockKey = (typeof SITE_BLOCK_KEYS)[number];
+
+/**
+ * Drawer body for one collection item. Three generic text slots whose meaning is
+ * fixed per block (see the table in migration 0021, and SITE_BLOCK_FIELDS).
+ *
+ * The image FILE is deliberately absent: it lives in component state so the
+ * autosave snapshot stays text-only by construction (sub-projects 7 and 8).
+ */
+export interface SiteItemValues {
+  iconName: string | null;
+  label: string | null;
+  value: string | null;
+  body: string | null;
+  href: string | null;
+  imageAlt: string | null;
+  imageFit: "cover" | "contain" | null;
+}
+
+/**
+ * An item as the manager sees it. Note there is no ArchiveMeta: site content has
+ * no draft/published/archived lifecycle (design §2.3), so it has no archived
+ * state to carry. That absence is a decision, not an oversight.
+ */
+export interface AdminSiteItemRow extends SiteItemValues {
+  id: string;
+  block: SiteBlock;
+  sortOrder: number;
+  imagePath: string | null;
+  imageUrl: string | null;
+}
+
 /* ── Auth & permissions (backend plan 1) ─────────────────────────────── */
 
 /** Permission slugs stored in profiles.permissions. Order matches the admin UI. */
@@ -603,9 +659,11 @@ export const PERMISSIONS = [
   "process-appointments",
   "handle-complaints",
   "handle-assistance",
+  "handle-inquiries",
   "manage-news",
   "manage-officials",
   "manage-transparency",
+  "manage-site-content",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -632,13 +690,45 @@ export interface TeamUser extends SessionUser {
   createdAt: string;
 }
 
+/**
+ * Controlled action classes for the audit log — the Action Type dropdown's
+ * values. Mirrors the `public.audit_action` enum (migration 0014); the two must
+ * change together.
+ */
+export const AUDIT_ACTIONS = [
+  "create",
+  "update",
+  "delete",
+  "archive",
+  "restore",
+  "publish",
+  "unpublish",
+  "save_draft",
+  "approve",
+  "reject",
+  "login",
+  "logout",
+  "file_upload",
+  "file_delete",
+  "role_change",
+  "password_reset",
+  "reorder",
+] as const;
+
+export type AuditActionType = (typeof AUDIT_ACTIONS)[number];
+
 /** A row in the audit_log table. */
 export interface AuditEntry {
   id: number;
   actorName: string;
+  actionType: AuditActionType;
+  /** Human sentence, e.g. "archived announcement" — secondary to actionType. */
   action: string;
   entityType: string;
   entityId: string | null;
+  /** Human name of the target, captured at write time. */
+  entityLabel: string | null;
+  /** Free-text extra context (staff remarks). Never the entity name. */
   detail: string | null;
   /** ISO timestamp. */
   createdAt: string;
@@ -884,4 +974,118 @@ export interface AssistanceCategoryRow {
 }
 export interface AssistanceCategoryValues {
   label: string;
+}
+
+/* ── Contact inquiries & alert subscribers (migration 0019) ───────────── */
+
+/**
+ * Mirrors the `public.inquiry_status` enum. `in_progress` keeps the underscore
+ * the enum was created with rather than the hyphen the ticket statuses use —
+ * spelling it two ways would mean translating on every read and every write to
+ * win nothing but symmetry.
+ *
+ * An inquiry is not a ticket: there is no number, nothing to track publicly, and
+ * no resident-facing state machine. It arrives, someone picks it up, it is
+ * answered — or it is spam and gets closed unanswered.
+ */
+export type InquiryStatus = "new" | "in_progress" | "answered" | "closed";
+
+/** The /contact form's body. `phone` is optional — "" means not given. */
+export interface PublicInquiryValues {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  /** One of INQUIRY_SUBJECTS in `src/features/contact/data.ts`. */
+  subject: string;
+  message: string;
+  /** Data Privacy Act consent — must be true to submit. */
+  consent: boolean;
+}
+
+/** An inbox row for the admin manager: flat and serializable. */
+export interface InquiryRow {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  subject: string;
+  /** The subject's display label, resolved against INQUIRY_SUBJECTS. */
+  subjectLabel: string;
+  message: string;
+  status: InquiryStatus;
+  staffNote: string;
+  /**
+   * Resolved through the `handled_by` foreign key, not a denormalised column
+   * like the ticket tables' `reviewed_by_name`. Deleting the account nulls it;
+   * the audit log is the durable record of who did what.
+   */
+  handledByName: string | null;
+  /** Manila calendar dates (YYYY-MM-DD). */
+  handledAt: string | null;
+  submittedAt: string;
+}
+
+/** The inbox drawer's save body. */
+export interface InquiryUpdateValues {
+  status: InquiryStatus;
+  staffNote: string;
+}
+
+/**
+ * Site feedback (sub-project 10) — about this website, not barangay business.
+ *
+ * Anonymous by design: nothing here identifies the sender, which is why there
+ * is no consent field and no reply path. `/contact` remains the channel for
+ * anything a resident needs an answer to.
+ */
+export type FeedbackCategory = "general" | "bug" | "feature" | "complaint" | "praise";
+
+/**
+ * Four states, all of which StatusChip already labels and tones. `answered`
+ * would be a lie: nobody can answer a row with no address on it.
+ */
+export type FeedbackStatus = "new" | "in_progress" | "resolved" | "dismissed";
+
+/** The widget's body. The screenshot travels separately, in FormData. */
+export interface PublicFeedbackValues {
+  category: FeedbackCategory;
+  subject: string;
+  message: string;
+  /** 0 means "not rated" — stored as null. */
+  rating: number;
+  /** The path the widget was opened on, e.g. "/transparency". Never a query string. */
+  pagePath: string;
+}
+
+/** A queue row for the admin panel: flat and serializable. */
+export interface FeedbackRow {
+  id: string;
+  category: FeedbackCategory;
+  /** Display label, resolved against FEEDBACK_CATEGORIES. */
+  categoryLabel: string;
+  subject: string;
+  message: string;
+  rating: number | null;
+  pagePath: string;
+  /**
+   * A signed URL valid for ten minutes, or null when no screenshot was
+   * attached (or signing failed). The bucket is private, so there is no stable
+   * public URL to store.
+   */
+  screenshotUrl: string | null;
+  status: FeedbackStatus;
+  staffNote: string;
+  /** Resolved through `handled_by`; null once the account is gone. */
+  handledByName: string | null;
+  /** Manila calendar dates (YYYY-MM-DD). */
+  handledAt: string | null;
+  submittedAt: string;
+}
+
+/** The triage drawer's save body. */
+export interface FeedbackUpdateValues {
+  status: FeedbackStatus;
+  staffNote: string;
 }

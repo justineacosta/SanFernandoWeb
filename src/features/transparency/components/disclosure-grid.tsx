@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/form";
 import { Section } from "@/components/ui/section";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { listPublishedDocumentsByCategory } from "@/features/transparency/queries";
-import { FileDownloads } from "./file-downloads";
+import { RecordActions } from "./record-actions";
 import { ProjectsCard } from "./projects-card";
 
 /** Bento grid of public disclosure categories: budgets, projects, financials, ordinances. */
@@ -46,11 +46,11 @@ export async function DisclosureGrid() {
                   <FileText className="h-6 w-6 shrink-0 text-ink-900" aria-hidden="true" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold text-ink-900">{doc.title}</span>
-                    <span className="text-sm text-ink-500">
+                    <span className="text-sm tabular-nums text-ink-500">
                       {formatOptionalDate(doc.dateReleased)}
                     </span>
                   </span>
-                  <FileDownloads files={doc.files} recordTitle={doc.title} align="right" />
+                  <RecordActions label={doc.title} files={doc.files} />
                 </div>
               ))
             )}
@@ -79,7 +79,7 @@ export async function DisclosureGrid() {
           />
           <div className="relative flex h-full flex-col justify-between">
             <div>
-              <h3 className="mb-4 text-2xl font-semibold">Barangay Ordinances</h3>
+              <h3 className="mb-4 text-2xl font-semibold">Barangay Ordinances & Resolutions</h3>
               <p className="mb-8 max-w-xl text-ink-300">
                 Searchable database of all passed resolutions and local laws that govern Barangay
                 San Fernando. Updated monthly for public awareness.

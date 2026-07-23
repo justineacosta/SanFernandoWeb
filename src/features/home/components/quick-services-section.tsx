@@ -18,9 +18,14 @@ export function QuickServicesSection() {
           <Card
             key={service.title}
             interactive
-            className="rounded-3xl p-6 text-center hover:border-brand-300"
+            className="group rounded-3xl p-6 text-center hover:border-brand-300"
           >
-            <IconCircle icon={service.icon} tone="primary" size="lg" className="mb-4" />
+            <IconCircle
+              icon={service.icon}
+              tone="primary"
+              size="lg"
+              className="mb-4 transition-colors duration-(--duration-quick) group-hover:bg-brand-200 group-hover:text-brand-800"
+            />
             <h3 className="mb-2 font-sans font-semibold tracking-tight leading-tight text-ink-900">
               {service.title}
             </h3>

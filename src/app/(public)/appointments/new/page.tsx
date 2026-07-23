@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
 import { Section } from "@/components/ui/section";
 import { AppointmentForm } from "@/features/appointments";
@@ -13,7 +14,7 @@ export default function NewAppointmentPage() {
   return (
     <>
       <PageHero
-        title="Set an Appointment"
+        title={<>Set an <BrandStroke>Appointment</BrandStroke></>}
         description="Tell us when you would like to visit and what you need. Staff will confirm your schedule before you come."
       />
       <Section>

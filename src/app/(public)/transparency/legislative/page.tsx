@@ -1,6 +1,9 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import type { LegislativeType } from "@/types";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
+import { PublicTableSkeleton } from "@/components/ui/public-skeleton";
 import { LegislativeArchive } from "@/features/transparency";
 
 export const metadata: Metadata = {
@@ -24,14 +27,24 @@ export default async function LegislativeArchivePage({
   return (
     <>
       <PageHero
-        title="Ordinances & Resolutions"
+        title={<><BrandStroke>Ordinances</BrandStroke> & Resolutions</>}
         description="Search the enacted legislation of the Sangguniang Barangay."
       />
-      <LegislativeArchive
-        q={params.q ?? ""}
-        docType={docType}
-        page={page}
-      />
+      {/*
+        Keyed on the query so changing the search or page re-suspends and the
+        skeleton returns, rather than the previous results sitting there looking
+        current while the new ones load.
+      */}
+      <Suspense
+        key={`${params.q ?? ""}|${docType}|${page}`}
+        fallback={<PublicTableSkeleton what="the legislative archive" />}
+      >
+        <LegislativeArchive
+          q={params.q ?? ""}
+          docType={docType}
+          page={page}
+        />
+      </Suspense>
     </>
   );
 }

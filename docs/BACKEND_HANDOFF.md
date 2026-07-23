@@ -1,8 +1,14 @@
 # Backend Handoff — Barangay San Fernando Website
 
-> **Current status (2026-07-21):** backend integration is well underway on **Supabase**
-> (Postgres + Auth + Storage) — migrations `0001`–`0011` applied, `0012`–`0013` applied to
-> **staging only** (production still needs both at deploy time). Auth, the services catalog,
+> **Current status (2026-07-22):** backend integration is well underway on **Supabase**
+> (Postgres + Auth + Storage) — migrations `0001`–`0013` applied to staging **and
+> production**; **`0014`–`0022` are applied to staging only** (audit log v2, audit fuzzy
+> search, fuzzy search, the `fuzzy_match` wildcard fix, global admin search, inquiries +
+> subscribers, archive provenance, site content, and the officials `members` section) and
+> still need to reach production at deploy time. ⚠️ **`0021` additionally requires
+> `node scripts/upload-site-images.mjs` once per environment**, and **`0022` is written but
+> not yet applied anywhere** — until the owner applies it, saving an official into the
+> Barangay Members section fails with an unknown-enum-label error. Auth, the services catalog,
 > all four ticket flows, news/announcements/events, transparency (documents + projects,
 > multi-file + optional dates), the officials directory, and each official's achievements
 > timeline are DB-backed and merged to `main`. See **§1 Current State** for the accurate
@@ -480,6 +486,560 @@
 > achievement content is seeded** — migration 0013 inserts no rows — so every official's
 > timeline is empty until barangay staff add real achievements through `/admin/officials`.
 
+> **Updated 2026-07-22 (portal overhaul — sub-projects 1 & 2):** the first two slices of a
+> nine-part programme covering permission-gated 404s, fuzzy search, audit logs,
+> transactional uploads, archive/restore, autosave, a Home/About CMS, and resident-portal
+> fixes. Cross-cutting decisions and the sequence live in
+> `docs/superpowers/specs/2026-07-22-portal-overhaul-design.md`; each sub-project has its
+> own dated spec.
+> 1. **Resident portal fixes** (spec: `2026-07-22-resident-portal-fixes-design.md`). The
+>    `/announcements/[slug]` "Back to News" link was rendering *inside* the fixed
+>    `SiteHeader`'s band — not partly obscured but fully occluded at 375px and 1440px, with
+>    `elementFromPoint()` at its centre returning the header, so a mobile tap hit the site
+>    logo and navigated home. The page now uses `pt-32 md:pt-44`, the clearance convention
+>    §5 already documents and the officials/legislative detail pages already followed.
+>    Separately, an audit of all 16 public routes at 375px found **exactly one** horizontal
+>    overflow: `/about`, +8px, from the Punong Barangay name card's `-right-6` (24px)
+>    overhang against `Container`'s `px-4` (16px) gutter. Pinned to `right-0` below `md`
+>    (the overhang is deliberate and correct at `md+`, where the column is `w-1/3`). Fixed
+>    at the source — **not** with a global `overflow-x: hidden`, which would break `sticky`
+>    positioning site-wide and hide the next such bug. The dead
+>    `href="#"` "View Executive Agenda 2024-2027" stub is gone.
+> 2. **Permission-gated 404s** (spec: `2026-07-22-permission-404-gating-design.md`). A
+>    staff member without a module's permission was redirected to `/admin`, which neither
+>    looked like a missing page nor hid that the route existed. **The gates now split by
+>    execution context:** `requirePermission` / `requireSuperAdmin` call `notFound()` for
+>    page loads, rendering a new `src/app/admin/(portal)/not-found.tsx` *inside* the portal
+>    layout so the sidebar still offers the modules the user can reach. Server Actions
+>    cannot use the same gate — they are POSTs, and a thrown `notFound()` there surfaces as
+>    an unhandled digest error rather than a 404 — so new **`checkPermission` /
+>    `checkSuperAdmin`** return `null`, and all **86 gate call sites across 21 action
+>    files** return `{ error: NOT_FOUND }` in their own result shape. `tsc` verifies every
+>    one, since excess-property checks fire on direct returns. `requireSessionUser`
+>    deliberately still redirects to `/admin/login`: a signed-out visitor may hold the
+>    permission once authenticated. Also fixed a navigation leak found while mapping call
+>    sites — `ContentHub` rendered all three `CONTENT_TYPE_ACTIONS` cards unconditionally,
+>    so a user holding only `handle-complaints` saw News, Events, and Transparency cards on
+>    the dashboard they land on after login; `ContentTypeAction` gained an optional
+>    `permission` and the cards now filter on the same predicate `AdminSidebar` uses. The
+>    `PUBLISHING_ACTIVITY` mock constant is still present and still dead — sub-project 3
+>    removes it. **Note for future readers:** `src/middleware.ts` is a second auth layer
+>    over the whole `/admin` tree and is easy to miss when reasoning about admin access.
+
+> **Updated 2026-07-22 (audit logs v2 — sub-project 3):** migration **`0014_audit_log_v2.sql`**
+> — **applied to staging by the repo owner, 2026-07-22; production still needs it** —
+> turns the append-only activity feed from migration `0001` into a real audit log
+> (spec: `docs/superpowers/specs/2026-07-22-audit-logs-v2-design.md`).
+> 1. A **`public.audit_action` enum** (17 values) backs the required Action Type dropdown;
+>    the free-text `action` column is kept alongside it as secondary human-readable detail.
+>    Existing rows were backfilled from their `action` text. `action_type` is `NOT NULL`
+>    with **no default** — `recordActivity()` is the only writer and must always classify.
+> 2. **`entity_label`** captures the target's human name at *write* time. Resolving it at
+>    read time would break exactly when the record is deleted, which is the case the trail
+>    exists for — and master spec §4's "the audit log never points at a ghost".
+> 3. **`recordActivity()` now takes an options object** (`{ type, action, entityType,
+>    entityId?, entityLabel?, detail? }`); seven positional arguments were unreadable. All
+>    **75 call sites across 20 action files** were converted, and `tsc` enforces the enum at
+>    every one. `auditTypeForStatus()` in `src/lib/audit.ts` maps a
+>    `draft → in-review → published → archived` transition to its action type for the four
+>    managers that record `${nextStatus} <entity>`.
+> 4. **Three coverage gaps closed.** `actions/auth.ts` had zero audit calls — sign-in and
+>    sign-out are now recorded (a *failed* sign-in deliberately is not: it would let anyone
+>    append rows to an append-only table). `actions/media.ts` had none — image upload and
+>    delete are now recorded. `updateTeamUser` reads the prior grant and emits
+>    **`role_change`** rather than a generic `update` when permissions or SuperAdmin status
+>    actually changed. `actions/documents.ts` is deliberately **not** audited: every function
+>    there is a step inside a larger save action that records its own entry, and
+>    `removeStoredDocument` doubles as the compensating-delete path, so an entry from there
+>    would claim a deletion for a save that failed. That reasoning is in the file.
+> 5. **Immutability is enforced, not assumed**: `REVOKE update, delete` from `anon`,
+>    `authenticated`, and `service_role`, plus `before update`/`before delete` triggers that
+>    fire even for the table owner. Verified against the live database — `service_role`
+>    itself gets `permission denied for table audit_log` on both, while INSERT still works.
+>    Deliberate escape hatch: `alter table public.audit_log disable trigger …`.
+>    **Consequence: no future migration can retro-edit audit rows without disabling the
+>    trigger first.**
+> 6. **`audit_log.actor_id`'s foreign key was dropped.** Migration `0001` declared it
+>    `references auth.users (id) on delete set null` — an UPDATE against `audit_log`, which
+>    the new trigger rejects, so deleting any staff member who had ever acted would have
+>    raised instead of succeeding. An append-only record should not be mutable by another
+>    table's lifecycle; `actor_name` is denormalised onto every row for exactly this reason.
+> 7. **RLS aligned.** Migration `0001`'s `"audit log readable by signed-in staff"` policy let
+>    any signed-in staff read the whole log via the anon key. It is dropped, and reads move
+>    to the service-role client, so `audit_log` now matches every other table: RLS enabled
+>    with no policies, the explicit code check as the entire gate.
+> 8. New **SuperAdmin-only `/admin/audit`** (`AuditLogManager`) with the required
+>    User / Action Type / Target Entity / Date & Time columns, an Action Type dropdown,
+>    sorting, and pagination. It is **server-driven via searchParams**, not a client manager
+>    holding the full dataset — the one table in the portal that grows without bound, so the
+>    pattern the other eight managers use would eventually ship the whole log to the browser.
+>    Search is substring (`ilike`) for now; **sub-project 4 swaps in `pg_trgm` fuzzy matching
+>    without changing the UI** — a sequenced partial against the requirement, not an omission.
+>    *(Superseded: fuzzy search landed for the audit log in migration `0015` and everywhere
+>    else in `0016`, and `src/lib/postgrest.ts` has since been deleted — see the sub-project
+>    4 entry below.)*
+> 9. The dashboard's **Publishing Activity became Audit Logs**, and — corrected during
+>    verification — is **SuperAdmin-only**. It renders the same rows `/admin/audit` does,
+>    so showing it to every signed-in user leaked exactly what the sub-project 2 gating
+>    hides. The dead `PUBLISHING_ACTIVITY` mock and `PublishingActivityEntry` type are gone.
+> 10. **Known cosmetic wart:** the `entity_label` backfill copies `detail` without clearing
+>    it, so *historical* rows carry the same string in both columns. The table was already
+>    immutable by the time this surfaced, so `detailOf()` in `audit-log-manager.tsx`
+>    suppresses a `detail` that merely repeats the label. Rows written by the new code set
+>    the two from different sources and never collide. There is also one permanent
+>    `"Migration Verification"` row from the immutability test — it cannot be deleted, by
+>    design.
+
+> **Updated 2026-07-22 (fuzzy search — sub-project 4):** every search input in the portal,
+> admin and public, now matches forgivingly. Spec:
+> `docs/superpowers/specs/2026-07-22-fuzzy-search-design.md`. Migration
+> **`0016_fuzzy_search.sql`** — **staging only so far**, and required before
+> `/transparency/legislative` search returns anything.
+>
+> 1. **One matching contract, stated once.** Split the query on whitespace; a record
+>    matches only if **every** term matches it; a term matches by substring, or by a small
+>    edit distance against an individual **word** of the record. So `cert` finds
+>    *certificate*, `offcal` finds *official*, `juan dela` narrows, and `juan banana`
+>    returns nothing.
+> 2. **`public.fuzzy_match(haystack, q)`** extracts the predicate migration `0015` inlined
+>    inside `search_audit_log`, which is rewritten to call it — one definition in the
+>    database, as the requirement covers "all future tables". It is deliberately
+>    `language sql` and a single `SELECT` so Postgres **inlines** it and the trigram
+>    indexes stay eligible; a plpgsql body would force a sequential scan.
+> 3. **`public.search_legislative_documents(...)`** backs `/transparency/legislative`,
+>    replacing the PostgREST `ilike` filter, with a trigram GIN index over
+>    `number || title || summary`. It applies `status = 'published'` itself so the public
+>    boundary stays in one place. `searchUploads()` instead uses the JS matcher — it
+>    already merges three tables into memory, so there is nothing left to push down.
+> 4. **`src/lib/fuzzy.ts`** (`fuzzyFilter`, `haystack`) is the JavaScript half, used by
+>    every admin manager and by `searchUploads`.
+> 5. **Fuse.js was installed, measured, and removed.** It scores a pattern against the
+>    whole concatenated haystack, so no threshold accepted `sanots` → *Santos* without also
+>    accepting `juan banana` → *Juan Dela Cruz*. Matching per word has no such conflict.
+>    This reverses the library choice in umbrella §3.4, not its hybrid decision.
+>    **One deliberate asymmetry:** the SQL side keeps a third `word_similarity` recall
+>    route that the JS side omits — nearly free against a GIN index, but a hand-rolled
+>    approximation of Postgres internals in JavaScript with no measured benefit.
+> 6. **Search inputs added where there were none:** officials, legislative, transparency
+>    documents, transparency projects, and users. `AdminFilterBar` now takes a
+>    per-instance `search.id` — transparency renders two bars on one page, and the
+>    hardcoded id broke the `<label for>` association for both.
+> 7. **Project reorder arrows hide while a search is active.** "Move up" means "swap with
+>    the row above"; with rows filtered out, the row above on screen is not the neighbour
+>    the action would move.
+> 8. **`src/lib/postgrest.ts` is deleted.** It was extracted three days earlier for the two
+>    `ilike` callers; both are gone and no `.ilike()`/`.or()` filter remains anywhere in
+>    `src/`. The escaping quirk it guarded is still recorded in §6 below, so the knowledge
+>    outlives the file.
+> 9. **Migration `0017_fuzzy_match_literal_substring.sql` — also staging only.** Found
+>    while verifying `0016`: its substring route was `haystack like '%' || term || '%'`,
+>    so `%` and `_` **in the user's query** acted as LIKE wildcards.
+>    `fuzzy_match('totally unrelated text', '_')` returned true — a one-character search
+>    returned the whole table, and `form_data` matched `formXdata`. Not an injection (the
+>    term is a bound parameter), but wrong results, and the very trap
+>    `src/lib/postgrest.ts` had guarded on the PostgREST side before item 8 deleted it.
+>    Fixed with `strpos(...) > 0`: no pattern language, nothing to escape, and identical to
+>    `String.includes` in `src/lib/fuzzy.ts`, so both halves now agree character for
+>    character on that route. Only the substring route changed. **Trade-off:** a GIN
+>    trigram index can serve `LIKE '%term%'` but not `strpos`; those indexes were already
+>    unlikely to be used (indexed expression `lower(a || ' ' || b)` vs the inlined
+>    predicate's `lower(coalesce(a || ' ' || b, ''))`), and the tables are small. Whether
+>    to drop them belongs to the hardening pass.
+> 10. **The global admin search is real** (migration `0018_admin_global_search.sql`, also
+>    staging only). `AdminTopBar`'s input had been a dead stub since the design export; it
+>    is now `AdminGlobalSearch`, a debounced type-ahead over
+>    `search_admin_global(p_q, p_modules, p_limit)` returning grouped results across
+>    twelve modules. **Permission scoping is an input to the query, not a filter on its
+>    output:** `globalSearch()` in `features/admin/actions/search.ts` builds the module
+>    allow-list from `checkPermission()`/`checkSuperAdmin()` and passes it in, so the
+>    database never scans a module the viewer cannot open and nothing the client sends can
+>    widen the search. Services are SuperAdmin-only, matching their `superAdminOnly` nav
+>    entry. Shared constants live in `features/admin/search-modules.ts` because a
+>    `"use server"` file may only export async functions. ~~**Known limit:** results link to
+>    the module page, not the record.~~ **Resolved in sub-project 5 — see below.** Unlike
+>    the public search functions this one does **not** filter to `published`; the portal is
+>    where drafts are managed.
+
+> **Updated 2026-07-22 (table standards — sub-project 5):** eleven behaviours that every
+> admin manager had implemented differently, or not at all, are now shared primitives. **No
+> migration**; no Server Action contract changed.
+> 1. **Destructive actions moved out of the drawers.** Archiving or deleting used to require
+>    opening the record's editor first. Every content manager's rows now carry a `RowActions`
+>    kebab (Edit / Publish / Archive / Delete as the record's state allows). It renders
+>    through `createPortal` into `document.body` at `position: fixed`, because every admin
+>    table sits inside `overflow-x-auto`, which would clip an absolutely-positioned menu;
+>    scroll and resize dismiss it rather than re-anchoring. Full menu keyboard contract
+>    (↑/↓/Home/End/Escape, focus returns to the trigger).
+> 2. **The four ticket managers deliberately keep the review drawer as their only action.**
+>    Umbrella §3.6 excludes tickets from archive and §3.2 puts delete in sub-project 6, so
+>    there is nothing yet to put in a menu for them.
+> 3. **`window.confirm` is gone**, replaced by `ConfirmDialog` (`role="alertdialog"`). It
+>    names the record, focus starts on **Cancel** so a stray Enter cannot destroy anything,
+>    and it stays open and disabled while the Server Action runs — the native dialog could
+>    not express that, so a slow delete gave no feedback and a second click fired a second
+>    delete.
+> 4. **Two real defects fixed on the way.** Team users could be archived or deleted with a
+>    single click and *no confirmation at all*. Services and Team both passed the error
+>    string to the success toast, so a failed action arrived with a green tick beside it.
+> 5. **Toasts gained an id and a tone.** Managers held `useState<string | null>` keyed by the
+>    message text, so re-firing an identical message was not a state change — React never
+>    re-rendered and the dismiss timer never restarted, which made a second save look like a
+>    no-op. `useToast` carries an incrementing `id` used as the Toast's key. Failures use
+>    `role="alert"`; successes stay `role="status"`.
+> 6. **Skeletons.** There was no `loading.tsx` anywhere in the app, so a DB-backed admin
+>    route showed the *previous* page until the server finished. All twelve admin routes now
+>    have one, built from a shared `Skeleton` set that mirrors each real layout. Managers get
+>    their rows as props from async Server Components, so the App Router's streaming boundary
+>    is the correct seam — there is no client fetch to spin on. Pulse is `motion-safe` only.
+> 7. **Sorting everywhere.** `SortableTh` + `useTableSort` were previously used by two
+>    managers; they now cover Officials, Services, and all four ticket queues (ticket tables
+>    default to newest-first — the queue is worked from the top).
+> 8. **Reorder vs. sort.** Officials and Transparency Projects persist a manual order.
+>    Reorder arrows are hidden whenever a filter, a search, **or a non-`order` sort** is
+>    active: "move up" means "swap with the row above", which is only true when the rows on
+>    screen are the whole list in stored order.
+> 9. **Deep-linking closes sub-project 4's known limit.** `hrefForHit()` builds
+>    `/admin/<module>?tab=…&edit=<id>` (or `?review=<id>` for tickets) and `useEditDeepLink`
+>    opens the drawer for that record, then strips the parameter with `router.replace` so a
+>    refresh does not re-open it. Tabbed pages pass `enabled` so only the panel that owns the
+>    record consumes the link. No permission check in the hook — the page is already gated by
+>    `requirePermission`, and the search cannot hand out an id for a module the viewer
+>    cannot open.
+> 10. **One global `:focus-visible` ring** in `globals.css`. Tailwind emits utilities in a
+>    later cascade layer, so anything with its own focus treatment keeps it; this only
+>    reaches controls that previously showed nothing. Icon-only buttons also gained visible
+>    `Tooltip`s to match the `aria-label`s screen readers already had.
+> 11. **Tests exist now** (`npm run test:unit`, `npm run test:e2e`), lifting the old no-test
+>    rule ahead of sub-project 7. Vitest covers pure functions only — 21 cases pinning the
+>    fuzzy matcher's contract and the global search's permission map against the sidebar.
+>    Playwright drives the real dev server; the `admin` project **skips** until
+>    `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` are set in `.env.local`. **Action for the
+>    owner: create one dedicated staging staff account (not a SuperAdmin) for the e2e
+>    suite.**
+>
+> **Follow-up, same day.** Two call sites survived the first sweep and were fixed after the
+> owner asked whether archiving or deleting a user was confirmed: the transparency **project**
+> drawer still carried its own Archive/Delete pair with a `window.confirm` (removed — the
+> row kebab already had both), and the **achievements** sub-list inside the officials drawer
+> confirmed a delete natively (now a `ConfirmDialog`; it keeps an inline trash button rather
+> than a kebab, because achievements are sub-records inside an open editor, not table rows).
+> Team users already had the dialog on both actions, plus a rule that nobody may archive,
+> delete, or disable their own account. `window.confirm` is now absent from `src/` entirely.
+>
+> **Disabling a user now confirms too, and archived users can be restored.** Disabling locks
+> a colleague out of the portal on their next page load — the same class of act as archiving
+> — so it goes through `ConfirmDialog`. Enabling and restoring stay one click: they hand
+> access back, and confirming harmless actions trains people to click through the ones that
+> matter. The archive dialog had been promising the account "is kept and can be restored"
+> while `listTeamUsers` filtered `is_archived = false` and nothing else read the archived
+> rows — there was no route back short of SQL. Settings now renders an **Archived accounts**
+> disclosure below the roster (only when non-empty) with a Restore per row, backed by
+> `listArchivedTeamUsers()` and `restoreTeamUser()`. **Restore clears `is_archived` but
+> deliberately leaves `is_active` false**: archiving turns sign-in off, and returning someone
+> to the roster is a smaller decision than handing them a working login, so the row comes
+> back marked disabled and enabling it is a separate act. Also **moves `listTeamUsers` onto
+> the service-role client** — it was the last read in the portal going through the anon
+> client and leaning on an RLS policy for its filtering, which is why a stubbed session used
+> to show an empty team list.
+
+> **Scope correction 2026-07-22 — the public site is in the programme too.** Sub-projects
+> 2–9 are all admin-side, which wrongly implied the UI/UX standards stop at the portal. A
+> tenth sub-project, **Public-side UI/UX**, is now on the sequence table (umbrella spec
+> §4.1). It carries no migration and shares no code with 6–9, so it can run at any point.
+> What the survey found on the public side today:
+> - **No `loading.tsx` under `app/(public)`** — five DB-backed routes (services, officials,
+>   announcements, transparency, track) stream with no fallback, the same defect the admin
+>   portal had before sub-project 5.
+> - **No `error.tsx` anywhere in the app.** A failed Supabase query on a public page is an
+>   unstyled crash, not a recoverable "something went wrong" with a retry.
+> - **Six public forms, six validation styles** — `apply-form`, `appointment-form`,
+>   `complaint-form`, `assistance-form`, `inquiry-form`, `newsletter-form`, plus
+>   `track-lookup`. None use the blur-then-live contract or the shared toast.
+>
+> It reuses the primitives sub-project 5 built rather than growing public equivalents, so
+> both halves of the site behave the same way. It gets its own spec first.
+
+> **Sub-project 10, phases A and B shipped 2026-07-22.** Spec:
+> `docs/superpowers/specs/2026-07-22-public-side-uiux-design.md`. No migration.
+> 1. **Streaming, not whole-page skeletons.** Every public list route is a static `PageHero`
+>    followed by one async leaf section, so a route-level `loading.tsx` would have flashed
+>    the heading — which needs no data — as a grey block on every navigation. The async
+>    sections are wrapped in `<Suspense>` instead. The archive and uploads boundaries are
+>    keyed on the query, so changing a search re-suspends rather than leaving stale rows
+>    looking current. Detail routes (`[slug]`) do get `loading.tsx`: they await the record
+>    before they can render their own title.
+> 2. **Three error boundaries** where there were none: `(public)/error.tsx`,
+>    `admin/(portal)/error.tsx`, and `global-error.tsx` (own `<html>`, inline styles — a
+>    root-layout crash may be the design system itself failing). **None print
+>    `error.message`**; all show `digest` so a resident's report matches a log line.
+> 3. **The four public schemas left their `"use server"` files.** A `"use server"` module may
+>    only export async functions, so no client component could import them — the real reason
+>    the forms had no inline validation. Each now lives in `schema.ts` beside its action,
+>    with the five shared identity fields in `src/lib/public-forms.ts`. Action and form
+>    import the same object; the server still validates and remains the authority.
+> 4. **Blur-then-live validation** on all four forms, plus `aria-invalid` (which *is* the red
+>    treatment, so the two cannot drift), `role="alert"` messages, `aria-describedby`, and
+>    focus moving to the first invalid field on submit. Verified at 390 px: zero POSTs fired
+>    for an empty form, no horizontal overflow.
+> 5. **14 new unit tests** pin the extracted schemas (35 total).
+>
+> **Sub-project 10, phase D shipped 2026-07-22 — the two theatre forms now have a backend.**
+> The owner chose "build it" over "point at the hotline". **Migration `0019` (applied to
+> staging)** adds `inquiries` and `alert_subscribers`, both RLS-enabled with zero policies.
+> 1. **`/contact` persists.** `submitInquiry` rate-limits (5/hour/IP), validates with a
+>    schema the form shares, and inserts through the service-role client. The email is
+>    **required** here, unlike the ticket forms: an inquiry has no ticket number and nothing
+>    to track, so the reply address is the whole mechanism. No ticket number comes back —
+>    handing over one `/track` cannot find would be the same lie in a new shape.
+> 2. **The alert signup persists**, with the mobile number normalised to one form
+>    (`normaliseMobile`) so the unique index actually de-duplicates `0917 555 0101` and
+>    `+63 917 555 0101`. Re-subscribing an opted-out number reactivates it.
+> 3. **A new `handle-inquiries` permission and `/admin/inquiries` inbox**, built from the
+>    sub-project 5 primitives. **Existing staff accounts do not have the new permission** —
+>    a SuperAdmin has to tick it in Settings before anyone but a SuperAdmin sees the module.
+> 4. **No delete, only close.** Spam is closed; nothing lets staff make a resident's message
+>    disappear with no record it arrived. Status moves are not guarded in the WHERE clause
+>    (unlike the ticket queues) so a mistake can be undone by picking "New" again.
+> 5. **Consent is enforced but not stored** — see the spec §8.2 for why, and what a
+>    different DPA reading would cost (one column).
+> 6. **17 new unit tests** (45 total) pin the inquiry schema and the mobile normaliser.
+>
+> **Still open:** inquiries are not in the global admin search (`search_admin_global` is a
+> Postgres function — another migration), and nothing emails anyone yet, which is what §2D
+> below is for.
+
+> **Sub-project 6 shipped 2026-07-22 — archive & restore.** Spec:
+> `docs/superpowers/specs/2026-07-22-archive-restore-design.md`. **Migration `0020`**
+> (applied to staging) adds `archived_at` / `archived_by` to the seven content tables.
+>
+> Reading the code first showed this was mostly a **safety fix**, not a build: the archive
+> substrate already existed on all seven tables, restore-by-republish worked, the public
+> boundary already filtered on `published`, and the category hide-flag from umbrella §3.6
+> shipped long ago. What was missing was the rule on top.
+> 1. **Delete now requires SuperAdmin *and* an already-archived record.** Before this, every
+>    content delete sat behind `checkPermission(<module>)` and ignored the record's status —
+>    so anyone with `manage-transparency` could permanently erase a *published* ordinance and
+>    its PDF in one click. `guardDelete()` in `src/lib/archive.ts` enforces both conditions in
+>    one read; it is a shared helper because a check repeated in four places gets forgotten in
+>    one, and Server Actions are public HTTP endpoints a stale tab reaches directly.
+> 2. **Restore is a first-class action on all seven types, and returns the record to
+>    `draft`** — never straight back to `published`. It also fills in the `restore` audit
+>    type, which had been in `AUDIT_ACTIONS` since `0014` with nothing ever writing it.
+> 3. **An Active | Archived view toggle** (`src/components/ui/view-toggle.tsx`) replaces
+>    "archived" as a status-dropdown value across six manager surfaces. Delete only ever
+>    appears in the Archived view, only for a SuperAdmin — a non-SuperAdmin sees no Delete
+>    rather than a disabled one. Reorder arrows hide there, same rule as under a filter.
+> 4. **News, announcements and events get Restore but still no Delete.** They have none today;
+>    adding three new destructive actions here is backwards, and their media lives behind
+>    `image_src`/`cover_src` URLs plus child photo rows, so a correct delete needs the
+>    URL→Storage-path work sub-project 7 owns. Deferred there deliberately.
+> 5. `deleteAchievement` is deliberately untouched — a sub-record inside a parent's drawer,
+>    whose soft state is the existing `is_visible` toggle.
+
+> **Sub-project 7 shipped 2026-07-22 — transactional uploads.** Spec:
+> `docs/superpowers/specs/2026-07-22-transactional-uploads-design.md`. **No migration.**
+>
+> Three uploaders still wrote to Storage the moment a file was picked, so cancelling a drawer
+> left an object no row referenced. They now follow the defer-to-Save pattern the transparency
+> work established on 2026-07-20.
+> 1. **`SingleImageUploader` is a pure file picker** (announcement image, event cover, official
+>    portrait). It holds a `File` and a local `blob:` preview; `saveAnnouncement` / `saveEvent`
+>    / `saveOfficial` take a `FormData` beside their values, upload server-side, and
+>    compensating-delete the object if the row write fails — the `fail()` helper from
+>    `saveLegislative`, copied deliberately rather than reinvented.
+> 2. **Announcements and events now clean up a replaced or removed image.** Neither save action
+>    called `removeStoredImage` at all before, so every replaced image since the feature
+>    shipped is still in the bucket. `discardImage()` in `src/lib/media.ts` is the best-effort
+>    cleanup: it never fails the user's save, and logs the path when it cannot tidy up.
+> 3. **News photos are a pending list flushed on Save.** Saved photos keep their immediate
+>    reorder/remove/alt actions (they act on rows that exist); photos chosen in the session
+>    travel with the form. A new post and its photos now commit in one pass, so the *"save this
+>    post as a draft first"* message is gone. `attachPendingPhotos` is all-or-nothing per batch.
+> 4. **`media.ts` moved to `src/lib/` and is no longer a Server Action module**, because nothing
+>    client-side imports it any more — leaving it as one would keep a public endpoint whose only
+>    job is putting an unreferenced object in the bucket. It also stopped writing audit entries:
+>    every caller is now a step inside an action that records its own, and the compensating path
+>    would otherwise claim a deletion for a save that never completed (the reasoning already at
+>    the top of `documents.ts`).
+> 5. **News, announcements and events gained the deletes deferred from sub-project 6** — same
+>    `guardDelete()`, SuperAdmin + archived only. Each removes its own media; deleting an
+>    article also removes its `news_photos` objects, which Postgres's cascade cannot do.
+> 6. **`AchievementPhotoUploader` was deliberately not converted.** The achievements editor has
+>    no Save button — rows are created on "Add" and fields save on blur — so there is no commit
+>    event to defer to and no Cancel to orphan an object. Its cleanup already works via
+>    `deleteAchievement` / `deleteOfficial`. Revisit with autosave (sub-project 8).
+> 7. **`scripts/report-orphaned-media.mjs`** lists objects no row references. **Read-only** —
+>    it never deletes, because a sweeper acting on its own judgement is what umbrella §3.3
+>    rejected. Staging currently reports 0 orphans.
+
+> **Sub-project 8 shipped 2026-07-22 — autosave.** Spec:
+> `docs/superpowers/specs/2026-07-22-autosave-design.md`. **No migration.**
+>
+> `Drawer` closes on Esc and on an overlay click with no confirmation, so three paragraphs into
+> a news body one stray keypress lost the lot. The seven draft-capable drawers now keep a local
+> recovery copy.
+> 1. **It writes to the browser, never to Postgres — for existing records as much as new ones.**
+>    Umbrella §3.7 allows a database write once a record exists; reading the save actions says
+>    that is unsafe. Editing a published record does not change its status: `saveAnnouncement`
+>    updates the row in place and calls `revalidatePath("/")`, so a timed database write would
+>    push half-rewritten text onto the live home page with no click and no review. Browser
+>    storage satisfies §3.7 by construction. Cross-device resume is the accepted cost.
+> 2. **No new Server Actions**, therefore no new public endpoints to gate and nothing to exclude
+>    from the audit log (§3.7's third bullet dissolves rather than being implemented).
+> 3. **`useFormDraft(userId, scope, recordId, values)`** (`src/hooks/use-form-draft.ts`) owns all
+>    storage access; the pure key/expiry/cap/compare helpers live in `src/lib/form-draft.ts` and
+>    are unit-tested. Each form gained about four lines and keeps its own `useState`.
+> 4. **Text only, by construction.** The hook is handed `values`, and `File` state lives outside
+>    `values` in all seven forms — so staged uploads stay staged (§3.7) without a rule anyone has
+>    to remember. The recovery bar says images are not restored.
+> 5. **Restore is offered, never applied.** For an existing record the server may have moved on;
+>    silently reinstating a stale snapshot over someone else's correction would be data loss
+>    dressed as recovery.
+> 6. **Keys are `sf-draft:v1:<userId>:<scope>:<recordId|new>`**, scoped to the user because a
+>    barangay workstation is plausibly shared, and cleared on sign-out (`SignOutButton`).
+>    7-day expiry, 256 KB cap, every storage call wrapped so private browsing degrades to
+>    "no autosave" rather than a broken form.
+> 7. **The status line reads "Recovery copy saved on this device", never "Saved."** The wording is
+>    load-bearing: an editor must not read it as "this is on the site".
+> 8. **Achievements were re-examined and stayed out.** Sub-project 7 deferred its missing commit
+>    point here. It already persists every field on blur; what it lacks is a *draft* model, which
+>    is a redesign of how achievements are created, not a use of this hook.
+
+> **Sub-project 9 shipped 2026-07-22 — Home & About CMS.** Spec:
+> `docs/superpowers/specs/2026-07-22-home-about-cms-design.md`. **Migration `0021`.**
+>
+> ⚠️ **`0021` needs `node scripts/upload-site-images.mjs` run once per environment**, in the same
+> sitting. The migration seeds rows pointing at `public-media/site/…`; without the objects the
+> home page renders broken images. Applied to staging (script run); **production still owes both**,
+> alongside `0012`–`0020`.
+>
+> The two pages a visitor sees first were the two the barangay could not edit. Ten blocks moved
+> out of `src/features/{home,about}/data.ts` and into the database.
+> 1. **Two tables, not seven.** `site_blocks` (four singleton texts, keyed by dotted path) and
+>    `site_items` (all seven ordered collections, discriminated by a `site_block` enum with
+>    generic `label`/`value`/`body` slots). Seven tables would have meant seven near-identical
+>    managers. The per-block meaning of those slots is fixed in one descriptor table,
+>    `src/features/admin/site-blocks.ts`, mirroring the migration.
+> 2. **A CHECK constraint carries the shape** the generic columns would otherwise lose — Postgres
+>    rejects a glance stat with no figure or a hero slide with no image. **Maintenance trap,
+>    documented at the constraint:** it is a `CASE` over the enum with no `ELSE`, so a block added
+>    to the enum without extending the `CASE` is silently unvalidated (unmatched `CASE` → `NULL`
+>    → `CHECK` passes).
+> 3. **No status column, and Save writes live.** A page section is not a record with a lifecycle;
+>    a live/draft pair would double every read path and permit an About page with no published
+>    mission because someone left one in review. Consequently there is no **Active | Archived**
+>    toggle here and no `guardDelete` — deletion is direct, behind `ConfirmDialog`, and removes
+>    the item's storage object (sub-project 7's invariant still binds).
+> 4. **Revalidation is the whole requirement.** Umbrella §3.8 framed this as making the pages
+>    dynamic; `/` was already DB-backed under ISR. Every action calls `revalidatePath("/")` and
+>    `revalidatePath("/about")`, without which an edit is invisible for up to an hour and reads
+>    as a broken CMS. `/about` also gained `revalidate = 3600` — it was prerendered once with no
+>    window, so a build made before `0021` landed would have served the empty state indefinitely.
+> 5. **An empty block hides its section**, since §3.8 requires mission and vision to be blankable
+>    and a blank string in a bordered card looks like a bug. The hero is the exception: with no
+>    slides it keeps its heading and buttons rather than leaving the page starting mid-air.
+> 6. **`manage-site-content` is granted to nobody.** Deliberately omitted from
+>    `STATUS_PRESETS.editor` — presets pre-tick boxes for every account created afterwards, so
+>    including it would hand the front page to the next editor without anyone deciding to.
+>    SuperAdmins bypass the array and see the manager on deploy.
+> 7. **`@dnd-kit` arrived, confined to one primitive.** §6.7 below records that avoiding it was a
+>    deliberate choice; the owner asked for it, so `src/components/ui/sortable-list.tsx` is the
+>    only file that imports it, keyboard sensor wired. Every existing up/down list — news photos,
+>    achievements, officials, projects — is untouched. **Pass a `useId()` as the `DndContext` id:**
+>    dnd-kit numbers its `aria-describedby` ids from a module-level counter, so several lists on
+>    one page hydrate mismatched without it.
+> 8. **The carousel and history images left the bundle** for `public-media/site/`. The Punong
+>    Barangay's portrait did **not** need migrating — §3.8 listed it, but `0012` already moved it
+>    and `CaptainMessageSection` reads the officials table with the static import as a fallback.
+>    The get-involved banner is seeded as its existing `lh3` hotlink and is now replaceable, so
+>    the first edit removes one hotlink from the codebase.
+> 9. **Still hardcoded, by design:** section headings and standfirsts, the About `PageHero`, and
+>    the Join-Community panel. Making every string editable is a page builder, not a CMS.
+>    Individual headings can be promoted to fields on request.
+
+> **Admin polish pass shipped 2026-07-22.** Spec:
+> `docs/superpowers/specs/2026-07-22-admin-polish-design.md`. **Migration `0022`.**
+> Not a sub-project of the portal-overhaul umbrella — that programme finished at nine. This is
+> the list of defects and rough edges found by *using* the finished portal.
+>
+> 1. **Officials could not be published, and the reason was invisible.** Two independent causes.
+>    `OfficialsManager` was one of three managers with no **Publish** in its row menu (News,
+>    Events and Projects have one; Legislative and Transparency also do not), so the only
+>    control lived in the drawer behind an `id &&` guard — a new official had to be saved,
+>    closed and reopened before a publish button existed anywhere. And when `setOfficialStatus`
+>    refused (no portrait, or no portrait alt text) the message rendered as the last child of a
+>    scrolling body while the button sat in a fixed footer, so nobody ever saw it. **The two
+>    server-side guards are correct and were not touched** — the public card leads with the
+>    portrait and a government site cannot ship an empty `alt`. What changed is that the
+>    refusal now arrives as an error toast, and the drawer's error moved into the footer beside
+>    the button it explains. Legislative and disclosure documents gained the same row-level
+>    Publish in a 2026-07-23 follow-up — they shared the missing-action half of the pattern,
+>    though neither hides its drawer button behind a prior save.
+> 2. **A fourth directory section, `members`** (`0022`), rendered as **"Barangay Members"** below
+>    Administration and labelled just "Members" in the admin. `ALTER TYPE … ADD VALUE` cannot
+>    have its new label *used* in the transaction that adds it, so `0022` only declares it —
+>    **never add a seed row using `'members'` to that migration.**
+> 3. **Quick Services left the CMS and went back to code**, reversing that one-tenth of
+>    sub-project 9. Six links to this site's own routes change when the routes change, which is
+>    a deploy, not an edit; `src/features/home/data.ts` exists again to hold them. The block was
+>    removed from **both** `SITE_BLOCKS` and `SITE_BLOCK_SPECS` — `specFor` ends in a non-null
+>    assertion whose invariant is "every `SiteBlock` has a spec", so removing one alone is a
+>    silent crash. **Documented drift:** Postgres cannot drop an enum value, so `quick_services`
+>    survives in the SQL `site_block` enum and as an unreachable branch of `0021`'s CHECK. The
+>    TS union no longer mirrors the enum exactly, and the drift runs one way only — every value
+>    in the union must still exist in the enum.
+> 4. **`/admin` is a redirect, not a dashboard.** The Content Hub's three panels were a mock
+>    "Recent Drafts" list, a duplicate of the audit log `/admin/audit` already owns, and three
+>    shortcut cards; with the first two removed at the owner's request there was nothing to land
+>    on. It now sends each user to the first nav entry they may reach. Settings is ungated, so a
+>    target always exists and the redirect cannot loop. `ADMIN_USER` went with the hub — the last
+>    `lh3` hotlink in the admin seed data.
+> 5. **One nav gate, in `src/lib/admin-nav.ts`.** The predicate deciding which links a user sees
+>    was inline in the sidebar and about to be copied into the redirect and the title bar. It is
+>    now pure functions over a list, and **the only unit-tested code in the admin portal** —
+>    which is the point of keeping them pure: they take the list as an argument, so the tests
+>    never load a React component or lucide-react. Nav items are grouped Requests / Content /
+>    System, and the flat order of that table decides where each user lands after login.
+> 6. **`adminPageTitle` is permission-gated, and that is a disclosure control, not politeness.**
+>    The portal 404s on unpermitted routes so those modules stay hidden — but the layout, and
+>    therefore the top bar, renders *above* that 404. An ungated lookup would print
+>    "Applications" over the not-found page and undo the gating. A test pins this. The same
+>    leak existed one layer up: a gated page's static `metadata.title` is resolved regardless
+>    of what the render throws, naming the module in the browser tab over the 404. Since
+>    2026-07-23 every gated page exports `gatedMetadata(<permission>, <title>)` from
+>    `src/lib/auth.ts` instead — the title resolves only for a session holding the permission,
+>    and otherwise falls back to the layout's generic "Admin".
+> 7. **The sidebar collapses to a 72px icon rail, and its state is a cookie read server-side.**
+>    Not `localStorage` in an effect: an effect runs after paint, so the rail would render
+>    expanded and snap shut on every single load. `AdminShell` owns the state because the fixed
+>    rail and the main column's compensating margin have to move together or the layout tears.
+> 8. **Three dead stubs deleted:** the sidebar's Emergency Response button and the top bar's
+>    Notifications and Help buttons. All three were wired to nothing. A control that never works
+>    teaches people to stop trying controls.
+> 9. **The real barangay map** replaced the `lh3` placeholder on `/contact`, bundled like the
+>    seal and rendered through `next/image` rather than a CSS background. Its greyscale wash is
+>    gone — that existed to make a stock photo recede, and a real map is content. The officials
+>    page's 24/7 Action Center now dials `(077) 600 1082` from `SITE.phone` instead of `911`.
+
+> **Production baseline added 2026-07-23.** `supabase/baseline/0000_baseline_2026-07-23.sql` is
+> a single-transaction squash of migrations `0001`–`0024`, building the *final* schema state on
+> an **empty** `public` schema — it is not a replay, and it deliberately ships **without** the
+> demo seed content `0007_news_content.sql` and `0009_transparency.sql` insert, so a fresh
+> production apply doesn't land placeholder news/announcements/events/legislative/transparency
+> content on the live public site. **Two paths, and they don't mix:**
+> 1. **New environment** (production, a fresh staging, a local dev database) standing up from
+>    nothing: apply the baseline file alone, not the numbered migrations in sequence. It assumes
+>    an empty schema and fails loudly against one that already has any of `0001`–`0024` applied —
+>    that's intended, not a bug to work around.
+> 2. **Existing environment** that already has some of `0001`–`0024`: keep applying the
+>    individual numbered migrations it is missing, in order, exactly as every entry above
+>    describes. The baseline is not a substitute for that path.
+> Either way, the same two upload scripts already required by `0012` and `0021` are still
+> required once per environment — `scripts/upload-official-portraits.mjs` and
+> `scripts/upload-site-images.mjs` — or the officials directory and the Home/About pages render
+> broken images. **The baseline is a prepared artifact, not a proven one:** it has not been
+> executed against any real database yet.
+
 ---
 
 ## 1. Current State
@@ -491,7 +1051,7 @@
 | Rendering | 100% Server Components except a handful of client islands (see §5) |
 | Build | `npm run build` ✅ — static where possible; DB-backed routes (services, tickets, news/announcements/events, `/admin/*`) render dynamically |
 | Backend | **Supabase** (Postgres + Auth + Storage), reached through Server Actions and server-only query modules. Services, the four ticket flows, news/announcements/events, transparency documents (ordinances & resolutions, budget/financial documents, projects), the officials directory, and each official's achievements timeline are DB-backed. Still hardcoded: `src/constants/site.ts` and the remaining `src/features/*/data.ts` (about, home stats) |
-| Auth | **Supabase Auth**, live. `/admin` is protected; pages gate on `requirePermission(<permission>)` or `requireSuperAdmin()` (`src/lib/auth.ts`), with per-user permission checkboxes and a SuperAdmin role. Portal stays `noindex` |
+| Auth | **Supabase Auth**, live. Two layers: `src/middleware.ts` redirects unauthenticated `/admin` GETs to `/admin/login` and refreshes the session cookie (its matcher excludes Server Action POSTs via the `Next-Action` header — see the 2026-07-20 entry), and `src/lib/auth.ts` holds the real gate. Since 2026-07-22 those gates split by context: **pages** call `requirePermission(<permission>)` / `requireSuperAdmin()`, which `notFound()` so an unauthorized module is indistinguishable from a missing one; **Server Actions** call `checkPermission()` / `checkSuperAdmin()`, which return `null` so the action can hand back `{ error: NOT_FOUND }`. `requireSessionUser()` still redirects to login. Per-user permission checkboxes + a SuperAdmin role; portal stays `noindex` |
 | Images | News/announcement/event uploads go to Supabase Storage (public bucket `public-media`, 2MB, JPEG/PNG/WebP); the 12 official portraits also live in `public-media/officials/` now (uploaded once via `scripts/upload-official-portraits.mjs`), and each official's achievement photos live under `public-media/achievements/<achievementId>/` (same 2MB/JPEG-PNG-WebP limits, migration 0013, staging only). Transparency PDFs go to a separate public bucket `public-documents` (10MB cap). Seed rows and the rest of the site are still hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — moving those to owned storage is outstanding. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), the Punong Barangay's portrait reused by the About-page `CAPTAIN` block, About history-timeline images (seal + carousel photo) |
 
 ### Routes
@@ -519,7 +1079,7 @@
 
 | Route | Page | Composed from |
 | --- | --- | --- |
-| `/admin` | Create Content hub | `ContentHub` → `ContentTypeCard` ×3, `RecentDrafts`, `PublishingActivity` |
+| `/admin` | Redirect (no page) | `firstPermittedPath()` (`src/lib/admin-nav.ts`) sends the user straight to the first module their permissions allow; the Create Content hub this used to render is deleted |
 | `/admin/officials` | Officials Directory | `OfficialsManager` (table + drawer editor, portrait upload, achievements sub-list — `AchievementsEditor` + `AchievementPhotoUploader`); permission `manage-officials` |
 | `/admin/services` | Services Management | `ServicesManager` (table + drawer editor) + `AssistanceCategoriesPanel` (SuperAdmin add/rename/reorder/retire the assistance category picker) |
 | `/admin/applications` | Certificate Applications | `ApplicationsManager` (stat cards + queue + review/create drawers) |
@@ -531,11 +1091,12 @@
 | `/admin/news` | News & Announcements | `NewsManager` (DB-backed — tabbed News / Announcements card grids + filters + drawer editors + photo uploader) + `NewsCategoriesPanel` (SuperAdmin add/rename/reorder/retire the news category picker); permission `manage-news` |
 | `/admin/settings` | Settings | `SettingsPanel` (profile, security, preferences, team) |
 
-Admin mock data lives in `src/features/admin/data.ts`: hub constants (`ADMIN_NAV_ITEMS`,
-`ADMIN_USER`, `CONTENT_TYPE_ACTIONS`, `RECENT_DRAFTS`, `PUBLISHING_ACTIVITY`) plus one seed
-array still on mocks — `ADMIN_TEAM` — and label maps (`EVENT_CATEGORY_LABELS`,
-`TEAM_ROLE_LABELS`, `DRAFT_STATUS_LABELS`; `EVENT_CATEGORY_LABELS` is still a mock-era label
-map but is now used to label the DB-backed `events.category` enum, not a mock field).
+Admin mock data lives in `src/features/admin/data.ts`: the real nav constant
+(`ADMIN_NAV_ITEMS`) plus one seed array still on mocks — `ADMIN_TEAM`, which nothing renders
+— and label maps (`EVENT_CATEGORY_LABELS`, `TEAM_ROLE_LABELS`; `EVENT_CATEGORY_LABELS` is
+still a mock-era label map but is now used to label the DB-backed `events.category` enum, not
+a mock field). `ADMIN_USER`, `CONTENT_TYPE_ACTIONS`, `RECENT_DRAFTS`, `PUBLISHING_ACTIVITY`,
+and `DRAFT_STATUS_LABELS` were deleted along with the `/admin` content hub they backed.
 Services, applications, news, announcements, events, and (as of 2026-07-20) transparency
 documents are now DB-backed (see the Routes table
 and §2); their old mocks (`ADMIN_SERVICES`, `MOCK_SERVICES`, `ADMIN_APPLICATIONS`,
@@ -548,10 +1109,10 @@ used were deleted once the DB queries replaced every consumer — as was the who
 that feature), `src/features/transparency/data.ts` (deleted outright — only `queries.ts`
 and `components/` remain in that feature too), and the announcements/events seed arrays in
 `src/features/home/data.ts`.
-Admin entity types in `src/types/index.ts`:
-`ContentDraft` (status: `draft | in-review`), `PublishingActivityEntry`, `ContentTypeAction`,
-plus the envelope/record and `*FormValues` contract types listed in §2. Public routes sit in
-the `app/(public)` route group; admin has its own `app/admin/layout.tsx`.
+Admin entity types in `src/types/index.ts`: the envelope/record and `*FormValues` contract
+types listed in §2. `ContentDraft`, `PublishingActivityEntry`, and `ContentTypeAction` were
+deleted along with the `/admin` content hub they backed. Public routes sit in the
+`app/(public)` route group; admin has its own `app/admin/layout.tsx`.
 
 ### Folder architecture
 
@@ -630,21 +1191,50 @@ return components — return an icon name (e.g. `"file-text"`) and add a small
 
 ## 3. Backend Work Items (in priority order)
 
-### A. Contact inquiry form — the only true "write" today
-`src/features/contact/components/inquiry-form.tsx` (client component).
-Currently `setTimeout`-fakes success. Fields: `firstName`, `lastName`, `email`,
-`phone?`, `subject` (enum: general | documents | complaint | emergency | others),
-`message`, consent checkbox.
+### A. ~~Contact inquiry form~~ — **BUILT 2026-07-22** (migration `0019`)
+`src/features/contact/` now holds `schema.ts` + `actions.ts` beside the form. `submitInquiry`
+rate-limits, validates, and writes to `inquiries`; staff answer from `/admin/inquiries`
+behind the new `handle-inquiries` permission. See the sub-project 10 phase D changelog entry
+above and spec §8.
 
-**Needed**: `POST /api/inquiries` (or a Next.js Server Action). Add server-side
-validation, rate limiting, spam protection, and persistence + email notification to the
-barangay office. The Data Privacy Act consent checkbox is already in the UI — log consent
-with the record.
+**Still needed**: the email half. Nothing notifies the barangay that a message arrived, and
+nothing acknowledges it to the resident — that is §2D (Resend) below, and it is what makes
+the form's "within 24-48 business hours" promise real.
 
-### B. Newsletter / SMS alerts signup
-`src/features/announcements/components/newsletter-form.tsx` (client). Takes a mobile
-number. **Needed**: `POST /api/subscriptions` + dedupe + (later) an SMS/email dispatch
-pipeline.
+### B. ~~Newsletter / SMS alerts signup~~ — **BUILT 2026-07-22** (migration `0019`)
+`subscribeToAlerts` in `src/features/announcements/actions.ts` writes to
+`alert_subscribers`, normalising the mobile number so the unique index de-duplicates.
+
+**Still needed**: the dispatch pipeline. Numbers are collected; nothing sends to them yet,
+and there is no unsubscribe path other than a direct DB edit (`is_active`,
+`unsubscribed_at` are there for it). Both are prerequisites before the list is used.
+
+### B2. ~~Site feedback widget~~ — **BUILT 2026-07-23** (migration `0023`)
+A floating button on every public page (mounted once in `PublicShell`) opens an anonymous
+form for feedback about the **website** — bugs, broken pages, suggestions, praise.
+`submitFeedback` in `src/features/feedback/actions.ts` rate-limits (3/hour/IP), validates with
+Zod, uploads an optional screenshot, and writes to `feedback`. Staff triage it from the
+**Feedback** tab of `/admin/inquiries`, behind the same `handle-inquiries` permission.
+
+`feedback` columns: `category` (enum: general/bug/feature/complaint/praise), `subject`,
+`message`, `rating` (1–5, null = unrated), `page_path` (captured, path only), `screenshot_path`,
+`status` (enum: new/in_progress/resolved/dismissed), `staff_note`, `handled_by`, `handled_at`.
+
+**No PII by design** — no name, no email, no stored IP. So there is no DPA consent field and
+**no reply path**: staff cannot follow up on a report, ever. `/contact` remains the channel for
+anything a resident needs an answer to.
+
+Screenshots live in a **private** `feedback-media` bucket with no read policy; the admin query
+mints ten-minute signed URLs in one batch per page load. This is the only private bucket in the
+project, because a screenshot can contain the sender's own account page or ticket.
+
+**Still needed**:
+- **Staff notification on arrival.** Nothing tells anyone a report came in; the queue is
+  checked, not pushed. Blocked on §2D (Resend).
+- **Spam housekeeping.** The endpoint is anonymous and accepts images. `deleteFeedback` is
+  SuperAdmin-only and reachable only from a `dismissed` row, and it removes the screenshot —
+  but nothing prunes automatically, so a flood needs a human. `scripts/report-orphaned-media.mjs`
+  does not cover `feedback-media`.
 
 ### C. Content management (read APIs or CMS)
 Replace the `data.ts` constants, roughly in order of how often the content changes:
@@ -692,7 +1282,7 @@ now handles PDF upload + download (10MB cap), separate from `public-media` preci
 because it needed a different type/size policy than images.
 
 ### E. Admin panel + auth
-The admin **UI now exists in full** (`/admin` content hub + sections for services, certificate applications, appointments, complaints, assistance requests, transparency documents, events, news, and settings) and sits behind real auth. Services, applications, the three ticket queues, news, announcements, events, and (as of 2026-07-20) transparency documents are all DB-backed now; only team management (in Settings) and the "Recent Drafts" hub widget remain on mock data (`ADMIN_TEAM`, `RECENT_DRAFTS` in `features/admin/data.ts`). Remaining backend work, in order:
+The admin **UI now exists in full** (`/admin` redirects to the first module the signed-in user is permitted to reach; sections for services, certificate applications, appointments, complaints, assistance requests, transparency documents, events, news, and settings) and sits behind real auth. Services, applications, the three ticket queues, news, announcements, events, and (as of 2026-07-20) transparency documents are all DB-backed now; only team management (in Settings) remains on mock data (`ADMIN_TEAM` in `features/admin/data.ts`) — nothing renders it yet. The old "Recent Drafts" hub widget and its `RECENT_DRAFTS` mock were deleted along with the `/admin` content hub. Remaining backend work, in order:
 
 1. ~~**Auth first** — the `/admin` tree must sit behind a login (middleware guard + session);
    `ADMIN_USER` in `features/admin/data.ts` is the placeholder for the session user.~~

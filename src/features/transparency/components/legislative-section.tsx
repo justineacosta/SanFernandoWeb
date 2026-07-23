@@ -4,11 +4,17 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { LegislativeTable } from "@/features/transparency/components/legislative-table";
 import { listRecentLegislative } from "@/features/transparency/queries";
 
+// Five pages of five. The section is still a preview — the archive link below
+// is the route to everything — but a single screenful was too little to be
+// worth the trip for most readers.
+const PREVIEW_LIMIT = 25;
+const PREVIEW_PAGE_SIZE = 5;
+
 /** Ordinances and resolutions of the Sangguniang Barangay, each row expandable to its summary. */
 export async function LegislativeSection() {
   const [ordinances, resolutions] = await Promise.all([
-    listRecentLegislative("ordinance", 5),
-    listRecentLegislative("resolution", 5),
+    listRecentLegislative("ordinance", PREVIEW_LIMIT),
+    listRecentLegislative("resolution", PREVIEW_LIMIT),
   ]);
 
   return (
@@ -22,13 +28,21 @@ export async function LegislativeSection() {
           <h3 className="mb-4 font-display text-xl font-semibold tracking-tight text-ink-900">
             Ordinances
           </h3>
-          <LegislativeTable caption="Barangay ordinances" documents={ordinances} />
+          <LegislativeTable
+            caption="Barangay ordinances"
+            documents={ordinances}
+            previewPageSize={PREVIEW_PAGE_SIZE}
+          />
         </div>
         <div>
           <h3 className="mb-4 font-display text-xl font-semibold tracking-tight text-ink-900">
             Resolutions
           </h3>
-          <LegislativeTable caption="Barangay resolutions" documents={resolutions} />
+          <LegislativeTable
+            caption="Barangay resolutions"
+            documents={resolutions}
+            previewPageSize={PREVIEW_PAGE_SIZE}
+          />
         </div>
       </div>
       <p className="mt-8 text-center">

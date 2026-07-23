@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import type { ContentStatus, TransparencyProjectValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
+import { useFormDraft } from "@/hooks/use-form-draft";
+import { useAdminUserId } from "./admin-user-context";
+import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import {
-  deleteTransparencyProject,
   saveTransparencyProject,
   setTransparencyProjectStatus,
 } from "@/features/admin/actions/transparency-projects";
@@ -41,6 +43,7 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
   const [keptIds, setKeptIds] = useState<string[]>(record?.files.map((f) => f.id) ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const draft = useFormDraft(useAdminUserId(), "transparency-project", id, values);
 
   const set = <K extends keyof TransparencyProjectValues>(
     key: K,
@@ -60,6 +63,7 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
         return;
       }
       if (result.id) setId(result.id);
+      draft.clear();
       onSaved("Project saved.");
     });
   }
@@ -79,24 +83,20 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
     });
   }
 
-  function handleDelete() {
-    const currentId = id;
-    if (!currentId) return;
-    if (!window.confirm("Delete this project? This cannot be undone.")) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await deleteTransparencyProject(currentId);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      onSaved("Project deleted.");
-    });
-  }
-
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        {draft.recovered && draft.recoveredLabel ? (
+          <DraftRecoveryBar
+            savedAtLabel={draft.recoveredLabel}
+            hasFileState={newFiles.length > 0}
+            onRestore={() => {
+              setValues(draft.recovered!.values);
+              draft.dismiss();
+            }}
+            onDiscard={draft.discard}
+          />
+        ) : null}
         <Field label="Name" htmlFor="transparency-project-name">
           <Input
             id="transparency-project-name"
@@ -182,16 +182,12 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
               </Button>
             </>
           ) : null}
-          {id && status === "published" ? (
-            <Button
-              type="button"
-              variant="outline-danger"
-              disabled={pending}
-              onClick={() => runTransition("archived", "Archived.")}
-            >
-              Archive
-            </Button>
-          ) : null}
+          {/*
+            Archive and Delete moved to the row's actions menu (sub-project 5): a
+            destructive action should not require opening an editor you did not
+            want to open. Publish stays here because it must persist the
+            on-screen values first.
+          */}
           {id && status === "archived" ? (
             <Button
               type="button"
@@ -202,13 +198,9 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
               Publish
             </Button>
           ) : null}
-          {id ? (
-            <Button type="button" variant="outline-danger" disabled={pending} onClick={handleDelete}>
-              Delete
-            </Button>
-          ) : null}
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <DraftSavedNote savedAt={draft.savedAt} />
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

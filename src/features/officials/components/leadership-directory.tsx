@@ -1,9 +1,34 @@
+import type { OfficialListItem } from "@/types";
 import { Section } from "@/components/ui/section";
 import { DividerHeading } from "@/components/shared/divider-heading";
 import { OfficialCard } from "@/components/shared/official-card";
 import { listPublishedOfficials } from "@/features/officials/queries";
 
-/** Complete officials directory: chief executive, council, and administrative staff. */
+/** Shared compact-card grid used by the Administration and Members sections. */
+function CompactSection({
+  heading,
+  officials,
+  className,
+}: {
+  heading: string;
+  officials: OfficialListItem[];
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <DividerHeading>{heading}</DividerHeading>
+      <div className="mx-auto flex max-w-4xl flex-wrap justify-center gap-8">
+        {officials.map((official) => (
+          <div key={official.id} className="w-full md:w-[calc(50%-1rem)]">
+            <OfficialCard official={official} variant="compact" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Complete officials directory: chief executive, council, administration, members. */
 export async function LeadershipDirectory() {
   const officials = await listPublishedOfficials();
 
@@ -20,6 +45,7 @@ export async function LeadershipDirectory() {
   const executive = officials.filter((official) => official.group === "executive");
   const council = officials.filter((official) => official.group === "council");
   const administration = officials.filter((official) => official.group === "administration");
+  const members = officials.filter((official) => official.group === "members");
 
   return (
     <Section>
@@ -52,16 +78,15 @@ export async function LeadershipDirectory() {
       ) : null}
 
       {administration.length > 0 ? (
-        <div>
-          <DividerHeading>Administration</DividerHeading>
-          <div className="mx-auto flex max-w-4xl flex-wrap justify-center gap-8">
-            {administration.map((official) => (
-              <div key={official.id} className="w-full md:w-[calc(50%-1rem)]">
-                <OfficialCard official={official} variant="compact" />
-              </div>
-            ))}
-          </div>
-        </div>
+        <CompactSection
+          heading="Administration"
+          officials={administration}
+          className={members.length > 0 ? "mb-20" : undefined}
+        />
+      ) : null}
+
+      {members.length > 0 ? (
+        <CompactSection heading="Barangay Members" officials={members} />
       ) : null}
     </Section>
   );

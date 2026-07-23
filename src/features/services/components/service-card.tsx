@@ -16,11 +16,14 @@ export function ServiceCard({ service }: ServiceCardProps) {
   const RequirementIcon = isDanger ? Info : CheckCircle2;
 
   return (
-    <Card interactive className="flex h-full flex-col rounded-3xl p-8">
+    <Card interactive className="group flex h-full flex-col rounded-3xl p-8 hover:border-brand-300">
       <IconCircle
         icon={service.icon}
         tone={isDanger ? "danger" : "primary"}
-        className="mb-4"
+        className={cn(
+          "mb-4 transition-colors duration-(--duration-quick)",
+          !isDanger && "group-hover:bg-brand-200 group-hover:text-brand-800",
+        )}
       />
       <h3 className="mb-2 text-xl font-semibold">{service.title}</h3>
       <p className="mb-8 flex-grow text-ink-600">{service.description}</p>

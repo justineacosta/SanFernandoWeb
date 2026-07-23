@@ -2,10 +2,13 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Section } from "@/components/ui/section";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { HISTORY_TIMELINE } from "@/features/about/data";
+import { listHistoryTimeline } from "@/features/site-content/queries";
 
 /** Alternating vertical timeline of the barangay's history. */
-export function HistorySection() {
+export async function HistorySection() {
+  const timeline = await listHistoryTimeline();
+  // "Our Rich History" over a bare centre rule is worse than no section at all.
+  if (timeline.length === 0) return null;
   return (
     <Section tone="white" className="py-16 md:py-24">
       <SectionHeading
@@ -19,7 +22,7 @@ export function HistorySection() {
           aria-hidden="true"
         />
         <ol className="space-y-12">
-          {HISTORY_TIMELINE.map((entry, index) => {
+          {timeline.map((entry, index) => {
             const reversed = index % 2 === 1;
             return (
               <li
@@ -30,7 +33,7 @@ export function HistorySection() {
                 )}
               >
                 <div className={cn("w-full md:w-1/2", !reversed && "md:text-right")}>
-                  <span className="mb-2 inline-block rounded-full bg-ink-100 px-4 py-1 font-bold text-ink-900">
+                  <span className="mb-2 inline-block rounded-full bg-brand-100 px-4 py-1 font-display font-bold tabular-nums text-brand-800">
                     {entry.year}
                   </span>
                   <h3 className="mb-2 text-xl font-semibold tracking-tight">{entry.title}</h3>

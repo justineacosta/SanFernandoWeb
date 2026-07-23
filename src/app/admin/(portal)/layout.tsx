@@ -1,7 +1,8 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
-import { AdminSidebar } from "@/features/admin/components/admin-sidebar";
-import { AdminTopBar } from "@/features/admin/components/admin-topbar";
+import { AdminShell } from "@/features/admin/components/admin-shell";
+import { AdminUserProvider } from "@/features/admin/components/admin-user-context";
 
 export default async function AdminPortalLayout({
   children,
@@ -11,19 +12,16 @@ export default async function AdminPortalLayout({
   const user = await getSessionUser();
   if (!user) redirect("/admin/login");
 
+  // Seeds AdminShell's initial state so a collapsed sidebar renders collapsed
+  // on first paint rather than snapping shut after hydration.
+  const cookieStore = await cookies();
+  const collapsed = cookieStore.get("sf-admin-sidebar")?.value === "collapsed";
+
   return (
-    <div className="flex min-h-screen bg-white">
-      <AdminSidebar
-        className="fixed left-0 top-0 hidden md:flex"
-        isSuperAdmin={user.isSuperAdmin}
-        permissions={user.permissions}
-      />
-      <div className="flex min-h-screen w-full flex-1 flex-col md:ml-64">
-        <AdminTopBar user={user} />
-        <main className="mx-auto w-full max-w-(--container-page) flex-1 p-4 md:p-8">
-          {children}
-        </main>
-      </div>
-    </div>
+    <AdminUserProvider userId={user.id}>
+      <AdminShell user={user} defaultCollapsed={collapsed}>
+        {children}
+      </AdminShell>
+    </AdminUserProvider>
   );
 }

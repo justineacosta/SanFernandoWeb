@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
 import { Section } from "@/components/ui/section";
 import { ApplyUnavailable } from "@/features/services/components/apply-unavailable";
@@ -17,7 +18,7 @@ export default async function NewComplaintPage() {
   return (
     <>
       <PageHero
-        title="File an Incident Report"
+        title={<>File an Incident <BrandStroke>Report</BrandStroke></>}
         description="Tell us what happened. The Lupong Tagapamayapa reviews every report and will contact you about mediation."
       />
       {available ? (

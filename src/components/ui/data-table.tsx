@@ -54,7 +54,7 @@ export function DataTable<T>({ columns, rows, rowKey, caption, className }: Data
               {columns.map((column) => (
                 <td
                   key={column.header}
-                  className={cn("px-6 py-4", column.align === "right" && "text-right", column.className)}
+                  className={cn("px-6 py-4 tabular-nums", column.align === "right" && "text-right", column.className)}
                 >
                   {column.cell(row)}
                 </td>

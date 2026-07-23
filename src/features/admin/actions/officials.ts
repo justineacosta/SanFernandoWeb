@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, OfficialValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
-import { recordActivity } from "@/lib/audit";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
+import { guardDelete, statusPatch } from "@/lib/archive";
+import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getOfficialForEdit } from "@/features/admin/queries/officials";
 import { PUBLIC_MEDIA_BUCKET } from "@/lib/storage";
-import { removeStoredImage } from "./media";
+import { discardImage, removeStoredImage, uploadSingleImage } from "@/lib/media";
 
 export interface ActionResult {
   error: string | null;
@@ -28,7 +29,7 @@ const optionalText = z
 const schema = z.object({
   name: z.string().trim().min(3, "Enter the official's full name."),
   role: z.string().trim().min(3, "Enter their position."),
-  group: z.enum(["executive", "council", "administration"]),
+  group: z.enum(["executive", "council", "administration", "members"]),
   badge: optionalText,
   // A `public-media` officials object path only — never a remote URL. Accepts
   // both seeded paths (officials/dominic-b-dela-cruz.jpg) and uploaded paths
@@ -97,15 +98,17 @@ async function uniqueSlug(
  * and cannot be imported into the "use client" manager).
  */
 export async function getOfficialForEditAction(id: string) {
-  await requirePermission("manage-officials");
+  if (!(await checkPermission("manage-officials"))) return null;
   return getOfficialForEdit(id);
 }
 
 export async function saveOfficial(
   id: string | null,
   values: OfficialValues,
+  portraitForm: FormData,
 ): Promise<SaveResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND, id: null };
   const parsed = schema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
@@ -115,13 +118,36 @@ export async function saveOfficial(
   const base = slugify(parsed.data.name);
   if (!base) return { error: "Enter a name with letters or numbers.", id: null };
 
+  // Upload first, then compensate on any later failure — see saveAnnouncement.
+  const incoming = portraitForm.get("image");
+  const removePortrait = portraitForm.get("removeImage") === "1";
+  let uploadedPath: string | null = null;
+  if (incoming instanceof File && incoming.size > 0) {
+    const uploaded = await uploadSingleImage("officials", incoming);
+    if (uploaded.error) return { error: uploaded.error, id: null };
+    uploadedPath = uploaded.src;
+  }
+
+  async function fail(error: string): Promise<SaveResult> {
+    if (uploadedPath) {
+      const removed = await removeStoredImage(uploadedPath);
+      if (removed.error) {
+        console.error(`Orphaned storage object (compensating delete failed): ${uploadedPath}`);
+      }
+    }
+    return { error, id: null };
+  }
+
+  const nextPhotoPath = uploadedPath ?? (removePortrait ? null : parsed.data.photoPath);
+  const nextPhotoAlt = nextPhotoPath ? parsed.data.photoAlt : "";
+
   const patch = {
     name: parsed.data.name,
     role: parsed.data.role,
     group: parsed.data.group,
     badge: parsed.data.badge,
-    photo_path: parsed.data.photoPath,
-    photo_alt: parsed.data.photoAlt,
+    photo_path: nextPhotoPath,
+    photo_alt: nextPhotoAlt,
     term: parsed.data.term,
     email: parsed.data.email,
     phone: parsed.data.phone,
@@ -134,8 +160,8 @@ export async function saveOfficial(
       .select("status, slug, photo_path, published_at")
       .eq("id", id)
       .maybeSingle();
-    if (readErr) return { error: "Could not save the official.", id: null };
-    if (!existing) return { error: "Official not found.", id: null };
+    if (readErr) return fail("Could not save the official.");
+    if (!existing) return fail("Official not found.");
 
     // Lock the slug once EVER published (not just currently published) — a
     // shared or bookmarked profile URL must not move under whoever holds it,
@@ -144,7 +170,7 @@ export async function saveOfficial(
     let slug = existing.slug as string;
     if (!everPublished) {
       const slugResult = await uniqueSlug(admin, base, id);
-      if (!slugResult.ok) return { error: slugResult.error, id: null };
+      if (!slugResult.ok) return fail(slugResult.error);
       slug = slugResult.slug;
     }
 
@@ -157,35 +183,35 @@ export async function saveOfficial(
       query = query.is("published_at", null);
     }
     const { data: updated, error } = await query.select("id").maybeSingle();
-    if (error) return { error: "Could not save the official.", id: null };
+    if (error) return fail("Could not save the official.");
     if (!updated) {
-      return {
-        error: everPublished
+      return fail(
+        everPublished
           ? "Official not found."
           : "This official was published while you were editing. Reopen and try again.",
-        id: null,
-      };
+      );
     }
 
     // Deferred delete: only once the row no longer references the old
     // portrait. A remote URL is left alone by removeStoredImage.
     const oldPath = existing.photo_path as string | null;
-    if (oldPath && oldPath !== parsed.data.photoPath) {
-      const removed = await removeStoredImage(oldPath);
-      if (removed.error) {
-        // A failed cleanup must not fail the save the user just made, but the
-        // orphan it leaves is invisible otherwise — log the path for a human.
-        console.error(`Orphaned storage object (portrait cleanup failed): ${oldPath}`);
-      }
+    if (oldPath && oldPath !== nextPhotoPath) {
+      await discardImage(oldPath, "portrait replaced");
     }
 
-    await recordActivity(actor, "updated official", "official", id, parsed.data.name);
+    await recordActivity(actor, {
+      type: "update",
+      action: "updated official",
+      entityType: "official",
+      entityId: id,
+      entityLabel: parsed.data.name,
+    });
     revalidate(slug);
     return { error: null, id };
   }
 
   const slugResult = await uniqueSlug(admin, base, null);
-  if (!slugResult.ok) return { error: slugResult.error, id: null };
+  if (!slugResult.ok) return fail(slugResult.error);
 
   // New officials land at the end of the directory.
   const { data: last } = await admin
@@ -201,9 +227,15 @@ export async function saveOfficial(
     .insert({ ...patch, slug: slugResult.slug, sort_order: nextOrder })
     .select("id")
     .single();
-  if (error || !data) return { error: "Could not create the official.", id: null };
+  if (error || !data) return fail("Could not create the official.");
 
-  await recordActivity(actor, "created official", "official", data.id, parsed.data.name);
+  await recordActivity(actor, {
+    type: "create",
+    action: "created official",
+    entityType: "official",
+    entityId: data.id,
+    entityLabel: parsed.data.name,
+  });
   revalidate(slugResult.slug);
   return { error: null, id: data.id };
 }
@@ -217,7 +249,8 @@ export async function setOfficialStatus(
   id: string,
   status: ContentStatus,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
 
   const statusResult = statusSchema.safeParse(status);
   if (!statusResult.success) {
@@ -245,7 +278,7 @@ export async function setOfficialStatus(
     };
   }
 
-  const patch: Record<string, unknown> = { status: nextStatus };
+  const patch = statusPatch(actor, nextStatus);
   if (nextStatus === "published" && !existing.published_at) {
     patch.published_at = new Date().toISOString();
   }
@@ -253,24 +286,32 @@ export async function setOfficialStatus(
   const { error } = await admin.from("officials").update(patch).eq("id", id);
   if (error) return { error: "Could not update the official." };
 
-  await recordActivity(actor, `${nextStatus} official`, "official", id, existing.name as string);
+  await recordActivity(actor, {
+    type: auditTypeForStatus(nextStatus),
+    action: `${nextStatus} official`,
+    entityType: "official",
+    entityId: id,
+    entityLabel: existing.name as string,
+  });
   revalidate(existing.slug as string);
   return { error: null };
 }
 
 /**
- * Hard delete — for mistakes only. Archiving is the normal path for a
- * departure (spec §6): the record is term history worth keeping.
+ * Hard delete — SuperAdmin only, and only from `archived` (umbrella §3.2).
+ * Archiving is the normal path for a departure (spec §6): the record is term
+ * history worth keeping, and this removes the portrait and every achievement
+ * photo with no undo.
  */
 export async function deleteOfficial(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const guard = await guardDelete<{ name: string; slug: string; photo_path: string | null }>(
+    "officials",
+    id,
+    "name, slug, photo_path",
+  );
+  if (!guard.ok) return { error: guard.error };
+  const { actor, row: existing } = guard;
   const admin = createSupabaseAdminClient();
-
-  const { data: existing } = await admin
-    .from("officials")
-    .select("name, slug, photo_path")
-    .eq("id", id)
-    .maybeSingle();
 
   // Deleting the official cascades away its achievements and their photo
   // ROWS, but Postgres knows nothing about Storage. Collect the objects while
@@ -303,14 +344,52 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
   const { error } = await admin.from("officials").delete().eq("id", id);
   if (error) return { error: "Could not delete the official." };
 
-  if (existing?.photo_path) {
-    const removed = await removeStoredImage(existing.photo_path as string);
+  if (existing.photo_path) {
+    const removed = await removeStoredImage(existing.photo_path);
     if (removed.error) {
       console.error(`Orphaned storage object (portrait cleanup failed): ${existing.photo_path}`);
     }
   }
-  await recordActivity(actor, "deleted official", "official", id, (existing?.name as string) ?? "");
-  revalidate((existing?.slug as string) ?? undefined);
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted official",
+    entityType: "official",
+    entityId: id,
+    entityLabel: existing.name,
+  });
+  revalidate(existing.slug);
+  return { error: null };
+}
+
+/**
+ * Bring an archived official back as a draft — not straight to the public
+ * directory. See `restorePatch`.
+ */
+export async function restoreOfficial(id: string): Promise<ActionResult> {
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("officials")
+    .update(statusPatch(actor, "draft"))
+    .eq("id", id)
+    // Guarded in the WHERE clause so a stale tab cannot "restore" a live record
+    // back down to draft and quietly pull it off the public directory.
+    .eq("status", "archived")
+    .select("name, slug")
+    .maybeSingle();
+  if (error) return { error: "Could not restore the official." };
+  if (!data) return { error: "That official is not archived. Refresh to see the current state." };
+
+  await recordActivity(actor, {
+    type: "restore",
+    action: "restored official",
+    entityType: "official",
+    entityId: id,
+    entityLabel: data.name as string,
+  });
+  revalidate(data.slug as string);
   return { error: null };
 }
 
@@ -321,7 +400,8 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
  * columns this partial payload omits).
  */
 export async function reorderOfficials(orderedIds: string[]): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = reorderSchema.safeParse(orderedIds);
   if (!parsed.success) return { error: "Invalid ordering." };
 
@@ -334,7 +414,11 @@ export async function reorderOfficials(orderedIds: string[]): Promise<ActionResu
     if (error) return { error: "Could not save the new order." };
   }
 
-  await recordActivity(actor, "reordered officials", "official");
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered officials",
+    entityType: "official",
+  });
   revalidate();
   return { error: null };
 }

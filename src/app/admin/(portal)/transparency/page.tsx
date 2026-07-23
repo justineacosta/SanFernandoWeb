@@ -1,5 +1,4 @@
-import type { Metadata } from "next";
-import { requirePermission } from "@/lib/auth";
+import { gatedMetadata, requirePermission } from "@/lib/auth";
 import { TransparencyManager, TransparencyCategoriesPanel } from "@/features/admin";
 import {
   listAdminLegislative,
@@ -8,7 +7,7 @@ import {
 } from "@/features/admin/queries/transparency";
 import { listTransparencyCategories } from "@/features/admin/queries/transparency-categories";
 
-export const metadata: Metadata = { title: "Transparency" };
+export const generateMetadata = gatedMetadata("manage-transparency", "Transparency");
 
 export default async function AdminTransparencyPage() {
   const user = await requirePermission("manage-transparency");
@@ -25,6 +24,7 @@ export default async function AdminTransparencyPage() {
         documents={files}
         projects={projects}
         categories={categories}
+        isSuperAdmin={user.isSuperAdmin}
       />
       {user.isSuperAdmin ? (
         <div className="mt-8">

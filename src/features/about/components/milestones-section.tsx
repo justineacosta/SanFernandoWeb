@@ -2,10 +2,13 @@ import { FileText } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Section } from "@/components/ui/section";
 import { SectionHeading } from "@/components/ui/section-heading";
-import { MILESTONES } from "@/features/about/data";
+import { listMilestones } from "@/features/site-content/queries";
 
 /** Numbered program cards ("Community Programs"). */
-export function MilestonesSection() {
+export async function MilestonesSection() {
+  const milestones = await listMilestones();
+  // Nothing left worth the heading, the standfirst, or the reports link.
+  if (milestones.length === 0) return null;
   return (
     <Section tone="muted" className="py-16 md:py-24">
       <SectionHeading
@@ -14,7 +17,7 @@ export function MilestonesSection() {
         action={{ label: "View All Reports", href: "/transparency" }}
       />
       <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-        {MILESTONES.map(({ icon: Icon, title, description, meta }, index) => (
+        {milestones.map(({ icon: Icon, title, description, meta }, index) => (
           <Card key={title} interactive className="rounded-3xl p-8">
             <div className="mb-6 flex items-center justify-between">
               <Icon className="h-10 w-10 text-brand-700" aria-hidden="true" />

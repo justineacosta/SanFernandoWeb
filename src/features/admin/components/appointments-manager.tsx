@@ -6,8 +6,13 @@ import type { AppointmentReviewValues, AppointmentRow, WalkInAppointmentValues }
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
+import { useTableSort } from "@/components/ui/use-table-sort";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
   completeAppointment,
   createWalkInAppointment,
@@ -40,7 +45,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const totalCount = appointments.length;
@@ -48,20 +53,48 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
   const confirmedCount = appointments.filter((record) => record.status === "confirmed").length;
 
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return appointments.filter(
-      (record) =>
-        (query === "" ||
-          `${record.firstName} ${record.lastName}`.toLowerCase().includes(query) ||
-          record.ticketNo.toLowerCase().includes(query)) &&
-        (status === "all" || record.status === status),
+    const narrowed = appointments.filter(
+      (record) => status === "all" || record.status === status,
+    );
+    return fuzzyFilter(narrowed, search, (record) =>
+      haystack(
+        record.firstName,
+        record.lastName,
+        record.ticketNo,
+        record.contactNumber,
+        record.email,
+        record.purpose,
+      ),
     );
   }, [appointments, search, status]);
 
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Newest first by default — the queue is worked from the top. Schedule sorts
+  // by the confirmed date when there is one, otherwise the requested date.
+  const { sorted, sortKey, sortDir, toggle } = useTableSort(
+    filtered,
+    { key: "filed", dir: "desc" },
+    {
+      resident: (r) => `${r.lastName} ${r.firstName}`,
+      schedule: (r) => r.confirmedDate ?? r.preferredDate,
+      filed: (r) => r.submittedAt,
+      status: (r) => r.status,
+    },
+  );
+
+  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const reviewing = reviewingId
     ? (appointments.find((record) => record.id === reviewingId) ?? null)
     : null;
+
+  // Global-search results link here as ?review=<id>.
+  useEditDeepLink("review", (id) => {
+    if (appointments.some((record) => record.id === id)) {
+      setFormError(null);
+      setReviewingId(id);
+    } else {
+      showError("That appointment no longer exists.");
+    }
+  });
 
   const closeReview = () => {
     setReviewingId(null);
@@ -77,7 +110,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
         return;
       }
       closeReview();
-      setToast(values.status === "confirmed" ? "Appointment confirmed." : "Appointment declined.");
+      showToast(values.status === "confirmed" ? "Appointment confirmed." : "Appointment declined.");
     });
   };
 
@@ -90,7 +123,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
         return;
       }
       closeReview();
-      setToast("Marked as completed.");
+      showToast("Marked as completed.");
     });
   };
 
@@ -104,7 +137,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
       }
       setCreateOpen(false);
       setPage(1);
-      setToast("Walk-in appointment encoded.");
+      showToast("Walk-in appointment encoded.");
     });
   };
 
@@ -153,6 +186,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
           action={
             <AdminFilterBar
               search={{
+                id: "appointment-search",
                 value: search,
                 placeholder: "Search name or ticket no…",
                 onChange: (value) => {
@@ -196,10 +230,10 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
               <table className="w-full min-w-160 text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    <th scope="col" className="px-6 py-4">Resident</th>
-                    <th scope="col" className="px-6 py-4">Requested Schedule</th>
-                    <th scope="col" className="px-6 py-4">Date Filed</th>
-                    <th scope="col" className="px-6 py-4">Status</th>
+                    <SortableTh label="Resident" sortKey="resident" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Requested Schedule" sortKey="schedule" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Date Filed" sortKey="filed" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
                     <th scope="col" className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -275,7 +309,9 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

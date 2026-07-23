@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ApplicationReviewValues, WalkInApplicationValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -64,7 +64,8 @@ export async function reviewApplication(
   id: string,
   values: ApplicationReviewValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("process-applications");
+  const actor = await checkPermission("process-applications");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = reviewSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid review." };
@@ -89,20 +90,24 @@ export async function reviewApplication(
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That application was already reviewed. Refresh to see its status." };
 
-  await recordActivity(
-    actor,
-    parsed.data.status === "approved" ? "approved application" : "rejected application",
-    "application",
-    data.ticket_no,
-    parsed.data.remarks || undefined,
-  );
+  const approved = parsed.data.status === "approved";
+  await recordActivity(actor, {
+    type: approved ? "approve" : "reject",
+    action: approved ? "approved application" : "rejected application",
+    entityType: "application",
+    // Ticket rows carry a human-readable id, so it doubles as the label.
+    entityId: data.ticket_no,
+    entityLabel: data.ticket_no,
+    detail: parsed.data.remarks || undefined,
+  });
   revalidatePath("/admin/applications");
   return { error: null };
 }
 
 /** Mark an approved application as claimed at the hall. */
 export async function releaseApplication(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("process-applications");
+  const actor = await checkPermission("process-applications");
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("applications")
@@ -119,7 +124,12 @@ export async function releaseApplication(id: string): Promise<ActionResult> {
   if (error) return { error: "Could not mark it released." };
   if (!data) return { error: "Only approved applications can be released. Refresh to see its status." };
 
-  await recordActivity(actor, "released application", "application", data.ticket_no);
+  await recordActivity(actor, {
+    type: "update",
+    action: "released application",
+    entityType: "application",
+    entityId: data.ticket_no,
+  });
   revalidatePath("/admin/applications");
   return { error: null };
 }
@@ -128,7 +138,8 @@ export async function releaseApplication(id: string): Promise<ActionResult> {
 export async function createWalkInApplication(
   values: WalkInApplicationValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("process-applications");
+  const actor = await checkPermission("process-applications");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = walkInSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -164,7 +175,12 @@ export async function createWalkInApplication(
     return { error: "Could not encode the application." };
   }
 
-  await recordActivity(actor, "encoded walk-in application", "application", data.ticket_no);
+  await recordActivity(actor, {
+    type: "create",
+    action: "encoded walk-in application",
+    entityType: "application",
+    entityId: data.ticket_no,
+  });
   revalidatePath("/admin/applications");
   return { error: null };
 }

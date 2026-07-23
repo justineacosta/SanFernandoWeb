@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
 import { Section } from "@/components/ui/section";
 import { ApplyForm } from "@/features/services/components/apply-form";
@@ -27,7 +28,10 @@ export default async function ApplyPage({ params }: ApplyPageProps) {
 
   return (
     <>
-      <PageHero title={`Apply for a ${service.title}`} description={service.description} />
+      <PageHero
+        title={<><BrandStroke>Apply</BrandStroke> for a {service.title}</>}
+        description={service.description}
+      />
       {service.isAvailable ? (
         <Section>
           <div className="mx-auto max-w-3xl">

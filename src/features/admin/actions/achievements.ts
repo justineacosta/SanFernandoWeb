@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AchievementValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { PUBLIC_MEDIA_BUCKET } from "@/lib/storage";
@@ -63,7 +63,8 @@ async function officialIdFor(admin: Admin, achievementId: string): Promise<strin
  * unfinished entry cannot reach the site.
  */
 export async function createAchievement(officialId: string): Promise<CreateResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND, id: null };
   if (!idSchema.safeParse(officialId).success) {
     return { error: "Invalid official.", id: null };
   }
@@ -89,7 +90,12 @@ export async function createAchievement(officialId: string): Promise<CreateResul
     .single();
   if (error || !data) return { error: "Could not add the achievement.", id: null };
 
-  await recordActivity(actor, "added achievement", "official", officialId);
+  await recordActivity(actor, {
+    type: "create",
+    action: "added achievement",
+    entityType: "official",
+    entityId: officialId,
+  });
   await revalidateForOfficial(admin, officialId);
   return { error: null, id: data.id as string };
 }
@@ -98,7 +104,8 @@ export async function updateAchievement(
   id: string,
   values: AchievementValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   if (!idSchema.safeParse(id).success) return { error: "Invalid achievement." };
 
   const parsed = valuesSchema.safeParse(values);
@@ -120,7 +127,13 @@ export async function updateAchievement(
     .eq("id", id);
   if (error) return { error: "Could not save the achievement." };
 
-  await recordActivity(actor, "updated achievement", "official", officialId, parsed.data.title);
+  await recordActivity(actor, {
+    type: "update",
+    action: "updated achievement",
+    entityType: "official",
+    entityId: officialId,
+    entityLabel: parsed.data.title,
+  });
   await revalidateForOfficial(admin, officialId);
   return { error: null };
 }
@@ -129,7 +142,8 @@ export async function setAchievementVisibility(
   id: string,
   isVisible: boolean,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   if (!idSchema.safeParse(id).success) return { error: "Invalid achievement." };
   if (typeof isVisible !== "boolean") return { error: "Invalid value." };
 
@@ -143,12 +157,12 @@ export async function setAchievementVisibility(
     .eq("id", id);
   if (error) return { error: "Could not update the achievement." };
 
-  await recordActivity(
-    actor,
-    isVisible ? "showed achievement" : "hid achievement",
-    "official",
-    officialId,
-  );
+  await recordActivity(actor, {
+    type: "update",
+    action: isVisible ? "showed achievement" : "hid achievement",
+    entityType: "official",
+    entityId: officialId,
+  });
   await revalidateForOfficial(admin, officialId);
   return { error: null };
 }
@@ -162,7 +176,8 @@ export async function reorderAchievements(
   officialId: string,
   orderedIds: string[],
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   if (!idSchema.safeParse(officialId).success) return { error: "Invalid official." };
   if (!reorderSchema.safeParse(orderedIds).success) return { error: "Invalid ordering." };
 
@@ -176,7 +191,12 @@ export async function reorderAchievements(
     if (error) return { error: "Could not save the new order." };
   }
 
-  await recordActivity(actor, "reordered achievements", "official", officialId);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered achievements",
+    entityType: "official",
+    entityId: officialId,
+  });
   await revalidateForOfficial(admin, officialId);
   return { error: null };
 }
@@ -186,7 +206,8 @@ export async function reorderAchievements(
  * ROWS; Storage objects are invisible to Postgres and must be swept here.
  */
 export async function deleteAchievement(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-officials");
+  const actor = await checkPermission("manage-officials");
+  if (!actor) return { error: NOT_FOUND };
   if (!idSchema.safeParse(id).success) return { error: "Invalid achievement." };
 
   const admin = createSupabaseAdminClient();
@@ -219,13 +240,13 @@ export async function deleteAchievement(id: string): Promise<ActionResult> {
   if (error) return { error: "Could not delete the achievement." };
 
   const officialId = existing.official_id as string;
-  await recordActivity(
-    actor,
-    "deleted achievement",
-    "official",
-    officialId,
-    (existing.title as string) ?? "",
-  );
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted achievement",
+    entityType: "official",
+    entityId: officialId,
+    entityLabel: (existing.title as string) ?? "",
+  });
   await revalidateForOfficial(admin, officialId);
   return { error: null };
 }

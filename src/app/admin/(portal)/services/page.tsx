@@ -1,13 +1,10 @@
-import type { Metadata } from "next";
-import { requireSuperAdmin } from "@/lib/auth";
+import { gatedMetadata, requireSuperAdmin } from "@/lib/auth";
 import { listServiceCatalog } from "@/features/admin/queries/services";
 import { listAssistanceCategories } from "@/features/admin/queries/assistance";
 import { ServicesManager } from "@/features/admin/components/services-manager";
 import { AssistanceCategoriesPanel } from "@/features/admin/components/assistance-categories-panel";
 
-export const metadata: Metadata = {
-  title: "Services Management",
-};
+export const generateMetadata = gatedMetadata("superadmin", "Services Management");
 
 export default async function AdminServicesPage() {
   await requireSuperAdmin();

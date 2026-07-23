@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { Container } from "@/components/ui/container";
 
 interface PageHeroProps {
-  title: string;
+  title: React.ReactNode;
   description?: string;
   eyebrow?: string;
   align?: "left" | "center";
@@ -29,11 +29,11 @@ export function PageHero({ title, description, eyebrow, align = "left", children
       <Container className={cn("relative", align === "center" && "text-center")}>
         <div className={cn("max-w-3xl", align === "center" && "mx-auto")}>
           {eyebrow ? (
-            <Badge variant="soft" className="mb-5">
+            <Eyebrow className={cn("mb-5", align === "center" && "justify-center")}>
               {eyebrow}
-            </Badge>
+            </Eyebrow>
           ) : null}
-          <h1 className="text-balance font-display text-4xl font-semibold leading-[1.1] tracking-tight text-ink-900 md:text-5xl">
+          <h1 className="text-balance font-display text-5xl font-semibold leading-[1.05] tracking-tight text-ink-900 md:text-6xl">
             {title}
           </h1>
           {description ? (

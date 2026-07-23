@@ -6,8 +6,13 @@ import type { ComplaintReviewValues, ComplaintCloseValues, ComplaintRow, WalkInC
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
+import { useTableSort } from "@/components/ui/use-table-sort";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import {
   closeComplaint,
   createWalkInComplaint,
@@ -40,7 +45,7 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const totalCount = complaints.length;
@@ -48,20 +53,48 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
   const underReviewCount = complaints.filter((record) => record.status === "under-review").length;
 
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return complaints.filter(
-      (record) =>
-        (query === "" ||
-          `${record.firstName} ${record.lastName}`.toLowerCase().includes(query) ||
-          record.ticketNo.toLowerCase().includes(query)) &&
-        (status === "all" || record.status === status),
+    const narrowed = complaints.filter(
+      (record) => status === "all" || record.status === status,
+    );
+    return fuzzyFilter(narrowed, search, (record) =>
+      haystack(
+        record.firstName,
+        record.lastName,
+        record.ticketNo,
+        record.contactNumber,
+        record.email,
+        record.respondent,
+        record.location,
+      ),
     );
   }, [complaints, search, status]);
 
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Newest first by default — the queue is worked from the top.
+  const { sorted, sortKey, sortDir, toggle } = useTableSort(
+    filtered,
+    { key: "filed", dir: "desc" },
+    {
+      complainant: (r) => `${r.lastName} ${r.firstName}`,
+      location: (r) => r.location,
+      filed: (r) => r.submittedAt,
+      status: (r) => r.status,
+    },
+  );
+
+  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const reviewing = reviewingId
     ? (complaints.find((record) => record.id === reviewingId) ?? null)
     : null;
+
+  // Global-search results link here as ?review=<id>.
+  useEditDeepLink("review", (id) => {
+    if (complaints.some((record) => record.id === id)) {
+      setFormError(null);
+      setReviewingId(id);
+    } else {
+      showError("That report no longer exists.");
+    }
+  });
 
   const closeReview = () => {
     setReviewingId(null);
@@ -77,7 +110,7 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
         return;
       }
       closeReview();
-      setToast(
+      showToast(
         values.status === "under-review" ? "Report taken up for mediation." : "Report dismissed.",
       );
     });
@@ -92,7 +125,7 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
         return;
       }
       closeReview();
-      setToast(values.status === "resolved" ? "Report resolved." : "Report dismissed.");
+      showToast(values.status === "resolved" ? "Report resolved." : "Report dismissed.");
     });
   };
 
@@ -106,7 +139,7 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
       }
       setCreateOpen(false);
       setPage(1);
-      setToast("Walk-in report encoded.");
+      showToast("Walk-in report encoded.");
     });
   };
 
@@ -155,6 +188,7 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
           action={
             <AdminFilterBar
               search={{
+                id: "complaint-search",
                 value: search,
                 placeholder: "Search name or ticket no…",
                 onChange: (value) => {
@@ -198,10 +232,10 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
               <table className="w-full min-w-160 text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    <th scope="col" className="px-6 py-4">Complainant</th>
-                    <th scope="col" className="px-6 py-4">Where It Happened</th>
-                    <th scope="col" className="px-6 py-4">Date Filed</th>
-                    <th scope="col" className="px-6 py-4">Status</th>
+                    <SortableTh label="Complainant" sortKey="complainant" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Where It Happened" sortKey="location" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Date Filed" sortKey="filed" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
                     <th scope="col" className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -273,7 +307,9 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

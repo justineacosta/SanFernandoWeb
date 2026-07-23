@@ -10,18 +10,21 @@ import type {
   UploadBrowseType,
 } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { fuzzyFilter } from "@/lib/fuzzy";
 import { documentUrl } from "@/lib/storage";
 
 export const LEGISLATIVE_PAGE_SIZE = 10;
 
 const LIST_COLUMNS =
-  "id, slug, doc_type, number, title, date_approved, file_path, file_size_bytes";
+  "id, slug, doc_type, number, seq_no, year, title, date_approved, file_path, file_size_bytes";
 
 interface LegislativeRow {
   id: string;
   slug: string;
   doc_type: LegislativeType;
   number: string;
+  seq_no: number;
+  year: number;
   title: string;
   date_approved: string | null;
   summary?: string;
@@ -34,44 +37,14 @@ function toListItem(row: LegislativeRow): LegislativeListItem {
     id: row.id,
     slug: row.slug,
     docType: row.doc_type,
+    seqNo: row.seq_no,
+    year: row.year,
     number: row.number,
     title: row.title,
     dateApproved: row.date_approved,
     fileUrl: row.file_path ? documentUrl(row.file_path) : null,
     fileSizeBytes: row.file_size_bytes,
   };
-}
-
-/**
- * Escape a user search term for a PostgREST `ilike` filter.
- *
- * Two separate hazards, escaped in order:
- *  1. LIKE pattern chars — `%` and `_` are wildcards, `\` is the escape
- *     character. An unescaped `%` matches everything, which is how the same
- *     mistake in /track's surname lookup would have leaked every ticket.
- *     PostgREST *also* treats a bare `*` as an alias for `%` in ilike/like
- *     filter values (its own quoting layer, on top of Postgres LIKE), so `*`
- *     must be escaped to prevent wildcard expansion. When escaped as `\*`,
- *     PostgREST substitutes it to `\%` regardless of the backslash, and
- *     Postgres LIKE (default ESCAPE '\') decodes this as a literal percent
- *     sign. Thus a user searching for a literal `*` matches records with
- *     literal `%` instead—an accepted limitation. The essential property is
- *     that user input cannot expand into a match-everything wildcard, and
- *     this has been verified empirically against the live Supabase project
- *     (2026-07-20).
- *  2. PostgREST filter grammar — `,` `.` `(` `)` and `"` are structural inside
- *     an or() expression. Wrapping the value in double quotes makes them
- *     literal; the quote and backslash themselves then need escaping.
- */
-function ilikePattern(raw: string): string {
-  const escaped = raw
-    .replace(/\\/g, "\\\\")
-    .replace(/[%_*]/g, (char) => `\\${char}`);
-  return `%${escaped}%`;
-}
-
-function quoteFilterValue(value: string): string {
-  return `"${value.replace(/["\\]/g, (char) => `\\${char}`)}"`;
 }
 
 /** Recent published documents of one type — the /transparency preview tables. */
@@ -85,10 +58,12 @@ export async function listRecentLegislative(
     .select(`${LIST_COLUMNS}, summary`)
     .eq("status", "published")
     .eq("doc_type", docType)
-    // Pending (undated) documents sort first — the repo owner's explicit
-    // call. Postgres puts NULLs first on a DESC order by default, but say so
-    // explicitly rather than lean on that default (see 0010 migration).
-    .order("date_approved", { ascending: false, nullsFirst: true })
+    // Newest year first, counting up inside it — the owner's call, and the
+    // order the /transparency preview tables re-apply client-side. Replaces
+    // the old date_approved ordering: a document is numbered before it is
+    // approved, so date could not express this.
+    .order("year", { ascending: false })
+    .order("seq_no", { ascending: true })
     .limit(limit);
 
   if (error || !data) return [];
@@ -98,7 +73,14 @@ export async function listRecentLegislative(
   }));
 }
 
-/** Paginated search over number, title and summary. */
+/**
+ * Paginated fuzzy search over number, title and summary.
+ *
+ * Goes through the `search_legislative_documents` RPC (migration 0016) rather
+ * than a PostgREST filter: PostgREST cannot express pg_trgm's similarity
+ * operators, and the matching is per-term rather than per-row. The RPC applies
+ * `status = 'published'` itself, so the public boundary lives in one place.
+ */
 export async function searchLegislative({
   q,
   docType,
@@ -110,33 +92,25 @@ export async function searchLegislative({
 }): Promise<{ items: LegislativeDetail[]; total: number; pageSize: number }> {
   const admin = createSupabaseAdminClient();
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
-  const from = (safePage - 1) * LEGISLATIVE_PAGE_SIZE;
 
-  let query = admin
-    .from("legislative_documents")
-    .select(`${LIST_COLUMNS}, summary`, { count: "exact" })
-    .eq("status", "published");
+  const { data, error } = await admin.rpc("search_legislative_documents", {
+    p_q: q.trim(),
+    p_doc_type: docType === "all" ? null : docType,
+    p_limit: LEGISLATIVE_PAGE_SIZE,
+    p_offset: (safePage - 1) * LEGISLATIVE_PAGE_SIZE,
+  });
 
-  if (docType !== "all") query = query.eq("doc_type", docType);
-
-  const term = q.trim();
-  if (term) {
-    const value = quoteFilterValue(ilikePattern(term));
-    query = query.or(`number.ilike.${value},title.ilike.${value},summary.ilike.${value}`);
+  if (error || !data) {
+    if (error) console.error("searchLegislative failed:", error.message);
+    return { items: [], total: 0, pageSize: LEGISLATIVE_PAGE_SIZE };
   }
 
-  const { data, count, error } = await query
-    // Pending (undated) documents sort first — see listRecentLegislative.
-    .order("date_approved", { ascending: false, nullsFirst: true })
-    .range(from, from + LEGISLATIVE_PAGE_SIZE - 1);
-
-  if (error || !data) return { items: [], total: 0, pageSize: LEGISLATIVE_PAGE_SIZE };
+  const rows = data as (LegislativeRow & { total_count: number })[];
   return {
-    items: (data as LegislativeRow[]).map((row) => ({
-      ...toListItem(row),
-      summary: row.summary ?? "",
-    })),
-    total: count ?? 0,
+    items: rows.map((row) => ({ ...toListItem(row), summary: row.summary ?? "" })),
+    // total_count is a window function over the full match set, so every row
+    // carries the same value; an empty page legitimately means zero matches.
+    total: rows.length > 0 ? Number(rows[0]!.total_count) : 0,
     pageSize: LEGISLATIVE_PAGE_SIZE,
   };
 }
@@ -316,18 +290,17 @@ function compareItems(a: UploadBrowseItem, b: UploadBrowseItem, sort: string, di
 }
 
 /**
- * `q` is filtered in-memory (small dataset — legislative + documents +
- * projects together are a handful of rows), so the ilikePattern/
- * quoteFilterValue PostgREST-escaping helpers above are not needed here. If
- * this ever moves to a DB `.or()`/`.ilike()` query, route the term through
- * those helpers as searchLegislative does.
+ * `q` is matched in-memory with the shared JS matcher, not in the database:
+ * `allUploadItems()` has already merged three published tables into one list,
+ * so the rows are in memory anyway and there is nothing left to push down.
+ * This is the same forgiving contract `search_legislative_documents` applies —
+ * see the note at the top of `src/lib/fuzzy.ts`.
  */
 export async function searchUploads({ q, type, sort, dir, page }: {
   q: string; type: UploadBrowseType | "all"; sort: "date" | "title" | "type"; dir: "asc" | "desc"; page: number;
 }): Promise<{ items: UploadBrowseItem[]; total: number; pageSize: number }> {
   let items = await allUploadItems();
-  const term = q.trim().toLowerCase();
-  if (term) items = items.filter((i) => i.title.toLowerCase().includes(term));
+  items = fuzzyFilter(items, q, (item) => item.title);
   if (type !== "all") items = items.filter((i) => i.type === type);
   items.sort((a, b) => compareItems(a, b, sort, dir));
   const total = items.length;
@@ -336,7 +309,7 @@ export async function searchUploads({ q, type, sort, dir, page }: {
   return { items: items.slice(from, from + UPLOADS_PAGE_SIZE), total, pageSize: UPLOADS_PAGE_SIZE };
 }
 
-/** Most recent 5 uploads across all three sources — the /transparency preview. */
+/** Most recent uploads across all three sources — the /transparency preview. */
 export async function listLatestUploads(limit = 5): Promise<UploadBrowseItem[]> {
   const items = await allUploadItems();
   items.sort((a, b) => compareItems(a, b, "date", "desc"));

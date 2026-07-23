@@ -11,7 +11,12 @@ export interface FilterSelectConfig {
 }
 
 interface AdminFilterBarProps {
-  search?: { value: string; placeholder: string; onChange: (value: string) => void };
+  /**
+   * `id` is required rather than hardcoded because the transparency manager
+   * renders two filter bars on one page; duplicate DOM ids would break the
+   * <label for> association for screen readers on both.
+   */
+  search?: { id: string; value: string; placeholder: string; onChange: (value: string) => void };
   selects?: FilterSelectConfig[];
   date?: { label: string; value: string; onChange: (value: string) => void };
   className?: string;
@@ -27,11 +32,11 @@ export function AdminFilterBar({ search, selects, date, className }: AdminFilter
             className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400"
             aria-hidden="true"
           />
-          <label htmlFor="admin-filter-search" className="sr-only">
+          <label htmlFor={search.id} className="sr-only">
             {search.placeholder}
           </label>
           <input
-            id="admin-filter-search"
+            id={search.id}
             type="search"
             value={search.value}
             onChange={(event) => search.onChange(event.target.value)}

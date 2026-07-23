@@ -1,5 +1,6 @@
 import "server-only";
 import type { AdminNewsArticleRow, ContentStatus, NewsArticleValues, GalleryPhoto } from "@/types";
+import { ARCHIVE_SELECT, toArchiveMeta, type ArchiveMetaRow } from "@/lib/archive";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { photoUrl } from "@/lib/storage";
 import { formatDate, toManilaDate } from "@/lib/format";
@@ -11,7 +12,7 @@ interface NewsPhotoRow {
   sort_order: number;
 }
 
-interface Row {
+interface Row extends ArchiveMetaRow {
   id: string;
   slug: string;
   title: string;
@@ -30,7 +31,7 @@ export async function listNewsArticles(): Promise<AdminNewsArticleRow[]> {
   const { data, error } = await admin
     .from("news_articles")
     .select(
-      "id, slug, title, category_id, excerpt, status, published_at, updated_at, news_categories(label), news_photos(id, src, alt, sort_order)",
+      `id, slug, title, category_id, excerpt, status, published_at, updated_at, news_categories(label), news_photos(id, src, alt, sort_order), ${ARCHIVE_SELECT}`,
     )
     .order("updated_at", { ascending: false });
   if (error || !data) return [];
@@ -49,6 +50,7 @@ export async function listNewsArticles(): Promise<AdminNewsArticleRow[]> {
       photoCount: r.news_photos.length,
       updatedLabel: formatDate(toManilaDate(r.updated_at)),
       publishedLabel: r.published_at ? formatDate(toManilaDate(r.published_at)) : null,
+      ...toArchiveMeta(r),
     };
   });
 }

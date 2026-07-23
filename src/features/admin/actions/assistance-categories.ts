@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AssistanceCategoryValues } from "@/types";
-import { requireSuperAdmin } from "@/lib/auth";
+import { NOT_FOUND, checkSuperAdmin } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -38,7 +38,8 @@ function slugify(title: string): string {
 export async function createAssistanceCategory(
   values: AssistanceCategoryValues,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = categorySchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -67,7 +68,13 @@ export async function createAssistanceCategory(
   });
   if (error) return { error: "Could not create the category." };
 
-  await recordActivity(actor, "added assistance category", "assistance category", id, parsed.data.label);
+  await recordActivity(actor, {
+    type: "create",
+    action: "added assistance category",
+    entityType: "assistance category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidatePath("/admin/services");
   revalidatePath("/assistance/new");
   return { error: null };
@@ -78,7 +85,8 @@ export async function renameAssistanceCategory(
   id: string,
   values: AssistanceCategoryValues,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = categorySchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -91,7 +99,13 @@ export async function renameAssistanceCategory(
     .eq("id", id);
   if (error) return { error: "Could not rename the category." };
 
-  await recordActivity(actor, "renamed assistance category", "assistance category", id, parsed.data.label);
+  await recordActivity(actor, {
+    type: "update",
+    action: "renamed assistance category",
+    entityType: "assistance category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidatePath("/admin/services");
   revalidatePath("/assistance/new");
   return { error: null };
@@ -106,7 +120,8 @@ export async function setAssistanceCategoryActive(
   id: string,
   isActive: boolean,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { error } = await admin
     .from("assistance_categories")
@@ -114,12 +129,12 @@ export async function setAssistanceCategoryActive(
     .eq("id", id);
   if (error) return { error: "Could not update the category." };
 
-  await recordActivity(
-    actor,
-    isActive ? "restored assistance category" : "retired assistance category",
-    "assistance category",
-    id,
-  );
+  await recordActivity(actor, {
+    type: isActive ? "restore" : "archive",
+    action: isActive ? "restored assistance category" : "retired assistance category",
+    entityType: "assistance category",
+    entityId: id,
+  });
   revalidatePath("/admin/services");
   revalidatePath("/assistance/new");
   return { error: null };
@@ -140,7 +155,8 @@ export async function moveAssistanceCategory(
   id: string,
   direction: "up" | "down",
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data: rows, error: readError } = await admin
     .from("assistance_categories")
@@ -171,7 +187,12 @@ export async function moveAssistanceCategory(
     .eq("id", neighbour.id);
   if (secondError) return { error: "Could not reorder categories." };
 
-  await recordActivity(actor, "reordered assistance categories", "assistance category", id);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered assistance categories",
+    entityType: "assistance category",
+    entityId: id,
+  });
   revalidatePath("/admin/services");
   revalidatePath("/assistance/new");
   return { error: null };

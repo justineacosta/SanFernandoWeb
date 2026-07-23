@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { TransparencyCategoryValues } from "@/types";
-import { requireSuperAdmin } from "@/lib/auth";
+import { NOT_FOUND, checkSuperAdmin } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -44,7 +44,8 @@ function revalidate() {
 export async function createTransparencyCategory(
   values: TransparencyCategoryValues,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = categorySchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -74,13 +75,13 @@ export async function createTransparencyCategory(
   });
   if (error) return { error: "Could not create the category." };
 
-  await recordActivity(
-    actor,
-    "added transparency category",
-    "transparency category",
-    id,
-    parsed.data.label,
-  );
+  await recordActivity(actor, {
+    type: "create",
+    action: "added transparency category",
+    entityType: "transparency category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidate();
   return { error: null };
 }
@@ -90,7 +91,8 @@ export async function renameTransparencyCategory(
   id: string,
   values: TransparencyCategoryValues,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const parsed = categorySchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -103,13 +105,13 @@ export async function renameTransparencyCategory(
     .eq("id", id);
   if (error) return { error: "Could not rename the category." };
 
-  await recordActivity(
-    actor,
-    "renamed transparency category",
-    "transparency category",
-    id,
-    parsed.data.label,
-  );
+  await recordActivity(actor, {
+    type: "update",
+    action: "renamed transparency category",
+    entityType: "transparency category",
+    entityId: id,
+    entityLabel: parsed.data.label,
+  });
   revalidate();
   return { error: null };
 }
@@ -123,7 +125,8 @@ export async function setTransparencyCategoryActive(
   id: string,
   isActive: boolean,
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { error } = await admin
     .from("transparency_categories")
@@ -131,12 +134,12 @@ export async function setTransparencyCategoryActive(
     .eq("id", id);
   if (error) return { error: "Could not update the category." };
 
-  await recordActivity(
-    actor,
-    isActive ? "restored transparency category" : "retired transparency category",
-    "transparency category",
-    id,
-  );
+  await recordActivity(actor, {
+    type: isActive ? "restore" : "archive",
+    action: isActive ? "restored transparency category" : "retired transparency category",
+    entityType: "transparency category",
+    entityId: id,
+  });
   revalidate();
   return { error: null };
 }
@@ -156,7 +159,8 @@ export async function moveTransparencyCategory(
   id: string,
   direction: "up" | "down",
 ): Promise<ActionResult> {
-  const actor = await requireSuperAdmin();
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data: rows, error: readError } = await admin
     .from("transparency_categories")
@@ -187,7 +191,12 @@ export async function moveTransparencyCategory(
     .eq("id", neighbour.id);
   if (secondError) return { error: "Could not reorder categories." };
 
-  await recordActivity(actor, "reordered transparency categories", "transparency category", id);
+  await recordActivity(actor, {
+    type: "reorder",
+    action: "reordered transparency categories",
+    entityType: "transparency category",
+    entityId: id,
+  });
   revalidate();
   return { error: null };
 }

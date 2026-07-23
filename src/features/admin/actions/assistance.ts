@@ -7,7 +7,7 @@ import type {
   AssistanceReviewValues,
   WalkInAssistanceValues,
 } from "@/types";
-import { requirePermission } from "@/lib/auth";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -81,7 +81,8 @@ export async function reviewAssistance(
   id: string,
   values: AssistanceReviewValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("handle-assistance");
+  const actor = await checkPermission("handle-assistance");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = reviewSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid review." };
@@ -106,15 +107,16 @@ export async function reviewAssistance(
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That request was already reviewed. Refresh to see its status." };
 
-  await recordActivity(
-    actor,
-    parsed.data.status === "declined"
-      ? "declined assistance request"
-      : "took up assistance request",
-    "assistance",
-    data.ticket_no,
-    parsed.data.remarks || undefined,
-  );
+  const declined = parsed.data.status === "declined";
+  await recordActivity(actor, {
+    // "took up" is a mid-flow status move, not a decision — hence update.
+    type: declined ? "reject" : "update",
+    action: declined ? "declined assistance request" : "took up assistance request",
+    entityType: "assistance",
+    entityId: data.ticket_no,
+    entityLabel: data.ticket_no,
+    detail: parsed.data.remarks || undefined,
+  });
   revalidatePath("/admin/assistance");
   return { error: null };
 }
@@ -124,7 +126,8 @@ export async function decideAssistance(
   id: string,
   values: AssistanceDecisionValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("handle-assistance");
+  const actor = await checkPermission("handle-assistance");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = decisionSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid decision." };
@@ -149,13 +152,15 @@ export async function decideAssistance(
     return { error: "Only requests under review can be decided. Refresh to see its status." };
   }
 
-  await recordActivity(
-    actor,
-    parsed.data.status === "granted" ? "granted assistance request" : "declined assistance request",
-    "assistance",
-    data.ticket_no,
-    parsed.data.remarks || undefined,
-  );
+  const granted = parsed.data.status === "granted";
+  await recordActivity(actor, {
+    type: granted ? "approve" : "reject",
+    action: granted ? "granted assistance request" : "declined assistance request",
+    entityType: "assistance",
+    entityId: data.ticket_no,
+    entityLabel: data.ticket_no,
+    detail: parsed.data.remarks || undefined,
+  });
   revalidatePath("/admin/assistance");
   return { error: null };
 }
@@ -164,7 +169,8 @@ export async function decideAssistance(
 export async function createWalkInAssistance(
   values: WalkInAssistanceValues,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("handle-assistance");
+  const actor = await checkPermission("handle-assistance");
+  if (!actor) return { error: NOT_FOUND };
   const parsed = walkInSchema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
@@ -209,7 +215,12 @@ export async function createWalkInAssistance(
     return { error: "Could not encode the request." };
   }
 
-  await recordActivity(actor, "encoded walk-in assistance request", "assistance", data.ticket_no);
+  await recordActivity(actor, {
+    type: "create",
+    action: "encoded walk-in assistance request",
+    entityType: "assistance",
+    entityId: data.ticket_no,
+  });
   revalidatePath("/admin/assistance");
   return { error: null };
 }

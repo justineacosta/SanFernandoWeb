@@ -5,6 +5,9 @@ import type { AnnouncementValues, ContentStatus } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
 import { photoUrl } from "@/lib/storage";
+import { useFormDraft } from "@/hooks/use-form-draft";
+import { useAdminUserId } from "./admin-user-context";
+import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import {
   archiveAnnouncement,
   publishAnnouncement,
@@ -40,11 +43,13 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
   const [id, setId] = useState<string | null>(record?.id ?? null);
   const [status, setStatus] = useState<ContentStatus>(record?.status ?? "draft");
   const [values, setValues] = useState<AnnouncementValues>(record?.values ?? EMPTY_VALUES);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(
-    record?.values.imageSrc ? photoUrl(record.values.imageSrc) : null,
-  );
+  // The chosen image is held here, not uploaded: see single-image-uploader.tsx
+  // and saveAnnouncement for why nothing touches storage until Save runs.
+  const [image, setImage] = useState<File | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const draft = useFormDraft(useAdminUserId(), "announcement", id, values);
 
   const set = <K extends keyof AnnouncementValues>(key: K, value: AnnouncementValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -53,13 +58,19 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveAnnouncement(id, values);
+      const fd = new FormData();
+      if (image) fd.append("image", image);
+      if (removeImage) fd.append("removeImage", "1");
+      const result = await saveAnnouncement(id, values, fd);
       if (result.error) {
         setError(result.error);
         return;
       }
       const wasNew = id === null;
       if (result.id) setId(result.id);
+      // The work is on the server: drop the recovery copy and re-baseline, so
+      // the autosave effect does not immediately write it back.
+      draft.clear();
       onSaved(wasNew ? "Draft saved." : "Announcement updated.");
     });
   }
@@ -86,6 +97,17 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        {draft.recovered && draft.recoveredLabel ? (
+          <DraftRecoveryBar
+            savedAtLabel={draft.recoveredLabel}
+            hasFileState={image !== null || removeImage}
+            onRestore={() => {
+              setValues(draft.recovered!.values);
+              draft.dismiss();
+            }}
+            onDiscard={draft.discard}
+          />
+        ) : null}
         <Field label="Title" htmlFor="announcement-title">
           <Input
             id="announcement-title"
@@ -123,14 +145,15 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
         <div>
           <h3 className="mb-2 text-sm font-medium text-ink-700">Image</h3>
           <SingleImageUploader
-            folder="announcements"
-            src={values.imageSrc}
+            idPrefix="announcement"
+            existingSrc={values.imageSrc}
+            existingPreviewUrl={values.imageSrc ? photoUrl(values.imageSrc) : null}
             alt={values.imageAlt}
-            previewUrl={previewUrl}
-            onChange={(next) => {
-              setValues((prev) => ({ ...prev, imageSrc: next.src, imageAlt: next.alt }));
-              setPreviewUrl(next.previewUrl);
-            }}
+            onAltChange={(next) => set("imageAlt", next)}
+            file={image}
+            onFileChange={setImage}
+            removeExisting={removeImage}
+            onRemoveExistingChange={setRemoveImage}
           />
         </div>
         {error ? (
@@ -202,7 +225,8 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
             </Button>
           ) : null}
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <DraftSavedNote savedAt={draft.savedAt} />
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

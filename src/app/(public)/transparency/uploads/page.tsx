@@ -1,6 +1,9 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import type { UploadBrowseType } from "@/types";
+import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
+import { PublicTableSkeleton } from "@/components/ui/public-skeleton";
 import { UploadsBrowse } from "@/features/transparency";
 
 export const metadata: Metadata = {
@@ -23,8 +26,16 @@ export default async function UploadsPage({
   const page = Number.isFinite(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
   return (
     <>
-      <PageHero title="Transparency Uploads" description="Search every published record of the barangay." />
-      <UploadsBrowse q={p.q ?? ""} type={type} sort={sort} dir={dir} page={page} />
+      <PageHero
+        title={<>Transparency <BrandStroke>Uploads</BrandStroke></>}
+        description="Search every published record of the barangay."
+      />
+      <Suspense
+        key={`${p.q ?? ""}|${type}|${sort}|${dir}|${page}`}
+        fallback={<PublicTableSkeleton what="the transparency uploads" />}
+      >
+        <UploadsBrowse q={p.q ?? ""} type={type} sort={sort} dir={dir} page={page} />
+      </Suspense>
     </>
   );
 }

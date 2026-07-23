@@ -6,6 +6,7 @@ import type {
   OfficialGroup,
   OfficialValues,
 } from "@/types";
+import { ARCHIVE_SELECT, toArchiveMeta, type ArchiveMetaRow } from "@/lib/archive";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { photoUrl } from "@/lib/storage";
 import { listAchievementsForOfficial } from "./achievements";
@@ -16,7 +17,7 @@ export async function listAdminOfficials(): Promise<AdminOfficialRow[]> {
   const { data, error } = await admin
     .from("officials")
     // `group` is a SQL reserved word — keep it quoted.
-    .select('id, slug, name, role, "group", photo_path, sort_order, status')
+    .select(`id, slug, name, role, "group", photo_path, sort_order, status, ${ARCHIVE_SELECT}`)
     .order("sort_order", { ascending: true });
 
   if (error || !data) return [];
@@ -29,6 +30,7 @@ export async function listAdminOfficials(): Promise<AdminOfficialRow[]> {
     photoUrl: row.photo_path ? photoUrl(row.photo_path as string) : null,
     sortOrder: row.sort_order as number,
     status: row.status as ContentStatus,
+    ...toArchiveMeta(row as unknown as ArchiveMetaRow),
   }));
 }
 

@@ -2,48 +2,89 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, FileClock, FileText, Pencil, Plus, ScrollText } from "lucide-react";
+import {
+  Archive,
+  Eye,
+  FileClock,
+  FileText,
+  Pencil,
+  Plus,
+  RotateCcw,
+  ScrollText,
+  Send,
+  Trash2,
+} from "lucide-react";
 import type { AdminLegislativeRow } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
+import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
+import { ViewToggle, type TableView } from "@/components/ui/view-toggle";
 import { useTableSort } from "@/components/ui/use-table-sort";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
+import { useToast } from "@/hooks/use-toast";
 import { formatDateApproved } from "@/lib/format";
-import { getLegislativeForEditAction } from "@/features/admin/actions/legislative";
+import { legislativeSortKey } from "@/lib/legislative-number";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
+import {
+  deleteLegislative,
+  getLegislativeForEditAction,
+  restoreLegislative,
+  setLegislativeStatus,
+} from "@/features/admin/actions/legislative";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPagination } from "./admin-pagination";
 import { AdminStatCard } from "./admin-stat-card";
+import { ArchivedNote } from "./archived-note";
 import { LegislativeForm, type LegislativeEditRecord } from "./legislative-form";
 import { StatusChip } from "./status-chip";
 
 const PAGE_SIZE = 6;
 
+// No "archived" here — archived documents live in their own view now, so the
+// dropdown only offers states a live record can hold.
 const STATUS_OPTIONS = [
   { value: "all", label: "All Statuses" },
   { value: "draft", label: "Draft" },
   { value: "in-review", label: "In Review" },
   { value: "published", label: "Published" },
-  { value: "archived", label: "Archived" },
 ];
 
 interface LegislativeManagerProps {
   documents: AdminLegislativeRow[];
+  /**
+   * Decides whether Delete is offered in the Archived view. Presentation only —
+   * `deleteLegislative` re-checks with `checkSuperAdmin()`.
+   */
+  isSuperAdmin: boolean;
 }
 
+/** A row action awaiting confirmation. Null when no dialog is open. */
+type PendingAction = {
+  kind: "archive" | "delete" | "restore";
+  id: string;
+  name: string;
+} | null;
+
 /** Ordinance & resolution directory: stat cards, filterable table, drawer editor backed by real actions. */
-export function LegislativeManager({ documents }: LegislativeManagerProps) {
+export function LegislativeManager({ documents, isSuperAdmin }: LegislativeManagerProps) {
   const router = useRouter();
+  const [search, setSearch] = useState("");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
+  const [view, setView] = useState<TableView>("active");
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<LegislativeEditRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<PendingAction>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [, startTransition] = useTransition();
 
   const totalOrdinances = documents.filter((r) => r.docType === "ordinance").length;
@@ -51,22 +92,23 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
   const draftsAndInReview = documents.filter(
     (r) => r.status === "draft" || r.status === "in-review",
   ).length;
+  const archivedCount = documents.filter((r) => r.status === "archived").length;
 
-  const filtered = useMemo(
-    () =>
-      documents.filter(
-        (record) =>
-          (type === "all" || record.docType === type) &&
-          (status === "all" || record.status === status),
-      ),
-    [documents, type, status],
-  );
+  const filtered = useMemo(() => {
+    const narrowed = documents.filter(
+      (record) =>
+        (record.status === "archived") === (view === "archived") &&
+        (type === "all" || record.docType === type) &&
+        (status === "all" || record.status === status),
+    );
+    return fuzzyFilter(narrowed, search, (record) => haystack(record.number, record.title));
+  }, [documents, view, search, type, status]);
 
   const { sorted, sortKey, sortDir, toggle } = useTableSort(
     filtered,
     { key: "date", dir: "desc" },
     {
-      number: (r) => r.number,
+      number: (r) => legislativeSortKey(r.year, r.seqNo),
       title: (r) => r.title,
       date: (r) => r.dateApproved,
       status: (r) => r.status,
@@ -86,7 +128,7 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
       try {
         const detail = await getLegislativeForEditAction(row.id);
         if (!detail) {
-          setToast("Could not load that document.");
+          showError("Could not load that document.");
           return;
         }
         setEditing({ id: row.id, values: detail.values, status: detail.status, fileUrl: detail.fileUrl });
@@ -97,9 +139,103 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
     });
   };
 
+  // Only mounted while the Legislative tab is showing, so it is safe for this
+  // panel to consume ?edit= unconditionally.
+  useEditDeepLink("edit", (id) => {
+    const record = documents.find((r) => r.id === id);
+    if (record) openEdit(record);
+    else showError("That document no longer exists.");
+  });
+
+  /** Run the confirmed row action; the dialog stays locked until it answers. */
+  const runConfirmed = () => {
+    if (!confirming) return;
+    const { kind, id, name } = confirming;
+    setActionPending(true);
+    startTransition(async () => {
+      const result =
+        kind === "delete"
+          ? await deleteLegislative(id)
+          : kind === "restore"
+            ? await restoreLegislative(id)
+            : await setLegislativeStatus(id, "archived");
+      setActionPending(false);
+      setConfirming(null);
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(
+        kind === "delete"
+          ? `Deleted ${name}.`
+          : kind === "restore"
+            ? `Restored ${name} as a draft.`
+            : `Archived ${name}.`,
+      );
+      router.refresh();
+    });
+  };
+
+  /** Publish straight from the row, like News, Events, Projects and Officials. */
+  const publish = (id: string, name: string) => {
+    startTransition(async () => {
+      const result = await setLegislativeStatus(id, "published");
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(`Published ${name}.`);
+      router.refresh();
+    });
+  };
+
+  const actionsFor = (record: AdminLegislativeRow): RowAction[] => {
+    const archived = record.status === "archived";
+    const actions: RowAction[] = [
+      {
+        label: archived ? "View details" : "Edit document",
+        icon: archived ? Eye : Pencil,
+        onSelect: () => openEdit(record),
+        disabled: loadingEditId === record.id,
+      },
+    ];
+    if (archived) {
+      actions.push({
+        label: "Restore",
+        icon: RotateCcw,
+        onSelect: () => setConfirming({ kind: "restore", id: record.id, name: record.number }),
+      });
+      // Umbrella §3.2: SuperAdmin only, and only from here. A repealed
+      // ordinance is legal history — deleting it removes the PDF too.
+      if (isSuperAdmin) {
+        actions.push({
+          label: "Delete",
+          icon: Trash2,
+          tone: "danger",
+          onSelect: () => setConfirming({ kind: "delete", id: record.id, name: record.number }),
+        });
+      }
+    } else if (record.status === "published") {
+      actions.push({
+        label: "Archive",
+        icon: Archive,
+        tone: "danger",
+        onSelect: () => setConfirming({ kind: "archive", id: record.id, name: record.number }),
+      });
+    } else {
+      // Draft or in-review: publishing is the row's forward action.
+      actions.push({
+        label: "Publish",
+        icon: Send,
+        onSelect: () => publish(record.id, record.number),
+      });
+    }
+    return actions;
+  };
+
   const handleSaved = (message: string) => {
     setDrawerOpen(false);
-    setToast(message);
+    showToast(message);
     router.refresh();
   };
 
@@ -133,42 +269,81 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
         />
       </div>
       <Card>
-        <CardHeader
-          title="Document Directory"
-          className="mb-0 flex-wrap gap-3 px-6 pt-6"
-          action={
-            <AdminFilterBar
-              selects={[
-                {
-                  id: "legislative-type-filter",
-                  label: "Type",
-                  value: type,
-                  options: [
-                    { value: "all", label: "All Types" },
-                    { value: "ordinance", label: "Ordinances" },
-                    { value: "resolution", label: "Resolutions" },
-                  ],
+        {/*
+          The view toggle sits on its own row under the heading rather than in
+          the header's right-hand cluster. In that cluster it shared a wrapping
+          flex row with the filter bar, so switching to Archived — which also
+          drops the Status select — reflowed the toggle itself. Here it cannot
+          move, and because search is the first control in AdminFilterBar,
+          losing a trailing select shifts nothing to its left either.
+        */}
+        <div className="border-b border-ink-200/70 px-6 pb-4 pt-6">
+          <CardHeader
+            title="Document Directory"
+            className="mb-0 flex-wrap gap-3 border-b-0 pb-0"
+            action={
+              <AdminFilterBar
+                search={{
+                  id: "legislative-search",
+                  value: search,
+                  placeholder: "Search number or title...",
                   onChange: (value) => {
-                    setType(value);
+                    setSearch(value);
                     setPage(1);
                   },
-                },
-                {
-                  id: "legislative-status-filter",
-                  label: "Status",
-                  value: status,
-                  options: STATUS_OPTIONS,
-                  onChange: (value) => {
-                    setStatus(value);
-                    setPage(1);
+                }}
+                selects={[
+                  {
+                    id: "legislative-type-filter",
+                    label: "Type",
+                    value: type,
+                    options: [
+                      { value: "all", label: "All Types" },
+                      { value: "ordinance", label: "Ordinances" },
+                      { value: "resolution", label: "Resolutions" },
+                    ],
+                    onChange: (value) => {
+                      setType(value);
+                      setPage(1);
+                    },
                   },
-                },
-              ]}
-            />
-          }
-        />
+                  // Every row in the Archived view holds the same status.
+                  ...(view === "active"
+                    ? [
+                        {
+                          id: "legislative-status-filter",
+                          label: "Status",
+                          value: status,
+                          options: STATUS_OPTIONS,
+                          onChange: (value: string) => {
+                            setStatus(value);
+                            setPage(1);
+                          },
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            }
+          />
+          <ViewToggle
+            className="mt-4"
+            view={view}
+            archivedCount={archivedCount}
+            noun="documents"
+            onChange={(next) => {
+              setView(next);
+              setStatus("all");
+              setPage(1);
+            }}
+          />
+        </div>
         {filtered.length === 0 ? (
-          <AdminEmptyState message="No documents match your filters." onClear={clearFilters} />
+          view === "archived" && archivedCount === 0 ? (
+            <AdminEmptyState message="Nothing archived. A repealed ordinance is kept here, not deleted." />
+          ) : (
+            <AdminEmptyState message="No documents match your filters." onClear={clearFilters} />
+          )
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -193,6 +368,7 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
                       <td className="max-w-90 px-6 py-4">
                         <p className="font-semibold text-ink-900">{record.title}</p>
                         <p className="truncate text-ink-500">{record.number}</p>
+                        {view === "archived" ? <ArchivedNote {...record} /> : null}
                       </td>
                       <td className="px-6 py-4">
                         <Badge variant={record.docType === "ordinance" ? "soft" : "neutral"}>
@@ -206,20 +382,10 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
                         <StatusChip status={record.status} />
                       </td>
                       <td className="px-6 py-4 text-ink-600">{record.hasFile ? "PDF" : "—"}</td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(record)}
-                          disabled={loadingEditId === record.id}
-                          aria-label={`${record.status === "archived" ? "View" : "Edit"} ${record.number}`}
-                          className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"
-                        >
-                          {record.status === "archived" ? (
-                            <Eye className="h-4 w-4" aria-hidden="true" />
-                          ) : (
-                            <Pencil className="h-4 w-4" aria-hidden="true" />
-                          )}
-                        </button>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end">
+                          <RowActions label={record.number} actions={actionsFor(record)} />
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -250,7 +416,50 @@ export function LegislativeManager({ documents }: LegislativeManagerProps) {
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      <ConfirmDialog
+        open={confirming !== null}
+        title={
+          confirming?.kind === "delete"
+            ? "Delete this document?"
+            : confirming?.kind === "restore"
+              ? "Restore this document?"
+              : "Archive this document?"
+        }
+        body={
+          confirming?.kind === "delete" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.name}</strong> and its
+              uploaded PDF will be removed permanently. This is very likely the barangay&apos;s
+              only digital copy, and there is no undo.
+            </>
+          ) : confirming?.kind === "restore" ? (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming.name}</strong> comes
+              back as a <strong className="font-semibold text-ink-900">draft</strong>, not onto
+              the public transparency board. Publish it again when you are ready.
+            </>
+          ) : (
+            <>
+              <strong className="font-semibold text-ink-900">{confirming?.name}</strong> will be
+              removed from the public transparency board. The record is kept and can be
+              published again later.
+            </>
+          )
+        }
+        confirmLabel={
+          confirming?.kind === "delete"
+            ? "Delete"
+            : confirming?.kind === "restore"
+              ? "Restore"
+              : "Archive"
+        }
+        pending={actionPending}
+        onConfirm={runConfirmed}
+        onCancel={() => setConfirming(null)}
+      />
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

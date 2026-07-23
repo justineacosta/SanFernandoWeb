@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ContentStatus, LegislativeValues } from "@/types";
-import { requirePermission } from "@/lib/auth";
-import { recordActivity } from "@/lib/audit";
+import { NOT_FOUND, checkPermission } from "@/lib/auth";
+import { guardDelete, statusPatch } from "@/lib/archive";
+import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { MAX_SEQ_NO, formatLegislativeNumber } from "@/lib/legislative-number";
 import { getLegislativeForEdit } from "@/features/admin/queries/transparency";
 import { removeStoredDocument, uploadDocumentPdf } from "./documents";
 
@@ -19,7 +21,19 @@ export interface SaveResult {
 
 const schema = z.object({
   docType: z.enum(["ordinance", "resolution"]),
-  number: z.string().trim().min(3, "Enter the official document number."),
+  // Mirrors the check constraints in migration 0024 exactly. The upper bound
+  // is load-bearing: legislativeSortKey multiplies the year by MAX_SEQ_NO + 1,
+  // so a wider sequence would sort into the neighbouring year.
+  seqNo: z
+    .number()
+    .int()
+    .min(1, "Enter a document number of 1 or more.")
+    .max(MAX_SEQ_NO, `Document number cannot exceed ${MAX_SEQ_NO}.`),
+  year: z
+    .number()
+    .int()
+    .min(1900, "Enter a four-digit year.")
+    .max(2200, "Enter a four-digit year."),
   title: z.string().trim().min(3, "Enter a title."),
   // Date approved is optional — a document can exist (and be uploaded) before
   // it's approved. An empty string means "not yet approved"; it is converted
@@ -81,7 +95,7 @@ async function uniqueSlug(
  * a drawer opens.
  */
 export async function getLegislativeForEditAction(id: string) {
-  await requirePermission("manage-transparency");
+  if (!(await checkPermission("manage-transparency"))) return null;
   return getLegislativeForEdit(id);
 }
 
@@ -90,14 +104,20 @@ export async function saveLegislative(
   values: LegislativeValues,
   fileForm: FormData,
 ): Promise<SaveResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND, id: null };
   const parsed = schema.safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
   }
+  const number = formatLegislativeNumber(
+    parsed.data.docType,
+    parsed.data.seqNo,
+    parsed.data.year,
+  );
 
   const admin = createSupabaseAdminClient();
-  const base = slugify(`${parsed.data.number} ${parsed.data.title}`);
+  const base = slugify(`${number} ${parsed.data.title}`);
   if (!base) return { error: "Enter a number and title with letters or numbers.", id: null };
 
   // Upload a newly chosen file (if any) up front — this is the only side
@@ -166,7 +186,9 @@ export async function saveLegislative(
       .from("legislative_documents")
       .update({
         doc_type: parsed.data.docType,
-        number: parsed.data.number,
+        number,
+        seq_no: parsed.data.seqNo,
+        year: parsed.data.year,
         title: parsed.data.title,
         date_approved: normalizeDateApproved(parsed.data.dateApproved),
         summary: parsed.data.summary,
@@ -199,7 +221,13 @@ export async function saveLegislative(
           : query.eq("file_path", existingFilePath);
     }
     const { data: updated, error } = await query.select("id").maybeSingle();
-    if (error) return fail("Could not save the document.");
+    if (error) {
+      return fail(
+        error.code === "23505"
+          ? `${number} already exists.`
+          : "Could not save the document.",
+      );
+    }
     // Zero rows means one of the WHERE guards above didn't hold anymore.
     // Report that explicitly instead of falling through to
     // recordActivity/revalidate, which would log and announce a save that
@@ -224,7 +252,13 @@ export async function saveLegislative(
       await removeStoredDocument(oldPath);
     }
 
-    await recordActivity(actor, "updated document", "legislative document", id, parsed.data.number);
+    await recordActivity(actor, {
+      type: "update",
+      action: "updated document",
+      entityType: "legislative document",
+      entityId: id,
+      entityLabel: number,
+    });
     revalidate(slug);
     return { error: null, id };
   }
@@ -237,7 +271,9 @@ export async function saveLegislative(
     .insert({
       slug: slugResult.slug,
       doc_type: parsed.data.docType,
-      number: parsed.data.number,
+      number,
+      seq_no: parsed.data.seqNo,
+      year: parsed.data.year,
       title: parsed.data.title,
       date_approved: normalizeDateApproved(parsed.data.dateApproved),
       summary: parsed.data.summary,
@@ -246,15 +282,21 @@ export async function saveLegislative(
     })
     .select("id")
     .single();
-  if (error || !data) return fail("Could not create the document.");
+  if (error || !data) {
+    return fail(
+      error?.code === "23505"
+        ? `${number} already exists.`
+        : "Could not create the document.",
+    );
+  }
 
-  await recordActivity(
-    actor,
-    "created document",
-    "legislative document",
-    data.id,
-    parsed.data.number,
-  );
+  await recordActivity(actor, {
+    type: "create",
+    action: "created document",
+    entityType: "legislative document",
+    entityId: data.id,
+    entityLabel: number,
+  });
   revalidate(slugResult.slug);
   return { error: null, id: data.id };
 }
@@ -268,7 +310,8 @@ export async function setLegislativeStatus(
   id: string,
   status: ContentStatus,
 ): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
 
   const statusResult = statusSchema.safeParse(status);
   if (!statusResult.success) {
@@ -285,7 +328,7 @@ export async function setLegislativeStatus(
     .maybeSingle();
   if (readErr || !existing) return { error: "Document not found." };
 
-  const patch: Record<string, unknown> = { status: nextStatus };
+  const patch = statusPatch(actor, nextStatus);
   if (nextStatus === "published" && !existing.published_at) {
     patch.published_at = new Date().toISOString();
   }
@@ -293,42 +336,71 @@ export async function setLegislativeStatus(
   const { error } = await admin.from("legislative_documents").update(patch).eq("id", id);
   if (error) return { error: "Could not update the document." };
 
-  await recordActivity(
-    actor,
-    `${nextStatus} document`,
-    "legislative document",
-    id,
-    existing.number as string,
-  );
+  await recordActivity(actor, {
+    type: auditTypeForStatus(nextStatus),
+    action: `${nextStatus} document`,
+    entityType: "legislative document",
+    entityId: id,
+    entityLabel: existing.number as string,
+  });
   revalidate(existing.slug as string);
   return { error: null };
 }
 
 /**
- * Hard delete — for mistakes only. Archiving is the normal path (spec §6):
- * a repealed ordinance is legal history and must stay readable.
+ * Hard delete — SuperAdmin only, and only from `archived` (umbrella §3.2).
+ * Archiving is the normal path (spec §6): a repealed ordinance is legal history
+ * and must stay readable. This removes the PDF too, which is very likely the
+ * barangay's only digital copy.
  */
 export async function deleteLegislative(id: string): Promise<ActionResult> {
-  const actor = await requirePermission("manage-transparency");
+  const guard = await guardDelete<{ number: string; slug: string; file_path: string | null }>(
+    "legislative_documents",
+    id,
+    "number, slug, file_path",
+  );
+  if (!guard.ok) return { error: guard.error };
+  const { actor, row: existing } = guard;
   const admin = createSupabaseAdminClient();
-
-  const { data: existing } = await admin
-    .from("legislative_documents")
-    .select("number, slug, file_path")
-    .eq("id", id)
-    .maybeSingle();
 
   const { error } = await admin.from("legislative_documents").delete().eq("id", id);
   if (error) return { error: "Could not delete the document." };
 
-  if (existing?.file_path) await removeStoredDocument(existing.file_path as string);
-  await recordActivity(
-    actor,
-    "deleted document",
-    "legislative document",
-    id,
-    (existing?.number as string) ?? "",
-  );
-  revalidate((existing?.slug as string) ?? undefined);
+  if (existing.file_path) await removeStoredDocument(existing.file_path);
+  await recordActivity(actor, {
+    type: "delete",
+    action: "deleted document",
+    entityType: "legislative document",
+    entityId: id,
+    entityLabel: existing.number,
+  });
+  revalidate(existing.slug);
+  return { error: null };
+}
+
+/** Bring an archived ordinance back as a draft — not straight back onto the public list. */
+export async function restoreLegislative(id: string): Promise<ActionResult> {
+  const actor = await checkPermission("manage-transparency");
+  if (!actor) return { error: NOT_FOUND };
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("legislative_documents")
+    .update(statusPatch(actor, "draft"))
+    .eq("id", id)
+    .eq("status", "archived")
+    .select("number, slug")
+    .maybeSingle();
+  if (error) return { error: "Could not restore the document." };
+  if (!data) return { error: "That document is not archived. Refresh to see the current state." };
+
+  await recordActivity(actor, {
+    type: "restore",
+    action: "restored document",
+    entityType: "legislative document",
+    entityId: id,
+    entityLabel: data.number as string,
+  });
+  revalidate(data.slug as string);
   return { error: null };
 }

@@ -1,14 +1,20 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Pencil, Plus, ToggleLeft, ToggleRight } from "lucide-react";
 import type { AdminServiceRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { IconCircle } from "@/components/ui/icon-circle";
+import { RowActions, type RowAction } from "@/components/ui/row-actions";
+import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
+import { useTableSort } from "@/components/ui/use-table-sort";
+import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
+import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
+import { fuzzyFilter, haystack } from "@/lib/fuzzy";
 import { resolveIcon } from "@/lib/icon-map";
 import { setServiceAvailable } from "@/features/admin/actions/services";
 import { AdminEmptyState } from "./admin-empty-state";
@@ -31,21 +37,30 @@ export function ServicesManager({ services }: ServicesManagerProps) {
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<AdminServiceRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return services.filter(
-      (record) =>
-        (status === "all" || record.status === status) &&
-        (q === "" ||
-          record.title.toLowerCase().includes(q) ||
-          record.department.toLowerCase().includes(q)),
+    const narrowed = services.filter(
+      (record) => status === "all" || record.status === status,
+    );
+    return fuzzyFilter(narrowed, search, (record) =>
+      haystack(record.title, record.department),
     );
   }, [services, search, status]);
 
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const { sorted, sortKey, sortDir, toggle } = useTableSort(
+    filtered,
+    { key: "title", dir: "asc" },
+    {
+      title: (r) => r.title,
+      department: (r) => r.department,
+      updated: (r) => r.updatedAt,
+      status: (r) => r.status,
+    },
+  );
+
+  const pageItems = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const openCreate = () => {
     setEditing(null);
@@ -55,10 +70,17 @@ export function ServicesManager({ services }: ServicesManagerProps) {
     setEditing(record);
     setDrawerOpen(true);
   };
+  // Global-search results link here as /admin/services?edit=<id>.
+  useEditDeepLink("edit", (id) => {
+    const record = services.find((r) => r.id === id);
+    if (record) openEdit(record);
+    else showError("That service no longer exists.");
+  });
+
   const handleSaved = () => {
     const wasEditing = editing !== null;
     setDrawerOpen(false);
-    setToast(wasEditing ? "Service updated." : "Service created.");
+    showToast(wasEditing ? "Service updated." : "Service created.");
   };
   const clearFilters = () => {
     setSearch("");
@@ -66,11 +88,45 @@ export function ServicesManager({ services }: ServicesManagerProps) {
     setPage(1);
   };
   const toggleAvailability = (record: AdminServiceRow) => {
+    const enabling = record.status !== "active";
     startTransition(async () => {
-      const result = await setServiceAvailable(record.id, record.status !== "active");
-      setToast(result.error ?? "Availability updated.");
+      const result = await setServiceAvailable(record.id, enabling);
+      // Previously the error text was passed to the success toast, so a failure
+      // arrived with a green tick beside it.
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+      showToast(enabling ? `Enabled ${record.title}.` : `Disabled ${record.title}.`);
     });
   };
+
+  /**
+   * Services have no delete action — the catalog is a fixed set the barangay
+   * turns on and off, and a removed service would orphan the applications
+   * filed against it.
+   */
+  const actionsFor = (record: AdminServiceRow): RowAction[] => [
+    {
+      label: "Edit service",
+      icon: Pencil,
+      onSelect: () => openEdit(record),
+    },
+    record.status === "active"
+      ? {
+          label: "Disable service",
+          icon: ToggleLeft,
+          tone: "danger" as const,
+          onSelect: () => toggleAvailability(record),
+          disabled: isPending,
+        }
+      : {
+          label: "Enable service",
+          icon: ToggleRight,
+          onSelect: () => toggleAvailability(record),
+          disabled: isPending,
+        },
+  ];
 
   return (
     <>
@@ -88,6 +144,7 @@ export function ServicesManager({ services }: ServicesManagerProps) {
         <AdminFilterBar
           className="border-b border-ink-200/70 p-5"
           search={{
+            id: "service-search",
             value: search,
             placeholder: "Search services...",
             onChange: (value) => {
@@ -120,10 +177,10 @@ export function ServicesManager({ services }: ServicesManagerProps) {
               <table className="w-full min-w-160 text-left text-sm">
                 <thead>
                   <tr className="border-b border-ink-200/70 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    <th scope="col" className="px-6 py-4">Service Name</th>
-                    <th scope="col" className="px-6 py-4">Department</th>
-                    <th scope="col" className="px-6 py-4">Last Updated</th>
-                    <th scope="col" className="px-6 py-4">Status</th>
+                    <SortableTh label="Service Name" sortKey="title" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Department" sortKey="department" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Last Updated" sortKey="updated" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
+                    <SortableTh label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onToggle={toggle} />
                     <th scope="col" className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -144,24 +201,9 @@ export function ServicesManager({ services }: ServicesManagerProps) {
                       <td className="px-6 py-4">
                         <StatusChip status={record.status} />
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => toggleAvailability(record)}
-                            className="rounded-full px-3 py-1.5 text-xs font-semibold text-ink-600 transition-colors hover:bg-ink-50 disabled:opacity-40"
-                          >
-                            {record.status === "active" ? "Disable" : "Enable"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openEdit(record)}
-                            aria-label={`Edit ${record.title}`}
-                            className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900"
-                          >
-                            <Pencil className="h-4 w-4" aria-hidden="true" />
-                          </button>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end">
+                          <RowActions label={record.title} actions={actionsFor(record)} />
                         </div>
                       </td>
                     </tr>
@@ -193,7 +235,9 @@ export function ServicesManager({ services }: ServicesManagerProps) {
           />
         ) : null}
       </Drawer>
-      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
+      {toast ? (
+        <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
+      ) : null}
     </>
   );
 }

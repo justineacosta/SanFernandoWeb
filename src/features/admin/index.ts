@@ -1,16 +1,17 @@
 export { AdminSidebar } from "./components/admin-sidebar";
 export { AdminTopBar } from "./components/admin-topbar";
 export { AdminPageHeader } from "./components/admin-page-header";
-export { ContentHub } from "./components/content-hub";
 export { LegislativeManager } from "./components/legislative-manager";
 export { NewsManager } from "./components/news-manager";
 export { ServicesManager } from "./components/services-manager";
 export { EventsManager } from "./components/events-manager";
 export { SettingsPanel } from "./components/settings-panel";
+export { TeamManager } from "./components/team-manager";
 export { ApplicationsManager } from "./components/applications-manager";
 export { ComplaintsManager } from "./components/complaints-manager";
 export { AppointmentsManager } from "./components/appointments-manager";
 export { AssistanceManager } from "./components/assistance-manager";
+export { InboxManager } from "./components/inbox-manager";
 export { NewsCategoriesPanel } from "./components/news-categories-panel";
 export { AnnouncementForm } from "./components/announcement-form";
 export { SingleImageUploader } from "./components/single-image-uploader";
@@ -21,3 +22,5 @@ export { TransparencyProjectsPanel } from "./components/transparency-projects-pa
 export { TransparencyCategoriesPanel } from "./components/transparency-categories-panel";
 export { OfficialsManager } from "./components/officials-manager";
 export { OfficialForm } from "./components/official-form";
+export { SiteContentManager } from "./components/site-content-manager";
+export { SiteItemForm } from "./components/site-item-form";

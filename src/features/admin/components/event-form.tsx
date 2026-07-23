@@ -5,7 +5,10 @@ import type { ContentStatus, EventValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { photoUrl } from "@/lib/storage";
+import { useFormDraft } from "@/hooks/use-form-draft";
 import { EVENT_CATEGORY_LABELS } from "@/features/admin/data";
+import { useAdminUserId } from "./admin-user-context";
+import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import {
   archiveEvent,
   publishEvent,
@@ -45,11 +48,12 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
   const [id, setId] = useState<string | null>(record?.id ?? null);
   const [status, setStatus] = useState<ContentStatus>(record?.status ?? "draft");
   const [values, setValues] = useState<EventValues>(record?.values ?? EMPTY_VALUES);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(
-    record?.values.coverSrc ? photoUrl(record.values.coverSrc) : null,
-  );
+  // Held, not uploaded — see single-image-uploader.tsx and saveEvent.
+  const [cover, setCover] = useState<File | null>(null);
+  const [removeCover, setRemoveCover] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const draft = useFormDraft(useAdminUserId(), "event", id, values);
 
   const set = <K extends keyof EventValues>(key: K, value: EventValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -58,13 +62,17 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveEvent(id, values);
+      const fd = new FormData();
+      if (cover) fd.append("image", cover);
+      if (removeCover) fd.append("removeImage", "1");
+      const result = await saveEvent(id, values, fd);
       if (result.error) {
         setError(result.error);
         return;
       }
       const wasNew = id === null;
       if (result.id) setId(result.id);
+      draft.clear();
       onSaved(wasNew ? "Draft saved." : "Event updated.");
     });
   }
@@ -91,6 +99,17 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
   return (
     <form onSubmit={handleSave} noValidate className="flex h-full flex-col">
       <div className="flex-1 space-y-5 overflow-y-auto p-6">
+        {draft.recovered && draft.recoveredLabel ? (
+          <DraftRecoveryBar
+            savedAtLabel={draft.recoveredLabel}
+            hasFileState={cover !== null || removeCover}
+            onRestore={() => {
+              setValues(draft.recovered!.values);
+              draft.dismiss();
+            }}
+            onDiscard={draft.discard}
+          />
+        ) : null}
         <Field label="Event Title" htmlFor="event-title">
           <Input
             id="event-title"
@@ -172,14 +191,15 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
         <div>
           <h3 className="mb-2 text-sm font-medium text-ink-700">Cover Image</h3>
           <SingleImageUploader
-            folder="events"
-            src={values.coverSrc}
+            idPrefix="event"
+            existingSrc={values.coverSrc}
+            existingPreviewUrl={values.coverSrc ? photoUrl(values.coverSrc) : null}
             alt={values.coverAlt}
-            previewUrl={previewUrl}
-            onChange={(next) => {
-              setValues((prev) => ({ ...prev, coverSrc: next.src, coverAlt: next.alt }));
-              setPreviewUrl(next.previewUrl);
-            }}
+            onAltChange={(next) => set("coverAlt", next)}
+            file={cover}
+            onFileChange={setCover}
+            removeExisting={removeCover}
+            onRemoveExistingChange={setRemoveCover}
           />
         </div>
         {error ? (
@@ -251,7 +271,8 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
             </Button>
           ) : null}
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
+          <DraftSavedNote savedAt={draft.savedAt} />
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

@@ -60,7 +60,7 @@ export const config = {
   // an unhandled "Unexpected end of form" crash instead of the app's own
   // 10MB validation message. Skipping middleware here is safe: every
   // transparency (and other admin) Server Action independently re-checks
-  // auth via requirePermission()/requireSuperAdmin(), and — unlike Server
+  // auth via checkPermission()/checkSuperAdmin(), and — unlike Server
   // Components — cookies() is mutable inside a Server Action, so the
   // Supabase server client (src/lib/supabase/server.ts) refreshes the
   // session cookie itself when the action calls getUser(). Page navigations
