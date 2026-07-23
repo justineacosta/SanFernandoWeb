@@ -3,18 +3,28 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { pageWindow } from "@/lib/pagination";
 
-interface PaginationProps {
+interface PaginationBaseProps {
   page: number;
   pageSize: number;
   total: number;
-  /** Callback mode: the parent holds `page` in local state. */
-  onPageChange?: (page: number) => void;
-  /** Link mode: `page` is URL state and every slot is a real <Link>. */
-  hrefFor?: (page: number) => string;
   /** Names the <nav> for screen readers, e.g. "Ordinances". */
   label?: string;
   className?: string;
 }
+
+type PaginationProps = PaginationBaseProps &
+  (
+    | {
+        /** Callback mode: the parent holds `page` in local state. */
+        onPageChange: (page: number) => void;
+        hrefFor?: never;
+      }
+    | {
+        /** Link mode: `page` is URL state and every slot is a real <Link>. */
+        hrefFor: (page: number) => string;
+        onPageChange?: never;
+      }
+  );
 
 interface SlotProps {
   target: number;

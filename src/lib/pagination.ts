@@ -11,21 +11,21 @@ export const PAGE_SLOTS = 7;
 /**
  * The page numbers to render, with "gap" marking an elided run.
  *
- * Once windowing kicks in the result is always exactly `slots` long, so the
- * control keeps a constant width instead of jittering under the cursor as the
- * reader pages through. `page` is clamped rather than trusted: it arrives from
- * a URL on the public archives.
+ * Once windowing kicks in the result is always exactly `PAGE_SLOTS` long, so
+ * the control keeps a constant width instead of jittering under the cursor as
+ * the reader pages through. `page` is clamped rather than trusted: it arrives
+ * from a URL on the public archives.
  */
-export function pageWindow(page: number, totalPages: number, slots: number = PAGE_SLOTS): PageSlot[] {
+export function pageWindow(page: number, totalPages: number): PageSlot[] {
   if (totalPages <= 0) return [];
-  if (totalPages <= slots) {
+  if (totalPages <= PAGE_SLOTS) {
     return Array.from({ length: totalPages }, (_, index) => index + 1);
   }
 
   const current = Math.min(Math.max(Math.floor(page), 1), totalPages);
   // The first and last page always occupy a slot; `interior` is what is left
   // for the run around the current page, gap markers included.
-  const interior = slots - 2;
+  const interior = PAGE_SLOTS - 2;
 
   // Near the front: one gap, on the far side only.
   if (current <= interior - 1) {
