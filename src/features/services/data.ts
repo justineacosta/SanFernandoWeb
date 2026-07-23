@@ -64,16 +64,6 @@ export const SERVICES: Service[] = [
   },
 ];
 
-export const EMERGENCY_ASSISTANCE = {
-  title: "Emergency Assistance",
-  description:
-    "In case of fire, medical emergencies, or urgent security threats, contact our 24/7 Response Team immediately.",
-  hotlines: [
-    { label: "Hotline", number: "911-SANFERNANDO" },
-    { label: "Ambulance", number: "8-123-4567" },
-  ],
-};
-
 export const WASTE_SCHEDULE: {
   title: string;
   description: string;
