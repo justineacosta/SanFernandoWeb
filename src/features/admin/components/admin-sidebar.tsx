@@ -108,13 +108,11 @@ export function AdminSidebar({
     <MotionConfig reducedMotion="user">
       <aside
         aria-label="Admin navigation"
-        onMouseEnter={openPeek}
+        // Leave and blur are the aside's, not the inner wrapper's, so moving
+        // from the nav onto the toggle — which overhangs, and is a sibling of
+        // that wrapper — never counts as leaving. Open lives on the wrapper;
+        // see the comment there.
         onMouseLeave={scheduleClose}
-        // React's focus events bubble, so this covers tabbing into any row —
-        // otherwise a keyboard user tabs blind through thirteen icon-only
-        // links. The `contains` guard is what keeps focus moving between two
-        // rows from closing the panel it is moving inside.
-        onFocus={openPeek}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget)) closePeek();
         }}
@@ -122,41 +120,56 @@ export function AdminSidebar({
           if (event.key === "Escape" && peeked) closePeek();
         }}
         className={cn(
-          "relative flex h-screen flex-col border-r border-white/10 bg-ink-950 text-ink-300 transition-[width] duration-200 ease-out-soft motion-reduce:transition-none",
+          // The right edge is an inset shadow, not a border, so that the
+          // collapsed rail's content box is exactly 40px — the number this
+          // layout is built on (h-10 rows, the 40px seal, the 40px hover
+          // pill). A 1px border-r left 39px, and preflight's max-width:100%
+          // then clamped the seal to 39 collapsed and 40 peeked: a resize
+          // under the pointer, which is precisely what must not happen.
+          // The z-index lives here rather than in the caller's className, and
+          // it outranks the top bar (z-40) in every state. Peeked, the panel
+          // spans 256px while the bar starts near 104px, so anything lower
+          // gets painted over. At rest the two do not overlap — except that
+          // the toggle overhangs into the bar's box, and the bar would eat
+          // the clicks on that half. Still under an open Drawer (z-50).
+          "relative z-45 flex h-screen flex-col bg-ink-950 text-ink-300 transition-[width] duration-200 ease-out-soft motion-reduce:transition-none",
           expanded ? "w-64" : "w-18",
-          // The z-index lives here rather than in the caller's className
-          // because it changes with the peek: the panel spans 256px while the
-          // top bar (z-40) starts around 104px, so at the rail's resting z-30
-          // the bar would paint straight over it. 45 clears the bar and still
-          // sits under an open Drawer (z-50).
           peeked
-            ? "z-45 shadow-[8px_0_40px_rgb(0_0_0/0.45)]"
-            : "z-30 shadow-[4px_0_24px_rgb(0_0_0/0.25)]",
+            ? "shadow-[inset_-1px_0_0_rgb(255_255_255/0.1),8px_0_40px_rgb(0_0_0/0.45)]"
+            : "shadow-[inset_-1px_0_0_rgb(255_255_255/0.1),4px_0_24px_rgb(0_0_0/0.25)]",
           className,
         )}
       >
         {/* The scroll lives in here, not on the aside, so the edge-mounted
-            toggle can overhang the rail instead of being clipped by it. */}
-        <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden py-6">
+            toggle can overhang the rail instead of being clipped by it.
+            This is also the peek's open trigger, deliberately excluding the
+            toggle: the toggle rides the panel's edge, so if hovering it
+            opened the peek it would slide 184px out from under the pointer
+            that was aiming at it — and focus-on-mousedown moving it between
+            mousedown and mouseup would stop the click landing at all. */}
+        <div
+          onMouseEnter={openPeek}
+          onFocus={openPeek}
+          className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden py-6"
+        >
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-brand-500/30 blur-3xl"
           />
-          <div
-            className={cn(
-              "relative mb-4 flex items-center gap-3 border-b border-white/10",
-              expanded ? "px-5 pb-5" : "flex-col px-2 pb-4",
-            )}
-          >
+          {/* Nothing in the rail may move, resize or re-align between the two
+              states — a peek opens under the pointer, so anything that shifts
+              takes the row you were aiming at out from under you. The seal
+              keeps one size and one x, every icon keeps its x (px-4 here plus
+              px-2.5 on the row puts it at 26px in both, dead-centre of the
+              72px rail), and the group headings hold a fixed height. Only the
+              labels appear. */}
+          <div className="relative mb-4 flex items-center gap-3 border-b border-white/10 px-4 pb-5">
             <Image
               src={SITE.sealImage}
               alt={`${SITE.name} seal`}
               width={40}
               height={40}
-              className={cn(
-                "shrink-0 rounded-full object-cover ring-1 ring-white/20",
-                expanded ? "h-10 w-10" : "h-9 w-9",
-              )}
+              className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/20"
             />
             {expanded ? (
               <div className="min-w-0 flex-1">
@@ -171,17 +184,34 @@ export function AdminSidebar({
           </div>
 
           <LayoutGroup id={layoutGroup}>
-            <nav className="relative flex flex-1 flex-col gap-6 px-2 pt-1">
+            <nav className="relative flex flex-1 flex-col gap-6 px-4 pt-1">
               {groups.map((section, index) => (
                 <div key={section.group}>
-                  {expanded ? (
-                    <p className="mb-2 flex items-center gap-2 px-3 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-ink-500 before:h-px before:w-4 before:shrink-0 before:bg-brand-400/40 before:content-['']">
-                      {section.label}
-                    </p>
-                  ) : // The header's border already rules off the first group.
-                  index > 0 ? (
-                    <div className="mx-3 mb-3 border-t border-white/10" aria-hidden="true" />
-                  ) : null}
+                  {/* One fixed-height box in both states. Collapsed, 72px has
+                      no room for the word but does have room for the grouping,
+                      so the heading becomes a hairline rule — at the same
+                      height, or every row below it would jump on peek. */}
+                  <p className="mb-2 flex h-4 items-center gap-2">
+                    {expanded ? (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          className="h-px w-4 shrink-0 bg-brand-400/40"
+                        />
+                        <span className="truncate text-[0.65rem] font-bold uppercase tracking-[0.22em] text-ink-500">
+                          {section.label}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="sr-only">{section.label}</span>
+                        {/* The header's border already rules off the first group. */}
+                        {index > 0 ? (
+                          <span aria-hidden="true" className="h-px w-full bg-white/10" />
+                        ) : null}
+                      </>
+                    )}
+                  </p>
                   <ul className="flex flex-col gap-0.5">
                     {section.items.map((item) => {
                       const Icon = item.icon;
@@ -193,11 +223,14 @@ export function AdminSidebar({
                           href={item.href}
                           aria-current={isActive ? "page" : undefined}
                           className={cn(
-                            "group relative flex h-10 items-center rounded-lg text-sm font-medium transition-colors duration-(--duration-quick)",
+                            // px-2.5 in both states: the row is exactly 40px
+                            // wide inside the collapsed rail, so this is both
+                            // the centred icon button it was and the left
+                            // inset of the expanded row.
+                            "group relative flex h-10 items-center gap-3 rounded-lg px-2.5 text-sm font-medium transition-colors duration-(--duration-quick)",
                             isActive
                               ? "text-white"
                               : "text-ink-300 hover:bg-white/5 hover:text-white",
-                            expanded ? "gap-3 px-3" : "w-10 justify-center px-0",
                           )}
                         >
                           {isActive ? (
@@ -237,12 +270,7 @@ export function AdminSidebar({
                         // the very link that had just been focused, dropping
                         // focus to <body>. Keep this markup identical in both
                         // states.
-                        <li
-                          key={item.href}
-                          className={expanded ? undefined : "flex justify-center"}
-                        >
-                          {link}
-                        </li>
+                        <li key={item.href}>{link}</li>
                       );
                     })}
                   </ul>

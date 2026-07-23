@@ -117,6 +117,39 @@ is no new Vitest coverage to write. Verified in the browser via `.claude/skills/
 6. The toggle sits on the border, is not clipped, and pins / unpins.
 7. The `sf-admin-sidebar` cookie survives a reload and a peek never changes it.
 
+## Addendum — nothing in the rail may move
+
+A peek opens *under the pointer*, so any element that resizes or re-aligns between the two
+states takes the row you were aiming at out from under you. The two states are now
+geometrically identical and only the labels appear:
+
+- The seal keeps one size (40px) and one position in both states; the header padding no
+  longer switches between `px-5` and centred `flex-col px-2`.
+- Every nav icon keeps its x: `px-4` on the `nav` plus `px-2.5` on the row puts it at 26px in
+  both states, which is also dead centre of the 72px rail. The row is full-width in both — at
+  72px that *is* the 40px pill it used to be — so `w-10 justify-center` and the `li`'s
+  centring are gone.
+- Group headings hold a fixed `h-4` box in both states, with the hairline rule drawn inside
+  it when collapsed. Previously the rule and the label had different heights, so every row
+  below the first heading jumped on peek.
+- The rail's right edge is an **inset shadow, not a `border-r`**. A 1px border left the
+  collapsed content box at 39px, and preflight's `max-width: 100%` then clamped the seal to
+  39px collapsed and 40px peeked — a resize under the pointer, found by measurement, not by
+  eye.
+
+The same rule applies to the toggle, which rides the panel's edge and therefore moves 184px
+when a peek opens. **The peek's open trigger is the inner scroll wrapper, not the aside**, so
+hovering the toggle does not open a peek and the button stays where the pointer aimed. Close
+and blur stay on the *aside*, so moving from the nav onto the overhanging toggle never counts
+as leaving. This also protects the click itself: focus lands on mousedown, so an
+`onFocus`-driven peek would move the button between mousedown and mouseup and the click would
+never land on it.
+
+Consequently the rail holds `z-45` in **every** state, not only while peeked. At rest the rail
+and the top bar do not overlap — but the toggle overhangs into the bar's box, and at `z-30`
+the bar swallowed every click on that half of the button. Found by a click that timed out
+against `<header> … intercepts pointer events`.
+
 ## Addendum — found during implementation
 
 The nav rows' `Tooltip` wrappers are **removed**, which the design above did not anticipate.
