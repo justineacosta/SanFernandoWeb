@@ -24,8 +24,16 @@ const schema = z.object({
   // Mirrors the check constraints in migration 0024 exactly. The upper bound
   // is load-bearing: legislativeSortKey multiplies the year by MAX_SEQ_NO + 1,
   // so a wider sequence would sort into the neighbouring year.
-  seqNo: z.number().int().min(1).max(MAX_SEQ_NO),
-  year: z.number().int().min(1900).max(2200),
+  seqNo: z
+    .number()
+    .int()
+    .min(1, "Enter a document number of 1 or more.")
+    .max(MAX_SEQ_NO, `Document number cannot exceed ${MAX_SEQ_NO}.`),
+  year: z
+    .number()
+    .int()
+    .min(1900, "Enter a four-digit year.")
+    .max(2200, "Enter a four-digit year."),
   title: z.string().trim().min(3, "Enter a title."),
   // Date approved is optional — a document can exist (and be uploaded) before
   // it's approved. An empty string means "not yet approved"; it is converted

@@ -25,7 +25,10 @@ interface LegislativeFormProps {
   onCancel: () => void;
 }
 
-const EMPTY_VALUES: LegislativeValues = {
+// A factory, not a constant: `year` must be the year the drawer opens in, not
+// the year the bundle was imported. A long-lived tab crossing New Year would
+// otherwise default a new document to last year.
+const emptyValues = (): LegislativeValues => ({
   docType: "ordinance",
   seqNo: 1,
   year: new Date().getFullYear(),
@@ -34,13 +37,13 @@ const EMPTY_VALUES: LegislativeValues = {
   summary: "",
   filePath: null,
   fileSizeBytes: null,
-};
+});
 
 /** Create/edit form for an ordinance or resolution. Saves via `saveLegislative`; workflow buttons drive status transitions. */
 export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormProps) {
   const [id, setId] = useState<string | null>(record?.id ?? null);
   const [status, setStatus] = useState<ContentStatus>(record?.status ?? "draft");
-  const [values, setValues] = useState<LegislativeValues>(record?.values ?? EMPTY_VALUES);
+  const [values, setValues] = useState<LegislativeValues>(() => record?.values ?? emptyValues());
   const [previewUrl] = useState<string | null>(record?.fileUrl ?? null);
   // Pending PDF picked in this drawer session — not uploaded until Save. See
   // pdf-uploader.tsx and saveLegislative for why: nothing touches storage
