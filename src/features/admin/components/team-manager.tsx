@@ -22,6 +22,7 @@ import {
   updateTeamUser,
 } from "@/features/admin/actions/users";
 import { AdminFilterBar } from "./admin-filter-bar";
+import { AdminPageHeader } from "./admin-page-header";
 
 interface TeamManagerProps {
   team: TeamUser[];
@@ -241,14 +242,17 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
   );
 
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-display text-lg font-semibold text-ink-900">Manage Users</h3>
-        <Button variant="primary" onClick={openCreate}>
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Add user
-        </Button>
-      </div>
+    <>
+      <AdminPageHeader
+        title="Users Management"
+        description="Portal accounts, roles and permissions."
+        action={
+          <Button variant="primary" onClick={openCreate}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add user
+          </Button>
+        }
+      />
 
       <AdminFilterBar
         className="mb-4"
@@ -490,6 +494,6 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
       {toast ? (
         <Toast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={dismissToast} />
       ) : null}
-    </div>
+    </>
   );
 }

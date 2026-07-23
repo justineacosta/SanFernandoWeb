@@ -1,24 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import type { SessionUser, TeamUser } from "@/types";
+import type { SessionUser } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Field, Select } from "@/components/ui/form";
 import { AdminPageHeader } from "./admin-page-header";
 import { AccountProfileForm } from "./account-profile-form";
 import { AccountSecurityForm } from "./account-security-form";
-import { TeamManager } from "./team-manager";
 import { ToggleSwitch } from "./toggle-switch";
 
 interface SettingsPanelProps {
-  team: TeamUser[];
-  /** Archived accounts, shown behind a disclosure so they can be restored. */
-  archived: TeamUser[];
   currentUser: SessionUser;
 }
 
 /** Account settings: profile, security, preferences, team roles. Profile/security/preferences saves are mock. */
-export function SettingsPanel({ team, archived, currentUser }: SettingsPanelProps) {
+export function SettingsPanel({ currentUser }: SettingsPanelProps) {
   const [language, setLanguage] = useState("en-US");
   const [prefs, setPrefs] = useState({ emailAlerts: true, browserPush: false, weeklyDigest: true });
 
@@ -35,7 +31,7 @@ export function SettingsPanel({ team, archived, currentUser }: SettingsPanelProp
         the viewport and the whole page pans sideways. min-w-0 lets the track
         collapse to the viewport; the truncating rows inside then shrink with it.
       */}
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-2">
         <div className="min-w-0 space-y-6">
           <Card className="p-8">
             <h3 className="font-display text-xl font-semibold tracking-tight text-ink-900">
@@ -94,11 +90,6 @@ export function SettingsPanel({ team, archived, currentUser }: SettingsPanelProp
               ))}
             </div>
           </Card>
-          {currentUser.isSuperAdmin ? (
-            <Card className="p-6">
-              <TeamManager team={team} archived={archived} currentUser={currentUser} />
-            </Card>
-          ) : null}
         </div>
       </div>
     </>

@@ -112,7 +112,7 @@ export async function createTeamUser(input: TeamUserInput): Promise<ActionResult
     entityId: data.user.id,
     entityLabel: parsed.data.fullName,
   });
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/users");
   return { error: null };
 }
 
@@ -209,7 +209,7 @@ export async function updateTeamUser(
         }`
       : undefined,
   });
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/users");
   return { error: null };
 }
 
@@ -233,7 +233,7 @@ export async function setTeamUserActive(id: string, isActive: boolean): Promise<
     entityType: "team-user",
     entityId: id,
   });
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/users");
   return { error: null };
 }
 
@@ -260,7 +260,7 @@ export async function archiveTeamUser(id: string): Promise<ActionResult> {
     entityType: "team-user",
     entityId: id,
   });
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/users");
   return { error: null };
 }
 
@@ -296,7 +296,7 @@ export async function restoreTeamUser(id: string): Promise<ActionResult> {
     entityId: id,
     entityLabel: target.full_name,
   });
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/users");
   return { error: null };
 }
 
@@ -332,6 +332,6 @@ export async function deleteTeamUser(id: string): Promise<ActionResult> {
     entityType: "team-user",
     entityId: id,
   });
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/users");
   return { error: null };
 }

@@ -11,6 +11,7 @@ import {
   PanelsTopLeft,
   Scale,
   Settings,
+  UserCog,
   Users,
 } from "lucide-react";
 import type {
@@ -31,6 +32,7 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Transparency", href: "/admin/transparency", icon: FileStack, permission: "manage-transparency", group: "content" },
   { label: "Officials", href: "/admin/officials", icon: Users, permission: "manage-officials", group: "content" },
   { label: "Site Content", href: "/admin/site-content", icon: PanelsTopLeft, permission: "manage-site-content", group: "content" },
+  { label: "Users Management", href: "/admin/users", icon: UserCog, superAdminOnly: true, group: "system" },
   { label: "Services Management", href: "/admin/services", icon: Landmark, superAdminOnly: true, group: "system" },
   { label: "Audit Logs", href: "/admin/audit", icon: History, superAdminOnly: true, group: "system" },
   { label: "Settings", href: "/admin/settings", icon: Settings, group: "system" },
