@@ -7,19 +7,11 @@ import type { SessionUser } from "@/types";
 import { cn } from "@/lib/utils";
 import { POP } from "@/lib/motion";
 import { adminPageTitle } from "@/lib/admin-nav";
+import { Avatar } from "@/components/ui/avatar";
 import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
 import { AdminGlobalSearch } from "@/features/admin/components/admin-global-search";
 import { AdminMobileNav } from "@/features/admin/components/admin-mobile-nav";
 import { SignOutButton } from "@/features/admin/components/sign-out-button";
-
-function initialsOf(fullName: string): string {
-  return fullName
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]!.toUpperCase())
-    .join("");
-}
 
 /**
  * Floating app bar for the admin portal: current page, search, profile.
@@ -90,12 +82,7 @@ export function AdminTopBar({ user }: { user: SessionUser }) {
                   {user.isSuperAdmin ? "SuperAdmin" : user.statusLabel}
                 </p>
               </div>
-              <span
-                aria-hidden="true"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-brand-400 to-brand-600 text-xs font-bold text-white shadow-brand-glow"
-              >
-                {initialsOf(user.fullName) || "?"}
-              </span>
+              <Avatar src={user.avatarSrc} fullName={user.fullName} size="sm" />
               <SignOutButton />
             </div>
           </div>

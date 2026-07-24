@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { Plus, Archive, RotateCcw, Trash2, Pencil, UserCheck, UserX } from "lucide-react";
 import type { Permission, SessionUser, StaffStatusLabel, TeamUser } from "@/types";
 import { PERMISSION_GROUPS, PERMISSION_LABELS, STATUS_PRESETS } from "@/constants/permissions";
+import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -377,10 +378,17 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
                   {pageItems.map((member) => (
                     <tr key={member.id} className="border-b border-ink-200/40 last:border-b-0">
                       <td className="px-6 py-4 font-semibold text-ink-900">
-                        {member.fullName}
-                        {member.id === currentUser.id ? (
-                          <span className="ml-2 text-xs font-medium text-brand-600">(you)</span>
-                        ) : null}
+                        <span className="flex items-center gap-3">
+                          <Avatar src={member.avatarSrc} fullName={member.fullName} size="sm" />
+                          <span className="min-w-0">
+                            {member.fullName}
+                            {member.id === currentUser.id ? (
+                              <span className="ml-2 text-xs font-medium text-brand-600">
+                                (you)
+                              </span>
+                            ) : null}
+                          </span>
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-ink-600">{member.email}</td>
                       <td className="px-6 py-4 text-ink-600">{roleLabel(member)}</td>
