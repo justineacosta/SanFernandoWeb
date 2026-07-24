@@ -43,14 +43,6 @@ function writeItem(key: string, value: string): void {
   }
 }
 
-function readItem(key: string): string | null {
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
 export interface IdleTimerState {
   /** True once the final minute begins. */
   warning: boolean;
@@ -95,11 +87,6 @@ export function useIdleTimer({ onExpire }: { onExpire: () => void }): IdleTimerS
     // Capture "now" here, not in the useRef initializer above — this runs in
     // an effect, where an impure call is allowed.
     lastActivityRef.current = Date.now();
-
-    // Seed from whatever another tab last recorded, so a newly opened tab does
-    // not reset a window that is already most of the way through.
-    const stored = parseActivityAt(readItem(ACTIVITY_STORAGE_KEY));
-    if (stored && stored < lastActivityRef.current) lastActivityRef.current = stored;
     record(true);
 
     const onActivity = () => record();
