@@ -186,6 +186,8 @@ create table public.profiles (
   updated_at timestamptz not null default now(),
   -- Cellphone, editable by the account owner in Settings.              [0003]
   phone text,
+  -- Profile picture: public-media path, or null for initials.          [0025]
+  avatar_src text,
   -- Staff email uniqueness enforced at the database layer.             [0002]
   constraint profiles_email_unique unique (email)
 );

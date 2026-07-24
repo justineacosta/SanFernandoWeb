@@ -680,6 +680,8 @@ export interface SessionUser {
   isSuperAdmin: boolean;
   permissions: Permission[];
   phone: string | null;
+  /** `public-media` object path, or null to render initials. */
+  avatarSrc: string | null;
 }
 
 /** A row in the team-management list (profiles table). */

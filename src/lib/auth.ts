@@ -23,7 +23,7 @@ const loadSessionUser = cache(async (): Promise<SessionUser | null> => {
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "email, full_name, status_label, is_superadmin, permissions, is_active, is_archived, phone",
+      "email, full_name, status_label, is_superadmin, permissions, is_active, is_archived, phone, avatar_src",
     )
     .eq("id", user.id)
     .single();
@@ -37,6 +37,7 @@ const loadSessionUser = cache(async (): Promise<SessionUser | null> => {
     isSuperAdmin: profile.is_superadmin,
     permissions: profile.permissions as Permission[],
     phone: profile.phone,
+    avatarSrc: profile.avatar_src,
   };
 });
 

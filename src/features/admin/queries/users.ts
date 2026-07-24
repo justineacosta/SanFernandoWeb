@@ -2,7 +2,7 @@ import type { Permission, StaffStatusLabel, TeamUser } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const COLUMNS =
-  "id, email, full_name, status_label, is_superadmin, permissions, is_active, is_archived, created_at, phone";
+  "id, email, full_name, status_label, is_superadmin, permissions, is_active, is_archived, created_at, phone, avatar_src";
 
 interface ProfileRow {
   id: string;
@@ -15,6 +15,7 @@ interface ProfileRow {
   is_archived: boolean;
   created_at: string;
   phone: string | null;
+  avatar_src: string | null;
 }
 
 function toTeamUser(row: ProfileRow): TeamUser {
@@ -29,6 +30,7 @@ function toTeamUser(row: ProfileRow): TeamUser {
     isArchived: row.is_archived,
     createdAt: row.created_at,
     phone: row.phone,
+    avatarSrc: row.avatar_src,
   };
 }
 
