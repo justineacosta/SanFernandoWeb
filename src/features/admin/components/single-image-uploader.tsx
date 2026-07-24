@@ -29,6 +29,12 @@ interface SingleImageUploaderProps {
    * do need it.
    */
   decorative?: boolean;
+  /**
+   * Circular preview for a face. The rectangular default is right for a banner
+   * or a cover; a portrait previewed as a rectangle hides exactly the cropping
+   * the user is trying to judge.
+   */
+  previewShape?: "rect" | "circle";
 }
 
 /**
@@ -50,10 +56,16 @@ export function SingleImageUploader({
   onRemoveExistingChange,
   idPrefix,
   decorative = false,
+  previewShape = "rect",
 }: SingleImageUploaderProps) {
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
+
+  const previewBox =
+    previewShape === "circle"
+      ? "relative h-24 w-24 overflow-hidden rounded-full bg-ink-100"
+      : "relative h-24 w-32 overflow-hidden rounded-2xl bg-ink-100";
 
   // An object URL is leaked memory until revoked. It is created in the event
   // handler that chooses the file rather than in an effect (which would be a
@@ -100,7 +112,7 @@ export function SingleImageUploader({
     <div className="space-y-3">
       {file && localPreview ? (
         <div className="flex items-start gap-3">
-          <div className="relative h-24 w-32 overflow-hidden rounded-2xl bg-ink-100">
+          <div className={previewBox}>
             {/* A blob: URL from the file the user just picked — next/image has
                 nothing to optimise and cannot fetch it, so this stays a plain img. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -122,7 +134,7 @@ export function SingleImageUploader({
 
       {showExisting && existingPreviewUrl ? (
         <div className="flex items-start gap-3">
-          <div className="relative h-24 w-32 overflow-hidden rounded-2xl bg-ink-100">
+          <div className={previewBox}>
             <Image src={existingPreviewUrl} alt={alt} fill sizes="128px" className="object-cover" />
           </div>
           <div className="space-y-1">
