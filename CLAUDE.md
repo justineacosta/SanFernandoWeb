@@ -124,6 +124,23 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   (the server may have moved on). The status line says *"Recovery copy saved on this device"*,
   never "Saved". `AchievementsEditor` is out of scope: it saves each field on blur and has no
   draft model to hook into.
+- **The idle timeout is one cookie, and its absence is the whole signal.** `sf-activity`
+  (`Max-Age` 1800, `Path=/admin`, not `httpOnly` — the client heartbeat writes it) exists
+  *iff* the user interacted in the last 30 minutes. Nothing compares two clocks, and the
+  browser expiring the cookie on disk is what makes "window closed for 30 minutes" work
+  with no code. Constants live only in `src/lib/session-activity.ts`; `IDLE_MS` and the
+  cookie's `Max-Age` are one derived value, never two literals. **Two gates read it:**
+  `src/middleware.ts` for page GETs, and `getSessionUser()` for everything else — the
+  second is not redundant, because Server Action POSTs are excluded from the middleware
+  matcher on purpose. `getSessionUserIgnoringIdle` exists for exactly one caller,
+  `signOutIdle`, which needs an actor for its audit entry at the moment the cookie has
+  just died. The warning dialog owns the **final** minute (29:00→30:00), not a 31st, so
+  the client deadline and the cookie expiry are the same instant; `<IdleTimeout />` mounts
+  as a **sibling** of `AdminShell` for the usual `backdrop-filter` reason. Its keydown
+  listener is **capture-phase on purpose**: Escape must not dismiss an inactivity warning,
+  but it must not reach a `Drawer` or `ConfirmDialog` open behind it either, and those
+  listen on `document` in the bubble phase and were registered first — so the dialog
+  swallows the key from capture, where `stopImmediatePropagation()` still comes first.
 - **Home and About are database-backed content, not code** (sub-project 9, migration `0021`).
   Nine blocks live in `site_blocks` (four singleton texts) + `site_items` (five ordered
   collections in one table, discriminated by a `site_block` enum with generic
@@ -241,3 +258,15 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   of the admin screens) sit untracked at the repo root by choice: don't commit or delete them.
 - Design/implementation history (specs and plans) lives in `docs/superpowers/specs/` and
   `docs/superpowers/plans/`; those dated files are historical records — don't retro-edit them.
+- Staff avatars are `profiles.avatar_src` → `public-media/avatars/<uuid>.<ext>` (migration
+  `0025`), null meaning initials. **Own photo only** — there is no editor for anyone
+  else's, and `/admin/users` renders them read-only. `initialsOf` lives in
+  `src/lib/initials.ts`; two copies of it existed before this work (`admin-topbar.tsx` and
+  `account-profile-form.tsx`) — the users table (`team-manager.tsx`) is a new call site
+  that never had one, it previously rendered no avatar at all. `<Avatar>`
+  (`src/components/ui/avatar.tsx`) is now the only renderer; don't start a third copy of
+  `initialsOf`. The Settings card shows the photo exactly once and it isn't `<Avatar>`:
+  `SingleImageUploader` (`src/features/admin/components/single-image-uploader.tsx`)
+  displays the current photo itself and owns the Replace/Remove affordances. Saving one
+  must `revalidatePath("/admin", "layout")` as well as the settings path, or the top bar
+  keeps the stale initials.
