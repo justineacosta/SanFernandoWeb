@@ -266,7 +266,26 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   that never had one, it previously rendered no avatar at all. `<Avatar>`
   (`src/components/ui/avatar.tsx`) is now the only renderer; don't start a third copy of
   `initialsOf`. The Settings card shows the photo exactly once and it isn't `<Avatar>`:
-  `SingleImageUploader` (`src/features/admin/components/single-image-uploader.tsx`)
-  displays the current photo itself and owns the Replace/Remove affordances. Saving one
-  must `revalidatePath("/admin", "layout")` as well as the settings path, or the top bar
-  keeps the stale initials.
+  `AvatarPicker` displays the current photo itself and owns the change/remove
+  affordances. Saving one must `revalidatePath("/admin", "layout")` as well as the
+  settings path, or the top bar keeps the stale initials.
+- **The avatar is the one uploader with a cropper, and it is not a `SingleImageUploader`
+  variant.** `AvatarPicker` (`src/features/admin/components/avatar-picker.tsx`, Settings →
+  Profile only) is a 128px circle that *is* the button — no dashed drop-box — and opens
+  `ImageCropperDialog` (`src/components/ui/image-cropper-dialog.tsx`, wrapping
+  `react-easy-crop`) on whatever you picked. Its empty state is the amber gradient with an
+  upload icon rather than initials, because an empty control should say what it does.
+  Three things not to undo: (1) the output is normalised to a **512px WebP square**
+  (`AVATAR_OUTPUT_PX`), which is the *only* reason its source ceiling may be
+  `MAX_AVATAR_SOURCE_BYTES` (8 MB, client-side) rather than `MAX_IMAGE_BYTES` — the 2 MB
+  check in `uploadSingleImage` still guards the upload and the ~50 KB crop sails past it;
+  (2) `cropFromImage` rotates the whole image onto its bounding box **before** cropping,
+  because `croppedAreaPixels` is measured against the rotated image — crop first and every
+  non-zero rotation lands offset; (3) the dialog splits into a wrapper plus an inner panel
+  so crop/zoom/rotation reset by unmounting, not from an effect on `open` — the React
+  Compiler lint rule rejects that setState cascade. It copies `ConfirmDialog`'s focus trap,
+  scroll lock and Escape handling on purpose; don't give it its own. `react-easy-crop`
+  injects its own stylesheet, so there is nothing to add to `globals.css`.
+  `SingleImageUploader` keeps its four other consumers untouched, and its
+  `previewShape="circle"` option is now unused — the officials portrait is the obvious next
+  consumer if the cropper ever widens.
