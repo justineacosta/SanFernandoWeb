@@ -2,9 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { getSessionUser } from "@/lib/auth";
+import { cookies } from "next/headers";
+import { getSessionUser, getSessionUserIgnoringIdle } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ACTIVITY_COOKIE, activityCookieOptions } from "@/lib/session-activity";
 
 export interface AuthFormState {
   error: string | null;
@@ -43,6 +45,11 @@ export async function signIn(
     return { error: "This account is disabled. Contact the barangay administrator." };
   }
 
+  // Open the idle window. Without this the very next page GET would see no
+  // activity cookie and bounce the user straight back to the login page.
+  const cookieStore = await cookies();
+  cookieStore.set(activityCookieOptions(process.env.NODE_ENV === "production"));
+
   // Before the redirect: redirect() throws, so anything after it never runs.
   // A rejected sign-in is deliberately NOT logged — failed attempts against a
   // guessed address would let anyone append rows to an append-only table.
@@ -69,4 +76,33 @@ export async function signOut(): Promise<void> {
     });
   }
   redirect("/admin/login");
+}
+
+/**
+ * Sign out because the idle deadline passed, called by <IdleTimeout />.
+ *
+ * Distinct from `signOut` only in how it resolves the actor and what it logs.
+ * By the time this fires the activity cookie has already expired, so
+ * `getSessionUser` would return null and the audit entry would be lost — hence
+ * `getSessionUserIgnoringIdle`, whose sole purpose this is.
+ *
+ * The closed-window path has no counterpart here and records nothing: there is
+ * no session running to attribute an entry to.
+ */
+export async function signOutIdle(): Promise<void> {
+  const actor = await getSessionUserIgnoringIdle();
+  const supabase = await createSupabaseServerClient();
+  await supabase.auth.signOut();
+  const cookieStore = await cookies();
+  cookieStore.delete({ name: ACTIVITY_COOKIE, path: "/admin" });
+  if (actor) {
+    await recordActivity(actor, {
+      type: "logout",
+      action: "signed out",
+      entityType: "session",
+      entityId: actor.id,
+      detail: "signed out for inactivity",
+    });
+  }
+  redirect("/admin/login?reason=timeout");
 }

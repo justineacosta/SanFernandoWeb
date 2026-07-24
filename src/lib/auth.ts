@@ -1,11 +1,19 @@
 import { cache } from "react";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import type { Permission, SessionUser, StaffStatusLabel } from "@/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ACTIVITY_COOKIE, hasActivityCookie } from "@/lib/session-activity";
 
-/** Resolve the signed-in admin user (null if signed out, disabled, or archived). */
-export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
+/**
+ * The profile behind the Supabase session, with no idle check.
+ *
+ * Split out for exactly one caller: `signOutIdle` runs at the moment the
+ * activity cookie has just expired, and still needs an actor to attribute its
+ * audit entry to. Everything else must go through `getSessionUser`.
+ */
+const loadSessionUser = cache(async (): Promise<SessionUser | null> => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -14,7 +22,9 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("email, full_name, status_label, is_superadmin, permissions, is_active, is_archived, phone")
+    .select(
+      "email, full_name, status_label, is_superadmin, permissions, is_active, is_archived, phone",
+    )
     .eq("id", user.id)
     .single();
   if (!profile || !profile.is_active || profile.is_archived) return null;
@@ -28,6 +38,28 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     permissions: profile.permissions as Permission[],
     phone: profile.phone,
   };
+});
+
+/** See the note on loadSessionUser. Only `signOutIdle` may use this. */
+export const getSessionUserIgnoringIdle = loadSessionUser;
+
+/**
+ * Resolve the signed-in admin user (null if signed out, disabled, archived, or
+ * idle past the timeout).
+ *
+ * The idle check lives here, not only in middleware, because Server Action
+ * POSTs are excluded from the middleware matcher on purpose (see the comment on
+ * `config` in src/middleware.ts). Without this gate a user could sit in a
+ * drawer submitting saves indefinitely without a single page GET.
+ *
+ * Reading cookies here is safe in both contexts; writing them is not, and this
+ * function deliberately never does — `cookies()` is read-only inside a Server
+ * Component. Middleware and the client heartbeat own every write.
+ */
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
+  const cookieStore = await cookies();
+  if (!hasActivityCookie(cookieStore.get(ACTIVITY_COOKIE)?.value)) return null;
+  return loadSessionUser();
 });
 
 /**
