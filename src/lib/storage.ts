@@ -3,6 +3,20 @@ export const PUBLIC_MEDIA_BUCKET = "public-media";
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB (spec §5)
 
+/**
+ * Source ceiling for the avatar picker, enforced client-side only.
+ *
+ * Four times MAX_IMAGE_BYTES on purpose. The avatar cropper re-encodes the
+ * chosen region to AVATAR_OUTPUT_PX before anything is uploaded, so the source
+ * file and the uploaded file stopped being the same thing: a raw phone photo is
+ * a legitimate input while what reaches the bucket is a ~50 KB WebP. The 2 MB
+ * check in uploadSingleImage still stands and still passes.
+ */
+export const MAX_AVATAR_SOURCE_BYTES = 8 * 1024 * 1024; // 8 MB
+
+/** Side of the square every avatar is normalised to, in pixels. */
+export const AVATAR_OUTPUT_PX = 512;
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
 /**
