@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { AdminShell } from "@/features/admin/components/admin-shell";
 import { AdminUserProvider } from "@/features/admin/components/admin-user-context";
+import { IdleTimeout } from "@/features/admin/components/idle-timeout";
 
 export default async function AdminPortalLayout({
   children,
@@ -22,6 +23,10 @@ export default async function AdminPortalLayout({
       <AdminShell user={user} defaultCollapsed={collapsed}>
         {children}
       </AdminShell>
+      {/* Sibling of AdminShell, not a child: a fixed overlay inside the
+          backdrop-filter chrome would be positioned against it, not the
+          viewport. */}
+      <IdleTimeout />
     </AdminUserProvider>
   );
 }
