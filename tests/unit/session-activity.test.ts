@@ -6,6 +6,7 @@ import {
   WARN_MS,
   activityCookieOptions,
   activityCookieString,
+  forwardedProtoIsHttps,
   hasActivityCookie,
   isIdleExpired,
   parseActivityAt,
@@ -14,6 +15,24 @@ import {
 } from "@/lib/session-activity";
 
 const START = 1_700_000_000_000;
+
+describe("forwardedProtoIsHttps", () => {
+  it("reads the client's own hop, not a later one", () => {
+    expect(forwardedProtoIsHttps("https")).toBe(true);
+    expect(forwardedProtoIsHttps("https, http")).toBe(true);
+    expect(forwardedProtoIsHttps("http, https")).toBe(false);
+  });
+
+  it("treats an absent header as http, which is local dev", () => {
+    expect(forwardedProtoIsHttps(null)).toBe(false);
+    expect(forwardedProtoIsHttps(undefined)).toBe(false);
+    expect(forwardedProtoIsHttps("")).toBe(false);
+  });
+
+  it("is case- and whitespace-insensitive", () => {
+    expect(forwardedProtoIsHttps("  HTTPS ")).toBe(true);
+  });
+});
 
 describe("the cookie contract", () => {
   it("expires exactly when the client deadline does", () => {

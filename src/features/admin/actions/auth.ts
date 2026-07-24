@@ -2,11 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getSessionUser, getSessionUserIgnoringIdle } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ACTIVITY_COOKIE, activityCookieOptions } from "@/lib/session-activity";
+import {
+  ACTIVITY_COOKIE,
+  activityCookieOptions,
+  forwardedProtoIsHttps,
+} from "@/lib/session-activity";
 
 export interface AuthFormState {
   error: string | null;
@@ -47,8 +51,17 @@ export async function signIn(
 
   // Open the idle window. Without this the very next page GET would see no
   // activity cookie and bounce the user straight back to the login page.
+  //
+  // `secure` is derived from the request's own protocol, the same rule the
+  // other two writers use (middleware reads `nextUrl.protocol`, the client
+  // heartbeat reads `window.location.protocol`). Deriving it from NODE_ENV
+  // instead would agree with them on Vercel and disagree anywhere else — an
+  // https staging box running a dev build would drop this cookie on the floor
+  // and land the user back on the login page immediately after signing in.
+  const requestHeaders = await headers();
+  const secure = forwardedProtoIsHttps(requestHeaders.get("x-forwarded-proto"));
   const cookieStore = await cookies();
-  cookieStore.set(activityCookieOptions(process.env.NODE_ENV === "production"));
+  cookieStore.set(activityCookieOptions(secure));
 
   // Before the redirect: redirect() throws, so anything after it never runs.
   // A rejected sign-in is deliberately NOT logged — failed attempts against a

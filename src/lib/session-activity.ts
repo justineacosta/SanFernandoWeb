@@ -90,6 +90,20 @@ export function activityCookieString(secure: boolean): string {
   return parts.join("; ");
 }
 
+/**
+ * Whether the request that reached us arrived over https, read from
+ * `X-Forwarded-Proto`.
+ *
+ * For the one writer that has no URL to hand: a Server Action sees headers, not
+ * `nextUrl`. The header is a comma-separated list when the request crossed more
+ * than one proxy, and the first entry is the client's own hop. Absent (local
+ * `next dev`) means http, which is the answer we want there.
+ */
+export function forwardedProtoIsHttps(header: string | null | undefined): boolean {
+  if (!header) return false;
+  return header.split(",")[0].trim().toLowerCase() === "https";
+}
+
 /** Presence check. Absence means idle ≥ 30 min, or the window was closed that long. */
 export function hasActivityCookie(value: string | undefined): boolean {
   return value === ACTIVITY_COOKIE_VALUE;

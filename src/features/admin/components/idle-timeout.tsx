@@ -21,9 +21,10 @@ import { signOut, signOutIdle } from "@/features/admin/actions/auth";
  * Focus starts on "Stay signed in": the safe choice, and the one a person
  * hitting Enter to dismiss a surprise dialog means. Focus management (initial
  * focus, Tab/Shift-Tab cycle, scroll lock, focus restore) mirrors
- * `ConfirmDialog`, with one deliberate difference: Escape does nothing here,
- * because closing an inactivity warning on a stray keypress would silently
- * extend the session.
+ * `ConfirmDialog`, with one deliberate difference: Escape closes nothing here,
+ * because dismissing an inactivity warning on a stray keypress would silently
+ * extend the session. It is swallowed rather than ignored, so it cannot reach a
+ * drawer open behind the dialog.
  */
 export function IdleTimeout() {
   const [expired, setExpired] = useState(false);
@@ -52,8 +53,18 @@ export function IdleTimeout() {
     document.body.style.overflow = "hidden";
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Escape is deliberately not wired to anything: dismissing this dialog
-      // on a stray keypress would silently extend the session.
+      // Escape does not dismiss this dialog — doing so on a stray keypress
+      // would silently extend the session — but it must not reach whatever is
+      // behind it either. A Drawer or ConfirmDialog open underneath listens on
+      // `document` too, and would close and discard its form. Swallowing the
+      // key here is why this listener runs in the CAPTURE phase: both of those
+      // listeners are bubble-phase and were registered first, so
+      // stopImmediatePropagation() from a bubble listener would be too late.
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       if (event.key !== "Tab" || !panelRef.current) return;
       const focusables = panelRef.current.querySelectorAll<HTMLElement>(
         'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
@@ -70,10 +81,10 @@ export function IdleTimeout() {
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true);
     return () => {
       document.body.style.overflow = "";
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
       previouslyFocused?.focus();
     };
   }, [open]);
