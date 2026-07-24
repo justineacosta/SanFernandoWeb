@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import type { SessionUser } from "@/types";
-import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { Toast } from "@/components/ui/toast";
@@ -43,24 +42,21 @@ export function AccountProfileForm({ currentUser }: { currentUser: SessionUser }
   return (
     <>
       <div className="flex flex-col gap-6 border-t border-ink-200/70 pt-6 sm:flex-row">
-        <div className="flex shrink-0 flex-col items-center gap-3">
-          <Avatar src={currentUser.avatarSrc} fullName={currentUser.fullName} size="lg" />
-          <div className="w-56">
-            <SingleImageUploader
-              existingSrc={currentUser.avatarSrc}
-              existingPreviewUrl={currentUser.avatarSrc ? photoUrl(currentUser.avatarSrc) : null}
-              alt=""
-              onAltChange={() => {}}
-              decorative
-              previewShape="circle"
-              file={avatarFile}
-              onFileChange={setAvatarFile}
-              removeExisting={removeAvatar}
-              onRemoveExistingChange={setRemoveAvatar}
-              idPrefix="account-avatar"
-            />
-          </div>
-          <p className="text-xs text-ink-500">Your photo uploads when you save.</p>
+        <div className="flex w-56 shrink-0 flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">Photo</p>
+          <SingleImageUploader
+            existingSrc={currentUser.avatarSrc}
+            existingPreviewUrl={currentUser.avatarSrc ? photoUrl(currentUser.avatarSrc) : null}
+            alt=""
+            onAltChange={() => {}}
+            decorative
+            previewShape="circle"
+            file={avatarFile}
+            onFileChange={setAvatarFile}
+            removeExisting={removeAvatar}
+            onRemoveExistingChange={setRemoveAvatar}
+            idPrefix="account-avatar"
+          />
         </div>
         <form onSubmit={submit} noValidate className="flex-1 space-y-4">
           <Field label="Full Name" htmlFor="account-name">

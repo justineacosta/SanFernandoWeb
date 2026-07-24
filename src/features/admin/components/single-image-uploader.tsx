@@ -76,6 +76,19 @@ export function SingleImageUploader({
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
   }, []);
 
+  // Most consumers live inside a Drawer that unmounts on close, so the ref
+  // cleanup above is enough. A long-lived mount (the Settings profile card)
+  // can instead have its `file` prop reset to null from outside after a
+  // successful save, without ever unmounting — that reset has to revoke the
+  // pending preview too, or the object URL lives for the rest of the page.
+  useEffect(() => {
+    if (!file && urlRef.current) {
+      URL.revokeObjectURL(urlRef.current);
+      urlRef.current = null;
+      setLocalPreview(null);
+    }
+  }, [file]);
+
   function showPreviewFor(candidate: File | null) {
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = candidate ? URL.createObjectURL(candidate) : null;
