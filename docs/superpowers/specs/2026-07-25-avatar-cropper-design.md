@@ -73,7 +73,9 @@ Inside the panel:
 - **A square crop stage** with a **circular mask** over it. A round preview of a
   round avatar is the whole point — a square viewport would hide precisely the
   corners `border-radius: 50%` is about to eat. `react-easy-crop` handles this with
-  `cropShape="round"`, `aspect={1}`, `showGrid={false}`.
+  `cropShape="round"`, `aspect={1}`, `showGrid={false}`. The library injects its own
+  stylesheet on mount, so there is no CSS file to import and nothing to add to
+  `globals.css`.
 - **A zoom slider**, 1× → 3×, wired to the library's `zoom` prop. Scroll wheel and
   pinch also drive it; the slider exists because a trackpad user with no pinch
   gesture and a keyboard user both need a way in. It is the project's first
@@ -180,11 +182,11 @@ pure exports from the same file without a DOM.
   heading, focus trapped and restored, Escape to cancel.
 - The zoom slider is a native range input with a visible label, so it is
   keyboard-operable and announced with its value.
-- `react-easy-crop`'s crop area is draggable by pointer only. That is why the
-  slider and the rotate buttons are buttons and not gestures: a keyboard user can
-  zoom and rotate, and the default centred crop is a usable result for a
-  portrait-shaped photo. Full keyboard *panning* is not offered, and that is a
-  stated limitation rather than an oversight.
+- The crop area pans with the arrow keys once focused — `react-easy-crop` supports
+  this natively, and `keyboardStep` is raised from its default of 1px to 10 so a
+  keyboard user is not holding an arrow key for a hundred presses. Combined with
+  the slider and the rotate buttons being real controls rather than gestures, the
+  whole dialog is operable without a pointer.
 - Errors (wrong type, too large, decode failure) render in a `role="alert"`
   paragraph under the circle, matching `SingleImageUploader`.
 
