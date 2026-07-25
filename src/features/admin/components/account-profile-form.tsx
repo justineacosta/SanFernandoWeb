@@ -40,9 +40,8 @@ export function AccountProfileForm({ currentUser }: { currentUser: SessionUser }
 
   return (
     <>
-      <div className="flex flex-col gap-6 border-t border-ink-200/70 pt-6 sm:flex-row">
-        <div className="flex w-56 shrink-0 flex-col gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">Photo</p>
+      <div className="flex flex-col items-center gap-6 border-t border-ink-200/70 pt-6 sm:flex-row sm:items-start">
+        <div className="flex w-full shrink-0 justify-center sm:w-56 sm:pt-1">
           <AvatarPicker
             existingSrc={currentUser.avatarSrc}
             file={avatarFile}

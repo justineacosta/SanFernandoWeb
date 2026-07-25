@@ -129,7 +129,7 @@ export function AvatarPicker({
   const hasSomethingToRemove = Boolean(file) || (Boolean(existingSrc) && !removeExisting);
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col items-center gap-3 text-center">
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
@@ -169,8 +169,8 @@ export function AvatarPicker({
         ) : null}
       </button>
 
-      <div className="space-y-1">
-        <p className="text-xs text-ink-500">
+      <div className="flex flex-col items-center gap-1">
+        <p className="max-w-48 text-xs text-ink-500">
           {file
             ? "Uploads when you save."
             : pendingRemoval
