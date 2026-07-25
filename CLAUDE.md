@@ -277,8 +277,10 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   upload icon rather than initials, because an empty control should say what it does.
   Three things not to undo: (1) the output is normalised to a **512px WebP square**
   (`AVATAR_OUTPUT_PX`), which is the *only* reason its source ceiling may be
-  `MAX_AVATAR_SOURCE_BYTES` (8 MB, client-side) rather than `MAX_IMAGE_BYTES` — the 2 MB
-  check in `uploadSingleImage` still guards the upload and the ~50 KB crop sails past it;
+  `MAX_AVATAR_SOURCE_BYTES` (5 MB, client-side) rather than `MAX_IMAGE_BYTES` — the 2 MB
+  check in `uploadSingleImage` still guards the upload and the ~50 KB crop sails past it.
+  The source types are the avatar-only `ALLOWED_AVATAR_SOURCE_TYPES` (JPG/PNG, no WebP —
+  the crop re-encodes to WebP regardless), narrower than the shared `ALLOWED_IMAGE_TYPES`;
   (2) `cropFromImage` rotates the whole image onto its bounding box **before** cropping,
   because `croppedAreaPixels` is measured against the rotated image — crop first and every
   non-zero rotation lands offset; (3) the dialog splits into a wrapper plus an inner panel

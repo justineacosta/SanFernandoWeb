@@ -6,13 +6,21 @@ export const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB (spec §5)
 /**
  * Source ceiling for the avatar picker, enforced client-side only.
  *
- * Four times MAX_IMAGE_BYTES on purpose. The avatar cropper re-encodes the
+ * Larger than MAX_IMAGE_BYTES on purpose. The avatar cropper re-encodes the
  * chosen region to AVATAR_OUTPUT_PX before anything is uploaded, so the source
  * file and the uploaded file stopped being the same thing: a raw phone photo is
  * a legitimate input while what reaches the bucket is a ~50 KB WebP. The 2 MB
  * check in uploadSingleImage still stands and still passes.
  */
-export const MAX_AVATAR_SOURCE_BYTES = 8 * 1024 * 1024; // 8 MB
+export const MAX_AVATAR_SOURCE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+/**
+ * Types the avatar picker accepts as a *source*. A narrower set than
+ * ALLOWED_IMAGE_TYPES (no WebP): a camera roll is JPGs and screenshots are PNGs,
+ * and the cropper re-encodes to WebP regardless, so accepting a WebP source buys
+ * nothing. The output is still a WebP that ALLOWED_IMAGE_TYPES admits server-side.
+ */
+export const ALLOWED_AVATAR_SOURCE_TYPES = ["image/jpeg", "image/png"] as const;
 
 /** Side of the square every avatar is normalised to, in pixels. */
 export const AVATAR_OUTPUT_PX = 512;

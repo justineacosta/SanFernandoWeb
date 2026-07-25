@@ -5,7 +5,7 @@ import Image from "next/image";
 import { UploadCloud } from "lucide-react";
 import { ImageCropperDialog } from "@/components/ui/image-cropper-dialog";
 import { cropFromImage, decodeImageUrl, type PixelCrop } from "@/lib/crop-image";
-import { ALLOWED_IMAGE_TYPES, MAX_AVATAR_SOURCE_BYTES, photoUrl } from "@/lib/storage";
+import { ALLOWED_AVATAR_SOURCE_TYPES, MAX_AVATAR_SOURCE_BYTES, photoUrl } from "@/lib/storage";
 
 interface AvatarPickerProps {
   /** Storage path already on the profile, or null. */
@@ -79,12 +79,12 @@ export function AvatarPicker({
   async function pick(candidate: File | undefined) {
     if (!candidate) return;
     setError(null);
-    if (!ALLOWED_IMAGE_TYPES.includes(candidate.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
-      setError("Images must be JPG, PNG, or WebP.");
+    if (!ALLOWED_AVATAR_SOURCE_TYPES.includes(candidate.type as (typeof ALLOWED_AVATAR_SOURCE_TYPES)[number])) {
+      setError("Images must be JPG or PNG.");
       return;
     }
     if (candidate.size > MAX_AVATAR_SOURCE_BYTES) {
-      setError("The image must be 8 MB or smaller.");
+      setError("The image must be 5 MB or smaller.");
       return;
     }
 
@@ -175,7 +175,7 @@ export function AvatarPicker({
             ? "Uploads when you save."
             : pendingRemoval
               ? "The photo will be removed when you save."
-              : "Click the circle to upload. JPG, PNG or WebP, up to 8 MB."}
+              : "Click the circle to upload. JPG or PNG, up to 5 MB."}
         </p>
         {hasSomethingToRemove ? (
           <button
@@ -203,7 +203,7 @@ export function AvatarPicker({
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png"
         hidden
         onChange={(event) => {
           void pick(event.target.files?.[0]);
