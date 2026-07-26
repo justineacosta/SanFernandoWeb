@@ -23,14 +23,21 @@ export function NewsArchiveGrid({
   const [items, setItems] = useState(initialItems);
   const [offset, setOffset] = useState(initialOffset);
   const [hasMore, setHasMore] = useState(initialHasMore);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleLoadMore() {
+    setError(null);
     startTransition(async () => {
-      const result = await loadMoreNews(offset);
-      setItems((prev) => [...prev, ...result.items]);
-      setOffset((prev) => prev + result.items.length);
-      setHasMore(result.hasMore);
+      try {
+        const result = await loadMoreNews(offset);
+        setItems((prev) => [...prev, ...result.items]);
+        setOffset((prev) => prev + result.items.length);
+        setHasMore(result.hasMore);
+      } catch (err) {
+        setError("Failed to load more articles. Please try again.");
+        console.error("loadMoreNews error:", err);
+      }
     });
   }
 
@@ -42,6 +49,11 @@ export function NewsArchiveGrid({
           <NewsCard key={article.id} article={article} />
         ))}
       </div>
+      {error ? (
+        <p role="alert" className="text-sm font-medium text-danger">
+          {error}
+        </p>
+      ) : null}
       {hasMore ? (
         <div className="flex justify-center pt-4">
           <Button variant="outline" size="lg" onClick={handleLoadMore} disabled={isPending}>
