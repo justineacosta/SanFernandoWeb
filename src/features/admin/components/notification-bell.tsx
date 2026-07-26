@@ -169,40 +169,42 @@ export function NotificationBell({ isSuperAdmin, permissions }: NotificationBell
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={POP}
           style={{ top: rect.bottom + GAP, left, width: PANEL_WIDTH, transformOrigin: "top right" }}
-          className="fixed z-70 max-h-[70vh] overflow-y-auto rounded-2xl border border-ink-200/70 bg-white p-2 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.28)]"
+          className="fixed z-70 flex max-h-[70vh] flex-col overflow-hidden rounded-3xl border border-ink-200/70 bg-white/95 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.25)] backdrop-blur-xl"
         >
-          <p className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-ink-500">
-            New requests
-          </p>
-          {permittedRecent.length === 0 ? (
-            <p className="px-3 py-6 text-center text-sm text-ink-500">You&apos;re all caught up.</p>
-          ) : (
-            <ul className="flex flex-col gap-0.5">
-              {permittedRecent.map((item, index) => {
-                const Icon = iconForHref(NOTIFICATION_QUEUES[item.queue].navHref);
-                return (
-                  <li key={`${item.queue}-${item.id}`}>
-                    <Link
-                      href={item.href}
-                      role="menuitem"
-                      tabIndex={index === activeIndex ? 0 : -1}
-                      onClick={() => close(false)}
-                      className="flex items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-ink-50"
-                    >
-                      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-ink-400" aria-hidden="true" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate font-medium text-ink-900">{item.label}</span>
-                        <span className="block truncate text-xs text-ink-500">{item.sublabel}</span>
-                      </span>
-                      <span className="shrink-0 whitespace-nowrap text-xs text-ink-400">
-                        {formatRelativeTime(item.createdAt)}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-3">
+            <p className="mb-2 flex items-center gap-2 px-4 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-ink-500 before:h-px before:w-4 before:shrink-0 before:bg-brand-400/40 before:content-['']">
+              New requests
+            </p>
+            {permittedRecent.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-ink-500">You&apos;re all caught up.</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {permittedRecent.map((item, index) => {
+                  const Icon = iconForHref(NOTIFICATION_QUEUES[item.queue].navHref);
+                  return (
+                    <li key={`${item.queue}-${item.id}`}>
+                      <Link
+                        href={item.href}
+                        role="menuitem"
+                        tabIndex={index === activeIndex ? 0 : -1}
+                        onClick={() => close(false)}
+                        className="flex items-center gap-3 rounded-full px-4 py-3 text-left text-sm font-medium text-ink-600 transition-colors duration-(--duration-quick) hover:bg-ink-50 hover:text-ink-900"
+                      >
+                        <Icon className="h-5 w-5 shrink-0 text-ink-400" aria-hidden="true" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-ink-900">{item.label}</span>
+                          <span className="block truncate text-xs text-ink-500">{item.sublabel}</span>
+                        </span>
+                        <span className="shrink-0 whitespace-nowrap text-xs text-ink-400">
+                          {formatRelativeTime(item.createdAt)}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </motion.div>
       </MotionConfig>,
       document.body,
