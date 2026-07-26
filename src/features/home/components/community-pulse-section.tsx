@@ -61,14 +61,14 @@ export async function CommunityPulseSection() {
           <CardHeader
             title="Upcoming Events"
             icon={<Calendar className="h-5 w-5 text-brand-500" aria-hidden="true" />}
-            action={<ViewAllLink label="View Calendar" href="/announcements" />}
+            action={<ViewAllLink label="View Calendar" href="/events" />}
           />
           <div className="space-y-6">
             {events.map((event) => (
               <EventCard key={event.title} event={event} />
             ))}
           </div>
-          <Button href="/announcements" variant="outline" className="mt-6 w-full">
+          <Button href="/events" variant="outline" className="mt-6 w-full">
             View All Events
           </Button>
         </Card>

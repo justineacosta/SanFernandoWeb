@@ -42,6 +42,7 @@ const schema = z.object({
 
 function revalidate() {
   revalidatePath("/admin/events");
+  revalidatePath("/events");
   revalidatePath("/");
 }
 

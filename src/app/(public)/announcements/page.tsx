@@ -22,7 +22,7 @@ export default function AnnouncementsPage() {
         description="Access the latest announcements, public notices, and community highlights from the heart of Barangay San Fernando."
       >
         <div className="flex flex-wrap gap-4">
-          <Button variant="outline" size="lg">
+          <Button href="/events" variant="outline" size="lg">
             Community Calendar
           </Button>
         </div>

@@ -28,3 +28,19 @@ test("past events archive loads more on demand", async ({ page }) => {
     .poll(async () => cards.count(), { timeout: 10_000 })
     .toBeGreaterThan(initialCount);
 });
+
+test("Community Calendar button and homepage links point to /events", async ({ page }) => {
+  await page.goto("/announcements");
+  await page.getByRole("link", { name: "Community Calendar" }).click();
+  await expect(page).toHaveURL(/\/events$/);
+
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "View Calendar" })).toHaveAttribute(
+    "href",
+    "/events",
+  );
+  await expect(page.getByRole("link", { name: "View All Events" })).toHaveAttribute(
+    "href",
+    "/events",
+  );
+});
