@@ -50,15 +50,17 @@ export async function getAnnouncementForEdit(
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("announcements")
-    .select("id, title, date, excerpt, image_src, image_alt, urgent, status")
+    .select("id, slug, title, date, excerpt, body, image_src, image_alt, urgent, status")
     .eq("id", id)
     .maybeSingle();
   if (error || !data) return null;
   return {
     values: {
       title: data.title,
+      slug: data.slug,
       date: data.date,
       excerpt: data.excerpt,
+      body: data.body ?? "",
       urgent: data.urgent,
       // Raw storage path (or remote seed URL) — never resolved here. The form
       // round-trips this value back through saveAnnouncement unchanged unless

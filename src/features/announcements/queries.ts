@@ -1,10 +1,11 @@
 import "server-only";
-import type { Announcement, NewsArticleDetail, NewsArticleListItem } from "@/types";
+import type { Announcement, AnnouncementDetail, NewsArticleDetail, NewsArticleListItem } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { photoUrl } from "@/lib/storage";
 import { formatDate, toManilaDate } from "@/lib/format";
 
 export const ARCHIVE_BATCH = 6;
+export const NOTICES_ARCHIVE_BATCH = 6;
 
 function isWithin7Days(publishedAt: string | null): boolean {
   if (!publishedAt) return false;
@@ -85,23 +86,82 @@ export async function getPublishedArticleBySlug(slug: string): Promise<NewsArtic
   return { ...toListItem(row), body: row.body ?? "", photos };
 }
 
+interface AnnouncementRow {
+  id: string;
+  slug: string;
+  title: string;
+  date: string;
+  excerpt: string;
+  body?: string;
+  image_src: string | null;
+  image_alt: string;
+  urgent: boolean;
+  published_at: string | null;
+}
+
+function toAnnouncement(row: AnnouncementRow): Announcement {
+  return {
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    date: row.date,
+    excerpt: row.excerpt,
+    image: row.image_src ? photoUrl(row.image_src) : undefined,
+    imageAlt: row.image_alt ?? "",
+    urgent: row.urgent,
+    isNew: isWithin7Days(row.published_at),
+  };
+}
+
 export async function listPublishedAnnouncements(limit = 3): Promise<Announcement[]> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("announcements")
-    .select("title, date, excerpt, image_src, image_alt, urgent, published_at")
+    .select("id, slug, title, date, excerpt, image_src, image_alt, urgent, published_at")
     .eq("status", "published")
     .order("date", { ascending: false })
     .limit(limit);
 
   if (error || !data) return [];
-  return data.map((r) => ({
-    title: r.title,
-    date: r.date,
-    excerpt: r.excerpt,
-    image: r.image_src ? photoUrl(r.image_src) : undefined,
-    imageAlt: r.image_alt ?? "",
-    urgent: r.urgent,
-    isNew: isWithin7Days(r.published_at),
-  }));
+  return (data as unknown as AnnouncementRow[]).map(toAnnouncement);
+}
+
+export async function listAllAnnouncements(
+  offset: number,
+  limit: number,
+): Promise<{ items: Announcement[]; total: number }> {
+  const admin = createSupabaseAdminClient();
+  const safeOffset = Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 1;
+
+  const { data, count, error } = await admin
+    .from("announcements")
+    .select(
+      "id, slug, title, date, excerpt, image_src, image_alt, urgent, published_at",
+      { count: "exact" },
+    )
+    .eq("status", "published")
+    .order("date", { ascending: false })
+    .order("id", { ascending: false })
+    .range(safeOffset, safeOffset + safeLimit - 1);
+
+  if (error || !data) return { items: [], total: 0 };
+  return {
+    items: (data as unknown as AnnouncementRow[]).map(toAnnouncement),
+    total: count ?? 0,
+  };
+}
+
+export async function getPublishedAnnouncementBySlug(slug: string): Promise<AnnouncementDetail | null> {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("announcements")
+    .select("id, slug, title, date, excerpt, body, image_src, image_alt, urgent, published_at")
+    .eq("status", "published")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const row = data as unknown as AnnouncementRow;
+  return { ...toAnnouncement(row), body: row.body ?? "" };
 }

@@ -167,6 +167,8 @@ export interface PublicAchievement extends AchievementValues {
 /* ------------------------------ News & announcements ---------------------------- */
 
 export interface Announcement {
+  id: string;
+  slug: string;
   title: string;
   /** ISO date, e.g. "2025-05-20" */
   date: string;
@@ -175,6 +177,11 @@ export interface Announcement {
   imageAlt?: string;
   isNew?: boolean;
   urgent?: boolean;
+}
+
+/** Public notice detail (slug page). */
+export interface AnnouncementDetail extends Announcement {
+  body: string;
 }
 
 export interface CommunityEvent {
@@ -297,8 +304,10 @@ export interface NewsArticleValues {
 }
 export interface AnnouncementValues {
   title: string;
+  slug: string;
   date: string;
   excerpt: string;
+  body: string;
   urgent: boolean;
   imageSrc: string | null;
   imageAlt: string;
