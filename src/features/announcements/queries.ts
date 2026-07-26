@@ -120,6 +120,7 @@ export async function listPublishedAnnouncements(limit = 3): Promise<Announcemen
     .select("id, slug, title, date, excerpt, image_src, image_alt, urgent, published_at")
     .eq("status", "published")
     .order("date", { ascending: false })
+    .order("id", { ascending: false })
     .limit(limit);
 
   if (error || !data) return [];

@@ -24,12 +24,12 @@ const NOW = 1_800_000_000_000;
 describe("draftKey", () => {
   it("scopes a key to the user, the form and the record", () => {
     expect(draftKey("user-1", "announcement", "abc")).toBe(
-      "sf-draft:v1:user-1:announcement:abc",
+      "sf-draft:v2:user-1:announcement:abc",
     );
   });
 
   it("keys an unsaved record as 'new'", () => {
-    expect(draftKey("user-1", "news", null)).toBe("sf-draft:v1:user-1:news:new");
+    expect(draftKey("user-1", "news", null)).toBe("sf-draft:v2:user-1:news:new");
   });
 
   /**

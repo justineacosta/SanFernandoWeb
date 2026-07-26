@@ -4,9 +4,10 @@
 --
 -- Slug backfill has no fallback beyond disambiguation. Every existing
 -- announcement gets a slug derived from its title; duplicates (identical or
--- near-identical titles) are disambiguated with a -2, -3… suffix before the
--- NOT NULL UNIQUE constraint lands, so this migration cannot fail on
--- existing data the way 0024's numeric backfill deliberately could.
+-- near-identical titles) are disambiguated with a suffix derived from each
+-- row's own id (unique by construction, so it cannot collide with another
+-- row's disambiguated slug the way a sequential -2, -3… suffix could) before
+-- the NOT NULL UNIQUE constraint lands.
 
 begin;
 
@@ -23,9 +24,16 @@ where slug is null;
 
 -- 3. Disambiguate duplicates the backfill above would otherwise collide on
 --    (e.g. two announcements both titled "Notice") — oldest keeps the bare
---    slug, later rows get -2, -3…
+--    slug, later rows get a suffix from their own id. A sequential -2, -3…
+--    suffix (keyed off row_number()) can itself collide with an untouched
+--    row that already carries that numeral as part of its own bare slug
+--    (e.g. "Barangay Assembly" x2 + "Barangay Assembly 2" backfill to
+--    barangay-assembly / barangay-assembly / barangay-assembly-2, and
+--    renaming the second row to barangay-assembly-2 collides with the
+--    third) — the row's own id has no such relationship to any other row's
+--    slug, so it cannot collide.
 update public.announcements a
-set slug = a.slug || '-' || sub.rn
+set slug = a.slug || '-' || left(replace(a.id::text, '-', ''), 8)
 from (
   select id, row_number() over (partition by slug order by created_at) as rn
   from public.announcements

@@ -7,7 +7,7 @@
  */
 
 /** Bumping the version abandons old snapshots rather than migrating them. */
-export const DRAFT_KEY_PREFIX = "sf-draft:v1:";
+export const DRAFT_KEY_PREFIX = "sf-draft:v2:";
 
 /** A snapshot older than this is an artefact, not a rescue. */
 export const DRAFT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
