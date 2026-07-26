@@ -11,6 +11,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
 import { AdminGlobalSearch } from "@/features/admin/components/admin-global-search";
 import { AdminMobileNav } from "@/features/admin/components/admin-mobile-nav";
+import { NotificationBell } from "@/features/admin/components/notification-bell";
 import { SignOutButton } from "@/features/admin/components/sign-out-button";
 
 /**
@@ -26,7 +27,8 @@ import { SignOutButton } from "@/features/admin/components/sign-out-button";
  * above the portal's 404, so an ungated lookup would name a module the viewer
  * is not supposed to know exists.
  *
- * Notifications and Help used to sit here. Both were stubs wired to nothing.
+ * Notifications lives here again, wired to the real request queues (see
+ * NotificationBell). Help remains removed — it was a stub wired to nothing.
  */
 export function AdminTopBar({ user }: { user: SessionUser }) {
   const pathname = usePathname();
@@ -71,6 +73,7 @@ export function AdminTopBar({ user }: { user: SessionUser }) {
             </AnimatePresence>
           </div>
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <NotificationBell isSuperAdmin={user.isSuperAdmin} permissions={user.permissions} />
             <AdminGlobalSearch />
             <span aria-hidden="true" className="hidden h-6 w-px bg-ink-200 sm:block" />
             <div className="flex items-center gap-3">
