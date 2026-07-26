@@ -261,7 +261,9 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   pages fetch via `listPublishedArticles(offset, limit)` with results ordered by
   `published_at desc, id desc` (tiebreaker prevents duplicate keys). `ARCHIVE_BATCH = 6`
   is defined once in `src/features/announcements/queries.ts`. The dead "Subscribe to
-  Alerts" button is gone from the `/announcements` hero.
+  Alerts" button is gone from the `/announcements` hero. The `/announcements` list itself
+  stays teaser-only — no announcements equivalent of `/news`'s or (below) `/events`'s full
+  archive page exists yet.
 - `/events` ("Community Calendar") shows every published event: an unpaginated "Upcoming
   Events" section (`event_date >= today`, soonest first) and a paginated "Past Events"
   archive (`event_date < today`, most recent first, `EVENTS_ARCHIVE_BATCH = 6`, same

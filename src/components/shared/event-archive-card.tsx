@@ -39,7 +39,7 @@ export function EventArchiveCard({ event }: EventArchiveCardProps) {
             <span className="text-xs font-semibold text-brand-700">{formatDate(event.date)}</span>
           ) : null}
         </div>
-        <h4 className="text-base font-semibold tracking-tight text-ink-900">{event.title}</h4>
+        <h3 className="text-base font-semibold tracking-tight text-ink-900">{event.title}</h3>
         <p className="mt-1 text-sm text-ink-600">
           {event.time} · {event.venue}
         </p>

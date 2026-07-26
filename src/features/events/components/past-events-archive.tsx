@@ -6,7 +6,9 @@ import { PastEventsArchiveGrid } from "./past-events-archive-grid";
 export async function PastEventsArchive() {
   const { items, total } = await listPastEvents(0, EVENTS_ARCHIVE_BATCH);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return <p className="py-12 text-center text-ink-500">No events yet. Please check back soon.</p>;
+  }
 
   return (
     <div>

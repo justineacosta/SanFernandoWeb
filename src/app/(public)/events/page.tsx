@@ -11,6 +11,8 @@ export const metadata: Metadata = {
     "Every civic event, town hall, and festival hosted by Barangay San Fernando — upcoming and past.",
 };
 
+export const revalidate = 3600;
+
 export default function EventsPage() {
   return (
     <>

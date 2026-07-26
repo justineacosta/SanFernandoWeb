@@ -65,7 +65,7 @@ export async function CommunityPulseSection() {
           />
           <div className="space-y-6">
             {events.map((event) => (
-              <EventCard key={event.title} event={event} />
+              <EventCard key={event.id} event={event} />
             ))}
           </div>
           <Button href="/events" variant="outline" className="mt-6 w-full">

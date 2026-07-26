@@ -49,7 +49,10 @@ export async function listUpcomingEvents(limit = 4): Promise<CommunityEvent[]> {
     .order("event_date", { ascending: true })
     .limit(limit);
 
-  if (error || !data) return [];
+  if (error || !data) {
+    console.error("listUpcomingEvents failed:", error?.message);
+    return [];
+  }
   return (data as unknown as EventRow[]).map(toCommunityEvent);
 }
 
@@ -63,7 +66,10 @@ export async function listAllUpcomingEvents(): Promise<CommunityEvent[]> {
     .gte("event_date", manilaToday())
     .order("event_date", { ascending: true });
 
-  if (error || !data) return [];
+  if (error || !data) {
+    console.error("listAllUpcomingEvents failed:", error?.message);
+    return [];
+  }
   return (data as unknown as EventRow[]).map(toCommunityEvent);
 }
 
@@ -85,7 +91,10 @@ export async function listPastEvents(
     .order("id", { ascending: false })
     .range(safeOffset, safeOffset + safeLimit - 1);
 
-  if (error || !data) return { items: [], total: 0 };
+  if (error || !data) {
+    console.error("listPastEvents failed:", error?.message);
+    return { items: [], total: 0 };
+  }
   return {
     items: (data as unknown as EventRow[]).map(toCommunityEvent),
     total: count ?? 0,
