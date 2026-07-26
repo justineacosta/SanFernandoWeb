@@ -12,7 +12,7 @@ interface NoticesArchiveGridProps {
   initialHasMore: boolean;
 }
 
-/** A single-column stack of announcement cards that grows via "Load More" button. */
+/** A 3-column grid of announcement cards that grows via "Load More" button. */
 export function NoticesArchiveGrid({
   initialItems,
   initialOffset,
@@ -44,7 +44,7 @@ export function NoticesArchiveGrid({
 
   return (
     <div className="space-y-8">
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {items.map((announcement) => (
           <div key={announcement.id} className="rounded-3xl border border-ink-200 bg-white p-5">
             <AnnouncementCard announcement={announcement} />

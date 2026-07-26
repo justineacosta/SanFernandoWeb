@@ -23,8 +23,12 @@ test("notices archive page renders and loads more on demand", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Community Notices" })).toBeVisible();
 
   const detailsLinks = page.getByRole("link", { name: "Details" });
+  try {
+    await expect(detailsLinks.first()).toBeVisible({ timeout: 10_000 });
+  } catch {
+    test.skip(true, "no published announcements in this environment");
+  }
   const initialCount = await detailsLinks.count();
-  test.skip(initialCount === 0, "no published announcements in this environment");
 
   const loadMore = page.getByRole("button", { name: "Load More" });
   if ((await loadMore.count()) === 0) {
