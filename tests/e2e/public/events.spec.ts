@@ -35,11 +35,7 @@ test("Community Calendar button and homepage links point to /events", async ({ p
   await expect(page).toHaveURL(/\/events$/);
 
   await page.goto("/");
-  await expect(page.getByRole("link", { name: "View Calendar" })).toHaveAttribute(
-    "href",
-    "/events",
-  );
-  await expect(page.getByRole("link", { name: "View All Events" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "View Events" })).toHaveAttribute(
     "href",
     "/events",
   );

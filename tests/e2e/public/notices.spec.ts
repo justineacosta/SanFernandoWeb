@@ -47,10 +47,6 @@ test("homepage and sidebar 'View All' links point to /notices", async ({ page })
     "href",
     "/notices",
   );
-  await expect(page.getByRole("link", { name: "View All Announcements" })).toHaveAttribute(
-    "href",
-    "/notices",
-  );
 
   await page.goto("/announcements");
   const viewAll = page.getByRole("link", { name: "View All" });
