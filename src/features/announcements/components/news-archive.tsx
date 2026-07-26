@@ -1,7 +1,7 @@
 import { ARCHIVE_BATCH, listPublishedArticles } from "@/features/announcements/queries";
 import { NewsArchiveGrid } from "@/features/announcements/components/news-archive-grid";
 
-/** Full News archive: newest as a featured card, the rest in a load-more grid. */
+/** Full News archive: plain cards in a 3-column grid with Load More. */
 export async function NewsArchive() {
   const { items, total } = await listPublishedArticles(0, ARCHIVE_BATCH);
 
@@ -9,11 +9,9 @@ export async function NewsArchive() {
     return <p className="py-12 text-center text-ink-500">No news yet. Please check back soon.</p>;
   }
 
-  const [featured, ...grid] = items;
   return (
     <NewsArchiveGrid
-      featured={featured}
-      initialItems={grid}
+      initialItems={items}
       initialOffset={items.length}
       initialHasMore={items.length < total}
     />

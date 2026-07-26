@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Container } from "@/components/ui/container";
 import { PageHero } from "@/components/sections/page-hero";
-import { NewsArchiveSkeleton, NewsSidebarSkeleton } from "@/components/ui/public-skeleton";
-import { NewsArchive, NewsSidebar } from "@/features/announcements";
+import { NewsArchiveSkeleton } from "@/components/ui/public-skeleton";
+import { NewsArchive } from "@/features/announcements";
 
 export const metadata: Metadata = {
   title: "All News",
@@ -20,17 +20,10 @@ export default function NewsPage() {
         description="Every article and public notice from Barangay San Fernando, newest first."
       />
       <Container className="py-12 md:py-16">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          <div className="lg:col-span-8">
-            <Suspense fallback={<NewsArchiveSkeleton />}>
-              <NewsArchive />
-            </Suspense>
-          </div>
-          <div className="lg:col-span-4">
-            <Suspense fallback={<NewsSidebarSkeleton />}>
-              <NewsSidebar />
-            </Suspense>
-          </div>
+        <div className="mx-auto max-w-6xl">
+          <Suspense fallback={<NewsArchiveSkeleton />}>
+            <NewsArchive />
+          </Suspense>
         </div>
       </Container>
     </>

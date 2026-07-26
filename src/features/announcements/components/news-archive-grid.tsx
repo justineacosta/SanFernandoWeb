@@ -2,20 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { FeaturedNewsCard, NewsCard } from "@/features/announcements/components/news-card";
+import { NewsCard } from "@/features/announcements/components/news-card";
 import { loadMoreNews } from "@/features/announcements/actions";
 import type { NewsArticleListItem } from "@/types";
 
 interface NewsArchiveGridProps {
-  featured: NewsArticleListItem;
   initialItems: NewsArticleListItem[];
   initialOffset: number;
   initialHasMore: boolean;
 }
 
-/** Featured card (fixed on first load) + a 3-column grid that grows via "Load More". */
+/** A 3-column grid of plain news cards that grows via "Load More" button. */
 export function NewsArchiveGrid({
-  featured,
   initialItems,
   initialOffset,
   initialHasMore,
@@ -31,7 +29,10 @@ export function NewsArchiveGrid({
     startTransition(async () => {
       try {
         const result = await loadMoreNews(offset);
-        setItems((prev) => [...prev, ...result.items]);
+        setItems((prev) => {
+          const seen = new Set(prev.map((a) => a.id));
+          return [...prev, ...result.items.filter((a) => !seen.has(a.id))];
+        });
         setOffset((prev) => prev + result.items.length);
         setHasMore(result.hasMore);
       } catch (err) {
@@ -43,7 +44,6 @@ export function NewsArchiveGrid({
 
   return (
     <div className="space-y-8">
-      <FeaturedNewsCard article={featured} />
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {items.map((article) => (
           <NewsCard key={article.id} article={article} />
