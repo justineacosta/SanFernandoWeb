@@ -20,16 +20,40 @@ export interface SaveResult {
 
 const schema = z.object({
   title: z.string().trim().min(3, "Enter a title."),
+  slug: z.string().trim().min(1, "Enter a slug."),
   date: z.string().trim().min(1, "Pick a date."),
   excerpt: z.string().trim().min(1, "Enter an excerpt."),
+  body: z.string(),
   urgent: z.boolean(),
   imageSrc: z.string().trim().nullable(),
   imageAlt: z.string().trim(),
 });
 
+function slugify(title: string): string {
+  return title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+type SlugResult = { slug: string; error: null } | { slug: null; error: string };
+
+/** Ensure a slug is unique, suffixing -2, -3… (ignoring the row being edited). */
+async function uniqueSlug(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  base: string,
+  ignoreId: string | null,
+): Promise<SlugResult> {
+  const { data, error } = await admin.from("announcements").select("id, slug");
+  if (error) return { slug: null, error: "Could not save the announcement. Try again." };
+  const taken = new Set((data ?? []).filter((r) => r.id !== ignoreId).map((r) => r.slug));
+  if (!taken.has(base)) return { slug: base, error: null };
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n++;
+  return { slug: `${base}-${n}`, error: null };
+}
+
 function revalidate() {
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
+  revalidatePath("/notices");
   revalidatePath("/");
 }
 
@@ -89,27 +113,49 @@ export async function saveAnnouncement(
     // orphaned by this save unless it survives into nextImageSrc.
     const { data: existing, error: readErr } = await admin
       .from("announcements")
-      .select("image_src")
+      .select("image_src, status, slug")
       .eq("id", id)
       .maybeSingle();
     if (readErr) return fail("Could not save the announcement.");
     if (!existing) return fail("Announcement not found.");
 
-    const { data: updated, error } = await admin
+    const wasPublished = existing.status === "published";
+    let slug = existing.slug;
+    if (!wasPublished) {
+      const slugResult = await uniqueSlug(admin, slugify(parsed.data.slug) || slugify(parsed.data.title), id);
+      if (slugResult.error) return fail(slugResult.error);
+      slug = slugResult.slug;
+    }
+
+    let query = admin
       .from("announcements")
       .update({
         title: parsed.data.title,
+        slug,
         date: parsed.data.date,
         excerpt: parsed.data.excerpt,
+        body: parsed.data.body,
         urgent: parsed.data.urgent,
         image_src: nextImageSrc,
         image_alt: nextImageAlt,
       })
-      .eq("id", id)
-      .select("id")
-      .maybeSingle();
+      .eq("id", id);
+    // The slug above was computed against the status just read. If that read
+    // saw a non-published status, re-assert it in the WHERE: should the
+    // announcement get published concurrently, this update must not silently
+    // apply a slug computed against the now-stale status.
+    if (!wasPublished) {
+      query = query.in("status", ["draft", "in-review", "archived"]);
+    }
+    const { data: updated, error } = await query.select("id").maybeSingle();
     if (error) return fail("Could not save the announcement.");
-    if (!updated) return fail("Announcement not found.");
+    if (!updated) {
+      return fail(
+        wasPublished
+          ? "Announcement not found."
+          : "This announcement was published while you were editing. Reopen it and try again.",
+      );
+    }
 
     const previous = existing.image_src as string | null;
     if (previous && previous !== nextImageSrc) {
@@ -126,12 +172,18 @@ export async function saveAnnouncement(
     return { error: null, id };
   }
 
+  const slugResult = await uniqueSlug(admin, slugify(parsed.data.slug) || slugify(parsed.data.title), null);
+  if (slugResult.error) return fail(slugResult.error);
+  const slug = slugResult.slug;
+
   const { data: inserted, error } = await admin
     .from("announcements")
     .insert({
       title: parsed.data.title,
+      slug,
       date: parsed.data.date,
       excerpt: parsed.data.excerpt,
+      body: parsed.data.body,
       urgent: parsed.data.urgent,
       image_src: nextImageSrc,
       image_alt: nextImageAlt,
@@ -227,10 +279,10 @@ export async function restoreAnnouncement(id: string): Promise<ActionResult> {
  * take an announcement off the site.
  */
 export async function deleteAnnouncement(id: string): Promise<ActionResult> {
-  const guard = await guardDelete<{ title: string; image_src: string | null }>(
+  const guard = await guardDelete<{ title: string; slug: string; image_src: string | null }>(
     "announcements",
     id,
-    "title, image_src",
+    "title, slug, image_src",
   );
   if (!guard.ok) return { error: guard.error };
   const { actor, row: existing } = guard;
@@ -249,6 +301,7 @@ export async function deleteAnnouncement(id: string): Promise<ActionResult> {
     entityId: id,
     entityLabel: existing.title,
   });
+  revalidatePath(`/notices/${existing.slug}`);
   revalidate();
   return { error: null };
 }

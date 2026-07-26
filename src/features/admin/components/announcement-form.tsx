@@ -29,10 +29,20 @@ interface AnnouncementFormProps {
   onCancel: () => void;
 }
 
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 const EMPTY_VALUES: AnnouncementValues = {
   title: "",
+  slug: "",
   date: "",
   excerpt: "",
+  body: "",
   urgent: false,
   imageSrc: null,
   imageAlt: "",
@@ -53,6 +63,14 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
 
   const set = <K extends keyof AnnouncementValues>(key: K, value: AnnouncementValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
+
+  function handleTitleChange(next: string) {
+    setValues((prev) => ({
+      ...prev,
+      title: next,
+      slug: prev.slug.trim() === "" ? slugify(next) : prev.slug,
+    }));
+  }
 
   function handleSave(event: React.FormEvent) {
     event.preventDefault();
@@ -112,10 +130,22 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
           <Input
             id="announcement-title"
             value={values.title}
-            onChange={(event) => set("title", event.target.value)}
+            onChange={(event) => handleTitleChange(event.target.value)}
             required
             minLength={3}
           />
+        </Field>
+        <Field label="Slug" htmlFor="announcement-slug">
+          <Input
+            id="announcement-slug"
+            value={values.slug}
+            onChange={(event) => set("slug", event.target.value)}
+            disabled={status === "published"}
+            required
+          />
+          {status === "published" ? (
+            <p className="text-xs text-ink-500">The slug is locked once an announcement is published.</p>
+          ) : null}
         </Field>
         <Field label="Date" htmlFor="announcement-date">
           <Input
@@ -132,6 +162,15 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
             rows={4}
             value={values.excerpt}
             onChange={(event) => set("excerpt", event.target.value)}
+          />
+        </Field>
+        <Field label="Body" htmlFor="announcement-body">
+          <Textarea
+            id="announcement-body"
+            rows={8}
+            placeholder="Write the full notice text…"
+            value={values.body}
+            onChange={(event) => set("body", event.target.value)}
           />
         </Field>
         <label className="flex items-center gap-2.5 text-sm font-medium text-ink-700">
