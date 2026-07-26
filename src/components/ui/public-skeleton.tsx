@@ -122,6 +122,28 @@ export function NewsArchiveSkeleton({ count = 6 }: { count?: number }) {
   );
 }
 
+/** The Events archive: a stack of two-column event rows. */
+export function EventsArchiveSkeleton({ count = 4, what }: { count?: number; what: string }) {
+  return (
+    <div className="space-y-6">
+      <LoadingLabel what={what} />
+      <Skeleton className="h-8 w-48" />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {Array.from({ length: count }, (_, i) => (
+          <div key={i} className="flex gap-4 rounded-3xl border border-ink-200 bg-white p-5">
+            <Skeleton className="h-24 w-20 shrink-0 rounded-2xl" />
+            <div className="flex-1 space-y-2 py-1">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-5 w-4/5" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** The announcements rail beside the news feed. */
 export function NewsSidebarSkeleton() {
   return (
