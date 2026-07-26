@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Barangay San Fernando — CONSOLIDATED BASELINE SCHEMA
--- Squash of migrations 0001–0026, as of 2026-07-23.
+-- Squash of migrations 0001–0027, as of 2026-07-23.
 -- ============================================================================
 --
 -- WHAT THIS IS
@@ -638,9 +638,11 @@ alter table public.news_photos enable row level security;
 -- ── Announcements ───────────────────────────────────────────────────────────
 create table public.announcements (
   id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
   title text not null,
   date date not null,
   excerpt text not null,
+  body text not null default '',
   image_src text,
   image_alt text not null default '',
   urgent boolean not null default false,
