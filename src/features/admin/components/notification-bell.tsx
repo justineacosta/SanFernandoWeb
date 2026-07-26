@@ -45,6 +45,7 @@ interface NotificationBellProps {
 export function NotificationBell({ isSuperAdmin, permissions }: NotificationBellProps) {
   const { counts, recent, seenAt, markSeen } = useNotifications();
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
@@ -60,6 +61,12 @@ export function NotificationBell({ isSuperAdmin, permissions }: NotificationBell
     useCallback(() => close(false), [close]),
   );
 
+  const permitted = permittedQueues({ isSuperAdmin, permissions });
+  const permittedSet = new Set(permitted);
+  const permittedRecent = recent.filter((item) => permittedSet.has(item.queue));
+  const unseen = hasUnseen(permittedRecent, seenAt);
+  const unhandled = totalUnhandled(counts, permitted);
+
   useEffect(() => {
     if (!open) return;
     const handlePointerDown = (event: MouseEvent) => {
@@ -72,11 +79,10 @@ export function NotificationBell({ isSuperAdmin, permissions }: NotificationBell
   }, [open, close]);
 
   // The panel's own onKeyDown only fires for Escape presses that originate
-  // inside it, but focus stays on the trigger button after the opening
-  // click — a portaled panel is a separate DOM subtree, so that keydown
-  // would never bubble through it. A document-level listener, matching the
-  // outside-mousedown one above, is what actually catches Escape regardless
-  // of where focus is.
+  // inside it. The roving-focus effect below normally puts focus there on
+  // open, but this document-level listener is kept as defense in depth —
+  // matching the outside-mousedown one above — in case focus ever ends up
+  // elsewhere while the panel is open.
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -89,16 +95,63 @@ export function NotificationBell({ isSuperAdmin, permissions }: NotificationBell
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, close]);
 
-  const permitted = permittedQueues({ isSuperAdmin, permissions });
-  const permittedSet = new Set(permitted);
-  const permittedRecent = recent.filter((item) => permittedSet.has(item.queue));
-  const unseen = hasUnseen(permittedRecent, seenAt);
-  const unhandled = totalUnhandled(counts, permitted);
+  // Move DOM focus with the roving index so the menu is genuinely keyboard-driven.
+  useEffect(() => {
+    if (!open) return;
+    const items = panelRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]');
+    items?.[activeIndex]?.focus();
+  }, [open, activeIndex]);
 
-  const openPanel = () => {
+  const openPanel = (startAt: "first" | "last" = "first") => {
     measure();
+    setActiveIndex(startAt === "first" ? 0 : Math.max(permittedRecent.length - 1, 0));
     setOpen(true);
     markSeen();
+  };
+
+  const handleTriggerKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openPanel("first");
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      openPanel("last");
+    }
+  };
+
+  const handlePanelKeyDown = (event: React.KeyboardEvent) => {
+    switch (event.key) {
+      case "Escape":
+        event.preventDefault();
+        close();
+        break;
+      case "Tab":
+        // Let focus move on naturally, but do not leave an orphaned panel behind.
+        close(false);
+        break;
+      case "ArrowDown":
+        if (permittedRecent.length === 0) break;
+        event.preventDefault();
+        setActiveIndex((i) => (i + 1) % permittedRecent.length);
+        break;
+      case "ArrowUp":
+        if (permittedRecent.length === 0) break;
+        event.preventDefault();
+        setActiveIndex((i) => (i - 1 + permittedRecent.length) % permittedRecent.length);
+        break;
+      case "Home":
+        if (permittedRecent.length === 0) break;
+        event.preventDefault();
+        setActiveIndex(0);
+        break;
+      case "End":
+        if (permittedRecent.length === 0) break;
+        event.preventDefault();
+        setActiveIndex(permittedRecent.length - 1);
+        break;
+      default:
+        break;
+    }
   };
 
   let panel: React.ReactNode = null;
@@ -111,12 +164,7 @@ export function NotificationBell({ isSuperAdmin, permissions }: NotificationBell
           id={panelId}
           role="menu"
           aria-label="Notifications"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              close();
-            }
-          }}
+          onKeyDown={handlePanelKeyDown}
           initial={{ opacity: 0, scale: 0.95, y: -6 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={POP}
@@ -130,13 +178,14 @@ export function NotificationBell({ isSuperAdmin, permissions }: NotificationBell
             <p className="px-3 py-6 text-center text-sm text-ink-500">You&apos;re all caught up.</p>
           ) : (
             <ul className="flex flex-col gap-0.5">
-              {permittedRecent.map((item) => {
+              {permittedRecent.map((item, index) => {
                 const Icon = iconForHref(NOTIFICATION_QUEUES[item.queue].navHref);
                 return (
                   <li key={`${item.queue}-${item.id}`}>
                     <Link
                       href={item.href}
                       role="menuitem"
+                      tabIndex={index === activeIndex ? 0 : -1}
                       onClick={() => close(false)}
                       className="flex items-start gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-ink-50"
                     >
@@ -169,7 +218,8 @@ export function NotificationBell({ isSuperAdmin, permissions }: NotificationBell
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-label={unhandled > 0 ? `Notifications, ${unhandled} unhandled` : "Notifications"}
-        onClick={() => (open ? close() : openPanel())}
+        onClick={() => (open ? close() : openPanel("first"))}
+        onKeyDown={handleTriggerKeyDown}
         className={cn(
           "relative rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900",
           open && "bg-ink-50 text-ink-900",

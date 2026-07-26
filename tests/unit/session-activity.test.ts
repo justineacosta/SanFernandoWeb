@@ -40,10 +40,10 @@ describe("the cookie contract", () => {
     expect(ACTIVITY_MAX_AGE_SECONDS * 1000).toBe(IDLE_MS);
   });
 
-  it("is readable by client JS and scoped to the portal", () => {
+  it("is readable by client JS and scoped to the whole origin, not just the portal", () => {
     const options = activityCookieOptions(true);
     expect(options.httpOnly).toBe(false);
-    expect(options.path).toBe("/admin");
+    expect(options.path).toBe("/");
     expect(options.sameSite).toBe("lax");
     expect(options.maxAge).toBe(ACTIVITY_MAX_AGE_SECONDS);
     expect(options.name).toBe(ACTIVITY_COOKIE);
@@ -58,7 +58,7 @@ describe("the cookie contract", () => {
 
   it("serialises a document.cookie assignment", () => {
     expect(activityCookieString(false)).toBe(
-      "sf-activity=1; path=/admin; max-age=1800; samesite=lax",
+      "sf-activity=1; path=/; max-age=1800; samesite=lax",
     );
   });
 
