@@ -260,10 +260,21 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   grid, 6 per load, growing via client-side "Load More" (not URL-addressable pages). Both
   pages fetch via `listPublishedArticles(offset, limit)` with results ordered by
   `published_at desc, id desc` (tiebreaker prevents duplicate keys). `ARCHIVE_BATCH = 6`
-  is defined once in `src/features/announcements/queries.ts`. Announcements and Events
-  keep their teaser-only shape until their own equivalent passes; the dead "Subscribe to
-  Alerts" button is gone from the `/announcements` hero, but "Community Calendar" is
-  untouched (still inert, pending an Events archive).
+  is defined once in `src/features/announcements/queries.ts`. The dead "Subscribe to
+  Alerts" button is gone from the `/announcements` hero.
+- `/events` ("Community Calendar") shows every published event: an unpaginated "Upcoming
+  Events" section (`event_date >= today`, soonest first) and a paginated "Past Events"
+  archive (`event_date < today`, most recent first, `EVENTS_ARCHIVE_BATCH = 6`, same
+  offset/limit pattern as `/news` and `event_date desc, id desc` ordering tiebreaker). No
+  detail page per event and no literal calendar-grid UI — a richer `EventArchiveCard`
+  (category badge + description excerpt) supplements the existing compact `EventCard`,
+  which stays unchanged as the homepage widget's card. `EVENT_CATEGORY_LABELS` lives in
+  `src/features/events/data.ts` (moved from `src/features/admin/data.ts`, which had no
+  other reason to depend on the `EventCategory` type) — both admin consumers now import it
+  from there. The previously dead "Community Calendar" button and the homepage's "View
+  Calendar"/"View All Events" links now point at `/events`. `src/features/admin/actions/events.ts`'s
+  shared `revalidate()` helper calls `revalidatePath("/events")` alongside `/admin/events`
+  and `/` — every event action routes through it.
 - Placeholder reality: transparency documents now serve **real** Supabase-hosted PDFs/images,
   so the old `"#"` download stubs are gone; remaining `"#"` hrefs are in-page anchors / not-
   yet-wired links (the contact page's "Get Directions", captain message, hero CTA). The
