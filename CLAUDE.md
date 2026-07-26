@@ -141,6 +141,22 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   but it must not reach a `Drawer` or `ConfirmDialog` open behind it either, and those
   listen on `document` in the bubble phase and were registered first — so the dialog
   swallows the key from capture, where `stopImmediatePropagation()` still comes first.
+- **Request notifications are two signals, not one.** The five `requests` nav rows (six queues —
+  Inquiries & Feedback sums two) get a count badge for unhandled work (rows still in their
+  initial status — `pending`, `received`, or `new`, depending on the table) and the top bar's
+  bell gets a dot for "something arrived since you last looked." The count only moves on a status
+  change; the dot only clears when the bell is opened (`markNotificationsSeen` stamps
+  `profiles.notifications_seen_at`, migration `0026` — manual on production, like every migration
+  since `0012`). One registry, `src/lib/notifications.ts`, owns each queue's table, status,
+  permission and deep link — deliberately **not** merged into `search-modules.ts`: neither list
+  contains the other (search omits `inquiries`; not all six queues are searchable), so a unit
+  test checks the two agree on the five keys they share rather than merging them.
+  `NotificationProvider` runs the one 60s poll (`GET /api/admin/notifications`, outside
+  `src/middleware.ts`'s matcher, so it re-checks `getSessionUser` itself) that feeds the sidebar
+  badges, the mobile nav card and the bell — one poll, three consumers. A 401 stops it silently;
+  `<IdleTimeout />` alone owns the sign-out UI. Counts and recent items are computed only for
+  queues the viewer's permissions allow, the same disclosure rule `adminPageTitle` follows for
+  page titles.
 - **Home and About are database-backed content, not code** (sub-project 9, migration `0021`).
   Nine blocks live in `site_blocks` (four singleton texts) + `site_items` (five ordered
   collections in one table, discriminated by a `site_block` enum with generic
