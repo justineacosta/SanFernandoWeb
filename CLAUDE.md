@@ -253,6 +253,14 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   (migration `0022` deleted its rows): six links to this site's own routes change when the
   routes change, which is a deploy, not an edit. Don't put them back.
   `src/features/about/data.ts` retains only the `CAPTAIN` name/role/photo fallback.
+- `/announcements` is now a 3-item News teaser (newest featured + 2 grid cards), not
+  the full feed — the full chronological archive lives at `/news`, newest first, with
+  a client-side "Load More" (6 articles per click, `ARCHIVE_BATCH` in
+  `src/features/announcements/queries.ts`) rather than URL-addressable pages.
+  `listPublishedArticles` takes `(offset, limit)` now, not a page number. Announcements
+  and Events keep their teaser-only shape until their own equivalent passes; the dead
+  "Subscribe to Alerts" button is gone from the `/announcements` hero, but "Community
+  Calendar" is untouched (still inert, pending an Events archive).
 - Placeholder reality: transparency documents now serve **real** Supabase-hosted PDFs/images,
   so the old `"#"` download stubs are gone; remaining `"#"` hrefs are in-page anchors / not-
   yet-wired links (the contact page's "Get Directions", captain message, hero CTA). The
