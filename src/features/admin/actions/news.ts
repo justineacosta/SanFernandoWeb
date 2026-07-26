@@ -46,6 +46,7 @@ function slugify(title: string): string {
 function revalidate() {
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
+  revalidatePath("/news");
   revalidatePath("/");
 }
 

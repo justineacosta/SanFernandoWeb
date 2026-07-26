@@ -77,6 +77,7 @@ export async function createNewsCategory(
   });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
+  revalidatePath("/news");
   return { error: null };
 }
 
@@ -108,6 +109,7 @@ export async function renameNewsCategory(
   });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
+  revalidatePath("/news");
   return { error: null };
 }
 
@@ -137,6 +139,7 @@ export async function setNewsCategoryActive(
   });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
+  revalidatePath("/news");
   return { error: null };
 }
 
@@ -195,5 +198,6 @@ export async function moveNewsCategory(
   });
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
+  revalidatePath("/news");
   return { error: null };
 }

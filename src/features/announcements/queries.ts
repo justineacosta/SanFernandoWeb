@@ -56,6 +56,7 @@ export async function listPublishedArticles(
     )
     .eq("status", "published")
     .order("published_at", { ascending: false })
+    .order("id", { ascending: false })
     .range(safeOffset, safeOffset + safeLimit - 1);
 
   if (error || !data) return { items: [], total: 0 };

@@ -13,6 +13,7 @@ export interface ActionResult {
 function revalidate() {
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
+  revalidatePath("/news");
 }
 
 /*
