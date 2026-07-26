@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import type { Announcement } from "@/types";
@@ -31,6 +32,17 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
         </h4>
         <p className="mb-1 mt-1 text-xs text-ink-600">{formatDate(announcement.date)}</p>
         <p className="line-clamp-2 text-xs text-ink-600">{announcement.excerpt}</p>
+        {announcement.urgent ? (
+          <Badge variant="urgent" className="mt-2 text-[10px]">
+            Urgent
+          </Badge>
+        ) : null}
+        <Link
+          href={`/notices/${announcement.slug}`}
+          className="mt-2 block text-xs font-semibold uppercase text-brand-700 hover:underline"
+        >
+          Details
+        </Link>
       </div>
     </article>
   );

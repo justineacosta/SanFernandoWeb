@@ -47,7 +47,7 @@ export async function CommunityPulseSection() {
           />
           <div className="space-y-6">
             {announcements.map((announcement) => (
-              <AnnouncementCard key={announcement.title} announcement={announcement} />
+              <AnnouncementCard key={announcement.id} announcement={announcement} />
             ))}
           </div>
           <Button href="/announcements" variant="outline" className="mt-6 w-full">
