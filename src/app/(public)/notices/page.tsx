@@ -20,7 +20,7 @@ export default function NoticesPage() {
         description="Every notice, advisory, and update from Barangay San Fernando — current and past."
       />
       <Container className="py-12 md:py-16">
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto max-w-6xl">
           <Suspense fallback={<NoticesArchiveSkeleton />}>
             <NoticesArchive />
           </Suspense>
