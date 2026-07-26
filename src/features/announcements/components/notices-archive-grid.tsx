@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { AnnouncementCard } from "@/components/shared/announcement-card";
+import { NoticeArchiveCard } from "@/components/shared/notice-archive-card";
 import { loadMoreNotices } from "@/features/announcements/actions";
 import type { Announcement } from "@/types";
 
@@ -46,9 +46,7 @@ export function NoticesArchiveGrid({
     <div className="space-y-8">
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {items.map((announcement) => (
-          <div key={announcement.id} className="rounded-3xl border border-ink-200 bg-white p-5">
-            <AnnouncementCard announcement={announcement} />
-          </div>
+          <NoticeArchiveCard key={announcement.id} announcement={announcement} />
         ))}
       </div>
       {error ? (
