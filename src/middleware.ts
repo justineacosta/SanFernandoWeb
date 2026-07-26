@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import {
   ACTIVITY_COOKIE,
+  ACTIVITY_COOKIE_PATH,
   activityCookieOptions,
   hasActivityCookie,
 } from "@/lib/session-activity";
@@ -88,7 +89,7 @@ export async function middleware(request: NextRequest) {
       .getAll()
       .filter((cookie) => cookie.name.startsWith("sb-"))
       .forEach((cookie) => timedOut.cookies.delete({ name: cookie.name, path: "/" }));
-    timedOut.cookies.delete({ name: ACTIVITY_COOKIE, path: "/admin" });
+    timedOut.cookies.delete({ name: ACTIVITY_COOKIE, path: ACTIVITY_COOKIE_PATH });
     return timedOut;
   }
 

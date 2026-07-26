@@ -8,6 +8,7 @@ import { recordActivity } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   ACTIVITY_COOKIE,
+  ACTIVITY_COOKIE_PATH,
   activityCookieOptions,
   forwardedProtoIsHttps,
 } from "@/lib/session-activity";
@@ -107,7 +108,7 @@ export async function signOutIdle(): Promise<void> {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   const cookieStore = await cookies();
-  cookieStore.delete({ name: ACTIVITY_COOKIE, path: "/admin" });
+  cookieStore.delete({ name: ACTIVITY_COOKIE, path: ACTIVITY_COOKIE_PATH });
   if (actor) {
     await recordActivity(actor, {
       type: "logout",
