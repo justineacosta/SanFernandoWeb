@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Barangay San Fernando — CONSOLIDATED BASELINE SCHEMA
--- Squash of migrations 0001–0024, as of 2026-07-23.
+-- Squash of migrations 0001–0026, as of 2026-07-23.
 -- ============================================================================
 --
 -- WHAT THIS IS
@@ -14,7 +14,7 @@
 -- --------------
 --   • Standing up a NEW environment (production, a fresh staging, a local dev
 --     database) from nothing.
---   • NOT for an environment that already has any of 0001–0024 applied. This
+--   • NOT for an environment that already has any of 0001–0026 applied. This
 --     file assumes an empty `public` schema and will fail loudly on a database
 --     that already has these objects — which is the intended behaviour. To
 --     bring an existing environment forward, apply the individual numbered
@@ -28,7 +28,7 @@
 -- scripts the officials directory and the home/About pages render broken
 -- images. Original migrations 0012 and 0021 carry the same warning.
 --
--- HOW IT DIFFERS FROM RUNNING 0001–0024 IN SEQUENCE
+-- HOW IT DIFFERS FROM RUNNING 0001–0026 IN SEQUENCE
 -- --------------------------------------------------
 -- The end state is identical. Three mechanical differences, all deliberate:
 --
@@ -188,6 +188,8 @@ create table public.profiles (
   phone text,
   -- Profile picture: public-media path, or null for initials.          [0025]
   avatar_src text,
+  -- Bell "have I looked?" stamp. Null means never opened.              [0026]
+  notifications_seen_at timestamptz,
   -- Staff email uniqueness enforced at the database layer.             [0002]
   constraint profiles_email_unique unique (email)
 );
