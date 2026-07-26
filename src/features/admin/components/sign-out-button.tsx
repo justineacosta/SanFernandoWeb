@@ -1,8 +1,13 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import type { ReactNode } from "react";
 import { signOut } from "@/features/admin/actions/auth";
 import { clearAllDrafts } from "@/hooks/use-form-draft";
+
+interface SignOutButtonProps {
+  className: string;
+  children: ReactNode;
+}
 
 /**
  * Sign out, dropping every local recovery copy on the way.
@@ -14,17 +19,17 @@ import { clearAllDrafts } from "@/hooks/use-form-draft";
  *
  * The click handler runs before the form submits, so the clear happens while
  * the page is still alive.
+ *
+ * Rendered from the desktop sidebar's footer and the mobile menu card's
+ * footer — two different row shapes on two different backgrounds — so this
+ * component owns only the shared behavior (the form action, the draft clear)
+ * and takes its entire visual presentation from the caller.
  */
-export function SignOutButton() {
+export function SignOutButton({ className, children }: SignOutButtonProps) {
   return (
     <form action={signOut}>
-      <button
-        type="submit"
-        onClick={clearAllDrafts}
-        aria-label="Sign out"
-        className="rounded-full p-2 text-ink-600 transition-colors hover:bg-ink-50"
-      >
-        <LogOut className="h-5 w-5" aria-hidden="true" />
+      <button type="submit" onClick={clearAllDrafts} aria-label="Sign out" className={className}>
+        {children}
       </button>
     </form>
   );

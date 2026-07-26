@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LayoutGroup, MotionConfig, motion } from "motion/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
 import type { Permission } from "@/types";
 import { cn } from "@/lib/utils";
 import { SPRING_INDICATOR } from "@/lib/motion";
@@ -16,6 +16,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
 import { useNotifications } from "./notification-provider";
 import { NavCountBadge } from "./nav-count-badge";
+import { SignOutButton } from "./sign-out-button";
 
 /** Grace period before a peek closes, so clipping the rail's edge cannot flash it. */
 const PEEK_CLOSE_MS = 150;
@@ -59,6 +60,11 @@ interface AdminSidebarProps {
  * The peek is a CSS width transition, not `AnimatePresence`: unmounting the
  * panel would drop the shared-element indicator and re-run its mount on every
  * hover.
+ *
+ * Sign-out lives in a footer below the scrolling nav — pinned, not scrolled
+ * away, and still inside the peek trigger so hovering it while collapsed
+ * reveals the label like any other row. `AdminMobileNav`'s menu card carries
+ * the same footer for viewports too narrow for this rail.
  */
 export function AdminSidebar({
   className,
@@ -155,142 +161,156 @@ export function AdminSidebar({
         <div
           onMouseEnter={openPeek}
           onFocus={openPeek}
-          className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden py-6"
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-brand-500/30 blur-3xl"
-          />
-          {/* Nothing in the rail may move, resize or re-align between the two
-              states — a peek opens under the pointer, so anything that shifts
-              takes the row you were aiming at out from under you. The seal
-              keeps one size and one x, every icon keeps its x (px-4 here plus
-              px-2.5 on the row puts it at 26px in both, dead-centre of the
-              72px rail), and the group headings hold a fixed height. Only the
-              labels appear. */}
-          <div className="relative mb-4 flex items-center gap-3 border-b border-white/10 px-4 pb-5">
-            <Image
-              src={SITE.sealImage}
-              alt={`${SITE.name} seal`}
-              width={40}
-              height={40}
-              className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/20"
+          <div className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-6">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-brand-500/30 blur-3xl"
             />
-            {expanded ? (
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate font-display text-base font-semibold leading-tight tracking-tight text-white">
-                  Barangay Portal
-                </h2>
-                <p className="mt-0.5 truncate text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-brand-400">
-                  San Fernando
-                </p>
-              </div>
-            ) : null}
+            {/* Nothing in the rail may move, resize or re-align between the two
+                states — a peek opens under the pointer, so anything that shifts
+                takes the row you were aiming at out from under you. The seal
+                keeps one size and one x, every icon keeps its x (px-4 here plus
+                px-2.5 on the row puts it at 26px in both, dead-centre of the
+                72px rail), and the group headings hold a fixed height. Only the
+                labels appear. */}
+            <div className="relative mb-4 flex items-center gap-3 border-b border-white/10 px-4 pb-5">
+              <Image
+                src={SITE.sealImage}
+                alt={`${SITE.name} seal`}
+                width={40}
+                height={40}
+                className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/20"
+              />
+              {expanded ? (
+                <div className="min-w-0 flex-1">
+                  <h2 className="truncate font-display text-base font-semibold leading-tight tracking-tight text-white">
+                    Barangay Portal
+                  </h2>
+                  <p className="mt-0.5 truncate text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-brand-400">
+                    San Fernando
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <LayoutGroup id={layoutGroup}>
+              <nav className="relative flex flex-1 flex-col gap-6 px-4 pt-1">
+                {groups.map((section, index) => (
+                  <div key={section.group}>
+                    {/* One fixed-height box in both states. Collapsed, 72px has
+                        no room for the word but does have room for the grouping,
+                        so the heading becomes a hairline rule — at the same
+                        height, or every row below it would jump on peek. */}
+                    <p className="mb-2 flex h-4 items-center gap-2">
+                      {expanded ? (
+                        <>
+                          <span
+                            aria-hidden="true"
+                            className="h-px w-4 shrink-0 bg-brand-400/40"
+                          />
+                          <span className="truncate text-[0.65rem] font-bold uppercase tracking-[0.22em] text-ink-500">
+                            {section.label}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="sr-only">{section.label}</span>
+                          {/* The header's border already rules off the first group. */}
+                          {index > 0 ? (
+                            <span aria-hidden="true" className="h-px w-full bg-white/10" />
+                          ) : null}
+                        </>
+                      )}
+                    </p>
+                    <ul className="flex flex-col gap-0.5">
+                      {section.items.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = item.exact
+                          ? pathname === item.href
+                          : pathname.startsWith(item.href);
+                        const link = (
+                          <Link
+                            href={item.href}
+                            aria-current={isActive ? "page" : undefined}
+                            className={cn(
+                              // px-2.5 in both states: the row is exactly 40px
+                              // wide inside the collapsed rail, so this is both
+                              // the centred icon button it was and the left
+                              // inset of the expanded row.
+                              "group relative flex h-10 items-center gap-3 rounded-lg px-2.5 text-sm font-medium transition-colors duration-(--duration-quick)",
+                              isActive
+                                ? "text-white"
+                                : "text-ink-300 hover:bg-white/5 hover:text-white",
+                            )}
+                          >
+                            {isActive ? (
+                              <motion.span
+                                layoutId="active-nav"
+                                aria-hidden="true"
+                                transition={SPRING_INDICATOR}
+                                className="absolute inset-0 rounded-lg bg-white/10 ring-1 ring-inset ring-white/10"
+                              >
+                                <span className="absolute left-0 top-1/2 h-5 w-0.75 -translate-y-1/2 rounded-r-full bg-brand-400" />
+                              </motion.span>
+                            ) : null}
+                            <span className="relative shrink-0">
+                              <Icon
+                                className={cn("h-5 w-5", isActive && "text-brand-400")}
+                                aria-hidden="true"
+                              />
+                              {!expanded ? (
+                                <NavCountBadge
+                                  count={countForNavHref(counts, permitted, item.href)}
+                                  collapsed
+                                />
+                              ) : null}
+                            </span>
+                            {/* One span whose class changes, never two spans
+                                swapped: see the li below for why identity here
+                                is worth protecting. */}
+                            <span className={expanded ? "relative truncate" : "sr-only"}>
+                              {item.label}
+                            </span>
+                            {expanded ? (
+                              <NavCountBadge count={countForNavHref(counts, permitted, item.href)} />
+                            ) : null}
+                          </Link>
+                        );
+                        return (
+                          // These rows deliberately have no Tooltip. The peek is
+                          // now the label reveal — hovering a collapsed row opens
+                          // the panel and shows the real label, so a tooltip would
+                          // fire underneath the opening panel and say it twice.
+                          //
+                          // Removing it also fixed a keyboard bug: wrapping the
+                          // link only when collapsed made `expanded` swap the
+                          // element type at this position, so tabbing in remounted
+                          // the very link that had just been focused, dropping
+                          // focus to <body>. Keep this markup identical in both
+                          // states.
+                          <li key={item.href}>{link}</li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </nav>
+            </LayoutGroup>
           </div>
 
-          <LayoutGroup id={layoutGroup}>
-            <nav className="relative flex flex-1 flex-col gap-6 px-4 pt-1">
-              {groups.map((section, index) => (
-                <div key={section.group}>
-                  {/* One fixed-height box in both states. Collapsed, 72px has
-                      no room for the word but does have room for the grouping,
-                      so the heading becomes a hairline rule — at the same
-                      height, or every row below it would jump on peek. */}
-                  <p className="mb-2 flex h-4 items-center gap-2">
-                    {expanded ? (
-                      <>
-                        <span
-                          aria-hidden="true"
-                          className="h-px w-4 shrink-0 bg-brand-400/40"
-                        />
-                        <span className="truncate text-[0.65rem] font-bold uppercase tracking-[0.22em] text-ink-500">
-                          {section.label}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="sr-only">{section.label}</span>
-                        {/* The header's border already rules off the first group. */}
-                        {index > 0 ? (
-                          <span aria-hidden="true" className="h-px w-full bg-white/10" />
-                        ) : null}
-                      </>
-                    )}
-                  </p>
-                  <ul className="flex flex-col gap-0.5">
-                    {section.items.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = item.exact
-                        ? pathname === item.href
-                        : pathname.startsWith(item.href);
-                      const link = (
-                        <Link
-                          href={item.href}
-                          aria-current={isActive ? "page" : undefined}
-                          className={cn(
-                            // px-2.5 in both states: the row is exactly 40px
-                            // wide inside the collapsed rail, so this is both
-                            // the centred icon button it was and the left
-                            // inset of the expanded row.
-                            "group relative flex h-10 items-center gap-3 rounded-lg px-2.5 text-sm font-medium transition-colors duration-(--duration-quick)",
-                            isActive
-                              ? "text-white"
-                              : "text-ink-300 hover:bg-white/5 hover:text-white",
-                          )}
-                        >
-                          {isActive ? (
-                            <motion.span
-                              layoutId="active-nav"
-                              aria-hidden="true"
-                              transition={SPRING_INDICATOR}
-                              className="absolute inset-0 rounded-lg bg-white/10 ring-1 ring-inset ring-white/10"
-                            >
-                              <span className="absolute left-0 top-1/2 h-5 w-0.75 -translate-y-1/2 rounded-r-full bg-brand-400" />
-                            </motion.span>
-                          ) : null}
-                          <span className="relative shrink-0">
-                            <Icon
-                              className={cn("h-5 w-5", isActive && "text-brand-400")}
-                              aria-hidden="true"
-                            />
-                            {!expanded ? (
-                              <NavCountBadge
-                                count={countForNavHref(counts, permitted, item.href)}
-                                collapsed
-                              />
-                            ) : null}
-                          </span>
-                          {/* One span whose class changes, never two spans
-                              swapped: see the li below for why identity here
-                              is worth protecting. */}
-                          <span className={expanded ? "relative truncate" : "sr-only"}>
-                            {item.label}
-                          </span>
-                          {expanded ? (
-                            <NavCountBadge count={countForNavHref(counts, permitted, item.href)} />
-                          ) : null}
-                        </Link>
-                      );
-                      return (
-                        // These rows deliberately have no Tooltip. The peek is
-                        // now the label reveal — hovering a collapsed row opens
-                        // the panel and shows the real label, so a tooltip would
-                        // fire underneath the opening panel and say it twice.
-                        //
-                        // Removing it also fixed a keyboard bug: wrapping the
-                        // link only when collapsed made `expanded` swap the
-                        // element type at this position, so tabbing in remounted
-                        // the very link that had just been focused, dropping
-                        // focus to <body>. Keep this markup identical in both
-                        // states.
-                        <li key={item.href}>{link}</li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </nav>
-          </LayoutGroup>
+          {/* Pinned below the scrolling nav, never inside it — a footer row
+              should not scroll out of view under a long nav list. It still
+              sits inside the peek trigger above, so hovering it while
+              collapsed opens the rail and reveals the label like any other
+              row. */}
+          <div className="shrink-0 border-t border-white/10 px-4 py-3">
+            <SignOutButton className="group flex h-10 w-full items-center gap-3 rounded-lg px-2.5 text-sm font-medium text-ink-300 transition-colors duration-(--duration-quick) hover:bg-white/5 hover:text-white">
+              <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className={expanded ? "relative truncate" : "sr-only"}>Sign out</span>
+            </SignOutButton>
+          </div>
         </div>
 
         {onToggle ? (

@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Every session that changes code updates this file in the same session** — not a
+follow-up, not "if there's time." Add or correct whatever bullet the change touches before
+calling the work done, the same way the existing sub-project bullets were written. Skip it
+only for changes with no architectural, conventions, or "what's real vs. placeholder"
+consequence (a typo fix, a comment).
+
 ## Project
 
 The official website of **Barangay San Fernando, San Nicolas, Ilocos Norte** (Philippines).
@@ -72,7 +78,12 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   `sf-admin-sidebar` **cookie read server-side in the layout**, never `localStorage` in an
   effect — an effect runs after paint, so the rail would render expanded and snap shut on
   every load. `AdminShell` owns that state because the fixed rail and the main column's
-  compensating margin have to move together.
+  compensating margin have to move together. **Sign-out lives in the sidebar's and mobile
+  nav's own footers, not the top bar.** `SignOutButton` is a bare `{className, children}`
+  shell over the form action + draft clear — no visual opinion of its own — rendered from a
+  footer pinned below the scrolling nav in both `AdminSidebar` (still inside the peek
+  trigger, so hovering it collapsed reveals the label like any other row) and
+  `AdminMobileNav`'s menu card. `AdminTopBar` no longer renders it.
 - **Admin table standards** (sub-project 5, 2026-07-22) are shared primitives, not per-manager
   code: `RowActions` (the row kebab — Edit / Publish / Archive / Delete; portals to
   `document.body` because every admin table sits in `overflow-x-auto`), `ConfirmDialog`
@@ -125,7 +136,10 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   never "Saved". `AchievementsEditor` is out of scope: it saves each field on blur and has no
   draft model to hook into.
 - **The idle timeout is one cookie, and its absence is the whole signal.** `sf-activity`
-  (`Max-Age` 1800, `Path=/admin`, not `httpOnly` — the client heartbeat writes it) exists
+  (`Max-Age` 1800, `Path=/` — widened from `/admin` so the notification poll's
+  `/api/admin/notifications` request would still carry it, since a browser only attaches a
+  cookie to a request path that starts with `Path + "/"` — not `httpOnly`, the client
+  heartbeat writes it) exists
   *iff* the user interacted in the last 30 minutes. Nothing compares two clocks, and the
   browser expiring the cookie on disk is what makes "window closed for 30 minutes" work
   with no code. Constants live only in `src/lib/session-activity.ts`; `IDLE_MS` and the
@@ -156,7 +170,11 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   badges, the mobile nav card and the bell — one poll, three consumers. A 401 stops it silently;
   `<IdleTimeout />` alone owns the sign-out UI. Counts and recent items are computed only for
   queues the viewer's permissions allow, the same disclosure rule `adminPageTitle` follows for
-  page titles.
+  page titles. **The bell's dropdown panel tracks the top bar, not the bell.** It measures
+  `[data-admin-topbar-bar]` (the bar's own DOM node, found via the bell's closest ancestor)
+  and matches that element's width and left edge, so it reads as an extension of the bar
+  rather than a fixed-width menu anchored to the trigger — moving or renaming that data
+  attribute breaks the panel's positioning silently.
 - **Home and About are database-backed content, not code** (sub-project 9, migration `0021`).
   Nine blocks live in `site_blocks` (four singleton texts) + `site_items` (five ordered
   collections in one table, discriminated by a `site_block` enum with generic

@@ -12,7 +12,6 @@ import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
 import { AdminGlobalSearch } from "@/features/admin/components/admin-global-search";
 import { AdminMobileNav } from "@/features/admin/components/admin-mobile-nav";
 import { NotificationBell } from "@/features/admin/components/notification-bell";
-import { SignOutButton } from "@/features/admin/components/sign-out-button";
 
 /**
  * Floating app bar for the admin portal: current page, search, profile.
@@ -50,6 +49,7 @@ export function AdminTopBar({ user }: { user: SessionUser }) {
     <MotionConfig reducedMotion="user">
       <header className="sticky top-0 z-40 mx-auto w-full max-w-(--container-page) px-4 pt-4 md:px-8">
         <div
+          data-admin-topbar-bar
           className={cn(
             "flex h-14 w-full items-center justify-between gap-4 rounded-2xl border px-3 backdrop-blur-md transition-all duration-300 sm:px-5",
             scrolled
@@ -86,7 +86,6 @@ export function AdminTopBar({ user }: { user: SessionUser }) {
                 </p>
               </div>
               <Avatar src={user.avatarSrc} fullName={user.fullName} size="sm" />
-              <SignOutButton />
             </div>
           </div>
         </div>

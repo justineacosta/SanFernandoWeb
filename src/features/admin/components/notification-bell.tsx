@@ -19,8 +19,8 @@ import {
 import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
 import { useNotifications } from "./notification-provider";
 
-const PANEL_WIDTH = 360;
-const GAP = 10;
+// Matches the mobile nav card's gap under the same bar.
+const GAP = 16;
 
 /** The icon for a notification row, matched off the queue's own nav entry — one icon source, not two. */
 function iconForHref(href: string) {
@@ -60,6 +60,12 @@ export function NotificationBell({ isSuperAdmin, permissions }: NotificationBell
     open,
     useCallback(() => close(false), [close]),
   );
+
+  // The panel matches the top bar's own width and left edge — not a fixed
+  // width dropdown anchored to the bell — so it reads as an extension of the
+  // bar rather than a floating menu. Measured off the bar's own DOM node
+  // (found via the bell's closest ancestor) rather than the bell's rect.
+  const [barRect, setBarRect] = useState<DOMRect | null>(null);
 
   const permitted = permittedQueues({ isSuperAdmin, permissions });
   const permittedSet = new Set(permitted);
@@ -104,6 +110,8 @@ export function NotificationBell({ isSuperAdmin, permissions }: NotificationBell
 
   const openPanel = (startAt: "first" | "last" = "first") => {
     measure();
+    const bar = triggerRef.current?.closest<HTMLElement>("[data-admin-topbar-bar]");
+    setBarRect(bar?.getBoundingClientRect() ?? null);
     setActiveIndex(startAt === "first" ? 0 : Math.max(permittedRecent.length - 1, 0));
     setOpen(true);
     markSeen();
@@ -155,8 +163,7 @@ export function NotificationBell({ isSuperAdmin, permissions }: NotificationBell
   };
 
   let panel: React.ReactNode = null;
-  if (open && rect) {
-    const left = Math.max(8, Math.min(rect.right - PANEL_WIDTH, window.innerWidth - PANEL_WIDTH - 8));
+  if (open && rect && barRect) {
     panel = createPortal(
       <MotionConfig reducedMotion="user">
         <motion.div
@@ -168,7 +175,12 @@ export function NotificationBell({ isSuperAdmin, permissions }: NotificationBell
           initial={{ opacity: 0, scale: 0.95, y: -6 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={POP}
-          style={{ top: rect.bottom + GAP, left, width: PANEL_WIDTH, transformOrigin: "top right" }}
+          style={{
+            top: barRect.bottom + GAP,
+            left: barRect.left,
+            width: barRect.width,
+            transformOrigin: "top center",
+          }}
           className="fixed z-70 flex max-h-[70vh] flex-col overflow-hidden rounded-3xl border border-ink-200/70 bg-white/95 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.25)] backdrop-blur-xl"
         >
           <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-3">

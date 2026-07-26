@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import { Menu, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import type { Permission } from "@/types";
 import { cn } from "@/lib/utils";
 import { FADE_QUICK, POP } from "@/lib/motion";
@@ -15,6 +15,7 @@ import { useDisclosure } from "@/hooks/use-disclosure";
 import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
 import { useNotifications } from "./notification-provider";
 import { NavCountBadge } from "./nav-count-badge";
+import { SignOutButton } from "./sign-out-button";
 
 /** Never fires; the store is a constant, so nothing ever needs re-reading. */
 const noopSubscribe = () => () => {};
@@ -133,63 +134,74 @@ export function AdminMobileNav({
               // edge instead of riding along with the rows.
               className="pointer-events-auto absolute inset-x-4 top-22 flex max-h-[65dvh] flex-col overflow-hidden rounded-3xl border border-ink-200/70 bg-white/95 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.25)] backdrop-blur-xl"
             >
-              <div
-                ref={measureOverflow}
-                onScroll={(event) => measureOverflow(event.currentTarget)}
-                className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-3"
-              >
-                <div className="flex flex-col gap-5">
-                  {groups.map((section) => (
-                    <div key={section.group}>
-                      <p className="mb-2 flex items-center gap-2 px-4 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-ink-500 before:h-px before:w-4 before:shrink-0 before:bg-brand-400/40 before:content-['']">
-                        {section.label}
-                      </p>
-                      <ul className="flex flex-col gap-1">
-                        {section.items.map((item) => {
-                          const Icon = item.icon;
-                          const isActive = item.exact
-                            ? pathname === item.href
-                            : pathname.startsWith(item.href);
-                          return (
-                            <li key={item.href}>
-                              <Link
-                                href={item.href}
-                                onClick={close}
-                                aria-current={isActive ? "page" : undefined}
-                                className={cn(
-                                  "flex items-center gap-3 rounded-full px-4 py-3 text-sm font-medium transition-colors duration-(--duration-quick)",
-                                  isActive
-                                    ? "bg-brand-50 text-ink-900"
-                                    : "text-ink-600 hover:bg-ink-50 hover:text-ink-900",
-                                )}
-                              >
-                                <Icon
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                <div
+                  ref={measureOverflow}
+                  onScroll={(event) => measureOverflow(event.currentTarget)}
+                  className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-3"
+                >
+                  <div className="flex flex-col gap-5">
+                    {groups.map((section) => (
+                      <div key={section.group}>
+                        <p className="mb-2 flex items-center gap-2 px-4 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-ink-500 before:h-px before:w-4 before:shrink-0 before:bg-brand-400/40 before:content-['']">
+                          {section.label}
+                        </p>
+                        <ul className="flex flex-col gap-1">
+                          {section.items.map((item) => {
+                            const Icon = item.icon;
+                            const isActive = item.exact
+                              ? pathname === item.href
+                              : pathname.startsWith(item.href);
+                            return (
+                              <li key={item.href}>
+                                <Link
+                                  href={item.href}
+                                  onClick={close}
+                                  aria-current={isActive ? "page" : undefined}
                                   className={cn(
-                                    "h-5 w-5 shrink-0",
+                                    "flex items-center gap-3 rounded-full px-4 py-3 text-sm font-medium transition-colors duration-(--duration-quick)",
                                     isActive
-                                      ? "text-brand-600"
-                                      : "text-ink-400",
+                                      ? "bg-brand-50 text-ink-900"
+                                      : "text-ink-600 hover:bg-ink-50 hover:text-ink-900",
                                   )}
-                                  aria-hidden="true"
-                                />
-                                <span className="truncate">{item.label}</span>
-                                <NavCountBadge count={countForNavHref(counts, permitted, item.href)} />
-                              </Link>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
+                                >
+                                  <Icon
+                                    className={cn(
+                                      "h-5 w-5 shrink-0",
+                                      isActive
+                                        ? "text-brand-600"
+                                        : "text-ink-400",
+                                    )}
+                                    aria-hidden="true"
+                                  />
+                                  <span className="truncate">{item.label}</span>
+                                  <NavCountBadge count={countForNavHref(counts, permitted, item.href)} />
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+                <div
+                  aria-hidden="true"
+                  className={cn(
+                    "pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-white via-white/70 to-transparent transition-opacity duration-(--duration-quick)",
+                    hasMoreBelow ? "opacity-100" : "opacity-0",
+                  )}
+                />
               </div>
-              <div
-                aria-hidden="true"
-                className={cn(
-                  "pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-white via-white/70 to-transparent transition-opacity duration-(--duration-quick)",
-                  hasMoreBelow ? "opacity-100" : "opacity-0",
-                )}
-              />
+              {/* Pinned below the scrolling list, not inside it — the sidebar's
+                  desktop rail keeps sign-out in the same kind of footer, since
+                  this card is the mobile stand-in for that rail. */}
+              <div className="shrink-0 border-t border-ink-100 p-3">
+                <SignOutButton className="flex w-full items-center gap-3 rounded-full px-4 py-3 text-sm font-medium text-ink-600 transition-colors duration-(--duration-quick) hover:bg-ink-50 hover:text-ink-900">
+                  <LogOut className="h-5 w-5 shrink-0 text-ink-400" aria-hidden="true" />
+                  <span className="truncate">Sign out</span>
+                </SignOutButton>
+              </div>
             </motion.nav>
           </motion.div>
         ) : null}
