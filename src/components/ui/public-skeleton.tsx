@@ -164,6 +164,25 @@ export function NewsSidebarSkeleton() {
   );
 }
 
+/** The Notices archive: a stack of announcement rows. */
+export function NoticesArchiveSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div className="space-y-6">
+      <LoadingLabel what="the notices archive" />
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="flex gap-4 rounded-3xl border border-ink-200 bg-white p-5">
+          <Skeleton className="h-20 w-24 shrink-0 rounded-2xl" />
+          <div className="flex-1 space-y-2 py-1">
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-4 w-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** The legislative archive and uploads browser: filter bar over a table. */
 export function PublicTableSkeleton({
   rows = 8,

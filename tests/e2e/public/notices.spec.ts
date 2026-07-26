@@ -17,3 +17,22 @@ test("clicking Details on a homepage announcement opens its notice page", async 
     "/notices",
   );
 });
+
+test("notices archive page renders and loads more on demand", async ({ page }) => {
+  await page.goto("/notices");
+  await expect(page.getByRole("heading", { name: "Community Notices" })).toBeVisible();
+
+  const detailsLinks = page.getByRole("link", { name: "Details" });
+  const initialCount = await detailsLinks.count();
+  test.skip(initialCount === 0, "no published announcements in this environment");
+
+  const loadMore = page.getByRole("button", { name: "Load More" });
+  if ((await loadMore.count()) === 0) {
+    return; // fewer than 6 announcements total — nothing more to load
+  }
+
+  await loadMore.click();
+  await expect
+    .poll(async () => detailsLinks.count(), { timeout: 10_000 })
+    .toBeGreaterThan(initialCount);
+});

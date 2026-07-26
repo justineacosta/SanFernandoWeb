@@ -3,8 +3,8 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { normaliseMobile } from "@/lib/public-forms";
-import { ARCHIVE_BATCH, listPublishedArticles } from "@/features/announcements/queries";
-import type { NewsArticleListItem } from "@/types";
+import { ARCHIVE_BATCH, NOTICES_ARCHIVE_BATCH, listAllAnnouncements, listPublishedArticles } from "@/features/announcements/queries";
+import type { Announcement, NewsArticleListItem } from "@/types";
 
 export interface SubscribeResult {
   error: string | null;
@@ -58,6 +58,18 @@ export async function loadMoreNews(
   // (not "archive is empty"). Throw so the client error handler catches it.
   if (offset > 0 && total === 0) {
     throw new Error("Failed to load more articles.");
+  }
+  return { items, hasMore: offset + items.length < total };
+}
+
+export async function loadMoreNotices(
+  offset: number,
+): Promise<{ items: Announcement[]; hasMore: boolean }> {
+  const { items, total } = await listAllAnnouncements(offset, NOTICES_ARCHIVE_BATCH);
+  // If we're fetching more (offset > 0) but the query returns zero total, it's
+  // a failure (not "no more notices"). Throw so the client error handler catches it.
+  if (offset > 0 && total === 0) {
+    throw new Error("Failed to load more notices.");
   }
   return { items, hasMore: offset + items.length < total };
 }
