@@ -40,7 +40,7 @@ export default async function ArticlePage({ params }: PageProps) {
     <Container className="pb-12 pt-32 md:pb-16 md:pt-44">
       <div className="mx-auto max-w-3xl">
         <Link
-          href="/announcements"
+          href="/news"
           className="mb-6 inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to News

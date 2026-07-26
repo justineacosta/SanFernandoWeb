@@ -39,3 +39,20 @@ test("news archive loads more articles on demand", async ({ page }) => {
     .poll(async () => cards.count(), { timeout: 10_000 })
     .toBeGreaterThan(initialCount);
 });
+
+test("article detail page 'Back to News' link points to the archive", async ({ page }) => {
+  await page.goto("/news");
+
+  const cards = page.getByRole("article");
+  const cardCount = await cards.count();
+  test.skip(cardCount === 0, "no published news articles in this environment");
+
+  // Click into the first article via its "Details" link
+  const detailsLink = page.getByRole("link", { name: "Details" }).first();
+  await detailsLink.click();
+  await page.waitForURL(/\/announcements\/.*/, { timeout: 5000 });
+
+  // Assert the "Back to News" link points to /news, not /announcements
+  const backLink = page.getByRole("link", { name: "Back to News" });
+  await expect(backLink).toHaveAttribute("href", "/news");
+});
