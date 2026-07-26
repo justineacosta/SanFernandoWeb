@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { Megaphone, Siren } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toCalendarParts, toTelHref } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { NewsletterForm } from "@/features/announcements/components/newsletter-form";
 import { listPublishedAnnouncements } from "@/features/announcements/queries";
 import { EMERGENCY_HOTLINES } from "@/constants/site";
@@ -22,9 +24,10 @@ function AnnouncementsWidget({ announcements }: AnnouncementsWidgetProps) {
         {announcements.map((announcement) => {
           const { month, day } = toCalendarParts(announcement.date);
           return (
-            <div
-              key={announcement.title}
-              className="flex gap-4 border-b border-ink-200 pb-4 last:border-0 last:pb-0"
+            <Link
+              key={announcement.id}
+              href={`/notices/${announcement.slug}`}
+              className="group flex gap-4 border-b border-ink-200 pb-4 last:border-0 last:pb-0"
             >
               <div
                 className={cn(
@@ -38,7 +41,9 @@ function AnnouncementsWidget({ announcements }: AnnouncementsWidgetProps) {
                 <span className="text-[10px] font-bold">{month}</span>
               </div>
               <div>
-                <h4 className="text-sm font-semibold tracking-tight text-ink-900">{announcement.title}</h4>
+                <h4 className="text-sm font-semibold tracking-tight text-ink-900 transition-colors group-hover:text-brand-700">
+                  {announcement.title}
+                </h4>
                 <p className="mt-1 text-xs text-ink-600">{announcement.excerpt}</p>
                 {announcement.urgent ? (
                   <Badge variant="urgent" className="mt-2 text-[10px]">
@@ -46,9 +51,14 @@ function AnnouncementsWidget({ announcements }: AnnouncementsWidgetProps) {
                   </Badge>
                 ) : null}
               </div>
-            </div>
+            </Link>
           );
         })}
+      </div>
+      <div className="border-t border-ink-200 p-4">
+        <Button href="/notices" variant="outline" className="w-full">
+          View All
+        </Button>
       </div>
     </div>
   );

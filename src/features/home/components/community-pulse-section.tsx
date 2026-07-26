@@ -43,14 +43,14 @@ export async function CommunityPulseSection() {
           <CardHeader
             title="Announcements"
             icon={<Megaphone className="h-5 w-5 text-brand-500" aria-hidden="true" />}
-            action={<ViewAllLink label="View All" href="/announcements" />}
+            action={<ViewAllLink label="View All" href="/notices" />}
           />
           <div className="space-y-6">
             {announcements.map((announcement) => (
               <AnnouncementCard key={announcement.id} announcement={announcement} />
             ))}
           </div>
-          <Button href="/announcements" variant="outline" className="mt-6 w-full">
+          <Button href="/notices" variant="outline" className="mt-6 w-full">
             View All Announcements
           </Button>
         </Card>

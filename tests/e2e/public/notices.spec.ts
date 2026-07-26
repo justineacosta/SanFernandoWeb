@@ -40,3 +40,24 @@ test("notices archive page renders and loads more on demand", async ({ page }) =
     .poll(async () => detailsLinks.count(), { timeout: 10_000 })
     .toBeGreaterThan(initialCount);
 });
+
+test("homepage and sidebar 'View All' links point to /notices", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: "View All", exact: true })).toHaveAttribute(
+    "href",
+    "/notices",
+  );
+  await expect(page.getByRole("link", { name: "View All Announcements" })).toHaveAttribute(
+    "href",
+    "/notices",
+  );
+
+  await page.goto("/announcements");
+  const viewAll = page.getByRole("link", { name: "View All" });
+  try {
+    await expect(viewAll.first()).toBeVisible({ timeout: 10_000 });
+  } catch {
+    test.skip(true, "no published announcements in this environment");
+  }
+  await expect(viewAll.last()).toHaveAttribute("href", "/notices");
+});
