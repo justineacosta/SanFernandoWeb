@@ -895,7 +895,9 @@
 > 5. **Restore is offered, never applied.** For an existing record the server may have moved on;
 >    silently reinstating a stale snapshot over someone else's correction would be data loss
 >    dressed as recovery.
-> 6. **Keys are `sf-draft:v1:<userId>:<scope>:<recordId|new>`**, scoped to the user because a
+> 6. **Keys are `sf-draft:v2:<userId>:<scope>:<recordId|new>`** (bumped from `v1` when the
+>    Notices work widened `AnnouncementValues` with required fields — old snapshots are
+>    abandoned, never migrated), scoped to the user because a
 >    barangay workstation is plausibly shared, and cleared on sign-out (`SignOutButton`).
 >    7-day expiry, 256 KB cap, every storage call wrapped so private browsing degrades to
 >    "no autosave" rather than a broken form.

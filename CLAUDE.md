@@ -128,7 +128,11 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
   JSON snapshot of `values` into `localStorage` under
-  `sf-draft:v1:<userId>:<scope>:<recordId|new>`. **It must never write to Postgres:** editing a
+  `sf-draft:v2:<userId>:<scope>:<recordId|new>` (bumped from `v1` when the Notices work below
+  added required fields to `AnnouncementValues` — restoring a `v1` snapshot into the widened
+  shape would `setValues` a form missing `slug`/`body` and crash the next keystroke;
+  `DRAFT_KEY_PREFIX` is the one constant to bump, never migrate, whenever a draft-capable
+  form's values shape changes). **It must never write to Postgres:** editing a
   published record does not change its status, so a timed DB write would push unreviewed text
   onto the live site. Files stay out because the hook is handed `values` and `File` state lives
   outside it — don't "fix" that by passing file state in. Restore is **offered, never applied**
@@ -261,9 +265,38 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   pages fetch via `listPublishedArticles(offset, limit)` with results ordered by
   `published_at desc, id desc` (tiebreaker prevents duplicate keys). `ARCHIVE_BATCH = 6`
   is defined once in `src/features/announcements/queries.ts`. The dead "Subscribe to
-  Alerts" button is gone from the `/announcements` hero. The `/announcements` list itself
-  stays teaser-only — no announcements equivalent of `/news`'s or (below) `/events`'s full
-  archive page exists yet.
+  Alerts" button is gone from the `/announcements` hero.
+- `/notices` is the Announcements equivalent of `/news`'s full archive — every published
+  announcement, newest first, `NOTICES_ARCHIVE_BATCH = 6` (own constant, independent of
+  `ARCHIVE_BATCH`), same offset/limit "Load More" pattern, `date desc, id desc` ordering
+  tiebreaker. Each announcement also gets a real detail page, `/notices/[slug]`, mirroring
+  `/announcements/[slug]`'s template (Urgent badge instead of category, a single image
+  instead of a `PhotoGallery`, no author line) — `announcements` gained `slug` and `body`
+  columns for this (migration `0027`; `body` is a plain `Textarea` in the admin drawer,
+  identical to the News article body field, and falls back to the excerpt when empty, since
+  every announcement that predates this migration backfilled to `body = ''`). **Two card
+  sizes for the same content, on purpose:** the homepage's dashboard widget keeps the
+  original compact `AnnouncementCard` (thumbnail + text row, `src/components/shared/
+  announcement-card.tsx`), now a link to the detail page and carrying the Urgent badge it
+  was missing before; `/notices` itself renders a separate, bigger `NoticeArchiveCard`
+  (`src/components/shared/notice-archive-card.tsx`, a structural clone of `NewsCard` —
+  `h-48` image-on-top, `ImageIcon` fallback) in a 3-column grid
+  (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`, matching `/news`'s own breakpoints,
+  `max-w-6xl` container) — the same compact-vs-archive split `/events` already established
+  with `EventCard` vs `EventArchiveCard`. Don't merge the two cards or resize
+  `AnnouncementCard` to make it "bigger everywhere": the homepage widget's narrow column has
+  no room for the taller card. The `/announcements` page's `NewsSidebar` widget's rows are
+  also links into `/notices/[slug]` now, with a "View All" button under the list; the
+  homepage's own "View All"/"View All Announcements" links were repointed from
+  `/announcements` (the unrelated News teaser page) to `/notices`. `saveAnnouncement`'s slug
+  handling mirrors `saveNewsArticle` exactly (locked once published, `slugify()` + a
+  `-2`/`-3`… uniqueness suffix otherwise), and its shared `revalidate()` helper revalidates
+  `/notices/[slug]` as a path pattern (`revalidatePath("/notices/[slug]", "page")`) so every
+  action that routes through it — save, publish, archive, restore — invalidates every
+  detail page in one call, not just the one `deleteAnnouncement` used to touch explicitly.
+  `news.ts`'s equivalent `revalidate()` helper has the identical gap for
+  `/announcements/[slug]` and was deliberately left alone — a pre-existing issue in a
+  different feature, not fixed as a side effect of this one.
 - `/events` ("Community Calendar") shows every published event: an unpaginated "Upcoming
   Events" section (`event_date >= today`, soonest first) and a paginated "Past Events"
   archive (`event_date < today`, most recent first, `EVENTS_ARCHIVE_BATCH = 6`, same
