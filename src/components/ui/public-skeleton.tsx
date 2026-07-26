@@ -101,6 +101,35 @@ export function NewsFeedSkeleton({ count = 4 }: { count?: number }) {
   );
 }
 
+/** The full News archive: featured block + a 3-column grid of image-topped cards. */
+export function NewsArchiveSkeleton({ count = 5 }: { count?: number }) {
+  return (
+    <div className="space-y-8">
+      <LoadingLabel what="the news archive" />
+      <div className="overflow-hidden rounded-3xl border border-ink-200 bg-white">
+        <Skeleton className="aspect-16/9 rounded-none" />
+        <div className="space-y-3 p-6">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-7 w-4/5" />
+          <Skeleton className="h-4 w-full" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: count }, (_, i) => (
+          <div key={i} className="overflow-hidden rounded-3xl border border-ink-200 bg-white">
+            <Skeleton className="h-48 rounded-none" />
+            <div className="space-y-3 p-4">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-5 w-4/5" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** The announcements rail beside the news feed. */
 export function NewsSidebarSkeleton() {
   return (

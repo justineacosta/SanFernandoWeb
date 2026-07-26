@@ -4,6 +4,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { photoUrl } from "@/lib/storage";
 import { formatDate, toManilaDate } from "@/lib/format";
 
+export const ARCHIVE_BATCH = 6;
+
 function isWithin7Days(publishedAt: string | null): boolean {
   if (!publishedAt) return false;
   const days = (Date.now() - new Date(publishedAt).getTime()) / 86_400_000;

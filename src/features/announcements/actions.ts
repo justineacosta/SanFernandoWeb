@@ -3,6 +3,8 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { normaliseMobile } from "@/lib/public-forms";
+import { ARCHIVE_BATCH, listPublishedArticles } from "@/features/announcements/queries";
+import type { NewsArticleListItem } from "@/types";
 
 export interface SubscribeResult {
   error: string | null;
@@ -46,4 +48,11 @@ export async function subscribeToAlerts(input: string): Promise<SubscribeResult>
   // Deliberately the same answer whether the row was new or already there —
   // the form must not become a way to test which numbers are on the list.
   return { error: null };
+}
+
+export async function loadMoreNews(
+  offset: number,
+): Promise<{ items: NewsArticleListItem[]; hasMore: boolean }> {
+  const { items, total } = await listPublishedArticles(offset, ARCHIVE_BATCH);
+  return { items, hasMore: offset + items.length < total };
 }
