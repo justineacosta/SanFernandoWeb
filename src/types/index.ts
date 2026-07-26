@@ -178,11 +178,15 @@ export interface Announcement {
 }
 
 export interface CommunityEvent {
+  id: string;
   title: string;
   /** ISO date, e.g. "2025-05-25" */
   date: string;
   time: string;
   venue: string;
+  description: string;
+  /** Display label resolved from the `events.category` enum column. */
+  categoryLabel: string;
   /** Resolved public URL of the optional cover image. */
   image?: string;
   imageAlt?: string;

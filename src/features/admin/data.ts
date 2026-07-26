@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import type {
   AdminTeamMember,
-  EventCategory,
   IconNavItem,
   TeamRole,
 } from "@/types";
@@ -37,17 +36,6 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Audit Logs", href: "/admin/audit", icon: History, superAdminOnly: true, group: "system" },
   { label: "Settings", href: "/admin/settings", icon: Settings, group: "system" },
 ];
-
-/* ------------------- Section seed data (wraps real public content) ------------------ */
-
-export const EVENT_CATEGORY_LABELS: Record<EventCategory, string> = {
-  "town-hall": "Town Hall",
-  "health-drive": "Health Drive",
-  festival: "Festival",
-  youth: "Youth",
-  environment: "Environment",
-  community: "Community",
-};
 
 export const TEAM_ROLE_LABELS: Record<TeamRole, string> = {
   "super-admin": "Super Admin",

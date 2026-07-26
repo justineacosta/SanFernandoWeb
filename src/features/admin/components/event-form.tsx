@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { photoUrl } from "@/lib/storage";
 import { useFormDraft } from "@/hooks/use-form-draft";
-import { EVENT_CATEGORY_LABELS } from "@/features/admin/data";
+import { EVENT_CATEGORY_LABELS } from "@/features/events/data";
 import { useAdminUserId } from "./admin-user-context";
 import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import {

@@ -17,7 +17,7 @@ import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { toCalendarParts } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
-import { EVENT_CATEGORY_LABELS } from "@/features/admin/data";
+import { EVENT_CATEGORY_LABELS } from "@/features/events/data";
 import {
   archiveEvent,
   deleteEvent,
