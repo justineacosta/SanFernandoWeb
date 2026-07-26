@@ -23,7 +23,20 @@
 
 export const ACTIVITY_COOKIE = "sf-activity";
 export const ACTIVITY_COOKIE_VALUE = "1";
-export const ACTIVITY_COOKIE_PATH = "/admin";
+/**
+ * "/" rather than "/admin". A browser only attaches a cookie to a request
+ * whose path equals Path or starts with `Path + "/"` — "/admin" therefore
+ * never reaches `/api/admin/notifications` (it starts with `/api/`, not
+ * `/admin/`), so the polled notification endpoint's `getSessionUser()` saw
+ * no cookie and 401ed on every call regardless of real activity. Widening
+ * to "/" only changes where the cookie is *sent*, not when it is written,
+ * read for the idle gate, or expired: middleware's matcher below is scoped
+ * to `/admin/:path*` and never runs for `/api/*`, so this cannot turn API
+ * polling into something that slides the idle window. The cookie is still
+ * only ever written from inside the admin portal, so a public visitor still
+ * never receives it.
+ */
+export const ACTIVITY_COOKIE_PATH = "/";
 
 /** Cross-tab freshness for the countdown only — never read by the server. */
 export const ACTIVITY_STORAGE_KEY = "sf-admin-activity-at";
