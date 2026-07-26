@@ -5,7 +5,7 @@ import { Container } from "@/components/ui/container";
 import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
 import { NewsFeedSkeleton, NewsSidebarSkeleton } from "@/components/ui/public-skeleton";
-import { NewsFeed, NewsSidebar } from "@/features/announcements";
+import { NewsTeaser, NewsSidebar } from "@/features/announcements";
 
 export const metadata: Metadata = {
   title: "News & Announcements",
@@ -13,14 +13,7 @@ export const metadata: Metadata = {
     "The latest announcements, public notices, and community highlights from Barangay San Fernando.",
 };
 
-export default async function AnnouncementsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ page?: string }>;
-}) {
-  const { page } = await searchParams;
-  const current = Number(page) > 0 ? Number(page) : 1;
-
+export default function AnnouncementsPage() {
   return (
     <>
       <PageHero
@@ -29,9 +22,6 @@ export default async function AnnouncementsPage({
         description="Access the latest announcements, public notices, and community highlights from the heart of Barangay San Fernando."
       >
         <div className="flex flex-wrap gap-4">
-          <Button variant="primary" size="lg">
-            Subscribe to Alerts
-          </Button>
           <Button variant="outline" size="lg">
             Community Calendar
           </Button>
@@ -41,11 +31,11 @@ export default async function AnnouncementsPage({
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
           {/*
             Two independent queries, so two boundaries: the sidebar's three
-            announcements should not be held back by a slow page of articles.
+            announcements should not be held back by the news teaser.
           */}
           <div className="lg:col-span-8">
-            <Suspense key={current} fallback={<NewsFeedSkeleton />}>
-              <NewsFeed page={current} />
+            <Suspense fallback={<NewsFeedSkeleton count={2} />}>
+              <NewsTeaser />
             </Suspense>
           </div>
           <div className="lg:col-span-4">

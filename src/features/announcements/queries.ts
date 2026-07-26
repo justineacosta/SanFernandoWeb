@@ -4,8 +4,6 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { photoUrl } from "@/lib/storage";
 import { formatDate, toManilaDate } from "@/lib/format";
 
-const PAGE_SIZE = 7; // 1 featured + 6 grid
-
 function isWithin7Days(publishedAt: string | null): boolean {
   if (!publishedAt) return false;
   const days = (Date.now() - new Date(publishedAt).getTime()) / 86_400_000;
@@ -41,11 +39,12 @@ function toListItem(row: ArticleRow): NewsArticleListItem {
 }
 
 export async function listPublishedArticles(
-  page: number,
-): Promise<{ items: NewsArticleListItem[]; total: number; pageSize: number }> {
+  offset: number,
+  limit: number,
+): Promise<{ items: NewsArticleListItem[]; total: number }> {
   const admin = createSupabaseAdminClient();
-  const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
-  const from = (safePage - 1) * PAGE_SIZE;
+  const safeOffset = Number.isFinite(offset) && offset > 0 ? Math.floor(offset) : 0;
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 1;
 
   const { data, count, error } = await admin
     .from("news_articles")
@@ -55,13 +54,12 @@ export async function listPublishedArticles(
     )
     .eq("status", "published")
     .order("published_at", { ascending: false })
-    .range(from, from + PAGE_SIZE - 1);
+    .range(safeOffset, safeOffset + safeLimit - 1);
 
-  if (error || !data) return { items: [], total: 0, pageSize: PAGE_SIZE };
+  if (error || !data) return { items: [], total: 0 };
   return {
     items: (data as unknown as ArticleRow[]).map(toListItem),
     total: count ?? 0,
-    pageSize: PAGE_SIZE,
   };
 }
 
