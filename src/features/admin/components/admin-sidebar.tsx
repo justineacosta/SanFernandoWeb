@@ -11,8 +11,11 @@ import { cn } from "@/lib/utils";
 import { SPRING_INDICATOR } from "@/lib/motion";
 import { SITE } from "@/constants/site";
 import { groupNavItems } from "@/lib/admin-nav";
+import { countForNavHref, permittedQueues } from "@/lib/notifications";
 import { Tooltip } from "@/components/ui/tooltip";
 import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
+import { useNotifications } from "./notification-provider";
+import { NavCountBadge } from "./nav-count-badge";
 
 /** Grace period before a peek closes, so clipping the rail's edge cannot flash it. */
 const PEEK_CLOSE_MS = 150;
@@ -67,6 +70,8 @@ export function AdminSidebar({
   const pathname = usePathname();
   const layoutGroup = useId();
   const groups = groupNavItems(ADMIN_NAV_ITEMS, { isSuperAdmin, permissions });
+  const { counts } = useNotifications();
+  const permitted = permittedQueues({ isSuperAdmin, permissions });
 
   const [peeked, setPeeked] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -243,19 +248,27 @@ export function AdminSidebar({
                               <span className="absolute left-0 top-1/2 h-5 w-0.75 -translate-y-1/2 rounded-r-full bg-brand-400" />
                             </motion.span>
                           ) : null}
-                          <Icon
-                            className={cn(
-                              "relative h-5 w-5 shrink-0",
-                              isActive && "text-brand-400",
-                            )}
-                            aria-hidden="true"
-                          />
+                          <span className="relative shrink-0">
+                            <Icon
+                              className={cn("h-5 w-5", isActive && "text-brand-400")}
+                              aria-hidden="true"
+                            />
+                            {!expanded ? (
+                              <NavCountBadge
+                                count={countForNavHref(counts, permitted, item.href)}
+                                collapsed
+                              />
+                            ) : null}
+                          </span>
                           {/* One span whose class changes, never two spans
                               swapped: see the li below for why identity here
                               is worth protecting. */}
                           <span className={expanded ? "relative truncate" : "sr-only"}>
                             {item.label}
                           </span>
+                          {expanded ? (
+                            <NavCountBadge count={countForNavHref(counts, permitted, item.href)} />
+                          ) : null}
                         </Link>
                       );
                       return (

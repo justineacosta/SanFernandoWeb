@@ -10,8 +10,11 @@ import type { Permission } from "@/types";
 import { cn } from "@/lib/utils";
 import { FADE_QUICK, POP } from "@/lib/motion";
 import { groupNavItems } from "@/lib/admin-nav";
+import { countForNavHref, permittedQueues } from "@/lib/notifications";
 import { useDisclosure } from "@/hooks/use-disclosure";
 import { ADMIN_NAV_ITEMS } from "@/features/admin/data";
+import { useNotifications } from "./notification-provider";
+import { NavCountBadge } from "./nav-count-badge";
 
 /** Never fires; the store is a constant, so nothing ever needs re-reading. */
 const noopSubscribe = () => () => {};
@@ -47,6 +50,8 @@ export function AdminMobileNav({
   const { isOpen, toggle, close } = useDisclosure();
   const pathname = usePathname();
   const groups = groupNavItems(ADMIN_NAV_ITEMS, { isSuperAdmin, permissions });
+  const { counts } = useNotifications();
+  const permitted = permittedQueues({ isSuperAdmin, permissions });
   // The portal target only exists in the browser, and AnimatePresence has to
   // stay mounted across the close for the exit to run — so the portal is gated
   // on hydration rather than folded into the isOpen check. useSyncExternalStore
@@ -168,6 +173,7 @@ export function AdminMobileNav({
                                   aria-hidden="true"
                                 />
                                 <span className="truncate">{item.label}</span>
+                                <NavCountBadge count={countForNavHref(counts, permitted, item.href)} />
                               </Link>
                             </li>
                           );
