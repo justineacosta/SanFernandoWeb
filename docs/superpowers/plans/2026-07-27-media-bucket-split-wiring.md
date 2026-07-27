@@ -77,21 +77,41 @@ All of the above keep calling the untouched `photoUrl(path)` /
 those buckets are not being deleted or emptied by this plan (Plan 1 confirmed
 they stay in the baseline "until the wiring plan lands," and no data
 migration has run yet) — every object that exists *today* keeps resolving
-correctly through them, unchanged. The *only* regression this plan introduces
-is cosmetic and admin-only: from the moment this plan ships, a **newly
-uploaded or replaced** image/file for a record that is not yet (or no longer)
-`published` lands in the new `<kind>-drafts` bucket (which has no public-read
-policy by design), so its thumbnail in an admin list or edit drawer will show
-broken until a future plan (not written yet — the natural next one after
-this) adds signed-URL resolution for exactly those surfaces. Save, Publish,
-Archive, Restore and Delete all round-trip the raw stored **path string**,
-never the resolved URL, so this cosmetic gap cannot corrupt data, block a
-workflow, or leak anything — it is strictly a "the thumbnail looks broken
-while editing a draft" limitation, and it self-heals the moment that future
-plan lands. Public-facing pages are not part of this boundary: every public
-query (`status = "published"` filtered) **is** fixed in this plan, because
-that is what actually breaks (permanently, not cosmetically) the moment a
-publish happens after this plan ships.
+correctly through them, unchanged, **as long as it is read through the old
+helpers** (which every admin-side surface listed above still uses). The
+*admin-only* regression this plan introduces is cosmetic: from the moment
+this plan ships, a **newly uploaded or replaced** image/file for a record
+that is not yet (or no longer) `published` lands in the new `<kind>-drafts`
+bucket (which has no public-read policy by design), so its thumbnail in an
+admin list or edit drawer will show broken until a future plan (not written
+yet — the natural next one after this) adds signed-URL resolution for
+exactly those surfaces. Save, Publish, Archive, Restore and Delete all
+round-trip the raw stored **path string**, never the resolved URL, so this
+cosmetic gap cannot corrupt data, block a workflow, or leak anything.
+
+**This does NOT extend to the public-facing query fixes, and that distinction
+matters for deployment.** Every public query this plan touches switches from
+`photoUrl(path)`/`documentUrl(path)` (old bucket, unconditionally correct
+today) to `mediaUrl(publicBucketFor(kind), path)` (new bucket) — correctly,
+because that is what stops a *newly published* object from 404ing. But an
+**existing already-published** row's file still physically sits in
+`public-media`/`public-documents` today; nothing has copied it into
+`<kind>-media` yet. `scripts/migrate-media-buckets.mjs` (built in Plan 1) is
+that copy step, and it has not been run against any real environment.
+
+**Consequence: this plan's public-query changes must not reach a live
+environment before `scripts/migrate-media-buckets.mjs` has been run there.**
+Deployed on its own, ahead of the migration, every currently-published
+image and document on the live public site — not just newly uploaded ones —
+would 404 the moment each content type's task lands, because the public
+query for that type would be asking a bucket that doesn't have the object
+yet. This is a full public-facing regression, not the cosmetic admin-only one
+above, and it is new information this plan did not originally call out
+loudly enough. Whoever merges and deploys this branch (staging first, per
+this project's migration discipline) must run the migration script as part
+of that same deploy window, before or immediately after applying migration
+`0028`, and before traffic hits the updated code — see the Risk section at
+the end of this plan.
 
 ---
 
@@ -2489,13 +2509,45 @@ task in each pair drops the now-fully-unused old helper from the import. Both
 tasks in each pair are independently typecheck-clean and independently
 reviewable — no ordering constraint, no "must land in the same commit."
 
-**Scope check:** This plan produces a fully working, typecheck-and-lint-clean
-application at the end of every task (not just the end of the plan), with
-one explicitly documented and justified exception (the deferred admin-preview
-regression, which is cosmetic-only and self-heals under a future plan). Tasks
-1 and 5 each do double duty (shared-helper signature change + first content
-type's wiring) specifically so no task ever leaves a caller uncompiled or a
-behavior half-implemented.
+**Scope check (corrected during Task 1's review):** This plan does **not**
+keep the whole repository typecheck-clean at every intermediate task
+boundary, and the original draft of this section overclaimed that it did.
+Task 1 and Task 5 each change a shared helper's signature (`media.ts`,
+`documents.ts`) but only update *one* of that helper's several callers (the
+content type each task owns); `media.ts`'s other four callers
+(`events.ts`/Task 2, `announcements.ts`/Task 3, `site-content.ts` +
+`account.ts`/Task 7) and `documents.ts`'s other caller
+(`transparency-documents.ts`/`transparency-projects.ts`/Task 6) will not
+typecheck again until their own listed task lands. This is expected,
+scoped-per-task breakage inside an isolated worktree that is not merged
+until the final whole-branch review — every task IS independently
+diff-reviewable and independently correct for the files it owns; it is only
+`npm run typecheck` run against the *whole repo* that is red in between.
+Anyone reviewing an individual task's diff should expect and discount
+compile errors in the other four/one file(s) named above until the task that
+owns them lands — see each affected task's own dispatch notes.
+
+**Deployment prerequisite (added during Task 1's review — read before this
+branch is merged or deployed anywhere):** see the corrected paragraph in
+"Explicit scope boundary" above. In short: `scripts/migrate-media-buckets.mjs`
+must run against an environment (after migration `0028` is applied there)
+**before or as part of** deploying this branch's code to that environment —
+not at leisure afterward. Deploying the public-query changes ahead of the
+data migration breaks every currently-published image/document on the live
+public site, not just newly-uploaded ones. This is a hard blocker for
+`superpowers:finishing-a-development-branch`'s merge step on any environment
+that serves real traffic (staging, then production) — it is not a hard
+blocker for merging into `development` itself, since `development` is not
+directly deployed.
+
+**CLAUDE.md (added during Task 1's review):** Task 1's review found that
+this project's `docs/superpowers/plans/2026-07-27-media-bucket-split-*`
+sequence makes CLAUDE.md's media-bucket-split bullet — "**Nothing in the
+running app uses any of this yet**" — false, and no task in this plan was
+originally assigned to fix it, per this project's own standing rule ("every
+session that changes code updates CLAUDE.md in the same session"). This is
+now owned as an explicit step of the final whole-branch review / finish
+step below, not left to chance.
 
 ---
 
