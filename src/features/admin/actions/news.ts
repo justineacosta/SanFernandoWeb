@@ -10,11 +10,13 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_IMAGE_BYTES,
-  PUBLIC_MEDIA_BUCKET,
+  bucketForStatus,
+  draftBucketFor,
   extForType,
+  mediaUrl,
   newsPhotoPath,
-  photoUrl,
 } from "@/lib/storage";
+import { cleanupPromotedMedia, demoteMedia, promoteMedia } from "@/lib/media-lifecycle";
 import { getNewsArticleForEdit } from "@/features/admin/queries/news";
 
 export interface ActionResult {
@@ -97,13 +99,14 @@ const MAX_PHOTOS = 3;
 async function attachPendingPhotos(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   articleId: string,
+  status: ContentStatus,
   files: File[],
   alts: string[],
 ): Promise<{ error: string | null }> {
   if (files.length === 0) return { error: null };
 
-  // Re-checked server-side: a Server Action is a public HTTP endpoint and the
-  // uploader's own checks can simply be skipped.
+  const bucket = bucketForStatus("news", status);
+
   for (const file of files) {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
       return { error: "Photos must be JPG, PNG, or WebP." };
@@ -125,13 +128,12 @@ async function attachPendingPhotos(
   const paths: string[] = [];
   const rowIds: string[] = [];
 
-  /** Undo everything this call wrote, then report the original failure. */
   async function rollback(message: string): Promise<{ error: string }> {
     if (rowIds.length > 0) {
       await admin.from("news_photos").delete().in("id", rowIds);
     }
     if (paths.length > 0) {
-      const { error } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove(paths);
+      const { error } = await admin.storage.from(bucket).remove(paths);
       if (error) {
         console.error(`Orphaned storage objects (photo rollback failed): ${paths.join(", ")}`);
       }
@@ -148,7 +150,7 @@ async function attachPendingPhotos(
     const path = newsPhotoPath(articleId, extForType(file.type));
     const buffer = Buffer.from(await file.arrayBuffer());
     const { error: upErr } = await admin.storage
-      .from(PUBLIC_MEDIA_BUCKET)
+      .from(bucket)
       .upload(path, buffer, { contentType: file.type, upsert: false });
     if (upErr) return rollback("Could not upload the photos. Try again.");
     paths.push(path);
@@ -170,15 +172,17 @@ async function attachPendingPhotos(
 async function listPhotos(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   articleId: string,
+  status: ContentStatus,
 ): Promise<GalleryPhoto[]> {
   const { data } = await admin
     .from("news_photos")
     .select("id, src, alt")
     .eq("article_id", articleId)
     .order("sort_order", { ascending: true });
+  const bucket = bucketForStatus("news", status);
   return (data ?? []).map((p) => ({
     id: p.id as string,
-    src: photoUrl(p.src as string),
+    src: mediaUrl(bucket, p.src as string),
     alt: p.alt as string,
   }));
 }
@@ -267,10 +271,14 @@ export async function saveNewsArticle(
       entityId: id,
       entityLabel: parsed.data.title,
     });
-    const attached = await attachPendingPhotos(admin, id, files, alts);
+    const attached = await attachPendingPhotos(admin, id, existing.status as ContentStatus, files, alts);
     revalidate();
     if (attached.error) return savedWithoutPhotos(id, attached.error);
-    return { error: null, id, photos: files.length > 0 ? await listPhotos(admin, id) : null };
+    return {
+      error: null,
+      id,
+      photos: files.length > 0 ? await listPhotos(admin, id, existing.status as ContentStatus) : null,
+    };
   }
 
   const slugResult = await uniqueSlug(admin, slugify(parsed.data.slug) || slugify(parsed.data.title), null);
@@ -298,13 +306,13 @@ export async function saveNewsArticle(
     entityId: inserted.id,
     entityLabel: parsed.data.title,
   });
-  const attached = await attachPendingPhotos(admin, inserted.id, files, alts);
+  const attached = await attachPendingPhotos(admin, inserted.id, "draft", files, alts);
   revalidate();
   if (attached.error) return savedWithoutPhotos(inserted.id, attached.error);
   return {
     error: null,
     id: inserted.id,
-    photos: files.length > 0 ? await listPhotos(admin, inserted.id) : null,
+    photos: files.length > 0 ? await listPhotos(admin, inserted.id, "draft") : null,
   };
 }
 
@@ -352,14 +360,55 @@ export async function returnNewsToDraft(id: string): Promise<ActionResult> {
 export async function archiveNewsArticle(id: string): Promise<ActionResult> {
   const actor = await checkPermission("manage-news");
   if (!actor) return { error: NOT_FOUND };
-  return applyTransition(
-    actor,
-    id,
-    ["draft", "in-review", "published"],
-    statusPatch(actor, "archived"),
-    "archive",
-    "archived news article",
-  );
+  const admin = createSupabaseAdminClient();
+  const patch = statusPatch(actor, "archived");
+
+  let result: { id: string; title: string } | null = null;
+  let wasPublished = false;
+  {
+    const { data, error } = await admin
+      .from("news_articles")
+      .update(patch)
+      .eq("id", id)
+      .eq("status", "published")
+      .select("id, title")
+      .maybeSingle();
+    if (error) return { error: "Could not update the article." };
+    if (data) {
+      result = data;
+      wasPublished = true;
+    }
+  }
+  if (!result) {
+    const { data, error } = await admin
+      .from("news_articles")
+      .update(patch)
+      .eq("id", id)
+      .in("status", ["draft", "in-review"])
+      .select("id, title")
+      .maybeSingle();
+    if (error) return { error: "Could not update the article." };
+    result = data;
+  }
+  if (!result) return { error: "This article is no longer in a state that allows that action." };
+
+  if (wasPublished) {
+    const { data: photos } = await admin.from("news_photos").select("src").eq("article_id", id);
+    const paths = (photos ?? []).map((p) => p.src as string);
+    if (paths.length > 0) {
+      await demoteMedia("news", paths, "news article archived");
+    }
+  }
+
+  await recordActivity(actor, {
+    type: "archive",
+    action: "archived news article",
+    entityType: "news article",
+    entityId: id,
+    entityLabel: result.title,
+  });
+  revalidate();
+  return { error: null };
 }
 
 /** Bring an archived article back as a draft — not straight back onto the news feed. */
@@ -403,7 +452,7 @@ export async function deleteNewsArticle(id: string): Promise<ActionResult> {
   if (error) return { error: "Could not delete the article." };
 
   if (paths.length > 0) {
-    const { error: removeErr } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove(paths);
+    const { error: removeErr } = await admin.storage.from(draftBucketFor("news")).remove(paths);
     if (removeErr) {
       // A failed cleanup must not fail the delete the user just made, but the
       // orphans it leaves are invisible otherwise — log the paths for a human.
@@ -428,14 +477,24 @@ export async function publishNewsArticle(id: string): Promise<ActionResult> {
   const admin = createSupabaseAdminClient();
   const { data: row, error: readErr } = await admin
     .from("news_articles")
-    .select("published_at, title, excerpt")
+    .select("published_at, title, excerpt, status")
     .eq("id", id)
     .maybeSingle();
   if (readErr) return { error: "Could not publish the article." };
   if (!row) return { error: "Article not found." };
   if (!row.excerpt?.trim()) return { error: "Add an excerpt before publishing." };
-  // statusPatch also clears the archive provenance, so publishing straight out
-  // of `archived` does not leave the row claiming it is still archived.
+
+  const alreadyPublished = row.status === "published";
+  let photoPaths: string[] = [];
+  if (!alreadyPublished) {
+    const { data: photos } = await admin.from("news_photos").select("src").eq("article_id", id);
+    photoPaths = (photos ?? []).map((p) => p.src as string);
+    if (photoPaths.length > 0) {
+      const promoted = await promoteMedia("news", photoPaths);
+      if (promoted.error) return { error: "Could not publish the article's photos. Try again." };
+    }
+  }
+
   const patch = statusPatch(actor, "published");
   if (!row.published_at) patch.published_at = new Date().toISOString();
   const { data, error } = await admin
@@ -447,6 +506,11 @@ export async function publishNewsArticle(id: string): Promise<ActionResult> {
     .maybeSingle();
   if (error) return { error: "Could not publish the article." };
   if (!data) return { error: "This article is already published." };
+
+  if (!alreadyPublished && photoPaths.length > 0) {
+    await cleanupPromotedMedia("news", photoPaths, "news article published");
+  }
+
   await recordActivity(actor, {
     type: "publish",
     action: "published news article",

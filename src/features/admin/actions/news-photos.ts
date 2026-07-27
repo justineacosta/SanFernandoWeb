@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { ContentStatus } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { PUBLIC_MEDIA_BUCKET } from "@/lib/storage";
+import { bucketForStatus } from "@/lib/storage";
 
 export interface ActionResult {
   error: string | null;
@@ -80,7 +81,7 @@ export async function removeNewsPhoto(photoId: string): Promise<ActionResult> {
   const admin = createSupabaseAdminClient();
   const { data: photo, error: readErr } = await admin
     .from("news_photos")
-    .select("id, src, article_id")
+    .select("id, src, article_id, news_articles!inner(status)")
     .eq("id", photoId)
     .maybeSingle();
   if (readErr) return { error: "Could not remove the photo." };
@@ -93,7 +94,10 @@ export async function removeNewsPhoto(photoId: string): Promise<ActionResult> {
   // would leave a live photo row pointing at nothing. Only delete an object we
   // own (uploaded path), never a seed URL.
   if (!/^https?:\/\//i.test(photo.src)) {
-    const { error: removeErr } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove([photo.src]);
+    const articleStatus = (photo.news_articles as unknown as { status: ContentStatus }).status;
+    const { error: removeErr } = await admin.storage
+      .from(bucketForStatus("news", articleStatus))
+      .remove([photo.src]);
     if (removeErr) {
       console.error(`Orphaned storage object (news photo cleanup failed): ${photo.src}`);
     }

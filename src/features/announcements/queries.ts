@@ -1,7 +1,7 @@
 import "server-only";
 import type { Announcement, AnnouncementDetail, NewsArticleDetail, NewsArticleListItem } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { mediaUrl, photoUrl, publicBucketFor } from "@/lib/storage";
+import { mediaUrl, publicBucketFor } from "@/lib/storage";
 import { formatDate, toManilaDate } from "@/lib/format";
 
 export const ARCHIVE_BATCH = 6;
@@ -33,7 +33,7 @@ function toListItem(row: ArticleRow): NewsArticleListItem {
     title: row.title,
     category: row.news_categories?.label ?? "News",
     excerpt: row.excerpt,
-    coverSrc: cover ? photoUrl(cover.src) : null,
+    coverSrc: cover ? mediaUrl(publicBucketFor("news"), cover.src) : null,
     coverAlt: cover?.alt ?? "",
     dateLabel: row.published_at ? formatDate(toManilaDate(row.published_at)) : "",
     isNew: isWithin7Days(row.published_at),
@@ -82,7 +82,7 @@ export async function getPublishedArticleBySlug(slug: string): Promise<NewsArtic
   const row = data as unknown as ArticleRow;
   const photos = [...row.news_photos]
     .sort((a, b) => a.sort_order - b.sort_order)
-    .map((p) => ({ id: p.id, src: photoUrl(p.src), alt: p.alt }));
+    .map((p) => ({ id: p.id, src: mediaUrl(publicBucketFor("news"), p.src), alt: p.alt }));
   return { ...toListItem(row), body: row.body ?? "", photos };
 }
 
