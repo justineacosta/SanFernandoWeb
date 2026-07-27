@@ -8,7 +8,7 @@ import type {
 } from "@/types";
 import { ARCHIVE_SELECT, toArchiveMeta, type ArchiveMetaRow } from "@/lib/archive";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { photoUrl } from "@/lib/storage";
+import { resolveMediaUrl, resolveMediaUrlsForList } from "@/lib/media-lifecycle";
 import { listAchievementsForOfficial } from "./achievements";
 
 /** Every official, all statuses, in directory order. */
@@ -21,13 +21,22 @@ export async function listAdminOfficials(): Promise<AdminOfficialRow[]> {
     .order("sort_order", { ascending: true });
 
   if (error || !data) return [];
-  return data.map((row) => ({
+
+  const photoUrls = await resolveMediaUrlsForList(
+    "officials",
+    data.map((row) => ({
+      path: row.photo_path as string | null,
+      status: row.status as ContentStatus,
+    })),
+  );
+
+  return data.map((row, i) => ({
     id: row.id as string,
     slug: row.slug as string,
     name: row.name as string,
     role: row.role as string,
     group: row.group as OfficialGroup,
-    photoUrl: row.photo_path ? photoUrl(row.photo_path as string) : null,
+    photoUrl: photoUrls[i],
     sortOrder: row.sort_order as number,
     status: row.status as ContentStatus,
     ...toArchiveMeta(row as unknown as ArchiveMetaRow),
@@ -51,7 +60,12 @@ export async function getOfficialForEdit(
 
   if (error || !data) return null;
 
-  const achievements = await listAchievementsForOfficial(id);
+  const status = data.status as ContentStatus;
+  const photoPath = (data.photo_path as string) || null;
+  const [achievements, photoUrl] = await Promise.all([
+    listAchievementsForOfficial(id, status),
+    photoPath ? resolveMediaUrl("officials", status, photoPath) : Promise.resolve(null),
+  ]);
 
   return {
     values: {
@@ -66,8 +80,8 @@ export async function getOfficialForEdit(
       phone: (data.phone as string) ?? null,
       bio: (data.bio as string) ?? "",
     },
-    status: data.status as ContentStatus,
-    photoUrl: data.photo_path ? photoUrl(data.photo_path as string) : null,
+    status,
+    photoUrl,
     achievements,
   };
 }

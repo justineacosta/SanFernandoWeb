@@ -12,8 +12,8 @@ import {
   achievementPhotoPath,
   bucketForStatus,
   extForType,
-  mediaUrl,
 } from "@/lib/storage";
+import { resolveMediaUrls } from "@/lib/media-lifecycle";
 
 export interface ActionResult {
   error: string | null;
@@ -133,11 +133,16 @@ export async function uploadAchievementPhotos(
   });
   await revalidateForAchievement(admin, achievementId);
   const refreshed = await currentPhotos(admin, achievementId);
+  const urlByPath = await resolveMediaUrls(
+    "officials",
+    officialStatus,
+    refreshed.map((p) => p.src as string),
+  );
   return {
     error: null,
     photos: refreshed.map((p) => ({
       id: p.id as string,
-      src: mediaUrl(bucketForStatus("officials", officialStatus), p.src as string),
+      src: urlByPath.get(p.src as string) ?? (p.src as string),
       alt: p.alt as string,
     })),
   };

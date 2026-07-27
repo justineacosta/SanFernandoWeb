@@ -1,7 +1,7 @@
 import "server-only";
-import type { AdminAchievement } from "@/types";
+import type { AdminAchievement, ContentStatus } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { photoUrl } from "@/lib/storage";
+import { resolveMediaUrls } from "@/lib/media-lifecycle";
 
 interface PhotoRow {
   id: string;
@@ -23,10 +23,13 @@ interface AchievementRow {
 /**
  * Every achievement for one official, visible or not, in editor order.
  * Admin-side: no is_visible or title filtering — the drawer must show
- * unfinished and deliberately hidden entries.
+ * unfinished and deliberately hidden entries. `status` is the *official's*
+ * status — achievement photos have no lifecycle of their own and ride on
+ * their parent's, so it decides whether photos resolve as public or signed.
  */
 export async function listAchievementsForOfficial(
   officialId: string,
+  status: ContentStatus,
 ): Promise<AdminAchievement[]> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
@@ -39,16 +42,33 @@ export async function listAchievementsForOfficial(
 
   if (error || !data) return [];
 
-  return (data as unknown as AchievementRow[]).map((row) => ({
+  const rows = (data as unknown as AchievementRow[]).map((row) => ({
+    ...row,
+    // Embedded rows come back in no guaranteed order — sort here rather than
+    // relying on a nested order parameter.
+    sortedPhotos: [...(row.official_achievement_photos ?? [])].sort(
+      (a, b) => a.sort_order - b.sort_order,
+    ),
+  }));
+
+  const urlByPath = await resolveMediaUrls(
+    "officials",
+    status,
+    rows.flatMap((row) => row.sortedPhotos.map((p) => p.src)),
+  );
+
+  return rows.map((row) => ({
     id: row.id,
     title: row.title,
     description: row.description,
     dateLabel: row.date_label,
     isVisible: row.is_visible,
-    // Embedded rows come back in no guaranteed order — sort here rather than
-    // relying on a nested order parameter.
-    photos: [...(row.official_achievement_photos ?? [])]
-      .sort((a, b) => a.sort_order - b.sort_order)
-      .map((photo) => ({ id: photo.id, src: photoUrl(photo.src), alt: photo.alt })),
+    photos: row.sortedPhotos.map((photo) => ({
+      id: photo.id,
+      // Fall back to the raw path (matches pre-fix behavior) on the rare
+      // signing failure, rather than inventing a nullable GalleryPhoto.src.
+      src: urlByPath.get(photo.src) ?? photo.src,
+      alt: photo.alt,
+    })),
   }));
 }
