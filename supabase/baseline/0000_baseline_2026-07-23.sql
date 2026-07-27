@@ -22,8 +22,8 @@
 --
 -- AFTER APPLYING — TWO SCRIPTS ARE REQUIRED, in the same sitting
 -- --------------------------------------------------------------
---   1. node scripts/upload-official-portraits.mjs   (officials seed → public-media/officials/)
---   2. node scripts/upload-site-images.mjs          (site content seed → public-media/site/)
+--   1. node scripts/upload-official-portraits.mjs   (officials seed → officials-media/officials/)
+--   2. node scripts/upload-site-images.mjs          (site content seed → site-media/site/)
 -- Both seed sets below point at deterministic Storage paths. Without the
 -- scripts the officials directory and the home/About pages render broken
 -- images. Original migrations 0012 and 0021 carry the same warning.
@@ -1139,56 +1139,94 @@ create trigger site_items_updated_at
   for each row execute function public.set_updated_at();
 
 -- ════════════════════════════════════════════════════════════════════════════
--- 11. STORAGE BUCKETS                                      [0007, 0009, 0023]
+-- 11. STORAGE BUCKETS                          [0007, 0009, 0023, 0028]
 -- ════════════════════════════════════════════════════════════════════════════
--- Three buckets: two public, one private. The public pair are separate because
--- the limits differ — 2MB for images vs 10MB for PDFs (MAX_PDF_BYTES /
--- MAX_DOC_FILE_BYTES in src/lib/storage.ts) — and holding both in one bucket's
--- upload actions invited applying the wrong one.
+-- One public/private bucket pair per status-aware content type, plus two
+-- always-public buckets for content with no draft lifecycle, plus one
+-- private bucket for anonymous feedback screenshots.
 --
---   public-media      images: news photos, announcement/event covers,
---                     officials/ portraits, achievements/<id>/ photos,
---                     site/ home & About imagery. JPEG/PNG/WebP, 2MB.
---   public-documents  PDFs and document images, 10MB.
---   feedback-media    PRIVATE. Screenshots attached to anonymous site feedback.
+--   news-media / news-drafts                  news photos
+--   officials-media / officials-drafts         portraits, achievement photos
+--   events-media / events-drafts               event covers
+--   announcements-media / announcements-drafts announcement images
+--   legislative-media / legislative-drafts     ordinance/resolution PDFs
+--   transparency-media / transparency-drafts   transparency documents/projects' files
+--   site-media                                 Home/About imagery (no draft state — Save writes live)
+--   avatars-media                              staff avatars (no draft state — own-photo-only)
+--   feedback-media                             PRIVATE. Screenshots attached to anonymous site feedback.
 --
--- storage.objects is the ONLY storage table in this schema that gets an RLS
--- policy (see "ARCHITECTURAL POSTURE" above for the other three
--- policy-carrying tables) — public read, so a browser can fetch an uploaded
--- file. There is no
--- anon/authenticated write policy: uploads go through the service-role client,
--- which bypasses RLS, after the Server Action re-checks type and size
--- server-side (never trusting the client).
+-- Draft/in-review/archived media lives only in a `-drafts` bucket, which
+-- carries no read policy at all — Supabase Storage's list() rides the same
+-- RLS SELECT policy as an individual object GET, so a public-read policy on
+-- a bucket also makes it anonymously enumerable. Media is promoted from a
+-- `-drafts` bucket to its `-media` counterpart the moment a record is
+-- published, and demoted back on archive — see src/lib/media-lifecycle.ts.
+--
+-- storage.objects gets a public-read policy on every `-media`/`site-media`/
+-- `avatars-media` bucket, so a browser can fetch an uploaded file once it is
+-- actually published. There is no anon/authenticated write policy anywhere:
+-- uploads go through the service-role client, which bypasses RLS, after the
+-- Server Action re-checks type and size server-side (never trusting the
+-- client).
 --
 -- Uploads defer to Save: every uploader is a pure file picker making no
 -- network calls, and the save action compensating-deletes the object if the
 -- row write fails — so "a storage object exists only if a row references it"
 -- holds by construction.
 
-insert into storage.buckets (id, name, public)
-  values ('public-media', 'public-media', true)
+insert into storage.buckets (id, name, public) values
+  ('news-media', 'news-media', true),
+  ('officials-media', 'officials-media', true),
+  ('events-media', 'events-media', true),
+  ('announcements-media', 'announcements-media', true),
+  ('legislative-media', 'legislative-media', true),
+  ('transparency-media', 'transparency-media', true),
+  ('site-media', 'site-media', true),
+  ('avatars-media', 'avatars-media', true)
   on conflict (id) do nothing;
 
-insert into storage.buckets (id, name, public)
-  values ('public-documents', 'public-documents', true)
+insert into storage.buckets (id, name, public) values
+  ('news-drafts', 'news-drafts', false),
+  ('officials-drafts', 'officials-drafts', false),
+  ('events-drafts', 'events-drafts', false),
+  ('announcements-drafts', 'announcements-drafts', false),
+  ('legislative-drafts', 'legislative-drafts', false),
+  ('transparency-drafts', 'transparency-drafts', false)
   on conflict (id) do nothing;
 
--- PRIVATE, unlike the two above. A screenshot of the page a resident was
--- looking at can contain their own account page, their ticket, or their name; a
--- public bucket would leave that readable by anyone holding the URL, forever.
--- There is deliberately NO read policy below: the service-role client is the
--- only reader and it mints a short-lived signed URL per page load.
+-- PRIVATE. A screenshot of the page a resident was looking at can contain
+-- their own account page, their ticket, or their name; a public bucket would
+-- leave that readable by anyone holding the URL, forever. There is
+-- deliberately NO read policy below: the service-role client is the only
+-- reader and it mints a short-lived signed URL per page load.
 insert into storage.buckets (id, name, public)
   values ('feedback-media', 'feedback-media', false)
   on conflict (id) do nothing;
 
-drop policy if exists "public read public-media" on storage.objects;
-create policy "public read public-media" on storage.objects
-  for select to public using (bucket_id = 'public-media');
-
-drop policy if exists "public read public-documents" on storage.objects;
-create policy "public read public-documents" on storage.objects
-  for select to public using (bucket_id = 'public-documents');
+drop policy if exists "public read news-media" on storage.objects;
+create policy "public read news-media" on storage.objects
+  for select to public using (bucket_id = 'news-media');
+drop policy if exists "public read officials-media" on storage.objects;
+create policy "public read officials-media" on storage.objects
+  for select to public using (bucket_id = 'officials-media');
+drop policy if exists "public read events-media" on storage.objects;
+create policy "public read events-media" on storage.objects
+  for select to public using (bucket_id = 'events-media');
+drop policy if exists "public read announcements-media" on storage.objects;
+create policy "public read announcements-media" on storage.objects
+  for select to public using (bucket_id = 'announcements-media');
+drop policy if exists "public read legislative-media" on storage.objects;
+create policy "public read legislative-media" on storage.objects
+  for select to public using (bucket_id = 'legislative-media');
+drop policy if exists "public read transparency-media" on storage.objects;
+create policy "public read transparency-media" on storage.objects
+  for select to public using (bucket_id = 'transparency-media');
+drop policy if exists "public read site-media" on storage.objects;
+create policy "public read site-media" on storage.objects
+  for select to public using (bucket_id = 'site-media');
+drop policy if exists "public read avatars-media" on storage.objects;
+create policy "public read avatars-media" on storage.objects
+  for select to public using (bucket_id = 'avatars-media');
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- 12. SEARCH FUNCTIONS                  [0015, 0016, 0017, 0018, 0023, 0024]
@@ -1777,9 +1815,11 @@ commit;
 --   3. Create the first SuperAdmin: sign the account up through Supabase Auth,
 --      then insert its public.profiles row with is_superadmin = true. Every
 --      other account is created from /admin/settings afterwards.
---   4. Confirm all three Storage buckets exist: public-media and
---      public-documents PUBLIC, feedback-media PRIVATE. A public
---      feedback-media would expose residents' screenshots to anyone holding a
+--   4. Confirm all 15 Storage buckets exist: the eight `-media` buckets and
+--      `site-media`/`avatars-media` PUBLIC, the six `-drafts` buckets and
+--      feedback-media PRIVATE. A public drafts bucket would expose
+--      unpublished content to anyone holding the URL; a public feedback-media
+--      would expose residents' screenshots to anyone holding a
 --      URL.
 --   5. Smoke-test: /, /about, /officials, /services, /transparency,
 --      /announcements, the feedback widget, and an /admin login. The content
