@@ -1,5 +1,6 @@
 "use server";
 
+import type { ContentStatus } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
@@ -7,9 +8,9 @@ import {
   ALLOWED_PDF_TYPES,
   MAX_DOC_FILE_BYTES,
   MAX_PDF_BYTES,
-  PUBLIC_DOCUMENTS_BUCKET,
-  documentUrl,
+  bucketForStatus,
   extForDocType,
+  mediaUrl,
 } from "@/lib/storage";
 
 /**
@@ -47,6 +48,7 @@ export interface UploadDocumentResult {
  */
 export async function uploadDocumentPdf(
   folder: "legislative" | "documents",
+  status: ContentStatus,
   formData: FormData,
 ): Promise<UploadDocumentResult> {
   if (!(await checkPermission("manage-transparency"))) {
@@ -70,15 +72,16 @@ export async function uploadDocumentPdf(
     return { error: "The PDF must be 10 MB or smaller.", path: null, url: null, sizeBytes: null };
   }
 
+  const bucket = bucketForStatus(folder === "legislative" ? "legislative" : "transparency", status);
   const path = `${folder}/${crypto.randomUUID()}.pdf`;
   const buffer = Buffer.from(await file.arrayBuffer());
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage
-    .from(PUBLIC_DOCUMENTS_BUCKET)
+    .from(bucket)
     .upload(path, buffer, { contentType: "application/pdf", upsert: false });
   if (error) return { error: "Upload failed. Try again.", path: null, url: null, sizeBytes: null };
 
-  return { error: null, path, url: documentUrl(path), sizeBytes: file.size };
+  return { error: null, path, url: mediaUrl(bucket, path), sizeBytes: file.size };
 }
 
 export interface UploadFileResult {
@@ -95,6 +98,7 @@ export interface UploadFileResult {
  */
 export async function uploadTransparencyFile(
   folder: "documents" | "projects",
+  status: ContentStatus,
   formData: FormData,
 ): Promise<UploadFileResult> {
   if (!(await checkPermission("manage-transparency"))) {
@@ -113,34 +117,33 @@ export async function uploadTransparencyFile(
   if (file.size > MAX_DOC_FILE_BYTES) {
     return { error: "Each file must be 10 MB or smaller.", path: null, sizeBytes: null, mime: null };
   }
+  const bucket = bucketForStatus("transparency", status);
   const path = `${folder}/${crypto.randomUUID()}.${extForDocType(file.type)}`;
   const buffer = Buffer.from(await file.arrayBuffer());
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage
-    .from(PUBLIC_DOCUMENTS_BUCKET)
+    .from(bucket)
     .upload(path, buffer, { contentType: file.type, upsert: false });
   if (error) return { error: "Upload failed. Try again.", path: null, sizeBytes: null, mime: null };
   return { error: null, path, sizeBytes: file.size, mime: file.type };
 }
 
 /** Delete an owned storage object. A remote URL is left alone. */
-export async function removeStoredDocument(path: string): Promise<ActionResult> {
+export async function removeStoredDocument(
+  kind: "legislative" | "transparency",
+  status: ContentStatus,
+  path: string,
+): Promise<ActionResult> {
   if (!(await checkPermission("manage-transparency"))) return { error: NOT_FOUND };
-  // Pass through remote URLs as no-op (seeded content, nothing to remove locally).
   if (/^https?:\/\//i.test(path)) return { error: null };
-  // Require path to start with a valid folder prefix.
   if (!/^(legislative|documents|projects)\//.test(path)) {
     return { error: "That file cannot be removed." };
   }
-  // Reject paths containing .. segments to prevent directory traversal. Check both
-  // the literal substring .. with path delimiters (covering /../ and /.. at end) and
-  // at the start. This prevents legislative/../../../etc/passwd while allowing
-  // legitimate filenames like report..final.pdf (dots within a filename segment).
   if (path.split("/").some((segment) => segment === "..")) {
     return { error: "That file cannot be removed." };
   }
   const admin = createSupabaseAdminClient();
-  const { error } = await admin.storage.from(PUBLIC_DOCUMENTS_BUCKET).remove([path]);
+  const { error } = await admin.storage.from(bucketForStatus(kind, status)).remove([path]);
   if (error) return { error: "Could not remove the file." };
   return { error: null };
 }

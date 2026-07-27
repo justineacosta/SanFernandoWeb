@@ -11,7 +11,7 @@ import type {
 } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { fuzzyFilter } from "@/lib/fuzzy";
-import { documentUrl } from "@/lib/storage";
+import { documentUrl, mediaUrl, publicBucketFor } from "@/lib/storage";
 
 export const LEGISLATIVE_PAGE_SIZE = 10;
 
@@ -42,7 +42,7 @@ function toListItem(row: LegislativeRow): LegislativeListItem {
     number: row.number,
     title: row.title,
     dateApproved: row.date_approved,
-    fileUrl: row.file_path ? documentUrl(row.file_path) : null,
+    fileUrl: row.file_path ? mediaUrl(publicBucketFor("legislative"), row.file_path) : null,
     fileSizeBytes: row.file_size_bytes,
   };
 }

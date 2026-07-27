@@ -6,6 +6,7 @@ import type { ContentStatus, LegislativeValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { guardDelete, statusPatch } from "@/lib/archive";
 import { auditTypeForStatus, recordActivity } from "@/lib/audit";
+import { cleanupPromotedMedia, demoteMedia, promoteMedia } from "@/lib/media-lifecycle";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { MAX_SEQ_NO, formatLegislativeNumber } from "@/lib/legislative-number";
 import { getLegislativeForEdit } from "@/features/admin/queries/transparency";
@@ -120,6 +121,18 @@ export async function saveLegislative(
   const base = slugify(`${number} ${parsed.data.title}`);
   if (!base) return { error: "Enter a number and title with letters or numbers.", id: null };
 
+  let currentStatus: ContentStatus = "draft";
+  if (id) {
+    const { data: statusRow, error: statusErr } = await admin
+      .from("legislative_documents")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (statusErr) return { error: "Could not save the document.", id: null };
+    if (!statusRow) return { error: "Document not found.", id: null };
+    currentStatus = statusRow.status as ContentStatus;
+  }
+
   // Upload a newly chosen file (if any) up front — this is the only side
   // effect in this action before the row write below, so every failure past
   // this point must delete the object it just created. `fail()` does that.
@@ -130,7 +143,7 @@ export async function saveLegislative(
   if (incomingFile instanceof File && incomingFile.size > 0) {
     const uploadFd = new FormData();
     uploadFd.append("file", incomingFile);
-    const uploadResult = await uploadDocumentPdf("legislative", uploadFd);
+    const uploadResult = await uploadDocumentPdf("legislative", currentStatus, uploadFd);
     if (uploadResult.error) return { error: uploadResult.error, id: null };
     uploadedPath = uploadResult.path;
     uploadedSize = uploadResult.sizeBytes;
@@ -138,7 +151,7 @@ export async function saveLegislative(
 
   async function fail(error: string): Promise<SaveResult> {
     if (uploadedPath) {
-      const removed = await removeStoredDocument(uploadedPath);
+      const removed = await removeStoredDocument("legislative", currentStatus, uploadedPath);
       // The compensating delete failing is a second, independent failure —
       // the caller must still see `error` (the original save failure), not
       // this one. But silently swallowing it means the orphan it leaves
@@ -249,7 +262,7 @@ export async function saveLegislative(
     // Deferred delete: only once the row no longer references the old file.
     const oldPath = existing.file_path as string | null;
     if (oldPath && oldPath !== finalPath) {
-      await removeStoredDocument(oldPath);
+      await removeStoredDocument("legislative", currentStatus, oldPath);
     }
 
     await recordActivity(actor, {
@@ -323,10 +336,19 @@ export async function setLegislativeStatus(
 
   const { data: existing, error: readErr } = await admin
     .from("legislative_documents")
-    .select("number, slug, published_at")
+    .select("number, slug, status, published_at, file_path")
     .eq("id", id)
     .maybeSingle();
   if (readErr || !existing) return { error: "Document not found." };
+
+  const previousStatus = existing.status as ContentStatus;
+  const filePath = existing.file_path as string | null;
+
+  const promotingNow = nextStatus === "published" && previousStatus !== "published";
+  if (promotingNow && filePath) {
+    const promoted = await promoteMedia("legislative", [filePath]);
+    if (promoted.error) return { error: "Could not publish the document's file. Try again." };
+  }
 
   const patch = statusPatch(actor, nextStatus);
   if (nextStatus === "published" && !existing.published_at) {
@@ -335,6 +357,13 @@ export async function setLegislativeStatus(
 
   const { error } = await admin.from("legislative_documents").update(patch).eq("id", id);
   if (error) return { error: "Could not update the document." };
+
+  if (promotingNow && filePath) {
+    await cleanupPromotedMedia("legislative", [filePath], "document published");
+  }
+  if (nextStatus === "archived" && previousStatus === "published" && filePath) {
+    await demoteMedia("legislative", [filePath], "document archived");
+  }
 
   await recordActivity(actor, {
     type: auditTypeForStatus(nextStatus),
@@ -366,7 +395,7 @@ export async function deleteLegislative(id: string): Promise<ActionResult> {
   const { error } = await admin.from("legislative_documents").delete().eq("id", id);
   if (error) return { error: "Could not delete the document." };
 
-  if (existing.file_path) await removeStoredDocument(existing.file_path);
+  if (existing.file_path) await removeStoredDocument("legislative", "archived", existing.file_path);
   await recordActivity(actor, {
     type: "delete",
     action: "deleted document",
