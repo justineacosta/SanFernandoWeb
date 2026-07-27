@@ -132,6 +132,28 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   (storage-first) until a 2026-07-27 pass reordered all four to match the pattern the
   record-level deletes (`news.ts`, `announcements.ts`, `events.ts`, `legislative.ts`,
   `transparency-documents.ts`, `transparency-projects.ts`) already used correctly.
+- **Media buckets are being split per content type, foundation only so far** (Plan 1,
+  2026-07-27, `docs/superpowers/specs/2026-07-27-media-bucket-split-design.md` +
+  `docs/superpowers/plans/2026-07-27-media-bucket-split-foundation.md`). Reason: Supabase
+  Storage's `list()` rides the same RLS `select` policy as an individual object `get()`, so
+  `public-media`/`public-documents`' single "public read" policy makes draft/in-review/archived
+  media anonymously enumerable even though the site never links to it. The fix in progress: one
+  public/private bucket pair per status-aware content type (`news-media`/`news-drafts`,
+  `officials-media`/`officials-drafts`, `events-*`, `announcements-*`, `legislative-*`,
+  `transparency-*`) plus two always-public buckets for content with no draft state
+  (`site-media`, `avatars-media`) — migration `0028` creates all 14, staging/production still
+  need it applied and `scripts/migrate-media-buckets.mjs` run once each. **Nothing in the running
+  app uses any of this yet** — `PUBLIC_MEDIA_BUCKET`/`PUBLIC_DOCUMENTS_BUCKET`/`photoUrl`/
+  `documentUrl` are untouched and every existing upload/read/delete path still targets the old
+  two buckets exactly as before. What Plan 1 added, inert until later plans wire it in:
+  `MediaKind`/`publicBucketFor`/`draftBucketFor`/`bucketForStatus`/`mediaUrl` in
+  `src/lib/storage.ts`, and `src/lib/media-lifecycle.ts` (`promoteMedia`/`demoteMedia` — copy a
+  record's files into the right bucket at publish/archive, promote fails closed so a row can
+  never read "published" with its media still private; `resolveMediaUrl`/`resolveMediaUrls` —
+  admin preview URLs, published resolves to a plain public URL, anything else mints a signed URL
+  against the drafts bucket via the same pattern `features/admin/queries/feedback.ts` already
+  uses for screenshots). Object path *strings* never change in this redesign, only which bucket
+  holds them — no DB column changes anywhere.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
