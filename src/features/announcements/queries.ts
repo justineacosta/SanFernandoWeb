@@ -1,7 +1,7 @@
 import "server-only";
 import type { Announcement, AnnouncementDetail, NewsArticleDetail, NewsArticleListItem } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { photoUrl } from "@/lib/storage";
+import { mediaUrl, photoUrl, publicBucketFor } from "@/lib/storage";
 import { formatDate, toManilaDate } from "@/lib/format";
 
 export const ARCHIVE_BATCH = 6;
@@ -106,7 +106,7 @@ function toAnnouncement(row: AnnouncementRow): Announcement {
     title: row.title,
     date: row.date,
     excerpt: row.excerpt,
-    image: row.image_src ? photoUrl(row.image_src) : undefined,
+    image: row.image_src ? mediaUrl(publicBucketFor("announcements"), row.image_src) : undefined,
     imageAlt: row.image_alt ?? "",
     urgent: row.urgent,
     isNew: isWithin7Days(row.published_at),

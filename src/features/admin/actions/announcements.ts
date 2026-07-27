@@ -7,6 +7,7 @@ import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { guardDelete, statusPatch } from "@/lib/archive";
 import { recordActivity } from "@/lib/audit";
 import { discardImage, removeStoredImage, uploadSingleImage } from "@/lib/media";
+import { cleanupPromotedMedia, demoteMedia, promoteMedia } from "@/lib/media-lifecycle";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getAnnouncementForEdit } from "@/features/admin/queries/announcements";
 
@@ -82,6 +83,18 @@ export async function saveAnnouncement(
 
   const admin = createSupabaseAdminClient();
 
+  let currentStatus: ContentStatus = "draft";
+  if (id) {
+    const { data: statusRow, error: statusErr } = await admin
+      .from("announcements")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (statusErr) return { error: "Could not save the announcement.", id: null };
+    if (!statusRow) return { error: "Announcement not found.", id: null };
+    currentStatus = statusRow.status as ContentStatus;
+  }
+
   // Upload a newly chosen image up front — the only side effect before the row
   // write, so every failure past this point must delete the object it just
   // created. `fail()` does that.
@@ -89,14 +102,14 @@ export async function saveAnnouncement(
   const removeImage = imageForm.get("removeImage") === "1";
   let uploadedPath: string | null = null;
   if (incoming instanceof File && incoming.size > 0) {
-    const uploaded = await uploadSingleImage("announcements", incoming);
+    const uploaded = await uploadSingleImage("announcements", currentStatus, incoming);
     if (uploaded.error) return { error: uploaded.error, id: null };
     uploadedPath = uploaded.src;
   }
 
   async function fail(error: string): Promise<SaveResult> {
     if (uploadedPath) {
-      const removed = await removeStoredImage(uploadedPath);
+      const removed = await removeStoredImage("announcements", currentStatus, uploadedPath);
       if (removed.error) {
         console.error(`Orphaned storage object (compensating delete failed): ${uploadedPath}`);
       }
@@ -160,7 +173,7 @@ export async function saveAnnouncement(
 
     const previous = existing.image_src as string | null;
     if (previous && previous !== nextImageSrc) {
-      await discardImage(previous, "announcement image replaced");
+      await discardImage("announcements", currentStatus, previous, "announcement image replaced");
     }
     await recordActivity(actor, {
       type: "update",
@@ -248,14 +261,53 @@ export async function returnAnnouncementToDraft(id: string): Promise<ActionResul
 export async function archiveAnnouncement(id: string): Promise<ActionResult> {
   const actor = await checkPermission("manage-news");
   if (!actor) return { error: NOT_FOUND };
-  return applyTransition(
-    actor,
-    id,
-    ["draft", "in-review", "published"],
-    statusPatch(actor, "archived"),
-    "archive",
-    "archived announcement",
-  );
+  const admin = createSupabaseAdminClient();
+  const patch = statusPatch(actor, "archived");
+
+  let result: { id: string; title: string; image_src: string | null } | null = null;
+  let wasPublished = false;
+  {
+    const { data, error } = await admin
+      .from("announcements")
+      .update(patch)
+      .eq("id", id)
+      .eq("status", "published")
+      .select("id, title, image_src")
+      .maybeSingle();
+    if (error) return { error: "Could not update the announcement." };
+    if (data) {
+      result = data;
+      wasPublished = true;
+    }
+  }
+  if (!result) {
+    const { data, error } = await admin
+      .from("announcements")
+      .update(patch)
+      .eq("id", id)
+      .in("status", ["draft", "in-review"])
+      .select("id, title, image_src")
+      .maybeSingle();
+    if (error) return { error: "Could not update the announcement." };
+    result = data;
+  }
+  if (!result) {
+    return { error: "This announcement is no longer in a state that allows that action." };
+  }
+
+  if (wasPublished && result.image_src) {
+    await demoteMedia("announcements", [result.image_src], "announcement archived");
+  }
+
+  await recordActivity(actor, {
+    type: "archive",
+    action: "archived announcement",
+    entityType: "announcement",
+    entityId: id,
+    entityLabel: result.title,
+  });
+  revalidate();
+  return { error: null };
 }
 
 /** Bring an archived announcement back as a draft — not straight back onto the public page. */
@@ -294,7 +346,7 @@ export async function deleteAnnouncement(id: string): Promise<ActionResult> {
 
   // Only once the row is gone: an object deleted ahead of a failed row delete
   // would leave a live announcement pointing at nothing.
-  await discardImage(existing.image_src, "announcement deleted");
+  await discardImage("announcements", "archived", existing.image_src, "announcement deleted");
   await recordActivity(actor, {
     type: "delete",
     action: "deleted announcement",
@@ -306,21 +358,26 @@ export async function deleteAnnouncement(id: string): Promise<ActionResult> {
   return { error: null };
 }
 
-/** Publish; set published_at only on first publish so re-publishing an archived announcement doesn't bump it. */
 export async function publishAnnouncement(id: string): Promise<ActionResult> {
   const actor = await checkPermission("manage-news");
   if (!actor) return { error: NOT_FOUND };
   const admin = createSupabaseAdminClient();
   const { data: row, error: readErr } = await admin
     .from("announcements")
-    .select("published_at, title, excerpt")
+    .select("published_at, title, excerpt, image_src, status")
     .eq("id", id)
     .maybeSingle();
   if (readErr) return { error: "Could not publish the announcement." };
   if (!row) return { error: "Announcement not found." };
   if (!row.excerpt?.trim()) return { error: "Add an excerpt before publishing." };
-  // statusPatch also clears the archive provenance, so publishing straight out
-  // of `archived` does not leave the row claiming it is still archived.
+
+  const alreadyPublished = row.status === "published";
+  const imagePath = row.image_src as string | null;
+  if (!alreadyPublished && imagePath) {
+    const promoted = await promoteMedia("announcements", [imagePath]);
+    if (promoted.error) return { error: "Could not publish the announcement's image. Try again." };
+  }
+
   const patch = statusPatch(actor, "published");
   if (!row.published_at) patch.published_at = new Date().toISOString();
   const { data, error } = await admin
@@ -332,6 +389,11 @@ export async function publishAnnouncement(id: string): Promise<ActionResult> {
     .maybeSingle();
   if (error) return { error: "Could not publish the announcement." };
   if (!data) return { error: "This announcement is already published." };
+
+  if (!alreadyPublished && imagePath) {
+    await cleanupPromotedMedia("announcements", [imagePath], "announcement published");
+  }
+
   await recordActivity(actor, {
     type: "publish",
     action: "published announcement",
