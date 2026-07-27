@@ -10,8 +10,8 @@ import {
   MAX_PDF_BYTES,
   bucketForStatus,
   extForDocType,
-  mediaUrl,
 } from "@/lib/storage";
+import { resolveMediaUrl } from "@/lib/media-lifecycle";
 
 /**
  * Deliberately NOT audited, unlike the image helpers in media.ts.
@@ -81,7 +81,9 @@ export async function uploadDocumentPdf(
     .upload(path, buffer, { contentType: "application/pdf", upsert: false });
   if (error) return { error: "Upload failed. Try again.", path: null, url: null, sizeBytes: null };
 
-  return { error: null, path, url: mediaUrl(bucket, path), sizeBytes: file.size };
+  const kind = folder === "legislative" ? "legislative" : "transparency";
+  const url = await resolveMediaUrl(kind, status, path);
+  return { error: null, path, url, sizeBytes: file.size };
 }
 
 export interface UploadFileResult {

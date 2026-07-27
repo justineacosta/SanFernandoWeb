@@ -12,6 +12,7 @@ import type {
 import { ARCHIVE_SELECT, toArchiveMeta, type ArchiveMetaRow } from "@/lib/archive";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { documentUrl } from "@/lib/storage";
+import { resolveMediaUrl, resolveMediaUrlsForList } from "@/lib/media-lifecycle";
 
 export async function listAdminLegislative(): Promise<AdminLegislativeRow[]> {
   const admin = createSupabaseAdminClient();
@@ -24,7 +25,14 @@ export async function listAdminLegislative(): Promise<AdminLegislativeRow[]> {
     .order("date_approved", { ascending: false, nullsFirst: true });
 
   if (error || !data) return [];
-  return data.map((row) => ({
+  const fileUrls = await resolveMediaUrlsForList(
+    "legislative",
+    data.map((row) => ({
+      path: row.file_path as string | null,
+      status: row.status as ContentStatus,
+    })),
+  );
+  return data.map((row, i) => ({
     id: row.id as string,
     slug: row.slug as string,
     docType: row.doc_type as LegislativeType,
@@ -35,7 +43,7 @@ export async function listAdminLegislative(): Promise<AdminLegislativeRow[]> {
     dateApproved: row.date_approved as string | null,
     status: row.status as ContentStatus,
     hasFile: Boolean(row.file_path),
-    fileUrl: row.file_path ? documentUrl(row.file_path as string) : null,
+    fileUrl: fileUrls[i],
     ...toArchiveMeta(row as unknown as ArchiveMetaRow),
   }));
 }
@@ -51,6 +59,9 @@ export async function getLegislativeForEdit(
     .maybeSingle();
 
   if (error || !data) return null;
+  const status = data.status as ContentStatus;
+  const filePath = (data.file_path as string) || null;
+  const fileUrl = filePath ? await resolveMediaUrl("legislative", status, filePath) : null;
   return {
     values: {
       docType: data.doc_type as LegislativeType,
@@ -62,8 +73,8 @@ export async function getLegislativeForEdit(
       filePath: (data.file_path as string) ?? null,
       fileSizeBytes: (data.file_size_bytes as number) ?? null,
     },
-    status: data.status as ContentStatus,
-    fileUrl: data.file_path ? documentUrl(data.file_path as string) : null,
+    status,
+    fileUrl,
   };
 }
 
