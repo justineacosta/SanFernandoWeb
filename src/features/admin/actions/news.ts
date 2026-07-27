@@ -13,10 +13,9 @@ import {
   bucketForStatus,
   draftBucketFor,
   extForType,
-  mediaUrl,
   newsPhotoPath,
 } from "@/lib/storage";
-import { cleanupPromotedMedia, demoteMedia, promoteMedia } from "@/lib/media-lifecycle";
+import { cleanupPromotedMedia, demoteMedia, promoteMedia, resolveMediaUrls } from "@/lib/media-lifecycle";
 import { getNewsArticleForEdit } from "@/features/admin/queries/news";
 
 export interface ActionResult {
@@ -179,11 +178,12 @@ async function listPhotos(
     .select("id, src, alt")
     .eq("article_id", articleId)
     .order("sort_order", { ascending: true });
-  const bucket = bucketForStatus("news", status);
-  return (data ?? []).map((p) => ({
-    id: p.id as string,
-    src: mediaUrl(bucket, p.src as string),
-    alt: p.alt as string,
+  const rows = (data ?? []) as { id: string; src: string; alt: string }[];
+  const urlByPath = await resolveMediaUrls("news", status, rows.map((p) => p.src));
+  return rows.map((p) => ({
+    id: p.id,
+    src: urlByPath.get(p.src) ?? p.src,
+    alt: p.alt,
   }));
 }
 

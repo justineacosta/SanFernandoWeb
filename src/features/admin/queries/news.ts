@@ -2,7 +2,7 @@ import "server-only";
 import type { AdminNewsArticleRow, ContentStatus, NewsArticleValues, GalleryPhoto } from "@/types";
 import { ARCHIVE_SELECT, toArchiveMeta, type ArchiveMetaRow } from "@/lib/archive";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { photoUrl } from "@/lib/storage";
+import { resolveMediaUrls, resolveMediaUrlsForList } from "@/lib/media-lifecycle";
 import { formatDate, toManilaDate } from "@/lib/format";
 
 interface NewsPhotoRow {
@@ -35,8 +35,16 @@ export async function listNewsArticles(): Promise<AdminNewsArticleRow[]> {
     )
     .order("updated_at", { ascending: false });
   if (error || !data) return [];
-  return (data as unknown as Row[]).map((r) => {
-    const cover = [...r.news_photos].sort((a, b) => a.sort_order - b.sort_order)[0] ?? null;
+  const rows = data as unknown as Row[];
+  const covers = rows.map(
+    (r) => [...r.news_photos].sort((a, b) => a.sort_order - b.sort_order)[0] ?? null,
+  );
+  const coverUrls = await resolveMediaUrlsForList(
+    "news",
+    rows.map((r, i) => ({ path: covers[i]?.src ?? null, status: r.status })),
+  );
+  return rows.map((r, i) => {
+    const cover = covers[i];
     return {
       id: r.id,
       slug: r.slug,
@@ -45,7 +53,7 @@ export async function listNewsArticles(): Promise<AdminNewsArticleRow[]> {
       categoryId: r.category_id,
       excerpt: r.excerpt,
       status: r.status,
-      coverSrc: cover ? photoUrl(cover.src) : null,
+      coverSrc: coverUrls[i],
       coverAlt: cover?.alt ?? "",
       photoCount: r.news_photos.length,
       updatedLabel: formatDate(toManilaDate(r.updated_at)),
@@ -66,9 +74,16 @@ export async function getNewsArticleForEdit(
     .eq("id", id)
     .maybeSingle();
   if (error || !data) return null;
-  const photos = ([...(data.news_photos ?? [])] as NewsPhotoRow[])
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map((p) => ({ id: p.id, src: photoUrl(p.src), alt: p.alt }));
+  const status = data.status as ContentStatus;
+  const sortedPhotos = ([...(data.news_photos ?? [])] as NewsPhotoRow[]).sort(
+    (a, b) => a.sort_order - b.sort_order,
+  );
+  const urlByPath = await resolveMediaUrls("news", status, sortedPhotos.map((p) => p.src));
+  const photos = sortedPhotos.map((p) => ({
+    id: p.id,
+    src: urlByPath.get(p.src) ?? p.src,
+    alt: p.alt,
+  }));
   return {
     values: {
       title: data.title,
@@ -77,7 +92,7 @@ export async function getNewsArticleForEdit(
       excerpt: data.excerpt,
       body: data.body ?? "",
     },
-    status: data.status as ContentStatus,
+    status,
     photos,
   };
 }
