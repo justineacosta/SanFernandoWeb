@@ -21,14 +21,16 @@ async function copyObjects(
       .from(sourceBucket)
       .download(path);
     if (downloadErr || !file) {
-      return { error: `Could not read ${path} from ${sourceBucket}.` };
+      return {
+        error: `Could not read ${path} from ${sourceBucket}: ${downloadErr?.message ?? "not found"}`,
+      };
     }
     const buffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadErr } = await admin.storage
       .from(destBucket)
       .upload(path, buffer, { contentType: file.type || undefined, upsert: true });
     if (uploadErr) {
-      return { error: `Could not write ${path} to ${destBucket}.` };
+      return { error: `Could not write ${path} to ${destBucket}: ${uploadErr.message}` };
     }
   }
   return { error: null };
@@ -40,17 +42,28 @@ async function bestEffortRemove(bucket: string, paths: string[], context: string
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage.from(bucket).remove(paths);
   if (error) {
-    console.error(`Orphaned storage objects (${context}): ${paths.join(", ")}`);
+    console.error(
+      `Orphaned storage objects (${context}): ${paths.join(", ")} — ${error.message}`,
+    );
   }
 }
 
 /**
  * Called before flipping a record's status to "published". Copies every path
- * from `<kind>-drafts` to `<kind>-media`. Returns an error if ANY copy fails
- * — the caller MUST abort the publish rather than let the row read
- * "published" while its media still lives only in the private bucket, which
- * would surface a broken image on a live public page. Remote seed URLs
- * (`https://...`) are skipped — they were never uploaded to either bucket.
+ * from `<kind>-drafts` to `<kind>-media`, leaving the `-drafts` source in
+ * place. Returns an error if ANY copy fails — the caller MUST abort the
+ * publish rather than let the row read "published" while its media still
+ * lives only in the private bucket, which would surface a broken image on a
+ * live public page. Remote seed URLs (`https://...`) are skipped — they were
+ * never uploaded to either bucket.
+ *
+ * This function deliberately deletes NOTHING. The caller's next step is the
+ * DB status update, and only once that update has actually committed may it
+ * call `cleanupPromotedMedia` with the same paths. Deleting the `-drafts`
+ * source any earlier would leave the object public — and, since a `-media`
+ * bucket is anonymously enumerable, discoverable — with no private copy left
+ * to retry from, should the status update fail or no-op (a concurrent status
+ * change, say).
  */
 export async function promoteMedia(
   kind: MediaKind,
@@ -58,10 +71,24 @@ export async function promoteMedia(
 ): Promise<{ error: string | null }> {
   const owned = paths.filter((p) => !/^https?:\/\//i.test(p));
   if (owned.length === 0) return { error: null };
-  const result = await copyObjects(draftBucketFor(kind), publicBucketFor(kind), owned);
-  if (result.error) return result;
-  await bestEffortRemove(draftBucketFor(kind), owned, `${kind} promote cleanup`);
-  return { error: null };
+  return copyObjects(draftBucketFor(kind), publicBucketFor(kind), owned);
+}
+
+/**
+ * The second half of a publish, run ONLY after `promoteMedia` succeeded AND
+ * the DB status update that followed it committed. Best-effort removes the
+ * now-redundant copies left behind in `<kind>-drafts`: the live record reads
+ * from `<kind>-media` from here on, so a failure here costs an orphaned
+ * private object, not a broken page — it is logged, never surfaced.
+ */
+export async function cleanupPromotedMedia(
+  kind: MediaKind,
+  paths: string[],
+  context: string,
+): Promise<void> {
+  const owned = paths.filter((p) => !/^https?:\/\//i.test(p));
+  if (owned.length === 0) return;
+  await bestEffortRemove(draftBucketFor(kind), owned, context);
 }
 
 /**
