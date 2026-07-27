@@ -181,3 +181,55 @@ export async function resolveMediaUrls(
   }
   return result;
 }
+
+/**
+ * Batch form of `resolveMediaUrl` for a *list* of records that can each be a
+ * different status — an admin table showing a published row next to a
+ * draft row, say. `resolveMediaUrls` doesn't fit here because it takes one
+ * status for its whole batch; this groups rows by published/not instead:
+ * published rows resolve with no network call, and every non-published
+ * row's path is signed in a single batched `createSignedUrls` call
+ * regardless of which specific non-published status it's in — draft,
+ * in-review, and archived all read from the same `<kind>-drafts` bucket
+ * (see `bucketForStatus`), so one status value stands in for all of them.
+ */
+export async function resolveMediaUrlsForList(
+  kind: MediaKind,
+  rows: { path: string | null; status: ContentStatus }[],
+): Promise<(string | null)[]> {
+  const results: (string | null)[] = rows.map(() => null);
+  const toSign = new Map<number, string>();
+
+  rows.forEach((row, i) => {
+    if (!row.path) return;
+    if (/^https?:\/\//i.test(row.path)) {
+      results[i] = row.path;
+      return;
+    }
+    if (row.status === "published") {
+      results[i] = mediaUrl(publicBucketFor(kind), row.path);
+      return;
+    }
+    toSign.set(i, row.path);
+  });
+
+  if (toSign.size === 0) return results;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.storage
+    .from(draftBucketFor(kind))
+    .createSignedUrls([...toSign.values()], SIGNED_URL_TTL_SECONDS);
+  if (error) {
+    console.error(`resolveMediaUrlsForList signing failed (${kind}):`, error.message);
+    return results;
+  }
+  const byPath = new Map<string, string>();
+  for (const entry of data ?? []) {
+    if (entry.signedUrl && entry.path) byPath.set(entry.path, entry.signedUrl);
+  }
+  for (const [i, path] of toSign) {
+    const url = byPath.get(path);
+    if (url) results[i] = url;
+  }
+  return results;
+}
