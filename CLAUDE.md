@@ -124,7 +124,14 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   `uploadSingleImage` / `removeStoredImage` / `discardImage`. The one exception is
   `AchievementPhotoUploader`: its editor has no Save button to defer to, so it stays eager —
   see the sub-project 7 spec §2.4 before "fixing" it. `scripts/report-orphaned-media.mjs`
-  lists unreferenced objects and never deletes.
+  lists unreferenced objects and never deletes. **Every delete path removes the DB row before
+  the Storage object, never the reverse** — an object deleted ahead of a failed row delete
+  leaves a live row pointing at nothing (a broken image forever), while the reverse failure
+  just leaves a logged orphan. `news-photos.ts`, `achievement-photos.ts`, `achievements.ts`,
+  and the achievement-photo cascade in `officials.ts`'s `deleteOfficial` had this backwards
+  (storage-first) until a 2026-07-27 pass reordered all four to match the pattern the
+  record-level deletes (`news.ts`, `announcements.ts`, `events.ts`, `legislative.ts`,
+  `transparency-documents.ts`, `transparency-projects.ts`) already used correctly.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
@@ -310,9 +317,11 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   `/notices/[slug]` as a path pattern (`revalidatePath("/notices/[slug]", "page")`) so every
   action that routes through it — save, publish, archive, restore — invalidates every
   detail page in one call, not just the one `deleteAnnouncement` used to touch explicitly.
-  `news.ts`'s equivalent `revalidate()` helper has the identical gap for
-  `/announcements/[slug]` and was deliberately left alone — a pre-existing issue in a
-  different feature, not fixed as a side effect of this one.
+  `news.ts`'s equivalent `revalidate()` helper had the identical gap for
+  `/announcements/[slug]` — closed in a 2026-07-27 pass by adding the same
+  `revalidatePath("/announcements/[slug]", "page")` line, which also made
+  `deleteNewsArticle`'s old one-off explicit revalidation of the deleted slug redundant
+  (removed, since the generic helper it now calls covers every slug).
 - `/events` ("Community Calendar") shows every published event: an unpaginated "Upcoming
   Events" section (`event_date >= today`, soonest first) and a paginated "Past Events"
   archive (`event_date < today`, most recent first, `EVENTS_ARCHIVE_BATCH = 6`, same
@@ -360,8 +369,9 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   Ilocos Norte area code is (077).
 - The admin nav entry is **`Inquiries & Feedback`** at the unchanged `/admin/inquiries` route —
   two tabs, one `handle-inquiries` permission, since the same people work both queues. Its tab
-  strip is `src/components/ui/tab-pills.tsx`; `transparency-manager.tsx` still carries its own
-  hand-rolled copy of that markup and is a pending mechanical follow-up.
+  strip is `src/components/ui/tab-pills.tsx`; `transparency-manager.tsx` now consumes the same
+  `<TabPills>` component too (its hand-rolled copy of that markup was the last one — no other
+  admin tab strip is left to migrate).
 - `stitch/` holds the original design-tool HTML exports — reference material only, ignored
   by ESLint, not part of the app. Newer exports (`stitch_tabbed_content_manager/` — source
   of the admin screens) sit untracked at the repo root by choice: don't commit or delete them.

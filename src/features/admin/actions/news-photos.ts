@@ -85,12 +85,19 @@ export async function removeNewsPhoto(photoId: string): Promise<ActionResult> {
     .maybeSingle();
   if (readErr) return { error: "Could not remove the photo." };
   if (!photo) return { error: null }; // already gone
-  // Only delete an object we own (uploaded path), never a seed URL.
-  if (!/^https?:\/\//i.test(photo.src)) {
-    await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove([photo.src]);
-  }
+
   const { error } = await admin.from("news_photos").delete().eq("id", photoId);
   if (error) return { error: "Could not remove the photo." };
+
+  // Only once the row is gone: an object deleted ahead of a failed row delete
+  // would leave a live photo row pointing at nothing. Only delete an object we
+  // own (uploaded path), never a seed URL.
+  if (!/^https?:\/\//i.test(photo.src)) {
+    const { error: removeErr } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove([photo.src]);
+    if (removeErr) {
+      console.error(`Orphaned storage object (news photo cleanup failed): ${photo.src}`);
+    }
+  }
   await recordActivity(actor, {
     type: "file_delete",
     action: "removed news photo",

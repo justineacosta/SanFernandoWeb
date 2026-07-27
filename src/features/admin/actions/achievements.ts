@@ -227,6 +227,13 @@ export async function deleteAchievement(id: string): Promise<ActionResult> {
   const paths = (photos ?? [])
     .map((photo) => photo.src as string)
     .filter((src) => !/^https?:\/\//i.test(src));
+
+  const { error } = await admin.from("official_achievements").delete().eq("id", id);
+  if (error) return { error: "Could not delete the achievement." };
+
+  // Only once the row (and its cascaded photo rows) are gone: an object
+  // deleted ahead of a failed row delete would leave a live photo row
+  // pointing at nothing.
   if (paths.length > 0) {
     const { error: removeErr } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove(paths);
     if (removeErr) {
@@ -235,9 +242,6 @@ export async function deleteAchievement(id: string): Promise<ActionResult> {
       console.error(`Orphaned storage objects (achievement cleanup failed): ${paths.join(", ")}`);
     }
   }
-
-  const { error } = await admin.from("official_achievements").delete().eq("id", id);
-  if (error) return { error: "Could not delete the achievement." };
 
   const officialId = existing.official_id as string;
   await recordActivity(actor, {

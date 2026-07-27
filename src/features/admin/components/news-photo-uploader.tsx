@@ -198,6 +198,9 @@ export function NewsPhotoUploader({
                 value={p.alt}
                 onChange={(e) => updateAltLocal(p.id, e.target.value)}
                 onBlur={(e) => saveAlt(p.id, e.target.value)}
+                // This uploader lives inside the article's <form>; Enter in a
+                // text input would submit that form and close the drawer.
+                onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
                 placeholder="Description"
                 aria-label={`Description for photo ${i + 1}`}
                 className="rounded-lg px-2 py-1.5 text-xs"
@@ -229,6 +232,7 @@ export function NewsPhotoUploader({
               <Input
                 value={p.alt}
                 onChange={(e) => setPendingAlt(i, e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
                 placeholder="Description"
                 aria-label={`Description for new photo ${i + 1}`}
                 className="rounded-lg px-2 py-1.5 text-xs"

@@ -199,7 +199,15 @@ export async function removeAchievementPhoto(photoId: string): Promise<ActionRes
     .maybeSingle();
   if (!photo) return { error: null }; // already gone
 
-  // Only delete an object we own, never a remote URL.
+  const { error } = await admin
+    .from("official_achievement_photos")
+    .delete()
+    .eq("id", photoId);
+  if (error) return { error: "Could not remove the photo." };
+
+  // Only once the row is gone: an object deleted ahead of a failed row delete
+  // would leave a live photo row pointing at nothing. Only delete an object we
+  // own, never a remote URL.
   if (!/^https?:\/\//i.test(photo.src as string)) {
     const { error: removeErr } = await admin.storage
       .from(PUBLIC_MEDIA_BUCKET)
@@ -210,11 +218,6 @@ export async function removeAchievementPhoto(photoId: string): Promise<ActionRes
       console.error(`Orphaned storage object (photo cleanup failed): ${photo.src as string}`);
     }
   }
-  const { error } = await admin
-    .from("official_achievement_photos")
-    .delete()
-    .eq("id", photoId);
-  if (error) return { error: "Could not remove the photo." };
 
   const achievementId = photo.achievement_id as string;
   await recordActivity(actor, {

@@ -26,6 +26,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { SortableTh } from "@/components/ui/sortable-th";
+import { TabPills, type TabPill } from "@/components/ui/tab-pills";
 import { Toast } from "@/components/ui/toast";
 import { ViewToggle, type TableView } from "@/components/ui/view-toggle";
 import { useTableSort } from "@/components/ui/use-table-sort";
@@ -33,7 +34,6 @@ import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { formatOptionalDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
-import { cn } from "@/lib/utils";
 import {
   deleteTransparencyDocument,
   getTransparencyDocumentForEditAction,
@@ -53,6 +53,12 @@ import { TransparencyProjectsPanel } from "./transparency-projects-panel";
 const PAGE_SIZE = 6;
 
 type Tab = "legislative" | "documents" | "projects";
+
+const TRANSPARENCY_TABS: TabPill<Tab>[] = [
+  { value: "legislative", label: "Legislative", icon: Gavel },
+  { value: "documents", label: "Documents", icon: FileText },
+  { value: "projects", label: "Projects", icon: FolderKanban },
+];
 
 // No "archived" here — archived documents live in their own view now, so the
 // dropdown only offers states a live record can hold.
@@ -298,58 +304,13 @@ export function TransparencyManager({
         title="Transparency"
         description="Manage ordinances, resolutions, public documents, and project monitoring."
       />
-      {/*
-        The three-tab pill is wider than a narrow phone. It scrolls inside its
-        own container — like the wide tables do — rather than growing the page:
-        the pill keeps its shape and the whole document stops panning sideways.
-      */}
-      <div className="mb-6 max-w-full overflow-x-auto no-scrollbar">
-      <div
-        role="tablist"
-        aria-label="Transparency content type"
-        className="inline-flex rounded-full border border-ink-200/70 bg-white p-1"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "legislative"}
-          onClick={() => switchTab("legislative")}
-          className={cn(
-            "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-            tab === "legislative" ? "bg-brand-500 text-ink-900" : "text-ink-600 hover:bg-ink-50",
-          )}
-        >
-          <Gavel className="h-4 w-4" aria-hidden="true" />
-          Legislative
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "documents"}
-          onClick={() => switchTab("documents")}
-          className={cn(
-            "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-            tab === "documents" ? "bg-brand-500 text-ink-900" : "text-ink-600 hover:bg-ink-50",
-          )}
-        >
-          <FileText className="h-4 w-4" aria-hidden="true" />
-          Documents
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "projects"}
-          onClick={() => switchTab("projects")}
-          className={cn(
-            "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-            tab === "projects" ? "bg-brand-500 text-ink-900" : "text-ink-600 hover:bg-ink-50",
-          )}
-        >
-          <FolderKanban className="h-4 w-4" aria-hidden="true" />
-          Projects
-        </button>
-      </div>
-      </div>
+      <TabPills
+        tabs={TRANSPARENCY_TABS}
+        value={tab}
+        onChange={switchTab}
+        label="Transparency content type"
+        className="mb-6"
+      />
 
       {tab === "legislative" ? (
         <LegislativeManager documents={legislative} isSuperAdmin={isSuperAdmin} />

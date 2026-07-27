@@ -47,6 +47,7 @@ function revalidate() {
   revalidatePath("/admin/news");
   revalidatePath("/announcements");
   revalidatePath("/news");
+  revalidatePath("/announcements/[slug]", "page");
   revalidatePath("/");
 }
 
@@ -416,7 +417,6 @@ export async function deleteNewsArticle(id: string): Promise<ActionResult> {
     entityId: id,
     entityLabel: existing.title,
   });
-  revalidatePath(`/announcements/${existing.slug}`);
   revalidate();
   return { error: null };
 }

@@ -315,34 +315,40 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
 
   // Deleting the official cascades away its achievements and their photo
   // ROWS, but Postgres knows nothing about Storage. Collect the objects while
-  // the rows still exist, or they are orphaned forever.
+  // the rows still exist, or they are orphaned forever — but don't remove them
+  // yet: an object deleted ahead of a failed official delete would leave live
+  // achievement-photo rows pointing at nothing.
   const { data: achievements } = await admin
     .from("official_achievements")
     .select("id")
     .eq("official_id", id);
   const achievementIds = (achievements ?? []).map((row) => row.id as string);
+  let achievementPhotoPaths: string[] = [];
   if (achievementIds.length > 0) {
     const { data: photos } = await admin
       .from("official_achievement_photos")
       .select("src")
       .in("achievement_id", achievementIds);
-    const paths = (photos ?? [])
+    achievementPhotoPaths = (photos ?? [])
       .map((photo) => photo.src as string)
       .filter((src) => !/^https?:\/\//i.test(src));
-    if (paths.length > 0) {
-      const { error: removeErr } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove(paths);
-      if (removeErr) {
-        // A failed cleanup must not fail the delete the user just made, but the
-        // orphans it leaves are invisible otherwise — log the paths for a human.
-        console.error(
-          `Orphaned storage objects (achievement photo cleanup failed): ${paths.join(", ")}`,
-        );
-      }
-    }
   }
 
   const { error } = await admin.from("officials").delete().eq("id", id);
   if (error) return { error: "Could not delete the official." };
+
+  if (achievementPhotoPaths.length > 0) {
+    const { error: removeErr } = await admin.storage
+      .from(PUBLIC_MEDIA_BUCKET)
+      .remove(achievementPhotoPaths);
+    if (removeErr) {
+      // A failed cleanup must not fail the delete the user just made, but the
+      // orphans it leaves are invisible otherwise — log the paths for a human.
+      console.error(
+        `Orphaned storage objects (achievement photo cleanup failed): ${achievementPhotoPaths.join(", ")}`,
+      );
+    }
+  }
 
   if (existing.photo_path) {
     const removed = await removeStoredImage(existing.photo_path);
