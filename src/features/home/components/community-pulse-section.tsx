@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, BarChart2, Calendar, Megaphone } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Reveal } from "@/components/ui/reveal";
 import { Section } from "@/components/ui/section";
@@ -80,9 +79,6 @@ export async function CommunityPulseSection() {
                 <StatCard key={stat.label} stat={stat} />
               ))}
             </div>
-            <Button href="/transparency" className="mt-6 w-full">
-              More Statistics
-            </Button>
           </Card>
           </Reveal>
         ) : null}

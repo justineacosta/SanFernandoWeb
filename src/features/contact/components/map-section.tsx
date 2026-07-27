@@ -18,7 +18,13 @@ export function MapSection() {
             </h2>
             <p className="text-ink-600">Visit us during office hours: {SITE.officeHours}</p>
           </div>
-          <Button href="#" variant="accent" size="sm">
+          <Button
+            href="https://earth.google.com/web/search/San+Fernando,+San+Nicolas+Ilocos+Norte/@18.17057228,120.59348979,0.00013267a,341.11806271d,35y,-4.11820433h,32.16860262t,0r/data=CpUBGmcSYQolMHgzMzhlYzY1Y2Q3ZTExMDE3OjB4ODEzMzFmYjdhZTBkNWRhMBm345cLpisyQCGalrPS_yVeQComU2FuIEZlcm5hbmRvLCBTYW4gTmljb2xhcyBJbG9jb3MgTm9ydGUYAiABIiYKJAk5_-xvEFguQBF7DPHwj-8tQBny1RRajzheQCH9kPiDSBxeQEICCAI6AwoBMEICCABKDQj___________8BEAA"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="accent"
+            size="sm"
+          >
             <Navigation className="h-4 w-4" aria-hidden="true" />
             Get Directions
           </Button>

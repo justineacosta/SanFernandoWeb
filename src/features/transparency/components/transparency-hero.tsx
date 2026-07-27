@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { FileText, HelpCircle } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
@@ -35,9 +35,6 @@ export function TransparencyHero() {
             <div className="flex flex-wrap gap-4">
               <Button href="#documents" size="lg">
                 <FileText className="h-5 w-5" aria-hidden="true" /> View Documents
-              </Button>
-              <Button href="#" variant="outline" size="lg">
-                <HelpCircle className="h-5 w-5" aria-hidden="true" /> FOI Guide
               </Button>
             </div>
           </div>
