@@ -1,5 +1,5 @@
 // One-time migration helper (sub-project 9): push the bundled Home/About images
-// to the `site-media` bucket at the deterministic paths seeded by
+// to the `public-media` bucket at the deterministic paths seeded by
 // supabase/migrations/0021_site_content.sql.
 //
 // Run this ONCE PER ENVIRONMENT, in the same sitting as the migration:
@@ -50,7 +50,7 @@ let failed = 0;
 for (const [source, path, contentType] of IMAGES) {
   const body = await readFile(join(...source.split("/")));
   const { error } = await supabase.storage
-    .from("site-media")
+    .from("public-media")
     .upload(path, body, { contentType, upsert: true });
   if (error) {
     console.error(`FAIL ${path}: ${error.message}`);
