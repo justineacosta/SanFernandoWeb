@@ -180,9 +180,10 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   pass) are now wired into every admin list thumbnail and edit-drawer preview across all six
   status-aware content types (officials + achievements, events, announcements, news, legislative,
   transparency documents + projects). Mapping the actual code during that plan's design found 13
-  direct call sites across 7 query files plus 3 more disguised as `mediaUrl(bucketForStatus(...))`
-  in action files — not just the three admin-preview components originally scoped above — so this
-  closes the deferred signed-preview gap in full, not partially. Object path
+  direct call sites across 6 query files (`transparency.ts` alone covers both legislative
+  documents and transparency documents/projects) plus 3 more disguised as
+  `mediaUrl(bucketForStatus(...))` in action files — not just the three admin-preview components
+  originally scoped above — so this closes the deferred signed-preview gap in full, not partially. Object path
   *strings* never changed in this redesign, only which bucket holds them — no DB column changes
   anywhere. **Deploy-order hazard, must happen in this sequence, staging first:** apply migration
   `0028` → run `scripts/migrate-media-buckets.mjs` (copies every already-published row's file from
