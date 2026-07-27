@@ -551,15 +551,6 @@ export interface AdminServiceRow {
   updatedAt: string;
 }
 
-export type TeamRole = "super-admin" | "editor" | "viewer";
-
-export interface AdminTeamMember {
-  name: string;
-  role: TeamRole;
-  initials: string;
-  isCurrentUser?: boolean;
-}
-
 /* Drawer-form value shapes — the future POST/PUT body contracts. */
 
 export interface ServiceFormValues {

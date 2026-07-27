@@ -60,8 +60,9 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   Server Actions**. Every manager is now DB-backed; the mock Dashboard Overview was deleted
   in the 2026-07-22 polish pass and **`/admin` is a redirect**, not a page — it sends the
   signed-in user to the first nav entry they may reach (`firstPermittedPath`; Settings is
-  ungated, so a target always exists and it cannot loop). `ADMIN_TEAM` in
-  `features/admin/data.ts` is the last placeholder constant left, and nothing renders it.
+  ungated, so a target always exists and it cannot loop). `ADMIN_TEAM` (the last placeholder
+  mock constant in `features/admin/data.ts`) was deleted in a cleanup pass along with its
+  `TeamRole`/`AdminTeamMember` types — nothing had rendered it since `TeamManager` shipped.
   User management is its own SuperAdmin-only module at `/admin/users` (`TeamManager`, an
   Active|Archived table like the other managers); **Settings keeps only profile, security
   and preferences** — it no longer holds the team card.
@@ -311,8 +312,10 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   shared `revalidate()` helper calls `revalidatePath("/events")` alongside `/admin/events`
   and `/` — every event action routes through it.
 - Placeholder reality: transparency documents now serve **real** Supabase-hosted PDFs/images,
-  so the old `"#"` download stubs are gone; remaining `"#"` hrefs are in-page anchors / not-
-  yet-wired links (the contact page's "Get Directions", captain message, hero CTA). The
+  so the old `"#"` download stubs are gone; Contact's "Get Directions" now links to the
+  barangay hall's real Google Earth location (the dead FOI Guide and More Statistics CTAs
+  were removed outright rather than wired). Remaining `"#"` hrefs are in-page anchors /
+  not-yet-wired links (captain message, hero CTA). The
   barangay hotline is **real** (`(077) 600 1082` in `SITE.phone` / `EMERGENCY_HOTLINES[0]`)
   and the officials page's 24/7 Action Center dials it rather than 911; other phones, emails,
   and office hours are still placeholder-shaped (correct names, not real contact data). Most

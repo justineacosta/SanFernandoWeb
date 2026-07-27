@@ -14,11 +14,7 @@ import {
   UserCog,
   Users,
 } from "lucide-react";
-import type {
-  AdminTeamMember,
-  IconNavItem,
-  TeamRole,
-} from "@/types";
+import type { IconNavItem } from "@/types";
 
 export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Applications", href: "/admin/applications", icon: Inbox, permission: "process-applications", group: "requests" },
@@ -35,17 +31,5 @@ export const ADMIN_NAV_ITEMS: IconNavItem[] = [
   { label: "Services Management", href: "/admin/services", icon: Landmark, superAdminOnly: true, group: "system" },
   { label: "Audit Logs", href: "/admin/audit", icon: History, superAdminOnly: true, group: "system" },
   { label: "Settings", href: "/admin/settings", icon: Settings, group: "system" },
-];
-
-export const TEAM_ROLE_LABELS: Record<TeamRole, string> = {
-  "super-admin": "Super Admin",
-  editor: "Editor",
-  viewer: "Viewer",
-};
-
-export const ADMIN_TEAM: AdminTeamMember[] = [
-  { name: "Maria Santos", role: "super-admin", initials: "MS", isCurrentUser: true },
-  { name: "Juan Dela Cruz", role: "editor", initials: "JD" },
-  { name: "Ana Reyes", role: "viewer", initials: "AR" },
 ];
 

@@ -1,11 +1,7 @@
 import {
   Facebook,
-  Flame,
-  MapPin,
   MessageCircle,
   PhoneCall,
-  PlusSquare,
-  ShieldAlert,
   Twitter,
   Youtube,
 } from "lucide-react";
