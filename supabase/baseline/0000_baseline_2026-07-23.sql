@@ -1,11 +1,11 @@
 -- ============================================================================
 -- Barangay San Fernando — CONSOLIDATED BASELINE SCHEMA
--- Squash of migrations 0001–0027, as of 2026-07-23.
+-- Squash of migrations 0001–0028, as of 2026-07-23.
 -- ============================================================================
 --
 -- WHAT THIS IS
 -- ------------
--- One file that builds the *final state* of migrations 0001 through 0027 on an
+-- One file that builds the *final state* of migrations 0001 through 0028 on an
 -- empty database, in a single transaction. It is not a replay: columns that a
 -- later migration dropped are never created, columns that a later migration
 -- relaxed are declared relaxed, and functions appear once in their final form.
@@ -14,7 +14,7 @@
 -- --------------
 --   • Standing up a NEW environment (production, a fresh staging, a local dev
 --     database) from nothing.
---   • NOT for an environment that already has any of 0001–0027 applied. This
+--   • NOT for an environment that already has any of 0001–0028 applied. This
 --     file assumes an empty `public` schema and will fail loudly on a database
 --     that already has these objects — which is the intended behaviour. To
 --     bring an existing environment forward, apply the individual numbered
@@ -28,7 +28,7 @@
 -- scripts the officials directory and the home/About pages render broken
 -- images. Original migrations 0012 and 0021 carry the same warning.
 --
--- HOW IT DIFFERS FROM RUNNING 0001–0027 IN SEQUENCE
+-- HOW IT DIFFERS FROM RUNNING 0001–0028 IN SEQUENCE
 -- --------------------------------------------------
 -- The end state is identical. Three mechanical differences, all deliberate:
 --
