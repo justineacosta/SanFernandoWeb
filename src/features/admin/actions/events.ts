@@ -7,6 +7,7 @@ import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { guardDelete, statusPatch } from "@/lib/archive";
 import { recordActivity } from "@/lib/audit";
 import { discardImage, removeStoredImage, uploadSingleImage } from "@/lib/media";
+import { cleanupPromotedMedia, demoteMedia, promoteMedia } from "@/lib/media-lifecycle";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getEventForEdit } from "@/features/admin/queries/events";
 
@@ -70,19 +71,31 @@ export async function saveEvent(
 
   const admin = createSupabaseAdminClient();
 
+  let currentStatus: ContentStatus = "draft";
+  if (id) {
+    const { data: statusRow, error: statusErr } = await admin
+      .from("events")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (statusErr) return { error: "Could not save the event.", id: null };
+    if (!statusRow) return { error: "Event not found.", id: null };
+    currentStatus = statusRow.status as ContentStatus;
+  }
+
   // Upload first, then compensate on any later failure — see saveAnnouncement.
   const incoming = coverForm.get("image");
   const removeCover = coverForm.get("removeImage") === "1";
   let uploadedPath: string | null = null;
   if (incoming instanceof File && incoming.size > 0) {
-    const uploaded = await uploadSingleImage("events", incoming);
+    const uploaded = await uploadSingleImage("events", currentStatus, incoming);
     if (uploaded.error) return { error: uploaded.error, id: null };
     uploadedPath = uploaded.src;
   }
 
   async function fail(error: string): Promise<SaveResult> {
     if (uploadedPath) {
-      const removed = await removeStoredImage(uploadedPath);
+      const removed = await removeStoredImage("events", currentStatus, uploadedPath);
       if (removed.error) {
         console.error(`Orphaned storage object (compensating delete failed): ${uploadedPath}`);
       }
@@ -124,7 +137,7 @@ export async function saveEvent(
 
     const previous = existing.cover_src as string | null;
     if (previous && previous !== nextCoverSrc) {
-      await discardImage(previous, "event cover replaced");
+      await discardImage("events", currentStatus, previous, "event cover replaced");
     }
     await recordActivity(actor, {
       type: "update",
@@ -210,14 +223,55 @@ export async function returnEventToDraft(id: string): Promise<ActionResult> {
 export async function archiveEvent(id: string): Promise<ActionResult> {
   const actor = await checkPermission("manage-news");
   if (!actor) return { error: NOT_FOUND };
-  return applyTransition(
-    actor,
-    id,
-    ["draft", "in-review", "published"],
-    statusPatch(actor, "archived"),
-    "archive",
-    "archived event",
-  );
+  const admin = createSupabaseAdminClient();
+  const patch = statusPatch(actor, "archived");
+
+  // Try the published→archived branch first: a row has exactly one status,
+  // so at most one of these two guarded updates ever matches, and which one
+  // matched tells us — atomically, no separate read-then-write race — whether
+  // the cover needs to move back into the private bucket.
+  let result: { id: string; title: string; cover_src: string | null } | null = null;
+  let wasPublished = false;
+  {
+    const { data, error } = await admin
+      .from("events")
+      .update(patch)
+      .eq("id", id)
+      .eq("status", "published")
+      .select("id, title, cover_src")
+      .maybeSingle();
+    if (error) return { error: "Could not update the event." };
+    if (data) {
+      result = data;
+      wasPublished = true;
+    }
+  }
+  if (!result) {
+    const { data, error } = await admin
+      .from("events")
+      .update(patch)
+      .eq("id", id)
+      .in("status", ["draft", "in-review"])
+      .select("id, title, cover_src")
+      .maybeSingle();
+    if (error) return { error: "Could not update the event." };
+    result = data;
+  }
+  if (!result) return { error: "This event is no longer in a state that allows that action." };
+
+  if (wasPublished && result.cover_src) {
+    await demoteMedia("events", [result.cover_src], "event archived");
+  }
+
+  await recordActivity(actor, {
+    type: "archive",
+    action: "archived event",
+    entityType: "event",
+    entityId: id,
+    entityLabel: result.title,
+  });
+  revalidate();
+  return { error: null };
 }
 
 /** Bring an archived event back as a draft — not straight back onto the calendar. */
@@ -251,7 +305,7 @@ export async function deleteEvent(id: string): Promise<ActionResult> {
   const { error } = await admin.from("events").delete().eq("id", id);
   if (error) return { error: "Could not delete the event." };
 
-  await discardImage(existing.cover_src, "event deleted");
+  await discardImage("events", "archived", existing.cover_src, "event deleted");
   await recordActivity(actor, {
     type: "delete",
     action: "deleted event",
@@ -270,7 +324,7 @@ export async function publishEvent(id: string): Promise<ActionResult> {
   const admin = createSupabaseAdminClient();
   const { data: row, error: readErr } = await admin
     .from("events")
-    .select("published_at, title, event_date, start_time, venue")
+    .select("published_at, title, event_date, start_time, venue, cover_src, status")
     .eq("id", id)
     .maybeSingle();
   if (readErr) return { error: "Could not publish the event." };
@@ -278,8 +332,14 @@ export async function publishEvent(id: string): Promise<ActionResult> {
   if (!row.title?.trim() || !row.event_date || !row.start_time?.trim() || !row.venue?.trim()) {
     return { error: "Add a title, date, start time, and venue before publishing." };
   }
-  // statusPatch also clears the archive provenance, so publishing straight out
-  // of `archived` does not leave the row claiming it is still archived.
+
+  const alreadyPublished = row.status === "published";
+  const coverPath = row.cover_src as string | null;
+  if (!alreadyPublished && coverPath) {
+    const promoted = await promoteMedia("events", [coverPath]);
+    if (promoted.error) return { error: "Could not publish the event's cover photo. Try again." };
+  }
+
   const patch = statusPatch(actor, "published");
   if (!row.published_at) patch.published_at = new Date().toISOString();
   const { data, error } = await admin
@@ -291,6 +351,11 @@ export async function publishEvent(id: string): Promise<ActionResult> {
     .maybeSingle();
   if (error) return { error: "Could not publish the event." };
   if (!data) return { error: "This event is already published." };
+
+  if (!alreadyPublished && coverPath) {
+    await cleanupPromotedMedia("events", [coverPath], "event published");
+  }
+
   await recordActivity(actor, {
     type: "publish",
     action: "published event",

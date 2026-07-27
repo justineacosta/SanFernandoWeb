@@ -2,7 +2,7 @@ import "server-only";
 import type { CommunityEvent, EventCategory } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { manilaToday } from "@/lib/format";
-import { photoUrl } from "@/lib/storage";
+import { mediaUrl, publicBucketFor } from "@/lib/storage";
 import { EVENT_CATEGORY_LABELS } from "@/features/events/data";
 
 export const EVENTS_ARCHIVE_BATCH = 6;
@@ -33,7 +33,7 @@ function toCommunityEvent(r: EventRow): CommunityEvent {
     time: r.end_time ? `${r.start_time} - ${r.end_time}` : r.start_time,
     venue: r.venue,
     description: r.description,
-    image: r.cover_src ? photoUrl(r.cover_src) : undefined,
+    image: r.cover_src ? mediaUrl(publicBucketFor("events"), r.cover_src) : undefined,
     imageAlt: r.cover_alt ?? undefined,
   };
 }
