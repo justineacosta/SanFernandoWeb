@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { CtaBanner } from "@/components/sections/cta-banner";
-import { photoUrl } from "@/lib/storage";
+import { SITE_MEDIA_BUCKET, mediaUrl } from "@/lib/storage";
 import { getSiteBlocks, listInvolvementItems } from "@/features/site-content/queries";
 
 /** Community call-to-action band with the four ways to get involved. */
@@ -12,7 +12,7 @@ export async function GetInvolvedSection() {
   const ctaImage = blocks["home.cta_image"];
   return (
     <CtaBanner
-      backgroundImage={ctaImage ? photoUrl(ctaImage) : undefined}
+      backgroundImage={ctaImage ? mediaUrl(SITE_MEDIA_BUCKET, ctaImage) : undefined}
       title={
         <>
           Together, We Build

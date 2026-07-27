@@ -5,7 +5,7 @@ import Image from "next/image";
 import { UploadCloud } from "lucide-react";
 import { ImageCropperDialog } from "@/components/ui/image-cropper-dialog";
 import { cropFromImage, decodeImageUrl, type PixelCrop } from "@/lib/crop-image";
-import { ALLOWED_AVATAR_SOURCE_TYPES, MAX_AVATAR_SOURCE_BYTES, photoUrl } from "@/lib/storage";
+import { ALLOWED_AVATAR_SOURCE_TYPES, AVATARS_MEDIA_BUCKET, MAX_AVATAR_SOURCE_BYTES, mediaUrl } from "@/lib/storage";
 
 interface AvatarPickerProps {
   /** Storage path already on the profile, or null. */
@@ -123,7 +123,7 @@ export function AvatarPicker({
     closeCropper();
   }
 
-  const storedUrl = existingSrc && !removeExisting ? photoUrl(existingSrc) : null;
+  const storedUrl = existingSrc && !removeExisting ? mediaUrl(AVATARS_MEDIA_BUCKET, existingSrc) : null;
   const shown = preview ?? storedUrl;
   const pendingRemoval = removeExisting && Boolean(existingSrc) && !file;
   const hasSomethingToRemove = Boolean(file) || (Boolean(existingSrc) && !removeExisting);

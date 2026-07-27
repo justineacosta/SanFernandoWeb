@@ -1,7 +1,7 @@
 import "server-only";
 import type { AdminSiteItemRow, SiteBlock } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { photoUrl } from "@/lib/storage";
+import { SITE_MEDIA_BUCKET, mediaUrl } from "@/lib/storage";
 
 /**
  * Admin reads for the Home & About CMS (sub-project 9).
@@ -45,7 +45,7 @@ function toAdminRow(row: SiteItemRow): AdminSiteItemRow {
     // `imageUrl` is what the preview renders. Deriving the URL in the manager
     // would put the bucket layout in a client component.
     imagePath: row.image_path,
-    imageUrl: row.image_path ? photoUrl(row.image_path) : null,
+    imageUrl: row.image_path ? mediaUrl(SITE_MEDIA_BUCKET, row.image_path) : null,
     imageAlt: row.image_alt,
     // The `site_items_shape` CHECK plus the column's own CHECK allow only
     // 'cover', 'contain' or NULL, so this cast cannot widen anything the

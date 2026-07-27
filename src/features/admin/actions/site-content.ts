@@ -333,7 +333,7 @@ export async function saveSiteBlock(
   if (isImage) {
     const incoming = imageForm.get("image");
     if (incoming instanceof File && incoming.size > 0) {
-      const uploaded = await uploadSingleImage("site", incoming);
+      const uploaded = await uploadSingleImage("site", null, incoming);
       if (uploaded.error) return { error: uploaded.error };
       uploadedPath = uploaded.src;
     }
@@ -341,7 +341,7 @@ export async function saveSiteBlock(
 
   async function fail(error: string): Promise<ActionResult> {
     if (uploadedPath) {
-      const removed = await removeStoredImage(uploadedPath);
+      const removed = await removeStoredImage("site", null, uploadedPath);
       // A failed compensating delete is a second, independent failure: the
       // caller must still see the original error, but the orphan it leaves is
       // invisible otherwise, so log the path for a human.
@@ -379,7 +379,7 @@ export async function saveSiteBlock(
   // Deferred delete: only once the row no longer references the old object.
   // `discardImage` leaves the seeded lh3 URL alone — it is not ours to remove.
   if (isImage && previous && previous !== nextValue) {
-    await discardImage(previous, "site banner replaced");
+    await discardImage("site", null, previous, "site banner replaced");
   }
 
   await recordActivity(actor, {
@@ -439,14 +439,14 @@ export async function saveSiteItem(
   const removeImage = imageForm.get("removeImage") === "1";
   let uploadedPath: string | null = null;
   if (incoming instanceof File && incoming.size > 0) {
-    const uploaded = await uploadSingleImage("site", incoming);
+    const uploaded = await uploadSingleImage("site", null, incoming);
     if (uploaded.error) return { error: uploaded.error, id: null };
     uploadedPath = uploaded.src;
   }
 
   async function fail(error: string): Promise<SaveResult> {
     if (uploadedPath) {
-      const removed = await removeStoredImage(uploadedPath);
+      const removed = await removeStoredImage("site", null, uploadedPath);
       if (removed.error) {
         console.error(`Orphaned storage object (compensating delete failed): ${uploadedPath}`);
       }
@@ -474,7 +474,7 @@ export async function saveSiteItem(
 
     // Deferred delete: only once the row no longer references the old object.
     if (existingImagePath && existingImagePath !== nextImagePath) {
-      await discardImage(existingImagePath, "site image replaced");
+      await discardImage("site", null, existingImagePath, "site image replaced");
     }
 
     await recordActivity(actor, {
@@ -553,7 +553,7 @@ export async function deleteSiteItem(id: string): Promise<ActionResult> {
   // Best-effort, and deliberately after the delete: the row is already gone, so
   // failing the user's action over a leftover file would be both untrue and
   // unactionable. `discardImage` logs the orphan instead.
-  await discardImage(existing.image_path as string | null, "site item deleted");
+  await discardImage("site", null, existing.image_path as string | null, "site item deleted");
 
   await recordActivity(actor, {
     type: "delete",

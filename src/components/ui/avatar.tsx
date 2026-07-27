@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { initialsOf } from "@/lib/initials";
-import { photoUrl } from "@/lib/storage";
+import { AVATARS_MEDIA_BUCKET, mediaUrl } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
 /**
@@ -43,7 +43,7 @@ export function Avatar({ src, fullName, size = "sm", className }: AvatarProps) {
         )}
       >
         <Image
-          src={photoUrl(src)}
+          src={mediaUrl(AVATARS_MEDIA_BUCKET, src)}
           alt=""
           fill
           sizes={`${PIXELS[size]}px`}

@@ -42,14 +42,14 @@ export async function updateMyProfile(
   const removeAvatar = avatarForm.get("removeImage") === "1";
   let uploadedPath: string | null = null;
   if (incoming instanceof File && incoming.size > 0) {
-    const uploaded = await uploadSingleImage("avatars", incoming);
+    const uploaded = await uploadSingleImage("avatars", null, incoming);
     if (uploaded.error) return { error: uploaded.error };
     uploadedPath = uploaded.src;
   }
 
   async function fail(error: string): Promise<ActionResult> {
     if (uploadedPath) {
-      const removed = await removeStoredImage(uploadedPath);
+      const removed = await removeStoredImage("avatars", null, uploadedPath);
       if (removed.error) {
         console.error(`Orphaned storage object (compensating delete failed): ${uploadedPath}`);
       }
@@ -80,7 +80,7 @@ export async function updateMyProfile(
 
   // Deferred delete: only once the row no longer references the old photo.
   if (previousPath && previousPath !== nextPath) {
-    await discardImage(previousPath, "avatar replaced");
+    await discardImage("avatars", null, previousPath, "avatar replaced");
   }
 
   await recordActivity(user, {

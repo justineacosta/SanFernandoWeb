@@ -10,7 +10,7 @@ import type {
   ValueItem,
 } from "@/types";
 import { resolveIcon } from "@/lib/icon-map";
-import { photoUrl } from "@/lib/storage";
+import { SITE_MEDIA_BUCKET, mediaUrl } from "@/lib/storage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -85,7 +85,7 @@ export async function getCaptainMessage(): Promise<string[]> {
 
 export async function listHeroSlides(): Promise<HeroSlide[]> {
   return (await itemsFor("hero_slides")).map((row) => ({
-    src: photoUrl(row.image_path!),
+    src: mediaUrl(SITE_MEDIA_BUCKET, row.image_path!),
     alt: row.image_alt ?? "",
   }));
 }
@@ -120,7 +120,7 @@ export async function listHistoryTimeline(): Promise<TimelineEntry[]> {
     year: row.value!,
     title: row.label!,
     description: row.body!,
-    image: photoUrl(row.image_path!),
+    image: mediaUrl(SITE_MEDIA_BUCKET, row.image_path!),
     imageAlt: row.image_alt ?? "",
     imageFit: row.image_fit === "contain" ? "contain" : "cover",
   }));

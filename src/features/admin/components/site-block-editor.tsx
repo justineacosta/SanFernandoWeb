@@ -9,7 +9,7 @@ import { Field, Textarea } from "@/components/ui/form";
 import { Toast } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
 import { useFormDraft } from "@/hooks/use-form-draft";
-import { photoUrl } from "@/lib/storage";
+import { SITE_MEDIA_BUCKET, mediaUrl } from "@/lib/storage";
 import { saveSiteBlock } from "@/features/admin/actions/site-content";
 import type { SiteSingletonSpec } from "@/features/admin/site-blocks";
 import { useAdminUserId } from "./admin-user-context";
@@ -93,7 +93,7 @@ export function SiteBlockEditor({ spec, value }: SiteBlockEditorProps) {
             <SingleImageUploader
               idPrefix={`block-${spec.key}`}
               existingSrc={value}
-              existingPreviewUrl={value ? photoUrl(value) : null}
+              existingPreviewUrl={value ? mediaUrl(SITE_MEDIA_BUCKET, value) : null}
               alt=""
               onAltChange={() => {}}
               file={image}
