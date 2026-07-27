@@ -147,10 +147,11 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   `mediaUrl(publicBucketFor(kind), path)`, every upload/delete path targets `bucketForStatus`,
   and `scripts/upload-site-images.mjs`/`scripts/upload-official-portraits.mjs` seed to
   `site-media`/`officials-media` respectively (no longer `public-media`). `PUBLIC_MEDIA_BUCKET`/
-  `PUBLIC_DOCUMENTS_BUCKET`/`photoUrl`/`documentUrl` survive only as the fallback for three
-  documented admin-preview call sites that still show already-committed images
-  (`announcement-form.tsx`, `event-form.tsx`, `officials-manager.tsx`) — a deliberate, narrow
-  deferral to the not-yet-written signed-preview plan, not a miss. **`src/lib/storage.ts`**:
+  `PUBLIC_DOCUMENTS_BUCKET`/`photoUrl`/`documentUrl` are retired from the admin portal — the
+  2026-07-28 signed-preview plan (`docs/superpowers/sdd/2026-07-28-media-signed-preview-plan/`)
+  replaced every remaining call site with `resolveMediaUrl`/`resolveMediaUrls`/
+  `resolveMediaUrlsForList` (detailed below); `photoUrl`/`documentUrl` remain defined in
+  `src/lib/storage.ts` but nothing outside that module calls them anymore. **`src/lib/storage.ts`**:
   `MediaKind`/`publicBucketFor`/`draftBucketFor`/`bucketForStatus`/`mediaUrl`. **`src/lib/
   media-lifecycle.ts`**: `promoteMedia`/`cleanupPromotedMedia`/`demoteMedia` — copy a record's
   files into the right bucket at publish/archive, promote fails closed so a row can never read
@@ -174,8 +175,14 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   `in-review`), so `published → draft` was never reachable there. `resolveMediaUrl`/
   `resolveMediaUrls` — admin preview URLs, published resolves to a plain public URL, anything
   else mints a signed URL against the drafts bucket via the same pattern
-  `features/admin/queries/feedback.ts` already uses for screenshots — have no callers yet; wiring
-  them into the three deferred admin-preview call sites above is the next plan. Object path
+  `features/admin/queries/feedback.ts` already uses for screenshots — plus `resolveMediaUrlsForList`
+  (new in the signed-preview plan, batching the same resolution over a list query's rows in one
+  pass) are now wired into every admin list thumbnail and edit-drawer preview across all six
+  status-aware content types (officials + achievements, events, announcements, news, legislative,
+  transparency documents + projects). Mapping the actual code during that plan's design found 13
+  direct call sites across 7 query files plus 3 more disguised as `mediaUrl(bucketForStatus(...))`
+  in action files — not just the three admin-preview components originally scoped above — so this
+  closes the deferred signed-preview gap in full, not partially. Object path
   *strings* never changed in this redesign, only which bucket holds them — no DB column changes
   anywhere. **Deploy-order hazard, must happen in this sequence, staging first:** apply migration
   `0028` → run `scripts/migrate-media-buckets.mjs` (copies every already-published row's file from
