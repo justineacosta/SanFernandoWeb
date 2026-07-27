@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import type { ContentStatus, EventValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
-import { photoUrl } from "@/lib/storage";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { EVENT_CATEGORY_LABELS } from "@/features/events/data";
 import { useAdminUserId } from "./admin-user-context";
@@ -22,6 +21,7 @@ export interface EventEditRecord {
   id: string;
   values: EventValues;
   status: ContentStatus;
+  coverPreviewUrl: string | null;
 }
 
 interface EventFormProps {
@@ -193,7 +193,7 @@ export function EventForm({ record, onSaved, onCancel }: EventFormProps) {
           <SingleImageUploader
             idPrefix="event"
             existingSrc={values.coverSrc}
-            existingPreviewUrl={values.coverSrc ? photoUrl(values.coverSrc) : null}
+            existingPreviewUrl={record?.coverPreviewUrl ?? null}
             alt={values.coverAlt}
             onAltChange={(next) => set("coverAlt", next)}
             file={cover}

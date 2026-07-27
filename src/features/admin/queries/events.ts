@@ -2,7 +2,7 @@ import "server-only";
 import type { AdminEventRow, ContentStatus, EventCategory, EventValues } from "@/types";
 import { ARCHIVE_SELECT, toArchiveMeta, type ArchiveMetaRow } from "@/lib/archive";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { photoUrl } from "@/lib/storage";
+import { resolveMediaUrl, resolveMediaUrlsForList } from "@/lib/media-lifecycle";
 
 interface Row extends ArchiveMetaRow {
   id: string;
@@ -26,7 +26,12 @@ export async function listEvents(): Promise<AdminEventRow[]> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.from("events").select(COLUMNS).order("event_date", { ascending: true });
   if (error || !data) return [];
-  return (data as unknown as Row[]).map((r) => ({
+  const rows = data as unknown as Row[];
+  const coverUrls = await resolveMediaUrlsForList(
+    "events",
+    rows.map((r) => ({ path: r.cover_src, status: r.status })),
+  );
+  return rows.map((r, i) => ({
     id: r.id,
     title: r.title,
     category: r.category,
@@ -39,7 +44,7 @@ export async function listEvents(): Promise<AdminEventRow[]> {
     capacity: r.capacity,
     description: r.description,
     status: r.status,
-    coverSrc: r.cover_src ? photoUrl(r.cover_src) : null,
+    coverSrc: coverUrls[i],
     coverAlt: r.cover_alt,
     ...toArchiveMeta(r),
   }));
@@ -48,11 +53,14 @@ export async function listEvents(): Promise<AdminEventRow[]> {
 /** One event's editable values + status, for the drawer editor. */
 export async function getEventForEdit(
   id: string,
-): Promise<{ values: EventValues; status: ContentStatus } | null> {
+): Promise<{ values: EventValues; status: ContentStatus; coverPreviewUrl: string | null } | null> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.from("events").select(COLUMNS).eq("id", id).maybeSingle();
   if (error || !data) return null;
   const row = data as unknown as Row;
+  const coverPreviewUrl = row.cover_src
+    ? await resolveMediaUrl("events", row.status, row.cover_src)
+    : null;
   return {
     values: {
       title: row.title,
@@ -70,5 +78,6 @@ export async function getEventForEdit(
       coverAlt: row.cover_alt,
     },
     status: row.status,
+    coverPreviewUrl,
   };
 }

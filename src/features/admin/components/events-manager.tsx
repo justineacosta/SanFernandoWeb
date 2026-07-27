@@ -107,7 +107,12 @@ export function EventsManager({ events, isSuperAdmin }: EventsManagerProps) {
         showError("Could not load that event.");
         return;
       }
-      setEditing({ id: row.id, values: detail.values, status: detail.status });
+      setEditing({
+        id: row.id,
+        values: detail.values,
+        status: detail.status,
+        coverPreviewUrl: detail.coverPreviewUrl,
+      });
       setDrawerOpen(true);
     });
   };
