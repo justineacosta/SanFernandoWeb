@@ -179,13 +179,19 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   *strings* never changed in this redesign, only which bucket holds them — no DB column changes
   anywhere. **Deploy-order hazard, must happen in this sequence, staging first:** apply migration
   `0028` → run `scripts/migrate-media-buckets.mjs` (copies every already-published row's file from
-  the old `public-media`/`public-documents` into its new per-type public bucket; built in Plan 1,
-  not yet run against any real environment) → deploy this branch's code. Deploying the code before
-  the migration script runs 404s every currently-published image and document on the live public
-  site, not just new uploads — the public queries ask a bucket the file hasn't been copied into
-  yet. The old `public-media`/`public-documents` pair stays in
+  the old `public-media`/`public-documents` into its new per-type public bucket) → deploy this
+  branch's code. Deploying the code before the migration script runs 404s every currently-published
+  image and document on the live public site, not just new uploads — the public queries ask a
+  bucket the file hasn't been copied into yet. **Done on staging 2026-07-28:** `0028` applied,
+  then `migrate-media-buckets.mjs` run (12 objects copied, plus 6 reported "FAIL … Object not
+  found" for the `site/*` images — a false negative specific to any environment where
+  `scripts/upload-site-images.mjs` (sub-project 9) was never run, since that script now seeds
+  `site-media` directly and those objects therefore never existed in the old `public-media` for
+  this script to copy *from*; running `upload-site-images.mjs` first resolves it, and both bucket
+  sets were spot-checked directly via `storage.list()` to confirm). Code has not yet been deployed
+  from this state. The old `public-media`/`public-documents` pair stays in
   `supabase/baseline/0000_baseline_2026-07-23.sql` only until a future cleanup plan removes it
-  once every environment has migrated.
+  once every environment has migrated — staging's old buckets have not been deleted yet.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
