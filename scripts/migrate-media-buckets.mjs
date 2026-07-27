@@ -47,6 +47,19 @@ async function copyObject(sourceBucket, destBucket, path) {
 let ok = 0;
 let failed = 0;
 
+// PostgREST caps a select at 1000 rows by default. A table at or over that
+// cap would come back silently truncated and the run would report a false
+// "all copied" — so treat hitting the cap as a failure that must be resolved
+// (by adding pagination) before the old buckets are deleted.
+const PAGE_CAP = 1000;
+function guardPageCap(table, rows) {
+  if ((rows ?? []).length < PAGE_CAP) return;
+  console.error(
+    `WARNING: ${table} returned >= ${PAGE_CAP} rows — results may be truncated by PostgREST's default page cap. Add pagination before trusting this run.`,
+  );
+  failed += 1;
+}
+
 /** Copy one path, given the owning record's current status. Skips remote seed URLs. */
 async function migrateOne(kind, status, path) {
   if (isRemote(path)) return;
@@ -91,6 +104,7 @@ console.log("Migrating news articles' photos...");
     .from("news_photos")
     .select("src, news_articles!inner(status)");
   if (error) throw error;
+  guardPageCap("news_photos", photos);
   for (const row of photos ?? []) {
     await migrateOne("news", row.news_articles.status, row.src);
   }
@@ -100,6 +114,7 @@ console.log("Migrating officials' portraits...");
 {
   const { data: officials, error } = await supabase.from("officials").select("status, photo_path");
   if (error) throw error;
+  guardPageCap("officials", officials);
   for (const row of officials ?? []) {
     if (row.photo_path) await migrateOne("officials", row.status, row.photo_path);
   }
@@ -111,6 +126,7 @@ console.log("Migrating officials' achievement photos...");
     .from("official_achievement_photos")
     .select("src, official_achievements!inner(officials!inner(status))");
   if (error) throw error;
+  guardPageCap("official_achievement_photos", photos);
   for (const row of photos ?? []) {
     const status = row.official_achievements.officials.status;
     await migrateOne("officials", status, row.src);
@@ -121,6 +137,7 @@ console.log("Migrating event covers...");
 {
   const { data: events, error } = await supabase.from("events").select("status, cover_src");
   if (error) throw error;
+  guardPageCap("events", events);
   for (const row of events ?? []) {
     if (row.cover_src) await migrateOne("events", row.status, row.cover_src);
   }
@@ -130,6 +147,7 @@ console.log("Migrating announcement images...");
 {
   const { data: rows, error } = await supabase.from("announcements").select("status, image_src");
   if (error) throw error;
+  guardPageCap("announcements", rows);
   for (const row of rows ?? []) {
     if (row.image_src) await migrateOne("announcements", row.status, row.image_src);
   }
@@ -139,6 +157,7 @@ console.log("Migrating legislative document PDFs...");
 {
   const { data: rows, error } = await supabase.from("legislative_documents").select("status, file_path");
   if (error) throw error;
+  guardPageCap("legislative_documents", rows);
   for (const row of rows ?? []) {
     if (row.file_path) await migrateOneDocument("legislative", row.status, row.file_path);
   }
@@ -150,6 +169,7 @@ console.log("Migrating transparency documents' files...");
     .from("transparency_files")
     .select("path, owner_type, owner_id");
   if (error) throw error;
+  guardPageCap("transparency_files", rows);
   const documentRows = (rows ?? []).filter((r) => r.owner_type === "document");
   const projectRows = (rows ?? []).filter((r) => r.owner_type === "project");
 
@@ -160,22 +180,38 @@ console.log("Migrating transparency documents' files...");
   if (docIds.length > 0) {
     const { data, error: e } = await supabase.from("transparency_documents").select("id, status").in("id", docIds);
     if (e) throw e;
+    guardPageCap("transparency_documents", data);
     for (const d of data ?? []) docStatus.set(d.id, d.status);
   }
   const projectStatus = new Map();
   if (projectIds.length > 0) {
     const { data, error: e } = await supabase.from("transparency_projects").select("id, status").in("id", projectIds);
     if (e) throw e;
+    guardPageCap("transparency_projects", data);
     for (const p of data ?? []) projectStatus.set(p.id, p.status);
   }
 
+  // owner_id carries no foreign key — integrity is app-enforced only — so an
+  // orphaned row is structurally possible. Count it as a failure rather than
+  // skipping it silently: the "all copied, safe to delete the old buckets"
+  // message below is only trustworthy if nothing was passed over unreported.
   for (const row of documentRows) {
     const status = docStatus.get(row.owner_id);
-    if (status) await migrateOneDocument("transparency", status, row.path);
+    if (status) {
+      await migrateOneDocument("transparency", status, row.path);
+    } else {
+      console.error(`FAIL [transparency] ${row.path}: owner document ${row.owner_id} not found`);
+      failed += 1;
+    }
   }
   for (const row of projectRows) {
     const status = projectStatus.get(row.owner_id);
-    if (status) await migrateOneDocument("transparency", status, row.path);
+    if (status) {
+      await migrateOneDocument("transparency", status, row.path);
+    } else {
+      console.error(`FAIL [transparency] ${row.path}: owner project ${row.owner_id} not found`);
+      failed += 1;
+    }
   }
 }
 
@@ -183,11 +219,13 @@ console.log("Migrating site content images...");
 {
   const { data: blocks, error: e1 } = await supabase.from("site_blocks").select("value");
   if (e1) throw e1;
+  guardPageCap("site_blocks", blocks);
   for (const row of blocks ?? []) {
     if (row.value && /^site\//.test(row.value)) await migrateAlwaysPublic("site-media", row.value);
   }
   const { data: items, error: e2 } = await supabase.from("site_items").select("image_path");
   if (e2) throw e2;
+  guardPageCap("site_items", items);
   for (const row of items ?? []) {
     if (row.image_path) await migrateAlwaysPublic("site-media", row.image_path);
   }
@@ -197,6 +235,7 @@ console.log("Migrating staff avatars...");
 {
   const { data: rows, error } = await supabase.from("profiles").select("avatar_src");
   if (error) throw error;
+  guardPageCap("profiles", rows);
   for (const row of rows ?? []) {
     if (row.avatar_src) await migrateAlwaysPublic("avatars-media", row.avatar_src);
   }

@@ -145,11 +145,22 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   need it applied and `scripts/migrate-media-buckets.mjs` run once each. **Nothing in the running
   app uses any of this yet** — `PUBLIC_MEDIA_BUCKET`/`PUBLIC_DOCUMENTS_BUCKET`/`photoUrl`/
   `documentUrl` are untouched and every existing upload/read/delete path still targets the old
-  two buckets exactly as before. What Plan 1 added, inert until later plans wire it in:
+  two buckets exactly as before. Which is exactly why the baseline
+  (`supabase/baseline/0000_baseline_2026-07-23.sql`) still creates `public-media`/
+  `public-documents` alongside the 14 new buckets, and why both seed scripts still upload to
+  `public-media`: a fresh environment has to run *today's* code, which would fail with "Bucket
+  not found" on every upload otherwise. The old pair comes out of the baseline only when the
+  wiring plan lands. What Plan 1 added, inert until later plans wire it in:
   `MediaKind`/`publicBucketFor`/`draftBucketFor`/`bucketForStatus`/`mediaUrl` in
-  `src/lib/storage.ts`, and `src/lib/media-lifecycle.ts` (`promoteMedia`/`demoteMedia` — copy a
-  record's files into the right bucket at publish/archive, promote fails closed so a row can
-  never read "published" with its media still private; `resolveMediaUrl`/`resolveMediaUrls` —
+  `src/lib/storage.ts`, and `src/lib/media-lifecycle.ts` (`promoteMedia`/`cleanupPromotedMedia`/
+  `demoteMedia` — copy a record's files into the right bucket at publish/archive, promote fails
+  closed so a row can never read "published" with its media still private. **Publish is three
+  steps, in this order:** `promoteMedia` (copy only, deletes nothing) → the DB status update →
+  `cleanupPromotedMedia` (best-effort remove the redundant `-drafts` source), and the third step
+  runs *only* if the second committed — dropping the private source before the status flip has
+  landed would leave the object public and enumerable with nothing left to retry from if that
+  flip failed or no-opped. `demoteMedia` needs no such split: archive copies back and cleans up
+  entirely *after* its DB update. `resolveMediaUrl`/`resolveMediaUrls` —
   admin preview URLs, published resolves to a plain public URL, anything else mints a signed URL
   against the drafts bucket via the same pattern `features/admin/queries/feedback.ts` already
   uses for screenshots). Object path *strings* never change in this redesign, only which bucket
