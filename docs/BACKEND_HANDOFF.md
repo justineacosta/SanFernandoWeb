@@ -1470,3 +1470,14 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
     real achievements through `/admin/officials`. Migration 0013 is also **staging only**
     at time of writing; it needs to reach production alongside 0012 at deploy time (see the
     top-of-file summary and the officials-achievements changelog entry above).
+11. **Media bucket split deploy-order hazard** (migration `0028`, 2026-07-27/28 — see
+    CLAUDE.md's media-bucket-split bullet for the full design). The per-content-type public
+    buckets (`news-media`, `officials-media`, `events-media`, `announcements-media`,
+    `legislative-media`, `transparency-media`, `site-media`, `avatars-media`) replace
+    `public-media`/`public-documents` for every public-facing query. **Deploying this code
+    before running `scripts/migrate-media-buckets.mjs` in that environment 404s every
+    currently-published image and document on the live site** — the new public queries ask a
+    bucket the already-published files haven't been copied into yet. Required deploy sequence,
+    staging first: apply `0028` → run `scripts/migrate-media-buckets.mjs` → deploy. The old
+    `public-media`/`public-documents` pair stays in the baseline until a later cleanup plan
+    removes it once every environment has migrated.

@@ -132,39 +132,60 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   (storage-first) until a 2026-07-27 pass reordered all four to match the pattern the
   record-level deletes (`news.ts`, `announcements.ts`, `events.ts`, `legislative.ts`,
   `transparency-documents.ts`, `transparency-projects.ts`) already used correctly.
-- **Media buckets are being split per content type, foundation only so far** (Plan 1,
-  2026-07-27, `docs/superpowers/specs/2026-07-27-media-bucket-split-design.md` +
-  `docs/superpowers/plans/2026-07-27-media-bucket-split-foundation.md`). Reason: Supabase
-  Storage's `list()` rides the same RLS `select` policy as an individual object `get()`, so
-  `public-media`/`public-documents`' single "public read" policy makes draft/in-review/archived
-  media anonymously enumerable even though the site never links to it. The fix in progress: one
-  public/private bucket pair per status-aware content type (`news-media`/`news-drafts`,
-  `officials-media`/`officials-drafts`, `events-*`, `announcements-*`, `legislative-*`,
-  `transparency-*`) plus two always-public buckets for content with no draft state
-  (`site-media`, `avatars-media`) — migration `0028` creates all 14, staging/production still
-  need it applied and `scripts/migrate-media-buckets.mjs` run once each. **Nothing in the running
-  app uses any of this yet** — `PUBLIC_MEDIA_BUCKET`/`PUBLIC_DOCUMENTS_BUCKET`/`photoUrl`/
-  `documentUrl` are untouched and every existing upload/read/delete path still targets the old
-  two buckets exactly as before. Which is exactly why the baseline
-  (`supabase/baseline/0000_baseline_2026-07-23.sql`) still creates `public-media`/
-  `public-documents` alongside the 14 new buckets, and why both seed scripts still upload to
-  `public-media`: a fresh environment has to run *today's* code, which would fail with "Bucket
-  not found" on every upload otherwise. The old pair comes out of the baseline only when the
-  wiring plan lands. What Plan 1 added, inert until later plans wire it in:
-  `MediaKind`/`publicBucketFor`/`draftBucketFor`/`bucketForStatus`/`mediaUrl` in
-  `src/lib/storage.ts`, and `src/lib/media-lifecycle.ts` (`promoteMedia`/`cleanupPromotedMedia`/
-  `demoteMedia` — copy a record's files into the right bucket at publish/archive, promote fails
-  closed so a row can never read "published" with its media still private. **Publish is three
-  steps, in this order:** `promoteMedia` (copy only, deletes nothing) → the DB status update →
-  `cleanupPromotedMedia` (best-effort remove the redundant `-drafts` source), and the third step
-  runs *only* if the second committed — dropping the private source before the status flip has
-  landed would leave the object public and enumerable with nothing left to retry from if that
-  flip failed or no-opped. `demoteMedia` needs no such split: archive copies back and cleans up
-  entirely *after* its DB update. `resolveMediaUrl`/`resolveMediaUrls` —
-  admin preview URLs, published resolves to a plain public URL, anything else mints a signed URL
-  against the drafts bucket via the same pattern `features/admin/queries/feedback.ts` already
-  uses for screenshots). Object path *strings* never change in this redesign, only which bucket
-  holds them — no DB column changes anywhere.
+- **Media buckets are split per content type and the app is now wired to them** (Plan 1
+  foundation, 2026-07-27, `docs/superpowers/specs/2026-07-27-media-bucket-split-design.md` +
+  `docs/superpowers/plans/2026-07-27-media-bucket-split-foundation.md`; Plan 2 wiring, same day,
+  `docs/superpowers/plans/2026-07-27-media-bucket-split-wiring.md`). Reason: Supabase Storage's
+  `list()` rides the same RLS `select` policy as an individual object `get()`, so
+  `public-media`/`public-documents`' single "public read" policy made draft/in-review/archived
+  media anonymously enumerable even though the site never linked to it. The fix: one public/private
+  bucket pair per status-aware content type (`news-media`/`news-drafts`, `officials-media`/
+  `officials-drafts`, `events-*`, `announcements-*`, `legislative-*`, `transparency-*`) plus two
+  always-public buckets for content with no draft state (`site-media`, `avatars-media`) — migration
+  `0028` creates all 14. **All six status-aware content types, plus site content and avatars, now
+  read and write through the new buckets**: every public query resolves media via
+  `mediaUrl(publicBucketFor(kind), path)`, every upload/delete path targets `bucketForStatus`,
+  and `scripts/upload-site-images.mjs`/`scripts/upload-official-portraits.mjs` seed to
+  `site-media`/`officials-media` respectively (no longer `public-media`). `PUBLIC_MEDIA_BUCKET`/
+  `PUBLIC_DOCUMENTS_BUCKET`/`photoUrl`/`documentUrl` survive only as the fallback for three
+  documented admin-preview call sites that still show already-committed images
+  (`announcement-form.tsx`, `event-form.tsx`, `officials-manager.tsx`) — a deliberate, narrow
+  deferral to the not-yet-written signed-preview plan, not a miss. **`src/lib/storage.ts`**:
+  `MediaKind`/`publicBucketFor`/`draftBucketFor`/`bucketForStatus`/`mediaUrl`. **`src/lib/
+  media-lifecycle.ts`**: `promoteMedia`/`cleanupPromotedMedia`/`demoteMedia` — copy a record's
+  files into the right bucket at publish/archive, promote fails closed so a row can never read
+  "published" with its media still private. **Publish is three steps, in this order:**
+  `promoteMedia` (copy only, deletes nothing) → the DB status update → `cleanupPromotedMedia`
+  (best-effort remove the redundant `-drafts` source), and the third step runs *only* if the
+  second committed — dropping the private source before the status flip has landed would leave
+  the object public and enumerable with nothing left to retry from if that flip failed or
+  no-opped. **`demoteMedia` fires on any transition that leaves `published`, not only archiving**
+  (fixed 2026-07-28 in the wiring plan's final review): the four generic status setters
+  (`setOfficialStatus`, `setLegislativeStatus`, `setTransparencyDocumentStatus`,
+  `setTransparencyProjectStatus` — the four content types with no discrete
+  submit/publish/archive/return-to-draft action functions, just one setter accepting any
+  `ContentStatus`) originally demoted only on `archived` specifically; a direct Server Action
+  POST of `published → draft`/`in-review` was accepted by validation and left the file live in
+  the public bucket with the row reading non-published — unrecoverable, since a later archive
+  wouldn't demote either once `previousStatus` was no longer `"published"`. The guard is now
+  `previousStatus === "published" && nextStatus !== "published"`. News, announcements and events
+  don't need this guard: they have no generic setter, routing every transition through named
+  functions with an explicit allowed-from list (e.g. `returnAnnouncementToDraft` only accepts
+  `in-review`), so `published → draft` was never reachable there. `resolveMediaUrl`/
+  `resolveMediaUrls` — admin preview URLs, published resolves to a plain public URL, anything
+  else mints a signed URL against the drafts bucket via the same pattern
+  `features/admin/queries/feedback.ts` already uses for screenshots — have no callers yet; wiring
+  them into the three deferred admin-preview call sites above is the next plan. Object path
+  *strings* never changed in this redesign, only which bucket holds them — no DB column changes
+  anywhere. **Deploy-order hazard, must happen in this sequence, staging first:** apply migration
+  `0028` → run `scripts/migrate-media-buckets.mjs` (copies every already-published row's file from
+  the old `public-media`/`public-documents` into its new per-type public bucket; built in Plan 1,
+  not yet run against any real environment) → deploy this branch's code. Deploying the code before
+  the migration script runs 404s every currently-published image and document on the live public
+  site, not just new uploads — the public queries ask a bucket the file hasn't been copied into
+  yet. The old `public-media`/`public-documents` pair stays in
+  `supabase/baseline/0000_baseline_2026-07-23.sql` only until a future cleanup plan removes it
+  once every environment has migrated.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a

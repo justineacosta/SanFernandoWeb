@@ -93,9 +93,9 @@ export async function cleanupPromotedMedia(
 
 /**
  * Called after a record's status has already flipped away from "published"
- * — specifically, only when archiving something that WAS published (see the
- * publish/archive wiring plan for exactly which transitions call this).
- * Copies every path back from `<kind>-media` to `<kind>-drafts`. Best-effort:
+ * — on any transition that leaves published (archive, or a direct
+ * published → draft/in-review write), not only archiving. Copies every
+ * path back from `<kind>-media` to `<kind>-drafts`. Best-effort:
  * the row is already excluded from public listings by its status regardless
  * of whether this fully succeeds, so a failure is logged, not surfaced to
  * the user whose archive action already committed.

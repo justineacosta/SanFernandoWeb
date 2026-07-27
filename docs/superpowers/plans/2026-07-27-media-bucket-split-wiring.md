@@ -110,8 +110,10 @@ above, and it is new information this plan did not originally call out
 loudly enough. Whoever merges and deploys this branch (staging first, per
 this project's migration discipline) must run the migration script as part
 of that same deploy window, before or immediately after applying migration
-`0028`, and before traffic hits the updated code — see the Risk section at
-the end of this plan.
+`0028`, and before traffic hits the updated code. This requirement is
+restated in `CLAUDE.md`'s media-bucket-split bullet and in
+`docs/BACKEND_HANDOFF.md`, since a plan document is not where a deployer
+looks — those two are.
 
 ---
 
