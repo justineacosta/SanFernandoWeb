@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { AchievementValues } from "@/types";
+import type { AchievementValues, ContentStatus } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { PUBLIC_MEDIA_BUCKET } from "@/lib/storage";
+import { bucketForStatus } from "@/lib/storage";
 
 export interface ActionResult {
   error: string | null;
@@ -218,6 +218,13 @@ export async function deleteAchievement(id: string): Promise<ActionResult> {
     .maybeSingle();
   if (!existing) return { error: null }; // already gone
 
+  const { data: officialRow } = await admin
+    .from("officials")
+    .select("status")
+    .eq("id", existing.official_id as string)
+    .maybeSingle();
+  const officialStatus = (officialRow?.status as ContentStatus) ?? "archived";
+
   const { data: photos } = await admin
     .from("official_achievement_photos")
     .select("src")
@@ -235,7 +242,9 @@ export async function deleteAchievement(id: string): Promise<ActionResult> {
   // deleted ahead of a failed row delete would leave a live photo row
   // pointing at nothing.
   if (paths.length > 0) {
-    const { error: removeErr } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove(paths);
+    const { error: removeErr } = await admin.storage
+      .from(bucketForStatus("officials", officialStatus))
+      .remove(paths);
     if (removeErr) {
       // A failed cleanup must not fail the delete the user just made, but the
       // orphans it leaves are invisible otherwise — log the paths for a human.

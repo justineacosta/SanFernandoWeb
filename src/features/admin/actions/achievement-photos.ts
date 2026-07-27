@@ -2,17 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { GalleryPhoto } from "@/types";
+import type { ContentStatus, GalleryPhoto } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_IMAGE_BYTES,
-  PUBLIC_MEDIA_BUCKET,
   achievementPhotoPath,
+  bucketForStatus,
   extForType,
-  photoUrl,
+  mediaUrl,
 } from "@/lib/storage";
 
 export interface ActionResult {
@@ -33,6 +33,25 @@ async function currentPhotos(admin: Admin, achievementId: string) {
     .eq("achievement_id", achievementId)
     .order("sort_order", { ascending: true });
   return data ?? [];
+}
+
+/** The status of the official that owns this achievement — decides the bucket. */
+async function officialStatusForAchievement(
+  admin: Admin,
+  achievementId: string,
+): Promise<ContentStatus | null> {
+  const { data: achievement } = await admin
+    .from("official_achievements")
+    .select("official_id")
+    .eq("id", achievementId)
+    .maybeSingle();
+  if (!achievement) return null;
+  const { data: official } = await admin
+    .from("officials")
+    .select("status")
+    .eq("id", achievement.official_id as string)
+    .maybeSingle();
+  return (official?.status as ContentStatus) ?? null;
 }
 
 /** Achievements render only on the owning official's profile page. */
@@ -70,6 +89,9 @@ export async function uploadAchievementPhotos(
     .maybeSingle();
   if (!achievement) return { error: "Achievement not found.", photos: [] };
 
+  const officialStatus = await officialStatusForAchievement(admin, achievementId);
+  if (!officialStatus) return { error: "Achievement not found.", photos: [] };
+
   const files = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return { error: "Choose at least one photo.", photos: [] };
 
@@ -93,7 +115,7 @@ export async function uploadAchievementPhotos(
     const path = achievementPhotoPath(achievementId, extForType(file.type));
     const buffer = Buffer.from(await file.arrayBuffer());
     const { error: upErr } = await admin.storage
-      .from(PUBLIC_MEDIA_BUCKET)
+      .from(bucketForStatus("officials", officialStatus))
       .upload(path, buffer, { contentType: file.type, upsert: false });
     if (upErr) return { error: "Upload failed. Try again.", photos: [] };
     sortOrder += 1;
@@ -115,7 +137,7 @@ export async function uploadAchievementPhotos(
     error: null,
     photos: refreshed.map((p) => ({
       id: p.id as string,
-      src: photoUrl(p.src as string),
+      src: mediaUrl(bucketForStatus("officials", officialStatus), p.src as string),
       alt: p.alt as string,
     })),
   };
@@ -199,6 +221,8 @@ export async function removeAchievementPhoto(photoId: string): Promise<ActionRes
     .maybeSingle();
   if (!photo) return { error: null }; // already gone
 
+  const officialStatus = await officialStatusForAchievement(admin, photo.achievement_id as string);
+
   const { error } = await admin
     .from("official_achievement_photos")
     .delete()
@@ -210,7 +234,7 @@ export async function removeAchievementPhoto(photoId: string): Promise<ActionRes
   // own, never a remote URL.
   if (!/^https?:\/\//i.test(photo.src as string)) {
     const { error: removeErr } = await admin.storage
-      .from(PUBLIC_MEDIA_BUCKET)
+      .from(bucketForStatus("officials", officialStatus ?? "archived"))
       .remove([photo.src as string]);
     if (removeErr) {
       // A failed cleanup must not fail the removal the user just made, but the

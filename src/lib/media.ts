@@ -1,15 +1,18 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { ContentStatus } from "@/types";
 import {
   ALLOWED_IMAGE_TYPES,
+  AVATARS_MEDIA_BUCKET,
   FEEDBACK_MEDIA_BUCKET,
   MAX_IMAGE_BYTES,
   MAX_SCREENSHOT_BYTES,
-  PUBLIC_MEDIA_BUCKET,
+  SITE_MEDIA_BUCKET,
+  bucketForStatus,
   extForType,
   feedbackScreenshotPath,
-  photoUrl,
+  mediaUrl,
 } from "@/lib/storage";
 
 /**
@@ -53,6 +56,17 @@ export interface UploadResult {
 export type ImageFolder = "announcements" | "events" | "officials" | "site" | "avatars";
 
 /**
+ * `"site"`/`"avatars"` have no draft/published split (Save writes live for
+ * both), so `status` is ignored for them — callers pass `null`. The other
+ * three folders share their name with a `MediaKind`.
+ */
+function bucketForUpload(folder: ImageFolder, status: ContentStatus | null): string {
+  if (folder === "site") return SITE_MEDIA_BUCKET;
+  if (folder === "avatars") return AVATARS_MEDIA_BUCKET;
+  return bucketForStatus(folder, status ?? "draft");
+}
+
+/**
  * Upload one image for a single-slot field (announcement image, event cover,
  * official portrait). Persisting the returned `src` is the caller's job, and so
  * is deleting the object if the row write then fails — see the `fail()` helper
@@ -65,6 +79,7 @@ export type ImageFolder = "announcements" | "events" | "officials" | "site" | "a
  */
 export async function uploadSingleImage(
   folder: ImageFolder,
+  status: ContentStatus | null,
   file: File,
 ): Promise<UploadResult> {
   if (file.size === 0) return { error: "Choose an image.", src: null, url: null };
@@ -75,27 +90,25 @@ export async function uploadSingleImage(
     return { error: "The image must be 2 MB or smaller.", src: null, url: null };
   }
 
+  const bucket = bucketForUpload(folder, status);
   const path = `${folder}/${crypto.randomUUID()}.${extForType(file.type)}`;
   const buffer = Buffer.from(await file.arrayBuffer());
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage
-    .from(PUBLIC_MEDIA_BUCKET)
+    .from(bucket)
     .upload(path, buffer, { contentType: file.type, upsert: false });
   if (error) return { error: "Upload failed. Try again.", src: null, url: null };
 
-  return { error: null, src: path, url: photoUrl(path) };
+  return { error: null, src: path, url: mediaUrl(bucket, path) };
 }
 
 /** Delete an owned storage object. A remote seed URL is left alone. */
-export async function removeStoredImage(src: string): Promise<ActionResult> {
+export async function removeStoredImage(
+  folder: ImageFolder,
+  status: ContentStatus | null,
+  src: string,
+): Promise<ActionResult> {
   if (/^https?:\/\//i.test(src)) return { error: null };
-  // Every owned path is `<folder>/<uuid>.<ext>` written by this module or by
-  // newsPhotoPath/achievementPhotoPath. Reject anything else — and any `..`
-  // segment — rather than handing an arbitrary string to storage.remove().
-  // `site/` covers both shapes the CMS stores: `site/<uuid>.<ext>` written by
-  // uploadSingleImage, and the deterministic seed paths (site/hero-*.jpg)
-  // scripts/upload-site-images.mjs populates. Leaving it out of this allow-list
-  // would silently turn every replaced carousel photo into a logged orphan.
   if (!/^(announcements|events|officials|news|achievements|site|avatars)\//.test(src)) {
     return { error: "That image cannot be removed." };
   }
@@ -104,7 +117,7 @@ export async function removeStoredImage(src: string): Promise<ActionResult> {
   }
 
   const admin = createSupabaseAdminClient();
-  const { error } = await admin.storage.from(PUBLIC_MEDIA_BUCKET).remove([src]);
+  const { error } = await admin.storage.from(bucketForUpload(folder, status)).remove([src]);
   if (error) return { error: "Could not remove the image." };
   return { error: null };
 }
@@ -118,9 +131,14 @@ export async function removeStoredImage(src: string): Promise<ActionResult> {
  * could not be tidied would be both untrue and unactionable. The orphan is
  * invisible otherwise, so the path is logged for a human.
  */
-export async function discardImage(src: string | null, context: string): Promise<void> {
+export async function discardImage(
+  folder: ImageFolder,
+  status: ContentStatus | null,
+  src: string | null,
+  context: string,
+): Promise<void> {
   if (!src) return;
-  const { error } = await removeStoredImage(src);
+  const { error } = await removeStoredImage(folder, status, src);
   if (error) console.error(`Orphaned storage object (${context}): ${src}`);
 }
 

@@ -8,8 +8,9 @@ import { guardDelete, statusPatch } from "@/lib/archive";
 import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getOfficialForEdit } from "@/features/admin/queries/officials";
-import { PUBLIC_MEDIA_BUCKET } from "@/lib/storage";
+import { draftBucketFor } from "@/lib/storage";
 import { discardImage, removeStoredImage, uploadSingleImage } from "@/lib/media";
+import { cleanupPromotedMedia, demoteMedia, promoteMedia } from "@/lib/media-lifecycle";
 
 export interface ActionResult {
   error: string | null;
@@ -118,19 +119,35 @@ export async function saveOfficial(
   const base = slugify(parsed.data.name);
   if (!base) return { error: "Enter a name with letters or numbers.", id: null };
 
+  // The upload target depends on the record's CURRENT status (design: "if
+  // it's already published, new files upload straight into <kind>-media").
+  // For a brand-new official there is no current status yet — it will be
+  // created as "draft", so that's what a new portrait uploads against.
+  let currentStatus: ContentStatus = "draft";
+  if (id) {
+    const { data: statusRow, error: statusErr } = await admin
+      .from("officials")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (statusErr) return { error: "Could not save the official.", id: null };
+    if (!statusRow) return { error: "Official not found.", id: null };
+    currentStatus = statusRow.status as ContentStatus;
+  }
+
   // Upload first, then compensate on any later failure — see saveAnnouncement.
   const incoming = portraitForm.get("image");
   const removePortrait = portraitForm.get("removeImage") === "1";
   let uploadedPath: string | null = null;
   if (incoming instanceof File && incoming.size > 0) {
-    const uploaded = await uploadSingleImage("officials", incoming);
+    const uploaded = await uploadSingleImage("officials", currentStatus, incoming);
     if (uploaded.error) return { error: uploaded.error, id: null };
     uploadedPath = uploaded.src;
   }
 
   async function fail(error: string): Promise<SaveResult> {
     if (uploadedPath) {
-      const removed = await removeStoredImage(uploadedPath);
+      const removed = await removeStoredImage("officials", currentStatus, uploadedPath);
       if (removed.error) {
         console.error(`Orphaned storage object (compensating delete failed): ${uploadedPath}`);
       }
@@ -196,7 +213,7 @@ export async function saveOfficial(
     // portrait. A remote URL is left alone by removeStoredImage.
     const oldPath = existing.photo_path as string | null;
     if (oldPath && oldPath !== nextPhotoPath) {
-      await discardImage(oldPath, "portrait replaced");
+      await discardImage("officials", currentStatus, oldPath, "portrait replaced");
     }
 
     await recordActivity(actor, {
@@ -261,21 +278,46 @@ export async function setOfficialStatus(
   const admin = createSupabaseAdminClient();
   const { data: existing, error: readErr } = await admin
     .from("officials")
-    .select("name, slug, photo_path, photo_alt, published_at")
+    .select("name, slug, status, photo_path, photo_alt, published_at")
     .eq("id", id)
     .maybeSingle();
   if (readErr || !existing) return { error: "Official not found." };
 
-  // The public card and profile both lead with the portrait; publishing
-  // without one would render a broken image on the directory.
+  const previousStatus = existing.status as ContentStatus;
+
   if (nextStatus === "published" && !existing.photo_path) {
     return { error: "Add a portrait before publishing this official." };
   }
-  // A government site cannot ship an empty alt attribute on the portrait.
   if (nextStatus === "published" && !(existing.photo_alt as string | null)?.trim()) {
     return {
       error: "Add a description (alt text) for the portrait before publishing this official.",
     };
+  }
+
+  // Achievement photos ride on the parent official's status — moved as one
+  // batch alongside the portrait, never independently.
+  const { data: achievements } = await admin
+    .from("official_achievements")
+    .select("id")
+    .eq("official_id", id);
+  const achievementIds = (achievements ?? []).map((a) => a.id as string);
+  let achievementPhotoPaths: string[] = [];
+  if (achievementIds.length > 0) {
+    const { data: photos } = await admin
+      .from("official_achievement_photos")
+      .select("src")
+      .in("achievement_id", achievementIds);
+    achievementPhotoPaths = (photos ?? []).map((p) => p.src as string);
+  }
+  const portraitPath = existing.photo_path as string | null;
+  const allPaths = portraitPath ? [portraitPath, ...achievementPhotoPaths] : achievementPhotoPaths;
+
+  const promotingNow = nextStatus === "published" && previousStatus !== "published";
+  if (promotingNow) {
+    const promoted = await promoteMedia("officials", allPaths);
+    if (promoted.error) {
+      return { error: "Could not publish the official's photos. Try again." };
+    }
   }
 
   const patch = statusPatch(actor, nextStatus);
@@ -285,6 +327,13 @@ export async function setOfficialStatus(
 
   const { error } = await admin.from("officials").update(patch).eq("id", id);
   if (error) return { error: "Could not update the official." };
+
+  if (promotingNow) {
+    await cleanupPromotedMedia("officials", allPaths, "official published");
+  }
+  if (nextStatus === "archived" && previousStatus === "published") {
+    await demoteMedia("officials", allPaths, "official archived");
+  }
 
   await recordActivity(actor, {
     type: auditTypeForStatus(nextStatus),
@@ -339,7 +388,7 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
 
   if (achievementPhotoPaths.length > 0) {
     const { error: removeErr } = await admin.storage
-      .from(PUBLIC_MEDIA_BUCKET)
+      .from(draftBucketFor("officials"))
       .remove(achievementPhotoPaths);
     if (removeErr) {
       // A failed cleanup must not fail the delete the user just made, but the
@@ -351,7 +400,7 @@ export async function deleteOfficial(id: string): Promise<ActionResult> {
   }
 
   if (existing.photo_path) {
-    const removed = await removeStoredImage(existing.photo_path);
+    const removed = await removeStoredImage("officials", "archived", existing.photo_path);
     if (removed.error) {
       console.error(`Orphaned storage object (portrait cleanup failed): ${existing.photo_path}`);
     }

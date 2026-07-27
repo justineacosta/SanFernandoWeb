@@ -1,7 +1,7 @@
 import "server-only";
 import type { OfficialDetail, OfficialGroup, OfficialListItem, PublicAchievement } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { photoUrl } from "@/lib/storage";
+import { mediaUrl, publicBucketFor } from "@/lib/storage";
 
 // `group` is a SQL reserved word — it must stay quoted in PostgREST selects.
 const LIST_COLUMNS =
@@ -32,7 +32,7 @@ function toListItem(row: OfficialRow): OfficialListItem {
     badge: row.badge,
     // Non-null by construction: the queries below exclude rows without a
     // portrait, and publishing requires one.
-    photoUrl: photoUrl(row.photo_path as string),
+    photoUrl: mediaUrl(publicBucketFor("officials"), row.photo_path as string),
     photoAlt: row.photo_alt,
     email: row.email,
     phone: row.phone,
@@ -129,7 +129,11 @@ export async function getPublishedOfficialBySlug(slug: string): Promise<Official
       dateLabel: achievement.date_label,
       photos: [...(achievement.official_achievement_photos ?? [])]
         .sort((a, b) => a.sort_order - b.sort_order)
-        .map((photo) => ({ id: photo.id, src: photoUrl(photo.src), alt: photo.alt })),
+        .map((photo) => ({
+          id: photo.id,
+          src: mediaUrl(publicBucketFor("officials"), photo.src),
+          alt: photo.alt,
+        })),
     }));
 
   return {
