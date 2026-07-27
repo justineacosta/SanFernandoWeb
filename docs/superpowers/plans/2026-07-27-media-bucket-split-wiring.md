@@ -1089,18 +1089,24 @@ In `deleteAnnouncement`, replace `await discardImage(existing.image_src,
 
 - [ ] **Step 3: Fix the public announcements query**
 
-In `src/features/announcements/queries.ts`, this file's import line
+In `src/features/announcements/queries.ts`, this file's import line is shared
+with Task 4 (the news-related functions in this same file still call
+`photoUrl` until that task lands). Change it **additively** — keep `photoUrl`
+so the file still compiles regardless of which of Tasks 3/4 lands first —
+from:
 
 ```ts
 import { photoUrl } from "@/lib/storage";
 ```
 
-is shared with Task 4 (the news-related functions in this same file). Change
-it to:
+to:
 
 ```ts
-import { mediaUrl, publicBucketFor } from "@/lib/storage";
+import { mediaUrl, photoUrl, publicBucketFor } from "@/lib/storage";
 ```
+
+(Task 4 is the one that removes `photoUrl` from this line, once its own
+edits are the last thing in the file still calling it.)
 
 In `toAnnouncement`, replace:
 
@@ -1115,20 +1121,16 @@ with:
 ```
 
 Leave `toListItem`'s `photoUrl(cover.src)` call (the news-kind function in
-this same file) for Task 4 to change — if Task 4 has not yet landed when this
-task is worked, that line will fail to compile against the new import; Tasks
-3 and 4 both touch this one file's import line and must not be executed out
-of order in isolation from each other (note this dependency to whoever
-schedules the tasks — see Task 4's own note). `src/features/admin/queries/
-announcements.ts` is left untouched.
+this same file) for Task 4 to change — `photoUrl` stays imported (see Step 3)
+so this line keeps compiling regardless of task order. `src/features/admin/
+queries/announcements.ts` is left untouched.
 
 - [ ] **Step 4: Typecheck and lint**
 
 Run: `npm run typecheck && npm run lint`
-Expected: both clean once Task 4 has also landed (see note above) — if
-working task-by-task with review gates, land Task 4 immediately alongside
-this one, or merge their edits to `src/features/announcements/queries.ts`
-into a single commit.
+Expected: both clean — this task is self-contained regardless of whether
+Task 4 has landed yet, because Step 3 keeps `photoUrl` imported for the
+news-kind functions this task doesn't touch.
 
 - [ ] **Step 5: Commit**
 
@@ -1551,9 +1553,11 @@ them untouched.
 
 - [ ] **Step 3: Fix the public news queries**
 
-In `src/features/announcements/queries.ts` (shared with Task 3 — see that
-task's note on the import line), in `toListItem` (the news-kind one, near the
-top of the file), replace:
+In `src/features/announcements/queries.ts` (shared with Task 3, which already
+changed the import line to `import { mediaUrl, photoUrl, publicBucketFor }
+from "@/lib/storage";` — if Task 3 has not landed yet when this task is
+worked, make that same import change here first). In `toListItem` (the
+news-kind one, near the top of the file), replace:
 
 ```ts
     coverSrc: cover ? photoUrl(cover.src) : null,
@@ -1584,10 +1588,20 @@ with:
 (Both functions already filter `.eq("status", "published")`.)
 `src/features/admin/queries/news.ts` is left untouched.
 
+Once these two edits land, check whether `photoUrl` is still referenced
+anywhere else in `src/features/announcements/queries.ts` (it is used only by
+these two news functions and Task 3's `toAnnouncement` — Task 3 already moved
+`toAnnouncement` off it). If Task 3 has already landed, `photoUrl` is now
+unused in this file — drop it from the import line (`import { mediaUrl,
+publicBucketFor } from "@/lib/storage";`). If Task 3 has not landed yet,
+leave `photoUrl` in the import for Task 3's still-unconverted `toAnnouncement`
+to keep using, and let Task 3 be the one to drop it once it lands.
+
 - [ ] **Step 4: Typecheck and lint**
 
 Run: `npm run typecheck && npm run lint`
-Expected: both clean.
+Expected: both clean — this task is self-contained regardless of task order,
+per the import-line handling above.
 
 - [ ] **Step 5: Commit**
 
@@ -1903,7 +1917,11 @@ await removeStoredDocument("legislative", "archived", existing.file_path);`
 
 - [ ] **Step 3: Fix the public legislative queries**
 
-In `src/features/transparency/queries.ts`, update the import:
+In `src/features/transparency/queries.ts`, this file's import line is shared
+with Task 6 (`filesByOwner` and `allUploadItems`'s legislative-file inline
+construction still call `documentUrl` until that task lands). Change it
+**additively** — keep `documentUrl` so the file still compiles regardless of
+which of Tasks 5/6 lands first — from:
 
 ```ts
 import { documentUrl } from "@/lib/storage";
@@ -1912,12 +1930,11 @@ import { documentUrl } from "@/lib/storage";
 to:
 
 ```ts
-import { mediaUrl, publicBucketFor } from "@/lib/storage";
+import { documentUrl, mediaUrl, publicBucketFor } from "@/lib/storage";
 ```
 
-(`filesByOwner`, touched by Task 6, uses the same import line — see that
-task's note; land Task 5 and Task 6 together for the same reason Tasks 3/4
-must land together.)
+(Task 6 is the one that removes `documentUrl` from this line, once its own
+edits are the last thing in the file still calling it.)
 
 In `toListItem` (the legislative one, near the top), replace:
 
@@ -1940,8 +1957,9 @@ functions are left untouched.
 - [ ] **Step 4: Typecheck and lint**
 
 Run: `npm run typecheck && npm run lint`
-Expected: clean once Task 6 has also landed (shared import line in
-`transparency/queries.ts`, same caveat as Tasks 3/4).
+Expected: both clean — this task is self-contained regardless of whether
+Task 6 has landed yet, because Step 3 keeps `documentUrl` imported for the
+functions this task doesn't touch.
 
 - [ ] **Step 5: Commit**
 
@@ -2157,10 +2175,10 @@ with `await removeStoredDocument("transparency", "archived", f.path);`.
 
 - [ ] **Step 3: Fix the public transparency queries**
 
-In `src/features/transparency/queries.ts` (shared import line with Task 5 —
-already changed to `import { mediaUrl, publicBucketFor } from
-"@/lib/storage";` by that task; if Task 6 is worked first, make that same
-import change here instead), replace `toFile`:
+In `src/features/transparency/queries.ts` (shared import line with Task 5,
+which already changed it to `import { documentUrl, mediaUrl, publicBucketFor
+} from "@/lib/storage";` — if Task 5 has not landed yet when this task is
+worked, make that same import change here first), replace `toFile`:
 
 ```ts
 function toFile(row: FileRow, index: number): TransparencyFile {
@@ -2212,10 +2230,19 @@ merges all three published-only sources, so it needs both bucket names.)
 `src/features/admin/queries/transparency.ts`'s document/project functions are
 left untouched.
 
+This task's two edits are `documentUrl`'s only remaining call sites in this
+file once Task 5 has landed (Task 5's `toListItem` was the other one). If
+Task 5 has already landed, `documentUrl` is now unused — drop it from the
+import line (`import { mediaUrl, publicBucketFor } from "@/lib/storage";`).
+If Task 5 has not landed yet, leave `documentUrl` in the import for Task 5's
+still-unconverted `toListItem` to keep using, and let Task 5 be the one to
+drop it once it lands.
+
 - [ ] **Step 4: Typecheck and lint**
 
 Run: `npm run typecheck && npm run lint`
-Expected: clean (with Task 5 landed, per the shared-file caveat).
+Expected: both clean — this task is self-contained regardless of task order,
+per the import-line handling above.
 
 - [ ] **Step 5: Commit**
 
@@ -2452,15 +2479,15 @@ context)` are called with the exact signatures Plan 1 shipped in
 not just the plan that built it) throughout Tasks 1–6.
 
 **Cross-task file overlap:** `src/features/announcements/queries.ts` is
-touched by both Task 3 (announcements) and Task 4 (news) — both change the
-same `import { photoUrl } ...` line. `src/features/transparency/queries.ts`
-is touched by both Task 5 (legislative) and Task 6 (transparency documents/
-projects) — same overlap. Both pairs are called out explicitly in the
-affected tasks with a instruction to land them together (in the same commit,
-or as sequential subagent tasks reviewed back-to-back) rather than treating
-either half as independently mergeable — a partial edit to either file's
-import line would fail typecheck for the other half's still-old
-`photoUrl`/`documentUrl` calls.
+touched by both Task 3 (announcements) and Task 4 (news); `src/features/
+transparency/queries.ts` is touched by both Task 5 (legislative) and Task 6
+(transparency documents/projects). Each pair's *first*-landed task changes
+its shared import line **additively** (keeping the old helper alongside the
+new ones) so the file compiles regardless of which task runs first or
+whether they're reviewed as separate subagent dispatches; the *second*-landed
+task in each pair drops the now-fully-unused old helper from the import. Both
+tasks in each pair are independently typecheck-clean and independently
+reviewable — no ordering constraint, no "must land in the same commit."
 
 **Scope check:** This plan produces a fully working, typecheck-and-lint-clean
 application at the end of every task (not just the end of the plan), with
