@@ -148,7 +148,14 @@ export function SingleImageUploader({
       {showExisting && existingPreviewUrl ? (
         <div className="flex items-start gap-3">
           <div className={previewBox}>
-            <Image src={existingPreviewUrl} alt={alt} fill sizes="128px" className="object-cover" />
+            <Image
+              src={existingPreviewUrl}
+              alt={alt}
+              fill
+              sizes="128px"
+              className="object-cover"
+              unoptimized
+            />
           </div>
           <div className="space-y-1">
             <button

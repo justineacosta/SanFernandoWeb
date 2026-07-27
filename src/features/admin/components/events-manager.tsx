@@ -314,6 +314,7 @@ export function EventsManager({ events, isSuperAdmin }: EventsManagerProps) {
                               fill
                               sizes="64px"
                               className="object-cover"
+                              unoptimized
                             />
                           </div>
                         ) : null}

@@ -458,6 +458,7 @@ export function NewsManager({ articles, announcements, categories, isSuperAdmin 
                         fill
                         sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
                         className="object-cover"
+                        unoptimized
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center text-ink-400">
@@ -530,6 +531,7 @@ export function NewsManager({ articles, announcements, categories, isSuperAdmin 
                       fill
                       sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
                       className="object-cover"
+                      unoptimized
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-ink-400">

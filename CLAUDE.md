@@ -148,7 +148,7 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   and `scripts/upload-site-images.mjs`/`scripts/upload-official-portraits.mjs` seed to
   `site-media`/`officials-media` respectively (no longer `public-media`). `PUBLIC_MEDIA_BUCKET`/
   `PUBLIC_DOCUMENTS_BUCKET`/`photoUrl`/`documentUrl` are retired from the admin portal — the
-  2026-07-28 signed-preview plan (`docs/superpowers/sdd/2026-07-28-media-signed-preview-plan/`)
+  2026-07-28 signed-preview plan (`docs/superpowers/plans/2026-07-28-media-signed-preview-plan.md`)
   replaced every remaining call site with `resolveMediaUrl`/`resolveMediaUrls`/
   `resolveMediaUrlsForList` (detailed below); `photoUrl`/`documentUrl` remain defined in
   `src/lib/storage.ts` but nothing outside that module calls them anymore. **`src/lib/storage.ts`**:
@@ -200,6 +200,20 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   from this state. The old `public-media`/`public-documents` pair stays in
   `supabase/baseline/0000_baseline_2026-07-23.sql` only until a future cleanup plan removes it
   once every environment has migrated — staging's old buckets have not been deleted yet.
+  **A final whole-branch review of the signed-preview plan (same day) found the wiring above was
+  still broken end-to-end for four of the six content types:** `next.config.ts` only allow-lists
+  `next/image`'s remote-pattern check for `/storage/v1/object/public/**`, and a signed URL's path
+  is `/storage/v1/object/sign/**` — every `<Image>` that can now receive one (officials/events/
+  announcements/news thumbnails and edit-drawer previews; legislative and transparency were
+  unaffected, they render links, not `<Image>`) would 400 in production and throw in dev. Fixed by
+  adding the `unoptimized` prop to all seven call sites (`single-image-uploader.tsx`,
+  `officials-manager.tsx`, `events-manager.tsx`, `news-manager.tsx` ×2, `achievement-photo-
+  uploader.tsx`, `news-photo-uploader.tsx`) rather than allow-listing the signed-URL path pattern —
+  same rationale `feedback-drawer.tsx` already documented for its plain `<img>`: a URL expiring in
+  ten minutes has nothing worth caching or optimizing. The same review found `src/lib/media.ts`'s
+  `uploadSingleImage` had the identical disguised bug in its returned (uncalled) `url` field —
+  built via `mediaUrl(bucket, path)` where `bucket` can be a private `-drafts` bucket — fixed to
+  `resolveMediaUrl` the same way `documents.ts`'s `uploadDocumentPdf` already was.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a

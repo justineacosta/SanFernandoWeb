@@ -14,6 +14,7 @@ import {
   feedbackScreenshotPath,
   mediaUrl,
 } from "@/lib/storage";
+import { resolveMediaUrl } from "@/lib/media-lifecycle";
 
 /**
  * NOT a "use server" module, and deliberately NOT audited. It moved here from
@@ -99,7 +100,15 @@ export async function uploadSingleImage(
     .upload(path, buffer, { contentType: file.type, upsert: false });
   if (error) return { error: "Upload failed. Try again.", src: null, url: null };
 
-  return { error: null, src: path, url: mediaUrl(bucket, path) };
+  // "site"/"avatars" have no draft state (always public); the other three
+  // folders share their name with a MediaKind and can be `-drafts`-bucketed,
+  // so resolving must go through resolveMediaUrl to sign a URL when the
+  // record isn't published — mirroring documents.ts's uploadDocumentPdf.
+  const url =
+    folder === "site" || folder === "avatars"
+      ? mediaUrl(bucket, path)
+      : await resolveMediaUrl(folder, status ?? "draft", path);
+  return { error: null, src: path, url };
 }
 
 /** Delete an owned storage object. A remote seed URL is left alone. */

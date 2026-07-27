@@ -164,6 +164,7 @@ export function AchievementPhotoUploader({
                     fill
                     sizes="100px"
                     className="object-cover"
+                    unoptimized
                   />
                 </div>
                 <div className="flex items-center justify-between gap-1 p-1">

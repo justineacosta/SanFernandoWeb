@@ -180,7 +180,14 @@ export function NewsPhotoUploader({
             <li key={p.id} className="space-y-1.5">
               <div className="relative overflow-hidden rounded-2xl bg-ink-100">
                 <div className="relative aspect-square">
-                  <Image src={p.src} alt={p.alt} fill sizes="120px" className="object-cover" />
+                  <Image
+                    src={p.src}
+                    alt={p.alt}
+                    fill
+                    sizes="120px"
+                    className="object-cover"
+                    unoptimized
+                  />
                 </div>
                 <div className="flex items-center justify-between gap-1 p-1">
                   <button type="button" onClick={() => move(i, -1)} disabled={i === 0 || busy} aria-label={`Move photo ${i + 1} up`} className="rounded p-1 text-ink-600 hover:bg-white disabled:opacity-30">
