@@ -393,7 +393,13 @@ export async function archiveNewsArticle(id: string): Promise<ActionResult> {
   if (!result) return { error: "This article is no longer in a state that allows that action." };
 
   if (wasPublished) {
-    const { data: photos } = await admin.from("news_photos").select("src").eq("article_id", id);
+    const { data: photos, error: photosErr } = await admin
+      .from("news_photos")
+      .select("src")
+      .eq("article_id", id);
+    if (photosErr) {
+      console.error(`Could not read photos to demote for archived article ${id}: ${photosErr.message}`);
+    }
     const paths = (photos ?? []).map((p) => p.src as string);
     if (paths.length > 0) {
       await demoteMedia("news", paths, "news article archived");

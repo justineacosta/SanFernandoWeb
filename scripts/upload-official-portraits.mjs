@@ -1,5 +1,5 @@
 // One-time migration helper (Plan 6): push the 12 bundled official portraits
-// to the `public-media` bucket at the deterministic paths seeded by
+// to the `officials-media` bucket at the deterministic paths seeded by
 // supabase/migrations/0012_officials.sql.
 //
 // Run BEFORE applying 0012 so the objects exist when the rows land:
@@ -49,7 +49,7 @@ let failed = 0;
 for (const [filename, path, contentType] of PORTRAITS) {
   const body = await readFile(join("src", "images", "officials", filename));
   const { error } = await supabase.storage
-    .from("public-media")
+    .from("officials-media")
     .upload(path, body, { contentType, upsert: true });
   if (error) {
     console.error(`FAIL ${path}: ${error.message}`);

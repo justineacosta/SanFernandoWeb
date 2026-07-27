@@ -296,17 +296,19 @@ export async function setOfficialStatus(
 
   // Achievement photos ride on the parent official's status — moved as one
   // batch alongside the portrait, never independently.
-  const { data: achievements } = await admin
+  const { data: achievements, error: achievementsErr } = await admin
     .from("official_achievements")
     .select("id")
     .eq("official_id", id);
+  if (achievementsErr) return { error: "Could not read the official's achievements. Try again." };
   const achievementIds = (achievements ?? []).map((a) => a.id as string);
   let achievementPhotoPaths: string[] = [];
   if (achievementIds.length > 0) {
-    const { data: photos } = await admin
+    const { data: photos, error: photosErr } = await admin
       .from("official_achievement_photos")
       .select("src")
       .in("achievement_id", achievementIds);
+    if (photosErr) return { error: "Could not read the official's achievement photos. Try again." };
     achievementPhotoPaths = (photos ?? []).map((p) => p.src as string);
   }
   const portraitPath = existing.photo_path as string | null;
@@ -331,8 +333,8 @@ export async function setOfficialStatus(
   if (promotingNow) {
     await cleanupPromotedMedia("officials", allPaths, "official published");
   }
-  if (nextStatus === "archived" && previousStatus === "published") {
-    await demoteMedia("officials", allPaths, "official archived");
+  if (previousStatus === "published" && nextStatus !== "published") {
+    await demoteMedia("officials", allPaths, "official left published status");
   }
 
   await recordActivity(actor, {

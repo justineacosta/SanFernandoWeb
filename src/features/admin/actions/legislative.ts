@@ -361,8 +361,8 @@ export async function setLegislativeStatus(
   if (promotingNow && filePath) {
     await cleanupPromotedMedia("legislative", [filePath], "document published");
   }
-  if (nextStatus === "archived" && previousStatus === "published" && filePath) {
-    await demoteMedia("legislative", [filePath], "document archived");
+  if (previousStatus === "published" && nextStatus !== "published" && filePath) {
+    await demoteMedia("legislative", [filePath], "document left published status");
   }
 
   await recordActivity(actor, {

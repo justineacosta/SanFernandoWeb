@@ -200,11 +200,12 @@ export async function setTransparencyProjectStatus(
 
   const previousStatus = existing.status as ContentStatus;
 
-  const { data: fileRows } = await admin
+  const { data: fileRows, error: fileRowsErr } = await admin
     .from("transparency_files")
     .select("path")
     .eq("owner_type", "project")
     .eq("owner_id", id);
+  if (fileRowsErr) return { error: "Could not read the project's files. Try again." };
   const paths = (fileRows ?? []).map((f) => f.path as string);
 
   const promotingNow = nextStatus === "published" && previousStatus !== "published";
@@ -224,8 +225,8 @@ export async function setTransparencyProjectStatus(
   if (promotingNow && paths.length > 0) {
     await cleanupPromotedMedia("transparency", paths, "transparency project published");
   }
-  if (nextStatus === "archived" && previousStatus === "published" && paths.length > 0) {
-    await demoteMedia("transparency", paths, "transparency project archived");
+  if (previousStatus === "published" && nextStatus !== "published" && paths.length > 0) {
+    await demoteMedia("transparency", paths, "transparency project left published status");
   }
 
   await recordActivity(actor, {
