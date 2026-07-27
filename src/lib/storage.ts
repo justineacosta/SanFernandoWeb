@@ -1,3 +1,5 @@
+import type { ContentStatus } from "@/types";
+
 export const PUBLIC_MEDIA_BUCKET = "public-media";
 
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -25,7 +27,53 @@ export const ALLOWED_AVATAR_SOURCE_TYPES = ["image/jpeg", "image/png"] as const;
 /** Side of the square every avatar is normalised to, in pixels. */
 export const AVATAR_OUTPUT_PX = 512;
 
+/**
+ * The six content types with a draft → in-review → published → archived
+ * lifecycle. Each gets a public/private bucket pair — see `publicBucketFor`
+ * / `draftBucketFor`. Achievement photos ride on their parent official's
+ * status and use the "officials" kind; they have no lifecycle of their own.
+ */
+export type MediaKind =
+  | "news"
+  | "officials"
+  | "events"
+  | "announcements"
+  | "legislative"
+  | "transparency";
+
+/** The world-readable bucket for a content type — published media only. */
+export function publicBucketFor(kind: MediaKind): string {
+  return `${kind}-media`;
+}
+
+/** The service-role-only bucket for a content type — draft/in-review/archived media. */
+export function draftBucketFor(kind: MediaKind): string {
+  return `${kind}-drafts`;
+}
+
+/** Which bucket a status-aware type's media currently lives in. */
+export function bucketForStatus(kind: MediaKind, status: ContentStatus): string {
+  return status === "published" ? publicBucketFor(kind) : draftBucketFor(kind);
+}
+
+/** Home/About images — Save writes live, so there is no draft state to stage. */
+export const SITE_MEDIA_BUCKET = "site-media";
+
+/** Staff avatars — own-photo-only, no review step, no draft state either. */
+export const AVATARS_MEDIA_BUCKET = "avatars-media";
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+
+/**
+ * Resolve a stored path to a public URL for a bucket that is actually
+ * public. A full remote URL (seed rows) passes through unchanged. Callers
+ * must not use this for a `-drafts` bucket — see `resolveMediaUrl` in
+ * `media-lifecycle.ts`, which signs a URL instead when the bucket is private.
+ */
+export function mediaUrl(bucket: string, path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+}
 
 /**
  * Resolve a stored image reference to a usable `next/image` src. A reference is
