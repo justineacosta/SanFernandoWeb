@@ -160,6 +160,21 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   but it must not reach a `Drawer` or `ConfirmDialog` open behind it either, and those
   listen on `document` in the bubble phase and were registered first — so the dialog
   swallows the key from capture, where `stopImmediatePropagation()` still comes first.
+  **The closed-window idle sign-out is audited too, discovered rather than witnessed:**
+  `signOutIdle` (open tab, client-driven) and the middleware idle-gate branch
+  (`src/middleware.ts`, closed tab) both end with the same `audit_log` shape — `type:
+  "logout"`, `detail: "signed out for inactivity"` — but the middleware branch has no
+  live client to call `signOutIdle` from, since discovering the expiry *is* the request
+  that trips it. It resolves the actor from the Supabase session `getUser()` already
+  returned, fetches `full_name` via the service-role admin client (`profiles` has zero
+  RLS policies, so nothing else can read it there), and calls `recordActivity` directly.
+  This is the one reason `middleware.ts` opts into `export const config = { runtime:
+  "nodejs" }` — Next 16's stable, non-experimental way to move a middleware file off the
+  Edge default — since a service-role client and an audit insert are not something to
+  assume is Edge-safe. A stale background tab hitting this branch after the real user
+  already re-authenticated elsewhere would file a second, harmless "signed out for
+  inactivity" row; not deduplicated, since two rows both being true costs less than the
+  query needed to suppress one.
 - **Request notifications are two signals, not one.** The five `requests` nav rows (six queues —
   Inquiries & Feedback sums two) get a count badge for unhandled work (rows still in their
   initial status — `pending`, `received`, or `new`, depending on the table) and the top bar's

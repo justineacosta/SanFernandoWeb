@@ -6,6 +6,8 @@ import {
   activityCookieOptions,
   hasActivityCookie,
 } from "@/lib/session-activity";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { recordActivity } from "@/lib/audit";
 
 /**
  * Next prefetches admin links on hover and on viewport entry. Those GETs must
@@ -76,6 +78,15 @@ export async function middleware(request: NextRequest) {
    * to /admin below; that GET arrives here without a cookie, clears the
    * session, and returns to /admin/login — where `user` is now null and the
    * page simply renders.
+   *
+   * This is also the closed-window path's only audit hook: <IdleTimeout />
+   * logs the open-tab case itself via signOutIdle, but a tab that was closed
+   * has no client running to call it. This branch is where that idle sign-out
+   * is *discovered*, on whatever request the user (or a stale background tab)
+   * next makes — so it records the audit entry here instead. Runs on the
+   * Node.js runtime (see `config` below) so the service-role admin client is
+   * safe to use; profile lookup bypasses RLS the same way recordActivity's
+   * other callers do.
    */
   if (
     user &&
@@ -90,6 +101,24 @@ export async function middleware(request: NextRequest) {
       .filter((cookie) => cookie.name.startsWith("sb-"))
       .forEach((cookie) => timedOut.cookies.delete({ name: cookie.name, path: "/" }));
     timedOut.cookies.delete({ name: ACTIVITY_COOKIE, path: ACTIVITY_COOKIE_PATH });
+
+    const admin = createSupabaseAdminClient();
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+    await recordActivity(
+      { id: user.id, fullName: profile?.full_name ?? "" },
+      {
+        type: "logout",
+        action: "signed out",
+        entityType: "session",
+        entityId: user.id,
+        detail: "signed out for inactivity",
+      },
+    );
+
     return timedOut;
   }
 
@@ -112,6 +141,12 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Node.js runtime, not the Edge default: the idle-gate branch above calls
+  // the service-role admin client to write an audit entry, which is not
+  // guaranteed safe on Edge. Every other branch here (Supabase SSR client,
+  // NextResponse/cookie handling) already runs fine under either runtime, so
+  // this only changes where the middleware executes, not its behavior.
+  runtime: "nodejs",
   // Server Action POSTs (identified by the `Next-Action` header) are excluded:
   // Next.js buffers/clones the request body for any matched route
   // (`proxyClientMaxBodySize`, 10MB default) before it reaches the action's
