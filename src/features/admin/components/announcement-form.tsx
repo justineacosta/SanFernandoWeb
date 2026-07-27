@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import type { AnnouncementValues, ContentStatus } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
-import { photoUrl } from "@/lib/storage";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { useAdminUserId } from "./admin-user-context";
 import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
@@ -21,6 +20,7 @@ export interface AnnouncementEditRecord {
   id: string;
   values: AnnouncementValues;
   status: ContentStatus;
+  imagePreviewUrl: string | null;
 }
 
 interface AnnouncementFormProps {
@@ -186,7 +186,7 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
           <SingleImageUploader
             idPrefix="announcement"
             existingSrc={values.imageSrc}
-            existingPreviewUrl={values.imageSrc ? photoUrl(values.imageSrc) : null}
+            existingPreviewUrl={record?.imagePreviewUrl ?? null}
             alt={values.imageAlt}
             onAltChange={(next) => set("imageAlt", next)}
             file={image}

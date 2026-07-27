@@ -2,7 +2,7 @@ import "server-only";
 import type { AdminAnnouncementRow, AnnouncementValues, ContentStatus } from "@/types";
 import { ARCHIVE_SELECT, toArchiveMeta, type ArchiveMetaRow } from "@/lib/archive";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { photoUrl } from "@/lib/storage";
+import { resolveMediaUrl, resolveMediaUrlsForList } from "@/lib/media-lifecycle";
 import { formatDate, toManilaDate } from "@/lib/format";
 
 interface Row extends ArchiveMetaRow {
@@ -27,7 +27,12 @@ export async function listAnnouncements(): Promise<AdminAnnouncementRow[]> {
     )
     .order("updated_at", { ascending: false });
   if (error || !data) return [];
-  return (data as unknown as Row[]).map((r) => ({
+  const rows = data as unknown as Row[];
+  const imageUrls = await resolveMediaUrlsForList(
+    "announcements",
+    rows.map((r) => ({ path: r.image_src, status: r.status })),
+  );
+  return rows.map((r, i) => ({
     id: r.id,
     title: r.title,
     // `date` is a bare Postgres `date` column, not a timestamptz — pass it
@@ -36,7 +41,7 @@ export async function listAnnouncements(): Promise<AdminAnnouncementRow[]> {
     excerpt: r.excerpt,
     urgent: r.urgent,
     status: r.status,
-    imageSrc: r.image_src ? photoUrl(r.image_src) : null,
+    imageSrc: imageUrls[i],
     imageAlt: r.image_alt,
     updatedLabel: formatDate(toManilaDate(r.updated_at)),
     ...toArchiveMeta(r),
@@ -46,7 +51,7 @@ export async function listAnnouncements(): Promise<AdminAnnouncementRow[]> {
 /** One announcement's editable values + status, for the drawer editor. */
 export async function getAnnouncementForEdit(
   id: string,
-): Promise<{ values: AnnouncementValues; status: ContentStatus } | null> {
+): Promise<{ values: AnnouncementValues; status: ContentStatus; imagePreviewUrl: string | null } | null> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("announcements")
@@ -54,6 +59,10 @@ export async function getAnnouncementForEdit(
     .eq("id", id)
     .maybeSingle();
   if (error || !data) return null;
+  const status = data.status as ContentStatus;
+  const imagePreviewUrl = data.image_src
+    ? await resolveMediaUrl("announcements", status, data.image_src)
+    : null;
   return {
     values: {
       title: data.title,
@@ -68,6 +77,7 @@ export async function getAnnouncementForEdit(
       imageSrc: data.image_src,
       imageAlt: data.image_alt,
     },
-    status: data.status as ContentStatus,
+    status,
+    imagePreviewUrl,
   };
 }

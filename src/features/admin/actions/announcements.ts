@@ -66,7 +66,7 @@ function revalidate() {
  */
 export async function getAnnouncementForEditAction(
   id: string,
-): Promise<{ values: AnnouncementValues; status: ContentStatus } | null> {
+): Promise<{ values: AnnouncementValues; status: ContentStatus; imagePreviewUrl: string | null } | null> {
   if (!(await checkPermission("manage-news"))) return null;
   return getAnnouncementForEdit(id);
 }

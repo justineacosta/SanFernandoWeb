@@ -177,7 +177,12 @@ export function NewsManager({ articles, announcements, categories, isSuperAdmin 
           showError("Could not load that announcement.");
           return;
         }
-        setEditingAnnouncement({ id: row.id, values: detail.values, status: detail.status });
+        setEditingAnnouncement({
+          id: row.id,
+          values: detail.values,
+          status: detail.status,
+          imagePreviewUrl: detail.imagePreviewUrl,
+        });
         setDrawerOpen(true);
       } finally {
         setLoadingEditId(null);
