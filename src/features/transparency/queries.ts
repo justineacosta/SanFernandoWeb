@@ -11,7 +11,7 @@ import type {
 } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { fuzzyFilter } from "@/lib/fuzzy";
-import { documentUrl, mediaUrl, publicBucketFor } from "@/lib/storage";
+import { mediaUrl, publicBucketFor } from "@/lib/storage";
 
 export const LEGISLATIVE_PAGE_SIZE = 10;
 
@@ -143,7 +143,7 @@ interface FileRow {
 function toFile(row: FileRow, index: number): TransparencyFile {
   return {
     id: row.id,
-    url: documentUrl(row.path),
+    url: mediaUrl(publicBucketFor("transparency"), row.path),
     label: row.mime === "application/pdf" ? `Document ${index + 1}` : `Image ${index + 1}`,
     mime: row.mime,
     sizeBytes: row.size_bytes,
@@ -264,7 +264,7 @@ async function allUploadItems(): Promise<UploadBrowseItem[]> {
       date: r.date_approved,
       href: `/transparency/legislative/${r.slug}`,
       files: r.file_path
-        ? [{ id: r.id, url: documentUrl(r.file_path), label: "Download PDF", mime: "application/pdf", sizeBytes: r.file_size_bytes ?? 0 }]
+        ? [{ id: r.id, url: mediaUrl(publicBucketFor("legislative"), r.file_path), label: "Download PDF", mime: "application/pdf", sizeBytes: r.file_size_bytes ?? 0 }]
         : [],
       progress: null,
     });

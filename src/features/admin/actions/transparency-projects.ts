@@ -9,6 +9,7 @@ import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTransparencyProjectForEdit } from "@/features/admin/queries/transparency";
 import { MAX_FILES_PER_RECORD } from "@/lib/storage";
+import { cleanupPromotedMedia, demoteMedia, promoteMedia } from "@/lib/media-lifecycle";
 import { removeStoredDocument, uploadTransparencyFile } from "./documents";
 
 export interface ActionResult {
@@ -67,30 +68,36 @@ export async function saveTransparencyProject(
 
   const admin = createSupabaseAdminClient();
 
+  let currentStatus: ContentStatus = "draft";
+  if (id) {
+    const { data: statusRow, error: statusErr } = await admin
+      .from("transparency_projects")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (statusErr) return { error: "Could not save the project.", id: null };
+    if (!statusRow) return { error: "Project not found.", id: null };
+    currentStatus = statusRow.status as ContentStatus;
+  }
+
   const newFiles = formData.getAll("newFile").filter((f): f is File => f instanceof File && f.size > 0);
   const keptIds = formData.getAll("keptFileId").map(String);
 
-  // Reject over the ≤3 cap BEFORE uploading anything — a caller bypassing the
-  // client picker's limit would otherwise upload N objects only to have them
-  // compensating-deleted. keptIds and newFiles are both client-supplied, so
-  // this is a cheap pre-check; the post-upload cap check below still guards
-  // the persisted total.
   if (keptIds.length + newFiles.length > MAX_FILES_PER_RECORD) {
     return { error: `Up to ${MAX_FILES_PER_RECORD} files.`, id: null };
   }
 
-  // Upload every new file first; track them so any later failure deletes them.
   const uploaded: { path: string; mime: string; sizeBytes: number }[] = [];
   async function cleanupUploads() {
     for (const u of uploaded) {
-      const removed = await removeStoredDocument(u.path);
+      const removed = await removeStoredDocument("transparency", currentStatus, u.path);
       if (removed.error) console.error(`Orphaned storage object (compensating delete failed): ${u.path}`);
     }
   }
   for (const file of newFiles) {
     const fd = new FormData();
     fd.append("file", file);
-    const res = await uploadTransparencyFile("projects", fd);
+    const res = await uploadTransparencyFile("projects", currentStatus, fd);
     if (res.error || res.path === null || res.mime === null || res.sizeBytes === null) {
       await cleanupUploads();
       return { error: res.error ?? "Upload failed. Try again.", id: null };
@@ -140,7 +147,7 @@ export async function saveTransparencyProject(
   const removedRows = ((existingFiles ?? []) as { id: string; path: string }[]).filter((f) => !keptIds.includes(f.id));
   if (removedRows.length > 0) {
     await admin.from("transparency_files").delete().in("id", removedRows.map((r) => r.id));
-    for (const r of removedRows) await removeStoredDocument(r.path); // deferred: row already gone
+    for (const r of removedRows) await removeStoredDocument("transparency", currentStatus, r.path); // deferred: row already gone
   }
 
   // Insert the newly uploaded files after the kept ones.
@@ -186,10 +193,25 @@ export async function setTransparencyProjectStatus(
 
   const { data: existing, error: readErr } = await admin
     .from("transparency_projects")
-    .select("name, published_at")
+    .select("name, status, published_at")
     .eq("id", id)
     .maybeSingle();
   if (readErr || !existing) return { error: "Project not found." };
+
+  const previousStatus = existing.status as ContentStatus;
+
+  const { data: fileRows } = await admin
+    .from("transparency_files")
+    .select("path")
+    .eq("owner_type", "project")
+    .eq("owner_id", id);
+  const paths = (fileRows ?? []).map((f) => f.path as string);
+
+  const promotingNow = nextStatus === "published" && previousStatus !== "published";
+  if (promotingNow && paths.length > 0) {
+    const promoted = await promoteMedia("transparency", paths);
+    if (promoted.error) return { error: "Could not publish the project's files. Try again." };
+  }
 
   const patch = statusPatch(actor, nextStatus);
   if (nextStatus === "published" && !existing.published_at) {
@@ -198,6 +220,13 @@ export async function setTransparencyProjectStatus(
 
   const { error } = await admin.from("transparency_projects").update(patch).eq("id", id);
   if (error) return { error: "Could not update the project." };
+
+  if (promotingNow && paths.length > 0) {
+    await cleanupPromotedMedia("transparency", paths, "transparency project published");
+  }
+  if (nextStatus === "archived" && previousStatus === "published" && paths.length > 0) {
+    await demoteMedia("transparency", paths, "transparency project archived");
+  }
 
   await recordActivity(actor, {
     type: auditTypeForStatus(nextStatus),
@@ -234,7 +263,7 @@ export async function deleteTransparencyProject(id: string): Promise<ActionResul
   const files = (fileRows ?? []) as { id: string; path: string }[];
   if (files.length > 0) {
     await admin.from("transparency_files").delete().in("id", files.map((f) => f.id));
-    for (const f of files) await removeStoredDocument(f.path);
+    for (const f of files) await removeStoredDocument("transparency", "archived", f.path);
   }
 
   await recordActivity(actor, {
