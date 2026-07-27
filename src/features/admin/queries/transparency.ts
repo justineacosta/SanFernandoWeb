@@ -11,8 +11,7 @@ import type {
 } from "@/types";
 import { ARCHIVE_SELECT, toArchiveMeta, type ArchiveMetaRow } from "@/lib/archive";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { documentUrl } from "@/lib/storage";
-import { resolveMediaUrl, resolveMediaUrlsForList } from "@/lib/media-lifecycle";
+import { resolveMediaUrl, resolveMediaUrls, resolveMediaUrlsForList } from "@/lib/media-lifecycle";
 
 export async function listAdminLegislative(): Promise<AdminLegislativeRow[]> {
   const admin = createSupabaseAdminClient();
@@ -123,28 +122,29 @@ export async function getTransparencyDocumentForEdit(id: string) {
     .eq("id", id)
     .maybeSingle();
   if (error || !data) return null;
+  const status = data.status as ContentStatus;
   const { data: fileRows } = await admin
     .from("transparency_files")
     .select("id, path, mime, size_bytes, sort_order")
     .eq("owner_type", "document")
     .eq("owner_id", id)
     .order("sort_order", { ascending: true });
-  const files = ((fileRows ?? []) as { id: string; path: string; mime: string; size_bytes: number }[]).map(
-    (f, i) => ({
-      id: f.id,
-      url: documentUrl(f.path),
-      label: f.mime === "application/pdf" ? `Document ${i + 1}` : `Image ${i + 1}`,
-      mime: f.mime,
-      sizeBytes: f.size_bytes,
-    }),
-  );
+  const rows = (fileRows ?? []) as { id: string; path: string; mime: string; size_bytes: number }[];
+  const urlByPath = await resolveMediaUrls("transparency", status, rows.map((f) => f.path));
+  const files = rows.map((f, i) => ({
+    id: f.id,
+    url: urlByPath.get(f.path) ?? f.path,
+    label: f.mime === "application/pdf" ? `Document ${i + 1}` : `Image ${i + 1}`,
+    mime: f.mime,
+    sizeBytes: f.size_bytes,
+  }));
   return {
     values: {
       title: data.title as string,
       categoryId: data.category_id as string,
       dateReleased: data.date_released as string | null,
     } satisfies TransparencyDocumentValues,
-    status: data.status as ContentStatus,
+    status,
     files,
   };
 }
@@ -193,28 +193,29 @@ export async function getTransparencyProjectForEdit(id: string) {
     .eq("id", id)
     .maybeSingle();
   if (error || !data) return null;
+  const status = data.status as ContentStatus;
   const { data: fileRows } = await admin
     .from("transparency_files")
     .select("id, path, mime, size_bytes, sort_order")
     .eq("owner_type", "project")
     .eq("owner_id", id)
     .order("sort_order", { ascending: true });
-  const files = ((fileRows ?? []) as { id: string; path: string; mime: string; size_bytes: number }[]).map(
-    (f, i) => ({
-      id: f.id,
-      url: documentUrl(f.path),
-      label: f.mime === "application/pdf" ? `Document ${i + 1}` : `Image ${i + 1}`,
-      mime: f.mime,
-      sizeBytes: f.size_bytes,
-    }),
-  );
+  const rows = (fileRows ?? []) as { id: string; path: string; mime: string; size_bytes: number }[];
+  const urlByPath = await resolveMediaUrls("transparency", status, rows.map((f) => f.path));
+  const files = rows.map((f, i) => ({
+    id: f.id,
+    url: urlByPath.get(f.path) ?? f.path,
+    label: f.mime === "application/pdf" ? `Document ${i + 1}` : `Image ${i + 1}`,
+    mime: f.mime,
+    sizeBytes: f.size_bytes,
+  }));
   return {
     values: {
       name: data.name as string,
       progress: data.progress as number,
       date: data.date as string | null,
     } satisfies TransparencyProjectValues,
-    status: data.status as ContentStatus,
+    status,
     files,
   };
 }
