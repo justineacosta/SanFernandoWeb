@@ -5,6 +5,7 @@ import { discardFeedbackScreenshot, uploadFeedbackScreenshot } from "@/lib/media
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { ALLOWED_IMAGE_TYPES, MAX_SCREENSHOT_BYTES } from "@/lib/storage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { feedbackSchema } from "./schema";
 
 export interface SubmitFeedbackResult {
@@ -35,6 +36,10 @@ export async function submitFeedback(form: FormData): Promise<SubmitFeedbackResu
   // Before parsing, so a flood is rejected before doing any real work — no
   // Zod validation, no file read, no Storage upload.
   const ip = await requestIp();
+  const rawToken = form.get("turnstileToken");
+  if (!(await verifyTurnstileToken(typeof rawToken === "string" ? rawToken : null, ip))) {
+    return { error: TURNSTILE_FAILURE_MESSAGE };
+  }
   if (!(await checkRateLimit(`feedback:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error: `Too much feedback from this connection. Please try again later, or call ${SITE.phone}.`,

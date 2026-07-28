@@ -7,6 +7,7 @@ import { CheckCircle2, ImageUp, MessageSquarePlus, Send, X } from "lucide-react"
 import type { FeedbackCategory, PublicFeedbackValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { useFieldValidation } from "@/hooks/use-field-validation";
 import { FADE_QUICK, POP } from "@/lib/motion";
 import { ALLOWED_IMAGE_TYPES, MAX_SCREENSHOT_BYTES, formatFileSize } from "@/lib/storage";
@@ -52,6 +53,8 @@ export function FeedbackPanel({ open, onClose }: FeedbackPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [pending, setPending] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Escape reads the close handler through a ref so the keydown listener is
@@ -191,6 +194,7 @@ export function FeedbackPanel({ open, onClose }: FeedbackPanelProps) {
       form.set("message", values.message);
       form.set("rating", String(values.rating));
       form.set("pagePath", withPath.pagePath);
+      form.set("turnstileToken", turnstileToken ?? "");
       if (screenshot) form.set("screenshot", screenshot);
       const result = await submitFeedback(form);
       if (result.error) {
@@ -201,6 +205,8 @@ export function FeedbackPanel({ open, onClose }: FeedbackPanelProps) {
     } finally {
       submitting.current = false;
       setPending(false);
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     }
   }
 
@@ -412,6 +418,12 @@ export function FeedbackPanel({ open, onClose }: FeedbackPanelProps) {
                         labelledBy="feedback-rating-label"
                       />
                     </div>
+
+                    <TurnstileWidget
+                      ref={turnstileRef}
+                      onVerify={setTurnstileToken}
+                      className="flex justify-center"
+                    />
 
                     {error ? (
                       <p role="alert" className="text-sm font-medium text-danger">
