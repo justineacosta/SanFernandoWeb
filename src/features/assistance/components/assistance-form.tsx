@@ -9,6 +9,7 @@ import { BrandStroke } from "@/components/ui/brand-stroke";
 import { Card } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitAssistance } from "@/features/assistance/actions";
 import { assistanceSchema } from "@/features/assistance/schema";
@@ -29,12 +30,14 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
   const [error, setError] = useState<string | null>(null);
   const [ticketNo, setTicketNo] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   // `isPending` only flips once React commits, so the disabled button alone
   // cannot stop two clicks landing in the same tick — that would file the
   // resident two tickets for one request. This ref closes that window.
   const submitting = useRef(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   const set = <K extends keyof PublicAssistanceValues>(key: K, value: PublicAssistanceValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -49,7 +52,7 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
     setError(null);
     startTransition(async () => {
       try {
-        const result = await submitAssistance(values);
+        const result = await submitAssistance(values, turnstileToken);
         if (result.error || !result.ticketNo) {
           setError(result.error ?? "Something went wrong. Please try again.");
           return;
@@ -57,6 +60,8 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
         setTicketNo(result.ticketNo);
       } finally {
         submitting.current = false;
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
       }
     });
   }
@@ -267,6 +272,7 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
               {error}
             </p>
           ) : null}
+          <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
           <Button type="submit" variant="primary" className="w-full" disabled={isPending}>
             {isPending ? "Filing…" : "Submit request"}
           </Button>

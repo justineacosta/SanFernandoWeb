@@ -3,6 +3,7 @@
 import type { PublicAssistanceValues, SubmitTicketResult } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
+import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { assistanceSchema } from "./schema";
 
 /** Tighter than /apply: an assistance request is a heavier record and far rarer per household. */
@@ -15,8 +16,14 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
  * the gate, so everything it touches is validated first and nothing is read
  * back out beyond the new ticket number.
  */
-export async function submitAssistance(values: PublicAssistanceValues): Promise<SubmitTicketResult> {
+export async function submitAssistance(
+  values: PublicAssistanceValues,
+  turnstileToken: string | null,
+): Promise<SubmitTicketResult> {
   const ip = await requestIp();
+  if (!(await verifyTurnstileToken(turnstileToken, ip))) {
+    return { error: TURNSTILE_FAILURE_MESSAGE, ticketNo: null };
+  }
   if (!(await checkRateLimit(`assistance:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error:
