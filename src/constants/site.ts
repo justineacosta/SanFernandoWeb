@@ -60,6 +60,6 @@ export const GOVERNMENT_LINKS: LinkItem[] = [
 ];
 
 export const LEGAL_LINKS: NavItem[] = [
-  { label: "Privacy Policy", href: "#" },
-  { label: "Terms of Use", href: "#" },
+  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Terms of Use", href: "/terms" },
 ];

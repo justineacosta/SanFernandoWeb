@@ -74,3 +74,17 @@ test("the home page produces no CSP violations", async ({ page }) => {
   await page.waitForLoadState("networkidle");
   expect(violations).toEqual([]);
 });
+
+test.describe("legal pages", () => {
+  test("privacy and terms are reachable from the footer", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: "Privacy Policy" }).click();
+    await expect(page).toHaveURL(/\/privacy$/);
+    await expect(page.getByRole("heading", { name: "Privacy Policy", level: 1 })).toBeVisible();
+
+    await page.goto("/");
+    await page.getByRole("link", { name: "Terms of Use" }).click();
+    await expect(page).toHaveURL(/\/terms$/);
+    await expect(page.getByRole("heading", { name: "Terms of Use", level: 1 })).toBeVisible();
+  });
+});
