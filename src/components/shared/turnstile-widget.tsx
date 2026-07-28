@@ -18,6 +18,7 @@ interface TurnstileRenderOptions {
   "expired-callback"?: () => void;
   "error-callback"?: () => void;
   size?: "normal" | "compact";
+  appearance?: "always" | "execute" | "interaction-only";
 }
 
 export interface TurnstileWidgetHandle {
@@ -80,6 +81,16 @@ function loadTurnstileScript(): Promise<void> {
  * data-attribute auto-render mode, because every one of the 8 forms needs to
  * reset() after a submit attempt (Cloudflare tokens are single-use) without
  * remounting the surrounding form and losing its state.
+ *
+ * appearance: "interaction-only" keeps the widget's box invisible (zero
+ * footprint, no "Success!" badge) for the common case where Cloudflare
+ * clears the visitor non-interactively — which is nearly always, since this
+ * is a Managed-mode site key. It only pops into view on the rare visitor
+ * Cloudflare actually wants to challenge. Deliberately not "execute": that
+ * mode defers running the check until a manual turnstile.execute() call,
+ * which would mean the token isn't ready until well after mount — every one
+ * of the 8 forms already assumes a token may be sitting in state before
+ * submit.
  */
 export const TurnstileWidget = forwardRef<TurnstileWidgetHandle, TurnstileWidgetProps>(
   function TurnstileWidget({ onVerify, className, size = "normal" }, ref) {
@@ -113,6 +124,7 @@ export const TurnstileWidget = forwardRef<TurnstileWidgetHandle, TurnstileWidget
             "expired-callback": () => onVerify(null),
             "error-callback": () => onVerify(null),
             size,
+            appearance: "interaction-only",
           });
         })
         .catch(() => {
