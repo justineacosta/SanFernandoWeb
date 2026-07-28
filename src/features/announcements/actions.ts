@@ -2,6 +2,7 @@
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
+import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { normaliseMobile } from "@/lib/public-forms";
 import { ARCHIVE_BATCH, NOTICES_ARCHIVE_BATCH, listAllAnnouncements, listPublishedArticles } from "@/features/announcements/queries";
 import type { Announcement, NewsArticleListItem } from "@/types";
@@ -25,8 +26,14 @@ const SUBSCRIBE_WINDOW_MS = 60 * 60 * 1000;
  * number into the form is asking to be on the list, which is different from a
  * bulk import silently re-adding them.
  */
-export async function subscribeToAlerts(input: string): Promise<SubscribeResult> {
+export async function subscribeToAlerts(
+  input: string,
+  turnstileToken: string | null,
+): Promise<SubscribeResult> {
   const ip = await requestIp();
+  if (!(await verifyTurnstileToken(turnstileToken, ip))) {
+    return { error: TURNSTILE_FAILURE_MESSAGE };
+  }
   if (!(await checkRateLimit(`subscribe:${ip}`, SUBSCRIBE_LIMIT, SUBSCRIBE_WINDOW_MS))) {
     return { error: "Too many attempts from this connection. Please try again later." };
   }

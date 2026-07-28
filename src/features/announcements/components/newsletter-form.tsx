@@ -5,6 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normaliseMobile } from "@/lib/public-forms";
 import { Button } from "@/components/ui/button";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { subscribeToAlerts } from "@/features/announcements/actions";
 
 interface NewsletterFormProps {
@@ -19,6 +20,8 @@ export function NewsletterForm({ variant = "card" }: NewsletterFormProps) {
   const [subscribed, setSubscribed] = useState(false);
   const [isPending, startTransition] = useTransition();
   const submitting = useRef(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
   // Both variants render on the same page (sidebar + footer), so the ids have
   // to be unique per instance, not per variant.
   const inputId = useId();
@@ -36,7 +39,7 @@ export function NewsletterForm({ variant = "card" }: NewsletterFormProps) {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await subscribeToAlerts(mobile);
+        const result = await subscribeToAlerts(mobile, turnstileToken);
         if (result.error) {
           setError(result.error);
           return;
@@ -44,6 +47,8 @@ export function NewsletterForm({ variant = "card" }: NewsletterFormProps) {
         setSubscribed(true);
       } finally {
         submitting.current = false;
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
       }
     });
   }
@@ -87,6 +92,12 @@ export function NewsletterForm({ variant = "card" }: NewsletterFormProps) {
           {isPending ? "Joining…" : "Join Channel"}
         </Button>
       </div>
+      <TurnstileWidget
+        ref={turnstileRef}
+        onVerify={setTurnstileToken}
+        size={variant === "inline" ? "compact" : "normal"}
+        className={cn("flex", variant === "card" ? "justify-center" : "justify-start")}
+      />
       {error ? (
         // `danger-bright`, not `danger`: this form only ever renders on dark ink.
         <p id={errorId} role="alert" className="text-sm font-medium text-danger-bright">
