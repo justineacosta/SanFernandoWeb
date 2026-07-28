@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrength } from "@/components/ui/password-strength";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
@@ -139,44 +140,52 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
 
   function submit() {
     startTransition(async () => {
-      const result =
-        drawer?.mode === "edit" && drawer.user
-          ? await updateTeamUser(drawer.user.id, {
-              fullName,
-              statusLabel,
-              permissions,
-              isSuperAdmin,
-              ...(drawer.user.id !== currentUser.id && email !== drawer.user.email
-                ? { email }
-                : {}),
-            })
-          : await createTeamUser({
-              fullName,
-              email,
-              password,
-              statusLabel,
-              permissions,
-              isSuperAdmin,
-            });
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result =
+          drawer?.mode === "edit" && drawer.user
+            ? await updateTeamUser(drawer.user.id, {
+                fullName,
+                statusLabel,
+                permissions,
+                isSuperAdmin,
+                ...(drawer.user.id !== currentUser.id && email !== drawer.user.email
+                  ? { email }
+                  : {}),
+              })
+            : await createTeamUser({
+                fullName,
+                email,
+                password,
+                statusLabel,
+                permissions,
+                isSuperAdmin,
+              });
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        setDrawer(null);
+        showToast(drawer?.mode === "edit" ? "User updated." : "User created.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      setDrawer(null);
-      showToast(drawer?.mode === "edit" ? "User updated." : "User created.");
     });
   }
 
   function runRowAction(action: () => Promise<{ error: string | null }>, success: string) {
     startTransition(async () => {
-      const result = await action();
-      // Previously the error text was passed to the success toast, so a failed
-      // archive arrived looking like a successful one.
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await action();
+        // Previously the error text was passed to the success toast, so a failed
+        // archive arrived looking like a successful one.
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(success);
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      showToast(success);
     });
   }
 
@@ -190,25 +199,30 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
     const { kind, user } = confirming;
     setActionPending(true);
     startTransition(async () => {
-      const result =
-        kind === "delete"
-          ? await deleteTeamUser(user.id)
-          : kind === "disable"
-            ? await setTeamUserActive(user.id, false)
-            : await archiveTeamUser(user.id);
-      setActionPending(false);
-      setConfirming(null);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result =
+          kind === "delete"
+            ? await deleteTeamUser(user.id)
+            : kind === "disable"
+              ? await setTeamUserActive(user.id, false)
+              : await archiveTeamUser(user.id);
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(
+          kind === "delete"
+            ? `Deleted ${user.fullName}.`
+            : kind === "disable"
+              ? `Disabled ${user.fullName}.`
+              : `Archived ${user.fullName}.`,
+        );
+      } catch {
+        showError("Something went wrong. Please try again.");
+      } finally {
+        setActionPending(false);
+        setConfirming(null);
       }
-      showToast(
-        kind === "delete"
-          ? `Deleted ${user.fullName}.`
-          : kind === "disable"
-            ? `Disabled ${user.fullName}.`
-            : `Archived ${user.fullName}.`,
-      );
     });
   }
 
@@ -522,9 +536,7 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
             ))}
 
             {formError ? (
-              <p role="alert" className="text-sm font-medium text-danger">
-                {formError}
-              </p>
+              <InlineAlert message={formError} onDismiss={() => setFormError(null)} />
             ) : null}
           </div>
           <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">

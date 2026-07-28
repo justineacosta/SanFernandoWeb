@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { AssistanceDecisionValues, AssistanceReviewValues, AssistanceRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatDate } from "@/lib/format";
 import { StatusChip } from "./status-chip";
 
@@ -14,6 +15,7 @@ interface AssistanceReviewDrawerProps {
   onCancel: () => void;
   saving: boolean;
   error: string | null;
+  onDismissError: () => void;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -33,9 +35,14 @@ export function AssistanceReviewDrawer({
   onCancel,
   saving,
   error,
+  onDismissError,
 }: AssistanceReviewDrawerProps) {
   const [remarks, setRemarks] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const dismissError = () => {
+    setLocalError(null);
+    onDismissError();
+  };
 
   const submitReview = (status: AssistanceReviewValues["status"]) => {
     if (status === "declined" && !remarks.trim()) {
@@ -118,9 +125,7 @@ export function AssistanceReviewDrawer({
           </div>
         )}
         {(localError ?? error) ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {localError ?? error}
-          </p>
+          <InlineAlert message={localError ?? error!} onDismiss={dismissError} />
         ) : null}
       </div>
       {record.status === "pending" ? (

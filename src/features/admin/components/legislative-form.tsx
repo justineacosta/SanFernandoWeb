@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { ContentStatus, LegislativeValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { saveLegislative, setLegislativeStatus } from "@/features/admin/actions/legislative";
 import { useAdminUserId } from "./admin-user-context";
@@ -61,17 +62,21 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const fd = new FormData();
-      if (file) fd.append("file", file);
-      if (removeFile) fd.append("removeFile", "1");
-      const result = await saveLegislative(id, values, fd);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const fd = new FormData();
+        if (file) fd.append("file", file);
+        if (removeFile) fd.append("removeFile", "1");
+        const result = await saveLegislative(id, values, fd);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        if (result.id) setId(result.id);
+        draft.clear();
+        onSaved("Document saved.");
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      if (result.id) setId(result.id);
-      draft.clear();
-      onSaved("Document saved.");
     });
   }
 
@@ -80,13 +85,17 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
     if (!currentId) return;
     setError(null);
     startTransition(async () => {
-      const result = await setLegislativeStatus(currentId, nextStatus);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await setLegislativeStatus(currentId, nextStatus);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setStatus(nextStatus);
+        onSaved(message);
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      setStatus(nextStatus);
-      onSaved(message);
     });
   }
 
@@ -191,11 +200,7 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
             onRemoveExistingChange={setRemoveFile}
           />
         </div>
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        ) : null}
+        {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 p-6">
         <div className="flex flex-wrap gap-2">

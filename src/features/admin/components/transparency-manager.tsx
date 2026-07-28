@@ -184,6 +184,8 @@ export function TransparencyManager({
           files: detail.files,
         });
         setDocDrawerOpen(true);
+      } catch {
+        showError("Could not load that document.");
       } finally {
         setLoadingDocId(null);
       }
@@ -206,39 +208,48 @@ export function TransparencyManager({
     const { kind, id, name } = confirming;
     setActionPending(true);
     startTransition(async () => {
-      const result =
-        kind === "delete"
-          ? await deleteTransparencyDocument(id)
-          : kind === "restore"
-            ? await restoreTransparencyDocument(id)
-            : await setTransparencyDocumentStatus(id, "archived");
-      setActionPending(false);
-      setConfirming(null);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result =
+          kind === "delete"
+            ? await deleteTransparencyDocument(id)
+            : kind === "restore"
+              ? await restoreTransparencyDocument(id)
+              : await setTransparencyDocumentStatus(id, "archived");
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(
+          kind === "delete"
+            ? `Deleted ${name}.`
+            : kind === "restore"
+              ? `Restored ${name} as a draft.`
+              : `Archived ${name}.`,
+        );
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
+      } finally {
+        setActionPending(false);
+        setConfirming(null);
       }
-      showToast(
-        kind === "delete"
-          ? `Deleted ${name}.`
-          : kind === "restore"
-            ? `Restored ${name} as a draft.`
-            : `Archived ${name}.`,
-      );
-      router.refresh();
     });
   };
 
   /** Publish straight from the row, like News, Events, Projects and Officials. */
   const publishDocument = (id: string, name: string) => {
     startTransition(async () => {
-      const result = await setTransparencyDocumentStatus(id, "published");
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await setTransparencyDocumentStatus(id, "published");
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(`Published ${name}.`);
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      showToast(`Published ${name}.`);
-      router.refresh();
     });
   };
 

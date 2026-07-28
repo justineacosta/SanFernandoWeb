@@ -165,6 +165,8 @@ export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerPr
           achievements: detail.achievements,
         });
         setDrawerOpen(true);
+      } catch {
+        showError("Could not load that official.");
       } finally {
         setLoadingEditId(null);
       }
@@ -185,12 +187,16 @@ export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerPr
     const ids = officials.map((r) => r.id);
     [ids[index], ids[target]] = [ids[target], ids[index]];
     startTransition(async () => {
-      const result = await reorderOfficials(ids);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await reorderOfficials(ids);
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      router.refresh();
     });
   };
 
@@ -203,26 +209,31 @@ export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerPr
     const { kind, id, name } = confirming;
     setActionPending(true);
     startTransition(async () => {
-      const result =
-        kind === "delete"
-          ? await deleteOfficial(id)
-          : kind === "restore"
-            ? await restoreOfficial(id)
-            : await setOfficialStatus(id, "archived");
-      setActionPending(false);
-      setConfirming(null);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result =
+          kind === "delete"
+            ? await deleteOfficial(id)
+            : kind === "restore"
+              ? await restoreOfficial(id)
+              : await setOfficialStatus(id, "archived");
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(
+          kind === "delete"
+            ? `Deleted ${name}.`
+            : kind === "restore"
+              ? `Restored ${name} as a draft.`
+              : `Archived ${name}.`,
+        );
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
+      } finally {
+        setActionPending(false);
+        setConfirming(null);
       }
-      showToast(
-        kind === "delete"
-          ? `Deleted ${name}.`
-          : kind === "restore"
-            ? `Restored ${name} as a draft.`
-            : `Archived ${name}.`,
-      );
-      router.refresh();
     });
   };
 
@@ -236,13 +247,17 @@ export function OfficialsManager({ officials, isSuperAdmin }: OfficialsManagerPr
    */
   const publish = (id: string, name: string) => {
     startTransition(async () => {
-      const result = await setOfficialStatus(id, "published");
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await setOfficialStatus(id, "published");
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(`Published ${name}.`);
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      showToast(`Published ${name}.`);
-      router.refresh();
     });
   };
 

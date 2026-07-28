@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, Trash2, Upload } from "lucide-react";
 import type { GalleryPhoto } from "@/types";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "@/lib/storage";
 import { Input } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import {
   removeNewsPhoto,
   reorderNewsPhotos,
@@ -98,10 +99,15 @@ export function NewsPhotoUploader({
     setPhotos(next);
     setError(null);
     start(async () => {
-      const res = await reorderNewsPhotos(articleId, next.map((p) => p.id));
-      if (res.error) {
+      try {
+        const res = await reorderNewsPhotos(articleId, next.map((p) => p.id));
+        if (res.error) {
+          setPhotos(previous);
+          setError(res.error);
+        }
+      } catch {
         setPhotos(previous);
-        setError(res.error);
+        setError("Something went wrong. Please try again.");
       }
     });
   }
@@ -111,10 +117,15 @@ export function NewsPhotoUploader({
     setPhotos((prev) => prev.filter((p) => p.id !== id));
     setError(null);
     start(async () => {
-      const res = await removeNewsPhoto(id);
-      if (res.error) {
+      try {
+        const res = await removeNewsPhoto(id);
+        if (res.error) {
+          setPhotos(previous);
+          setError(res.error);
+        }
+      } catch {
         setPhotos(previous);
-        setError(res.error);
+        setError("Something went wrong. Please try again.");
       }
     });
   }
@@ -128,12 +139,17 @@ export function NewsPhotoUploader({
     if (alt === previousAlt) return;
     setError(null);
     start(async () => {
-      const res = await updateNewsPhotoAlt(id, alt);
-      if (res.error) {
-        setError(res.error);
+      try {
+        const res = await updateNewsPhotoAlt(id, alt);
+        if (res.error) {
+          setError(res.error);
+          updateAltLocal(id, previousAlt);
+        } else {
+          savedAltRef.current[id] = alt;
+        }
+      } catch {
+        setError("Something went wrong. Please try again.");
         updateAltLocal(id, previousAlt);
-      } else {
-        savedAltRef.current[id] = alt;
       }
     });
   }
@@ -172,7 +188,7 @@ export function NewsPhotoUploader({
         </div>
       ) : null}
 
-      {error ? <p role="alert" className="text-sm font-medium text-danger">{error}</p> : null}
+      {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
 
       {total > 0 ? (
         <ul className="grid grid-cols-3 gap-3">

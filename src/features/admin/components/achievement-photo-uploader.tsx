@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Trash2, Upload } from "lucide-react";
 import type { GalleryPhoto } from "@/types";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "@/lib/storage";
 import { Input } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import {
   removeAchievementPhoto,
   reorderAchievementPhotos,
@@ -58,15 +59,19 @@ export function AchievementPhotoUploader({
     const formData = new FormData();
     files.forEach((file) => formData.append("files", file));
     start(async () => {
-      const result = await uploadAchievementPhotos(achievementId, formData);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await uploadAchievementPhotos(achievementId, formData);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setPhotos(result.photos);
+        result.photos.forEach((p) => {
+          savedAltRef.current[p.id] = p.alt;
+        });
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      setPhotos(result.photos);
-      result.photos.forEach((p) => {
-        savedAltRef.current[p.id] = p.alt;
-      });
     });
   }
 
@@ -79,13 +84,18 @@ export function AchievementPhotoUploader({
     setPhotos(next);
     setError(null);
     start(async () => {
-      const result = await reorderAchievementPhotos(
-        achievementId,
-        next.map((p) => p.id),
-      );
-      if (result.error) {
+      try {
+        const result = await reorderAchievementPhotos(
+          achievementId,
+          next.map((p) => p.id),
+        );
+        if (result.error) {
+          setPhotos(previous);
+          setError(result.error);
+        }
+      } catch {
         setPhotos(previous);
-        setError(result.error);
+        setError("Something went wrong. Please try again.");
       }
     });
   }
@@ -95,10 +105,15 @@ export function AchievementPhotoUploader({
     setPhotos((prev) => prev.filter((p) => p.id !== id));
     setError(null);
     start(async () => {
-      const result = await removeAchievementPhoto(id);
-      if (result.error) {
+      try {
+        const result = await removeAchievementPhoto(id);
+        if (result.error) {
+          setPhotos(previous);
+          setError(result.error);
+        }
+      } catch {
         setPhotos(previous);
-        setError(result.error);
+        setError("Something went wrong. Please try again.");
       }
     });
   }
@@ -108,12 +123,17 @@ export function AchievementPhotoUploader({
     if (alt === previousAlt) return;
     setError(null);
     start(async () => {
-      const result = await updateAchievementPhotoAlt(id, alt);
-      if (result.error) {
-        setError(result.error);
+      try {
+        const result = await updateAchievementPhotoAlt(id, alt);
+        if (result.error) {
+          setError(result.error);
+          setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, alt: previousAlt } : p)));
+        } else {
+          savedAltRef.current[id] = alt;
+        }
+      } catch {
+        setError("Something went wrong. Please try again.");
         setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, alt: previousAlt } : p)));
-      } else {
-        savedAltRef.current[id] = alt;
       }
     });
   }
@@ -147,9 +167,7 @@ export function AchievementPhotoUploader({
       ) : null}
 
       {error ? (
-        <p role="alert" className="text-xs font-medium text-danger">
-          {error}
-        </p>
+        <InlineAlert message={error} onDismiss={() => setError(null)} className="text-xs" />
       ) : null}
 
       {photos.length > 0 ? (

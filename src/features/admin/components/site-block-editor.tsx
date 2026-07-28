@@ -6,6 +6,7 @@ import type { SiteBlockKey } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { Toast } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
 import { useFormDraft } from "@/hooks/use-form-draft";
@@ -46,23 +47,28 @@ export function SiteBlockEditor({ spec, value }: SiteBlockEditorProps) {
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const fd = new FormData();
-      if (image) fd.append("image", image);
-      if (removeImage) fd.append("removeImage", "1");
-      // A blanked text block stores null, not "" — mission and vision are
-      // meant to be clearable, and the public page hides an absent card.
-      const next = spec.kind === "image" ? values.text : values.text.trim() || null;
-      const result = await saveSiteBlock(spec.key as SiteBlockKey, next, fd);
-      if (result.error) {
-        setError(result.error);
-        showError(result.error);
-        return;
+      try {
+        const fd = new FormData();
+        if (image) fd.append("image", image);
+        if (removeImage) fd.append("removeImage", "1");
+        // A blanked text block stores null, not "" — mission and vision are
+        // meant to be clearable, and the public page hides an absent card.
+        const next = spec.kind === "image" ? values.text : values.text.trim() || null;
+        const result = await saveSiteBlock(spec.key as SiteBlockKey, next, fd);
+        if (result.error) {
+          setError(result.error);
+          showError(result.error);
+          return;
+        }
+        draft.clear();
+        setImage(null);
+        setRemoveImage(false);
+        showToast(`${spec.title} saved.`);
+        router.refresh();
+      } catch {
+        setError("Something went wrong. Please try again.");
+        showError("Something went wrong. Please try again.");
       }
-      draft.clear();
-      setImage(null);
-      setRemoveImage(false);
-      showToast(`${spec.title} saved.`);
-      router.refresh();
     });
   }
 
@@ -113,11 +119,7 @@ export function SiteBlockEditor({ spec, value }: SiteBlockEditorProps) {
             </Field>
           )}
 
-          {error ? (
-            <p role="alert" className="text-sm font-medium text-danger">
-              {error}
-            </p>
-          ) : null}
+          {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
 
           <div className="flex items-center gap-3">
             <DraftSavedNote savedAt={draft.savedAt} />

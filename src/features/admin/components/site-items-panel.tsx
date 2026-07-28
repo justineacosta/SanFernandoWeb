@@ -72,15 +72,20 @@ export function SiteItemsPanel({ spec, items }: SiteItemsPanelProps) {
 
   function handleReorder(orderedIds: string[]) {
     startTransition(async () => {
-      const byId = new Map(items.map((item) => [item.id, item]));
-      setOptimisticOrder(orderedIds.map((id) => byId.get(id)!).filter(Boolean));
-      const result = await reorderSiteItems(spec.block, orderedIds);
-      if (result.error) {
-        showError(result.error);
+      try {
+        const byId = new Map(items.map((item) => [item.id, item]));
+        setOptimisticOrder(orderedIds.map((id) => byId.get(id)!).filter(Boolean));
+        const result = await reorderSiteItems(spec.block, orderedIds);
+        if (result.error) {
+          showError(result.error);
+        }
+      } catch {
+        showError("Something went wrong. Please try again.");
+      } finally {
+        // Refresh either way: on failure this is what puts the stored order back
+        // on screen instead of leaving the optimistic one there.
+        router.refresh();
       }
-      // Refresh either way: on failure this is what puts the stored order back
-      // on screen instead of leaving the optimistic one there.
-      router.refresh();
     });
   }
 
@@ -89,15 +94,20 @@ export function SiteItemsPanel({ spec, items }: SiteItemsPanelProps) {
     const target = confirming;
     setActionPending(true);
     startTransition(async () => {
-      const result = await deleteSiteItem(target.id);
-      setActionPending(false);
-      setConfirming(null);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await deleteSiteItem(target.id);
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(`Deleted ${describe(target, spec)}.`);
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
+      } finally {
+        setActionPending(false);
+        setConfirming(null);
       }
-      showToast(`Deleted ${describe(target, spec)}.`);
-      router.refresh();
     });
   }
 

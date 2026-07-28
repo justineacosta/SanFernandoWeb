@@ -162,6 +162,8 @@ export function NewsManager({ articles, announcements, categories, isSuperAdmin 
         }
         setEditingNews({ id: row.id, values: detail.values, status: detail.status, photos: detail.photos });
         setDrawerOpen(true);
+      } catch {
+        showError("Could not load that post.");
       } finally {
         setLoadingEditId(null);
       }
@@ -184,6 +186,8 @@ export function NewsManager({ articles, announcements, categories, isSuperAdmin 
           imagePreviewUrl: detail.imagePreviewUrl,
         });
         setDrawerOpen(true);
+      } catch {
+        showError("Could not load that announcement.");
       } finally {
         setLoadingEditId(null);
       }
@@ -221,13 +225,17 @@ export function NewsManager({ articles, announcements, categories, isSuperAdmin 
 
   const publish = (kind: Tab, id: string, title: string) => {
     startTransition(async () => {
-      const result = kind === "news" ? await publishNewsArticle(id) : await publishAnnouncement(id);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = kind === "news" ? await publishNewsArticle(id) : await publishAnnouncement(id);
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(`Published ${title}.`);
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      showToast(`Published ${title}.`);
-      router.refresh();
     });
   };
 
@@ -237,33 +245,38 @@ export function NewsManager({ articles, announcements, categories, isSuperAdmin 
     const { kind, action, id, title } = confirming;
     setActionPending(true);
     startTransition(async () => {
-      const isNews = kind === "news";
-      const result =
-        action === "archive"
-          ? isNews
-            ? await archiveNewsArticle(id)
-            : await archiveAnnouncement(id)
-          : action === "restore"
+      try {
+        const isNews = kind === "news";
+        const result =
+          action === "archive"
             ? isNews
-              ? await restoreNewsArticle(id)
-              : await restoreAnnouncement(id)
-            : isNews
-              ? await deleteNewsArticle(id)
-              : await deleteAnnouncement(id);
-      setActionPending(false);
-      setConfirming(null);
-      if (result.error) {
-        showError(result.error);
-        return;
+              ? await archiveNewsArticle(id)
+              : await archiveAnnouncement(id)
+            : action === "restore"
+              ? isNews
+                ? await restoreNewsArticle(id)
+                : await restoreAnnouncement(id)
+              : isNews
+                ? await deleteNewsArticle(id)
+                : await deleteAnnouncement(id);
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(
+          action === "archive"
+            ? `Archived ${title}.`
+            : action === "restore"
+              ? `Restored ${title} as a draft.`
+              : `Deleted ${title}.`,
+        );
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
+      } finally {
+        setActionPending(false);
+        setConfirming(null);
       }
-      showToast(
-        action === "archive"
-          ? `Archived ${title}.`
-          : action === "restore"
-            ? `Restored ${title} as a draft.`
-            : `Deleted ${title}.`,
-      );
-      router.refresh();
     });
   };
 

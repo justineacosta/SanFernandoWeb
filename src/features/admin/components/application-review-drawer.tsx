@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ApplicationReviewValues, ApplicationRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatDate } from "@/lib/format";
 import { StatusChip } from "./status-chip";
 
@@ -14,6 +15,7 @@ interface ApplicationReviewDrawerProps {
   onCancel: () => void;
   saving: boolean;
   error: string | null;
+  onDismissError: () => void;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -33,9 +35,14 @@ export function ApplicationReviewDrawer({
   onCancel,
   saving,
   error,
+  onDismissError,
 }: ApplicationReviewDrawerProps) {
   const [remarks, setRemarks] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const dismissError = () => {
+    setLocalError(null);
+    onDismissError();
+  };
 
   const submit = (status: ApplicationReviewValues["status"]) => {
     if (status === "rejected" && !remarks.trim()) {
@@ -93,9 +100,7 @@ export function ApplicationReviewDrawer({
           </div>
         )}
         {(localError ?? error) ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {localError ?? error}
-          </p>
+          <InlineAlert message={localError ?? error!} onDismiss={dismissError} />
         ) : null}
       </div>
       {record.status === "pending" ? (

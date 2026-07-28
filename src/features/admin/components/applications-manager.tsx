@@ -108,40 +108,52 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
   const handleReview = (id: string, values: ApplicationReviewValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await reviewApplication(id, values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await reviewApplication(id, values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        closeReview();
+        showToast(values.status === "approved" ? "Application approved." : "Application rejected.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      closeReview();
-      showToast(values.status === "approved" ? "Application approved." : "Application rejected.");
     });
   };
 
   const handleRelease = (id: string) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await releaseApplication(id);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await releaseApplication(id);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        closeReview();
+        showToast("Marked as released.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      closeReview();
-      showToast("Marked as released.");
     });
   };
 
   const handleCreate = (values: WalkInApplicationValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await createWalkInApplication(values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await createWalkInApplication(values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        setCreateOpen(false);
+        setPage(1);
+        showToast("Walk-in application encoded.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      setCreateOpen(false);
-      setPage(1);
-      showToast("Walk-in application encoded.");
     });
   };
 
@@ -310,6 +322,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
             onCancel={closeReview}
             saving={isPending}
             error={formError}
+            onDismissError={() => setFormError(null)}
           />
         ) : null}
       </Drawer>
@@ -321,6 +334,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
             onCancel={() => setCreateOpen(false)}
             saving={isPending}
             error={formError}
+            onDismissError={() => setFormError(null)}
           />
         ) : null}
       </Drawer>

@@ -101,19 +101,24 @@ export function EventsManager({ events, isSuperAdmin }: EventsManagerProps) {
   const openEdit = (row: AdminEventRow) => {
     setLoadingEditId(row.id);
     startTransition(async () => {
-      const detail = await getEventForEditAction(row.id);
-      setLoadingEditId(null);
-      if (!detail) {
+      try {
+        const detail = await getEventForEditAction(row.id);
+        if (!detail) {
+          showError("Could not load that event.");
+          return;
+        }
+        setEditing({
+          id: row.id,
+          values: detail.values,
+          status: detail.status,
+          coverPreviewUrl: detail.coverPreviewUrl,
+        });
+        setDrawerOpen(true);
+      } catch {
         showError("Could not load that event.");
-        return;
+      } finally {
+        setLoadingEditId(null);
       }
-      setEditing({
-        id: row.id,
-        values: detail.values,
-        status: detail.status,
-        coverPreviewUrl: detail.coverPreviewUrl,
-      });
-      setDrawerOpen(true);
     });
   };
 
@@ -131,13 +136,17 @@ export function EventsManager({ events, isSuperAdmin }: EventsManagerProps) {
 
   const publish = (record: AdminEventRow) => {
     startTransition(async () => {
-      const result = await publishEvent(record.id);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await publishEvent(record.id);
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(`Published ${record.title}.`);
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      showToast(`Published ${record.title}.`);
-      router.refresh();
     });
   };
 
@@ -147,26 +156,31 @@ export function EventsManager({ events, isSuperAdmin }: EventsManagerProps) {
     const { kind, record } = confirming;
     setActionPending(true);
     startTransition(async () => {
-      const result =
-        kind === "archive"
-          ? await archiveEvent(record.id)
-          : kind === "restore"
-            ? await restoreEvent(record.id)
-            : await deleteEvent(record.id);
-      setActionPending(false);
-      setConfirming(null);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result =
+          kind === "archive"
+            ? await archiveEvent(record.id)
+            : kind === "restore"
+              ? await restoreEvent(record.id)
+              : await deleteEvent(record.id);
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(
+          kind === "archive"
+            ? `Archived ${record.title}.`
+            : kind === "restore"
+              ? `Restored ${record.title} as a draft.`
+              : `Deleted ${record.title}.`,
+        );
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
+      } finally {
+        setActionPending(false);
+        setConfirming(null);
       }
-      showToast(
-        kind === "archive"
-          ? `Archived ${record.title}.`
-          : kind === "restore"
-            ? `Restored ${record.title} as a draft.`
-            : `Deleted ${record.title}.`,
-      );
-      router.refresh();
     });
   };
 

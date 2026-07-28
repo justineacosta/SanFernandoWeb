@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { AdminServiceRow, ServiceFormValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { ICON_OPTIONS } from "@/lib/icon-map";
 import { createService, updateService } from "@/features/admin/actions/services";
 
@@ -51,14 +52,18 @@ export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
     if (Object.keys(nextErrors).length > 0) return;
     setError(null);
     startTransition(async () => {
-      const result = record
-        ? await updateService(record.id, values)
-        : await createService(values);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = record
+          ? await updateService(record.id, values)
+          : await createService(values);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        onSaved();
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      onSaved();
     });
   };
 
@@ -144,11 +149,7 @@ export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
             <option value="inactive">Inactive</option>
           </Select>
         </Field>
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        ) : null}
+        {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
       </div>
       <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
         <Button variant="ghost" onClick={onCancel}>

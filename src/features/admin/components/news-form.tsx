@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { ContentStatus, NewsArticleValues, NewsCategoryRow, GalleryPhoto } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import {
   archiveNewsArticle,
   publishNewsArticle,
@@ -91,28 +92,32 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const fd = new FormData();
-      pendingPhotos.forEach((p) => {
-        fd.append("photos", p.file);
-        fd.append("photoAlts", p.alt);
-      });
-      const result = await saveNewsArticle(id, values, fd);
-      const wasNew = id === null;
-      // The id lands even on an error: the article may well have been written
-      // and only its photos failed, and a retry must update that row rather
-      // than create a second one.
-      if (result.id) setId(result.id);
-      if (result.photos) {
-        setPhotos(result.photos);
-        setPendingPhotos([]);
-        setPhotoVersion((v) => v + 1);
+      try {
+        const fd = new FormData();
+        pendingPhotos.forEach((p) => {
+          fd.append("photos", p.file);
+          fd.append("photoAlts", p.alt);
+        });
+        const result = await saveNewsArticle(id, values, fd);
+        const wasNew = id === null;
+        // The id lands even on an error: the article may well have been written
+        // and only its photos failed, and a retry must update that row rather
+        // than create a second one.
+        if (result.id) setId(result.id);
+        if (result.photos) {
+          setPhotos(result.photos);
+          setPendingPhotos([]);
+          setPhotoVersion((v) => v + 1);
+        }
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        draft.clear();
+        onSaved(wasNew ? "Draft saved." : "Post updated.", wasNew);
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      draft.clear();
-      onSaved(wasNew ? "Draft saved." : "Post updated.", wasNew);
     });
   }
 
@@ -125,13 +130,17 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
     if (!currentId) return;
     setError(null);
     startTransition(async () => {
-      const result = await action(currentId);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await action(currentId);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setStatus(nextStatus);
+        onSaved(message);
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      setStatus(nextStatus);
-      onSaved(message);
     });
   }
 
@@ -213,11 +222,7 @@ export function NewsForm({ record, categories, onSaved, onCancel }: NewsFormProp
             onPendingChange={setPendingPhotos}
           />
         </div>
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        ) : null}
+        {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 p-6">
         <div className="flex flex-wrap gap-2">

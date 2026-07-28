@@ -7,6 +7,7 @@ import { SITE } from "@/constants/site";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitInquiry } from "@/features/contact/actions";
@@ -57,6 +58,8 @@ export function InquiryForm() {
           return;
         }
         setSent(true);
+      } catch {
+        setError("Something went wrong. Please try again.");
       } finally {
         submitting.current = false;
         turnstileRef.current?.reset();
@@ -208,9 +211,7 @@ export function InquiryForm() {
           ) : null}
         </div>
         {error ? (
-          <p role="alert" className="text-sm font-medium text-danger md:col-span-2">
-            {error}
-          </p>
+          <InlineAlert message={error} onDismiss={() => setError(null)} className="md:col-span-2" />
         ) : null}
         <TurnstileWidget
           ref={turnstileRef}

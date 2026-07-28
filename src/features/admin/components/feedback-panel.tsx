@@ -110,27 +110,35 @@ export function FeedbackPanel({ records, isSuperAdmin, active }: FeedbackPanelPr
   const handleSave = (id: string, values: FeedbackUpdateValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await updateFeedback(id, values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await updateFeedback(id, values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        closeDrawer();
+        showToast("Feedback updated.");
+        router.refresh();
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      closeDrawer();
-      showToast("Feedback updated.");
-      router.refresh();
     });
   };
 
   /** The kebab's one-click moves. They keep whatever note is already saved. */
   const setStatusFor = (record: FeedbackRow, next: FeedbackStatus, message: string) => {
     startTransition(async () => {
-      const result = await updateFeedback(record.id, { status: next, staffNote: record.staffNote });
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await updateFeedback(record.id, { status: next, staffNote: record.staffNote });
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(message);
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      showToast(message);
-      router.refresh();
     });
   };
 
@@ -139,15 +147,20 @@ export function FeedbackPanel({ records, isSuperAdmin, active }: FeedbackPanelPr
     const { id, subject } = confirmingDelete;
     setActionPending(true);
     startTransition(async () => {
-      const result = await deleteFeedback(id);
-      setActionPending(false);
-      setConfirmingDelete(null);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await deleteFeedback(id);
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(`Deleted "${subject}".`);
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
+      } finally {
+        setActionPending(false);
+        setConfirmingDelete(null);
       }
-      showToast(`Deleted "${subject}".`);
-      router.refresh();
     });
   };
 
@@ -339,6 +352,7 @@ export function FeedbackPanel({ records, isSuperAdmin, active }: FeedbackPanelPr
             onCancel={closeDrawer}
             saving={isPending}
             error={formError}
+            onDismissError={() => setFormError(null)}
           />
         ) : null}
       </Drawer>

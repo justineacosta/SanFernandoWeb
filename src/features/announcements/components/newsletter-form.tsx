@@ -5,6 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normaliseMobile } from "@/lib/public-forms";
 import { Button } from "@/components/ui/button";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { subscribeToAlerts } from "@/features/announcements/actions";
 
@@ -45,6 +46,8 @@ export function NewsletterForm({ variant = "card" }: NewsletterFormProps) {
           return;
         }
         setSubscribed(true);
+      } catch {
+        setError("Something went wrong. Please try again.");
       } finally {
         submitting.current = false;
         turnstileRef.current?.reset();
@@ -100,9 +103,12 @@ export function NewsletterForm({ variant = "card" }: NewsletterFormProps) {
       />
       {error ? (
         // `danger-bright`, not `danger`: this form only ever renders on dark ink.
-        <p id={errorId} role="alert" className="text-sm font-medium text-danger-bright">
-          {error}
-        </p>
+        <InlineAlert
+          message={error}
+          onDismiss={() => setError(null)}
+          className="text-danger-bright"
+          id={errorId}
+        />
       ) : null}
     </form>
   );

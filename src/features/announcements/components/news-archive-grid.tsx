@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { NewsCard } from "@/features/announcements/components/news-card";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { loadMoreNews } from "@/features/announcements/actions";
 import type { NewsArticleListItem } from "@/types";
 
@@ -49,11 +50,7 @@ export function NewsArchiveGrid({
           <NewsCard key={article.id} article={article} />
         ))}
       </div>
-      {error ? (
-        <p role="alert" className="text-sm font-medium text-danger">
-          {error}
-        </p>
-      ) : null}
+      {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
       {hasMore ? (
         <div className="flex justify-center pt-4">
           <Button variant="outline" size="lg" onClick={handleLoadMore} disabled={isPending}>

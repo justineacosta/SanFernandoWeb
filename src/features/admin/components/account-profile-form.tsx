@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { SessionUser } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { Toast } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
 import { updateMyProfile } from "@/features/admin/actions/account";
@@ -25,16 +26,20 @@ export function AccountProfileForm({ currentUser }: { currentUser: SessionUser }
     if (avatarFile) avatarForm.set("image", avatarFile);
     if (removeAvatar) avatarForm.set("removeImage", "1");
     startTransition(async () => {
-      const result = await updateMyProfile({ fullName, phone }, avatarForm);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await updateMyProfile({ fullName, phone }, avatarForm);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        // The server now owns whatever was picked; clearing these puts the
+        // uploader back to showing the stored photo rather than a stale pick.
+        setAvatarFile(null);
+        setRemoveAvatar(false);
+        showToast("Profile saved.");
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      // The server now owns whatever was picked; clearing these puts the
-      // uploader back to showing the stored photo rather than a stale pick.
-      setAvatarFile(null);
-      setRemoveAvatar(false);
-      showToast("Profile saved.");
     });
   }
 
@@ -73,7 +78,7 @@ export function AccountProfileForm({ currentUser }: { currentUser: SessionUser }
               />
             </Field>
           </div>
-          {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+          {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
           <div className="flex justify-end">
             <Button type="submit" disabled={isPending}>
               {isPending ? "Saving…" : "Save Profile"}

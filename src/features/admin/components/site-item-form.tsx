@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { SiteBlock, SiteItemValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { SITE_ICON_OPTIONS } from "@/lib/icon-map";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { saveSiteItem } from "@/features/admin/actions/site-content";
@@ -79,14 +80,18 @@ export function SiteItemForm({ block, record, onSaved, onCancel }: SiteItemFormP
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveSiteItem(id, block, values, imageForm());
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await saveSiteItem(id, block, values, imageForm());
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        if (result.id) setId(result.id);
+        draft.clear();
+        onSaved(`${cap(spec.itemNoun)} saved.`);
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      if (result.id) setId(result.id);
-      draft.clear();
-      onSaved(`${cap(spec.itemNoun)} saved.`);
     });
   }
 
@@ -149,11 +154,7 @@ export function SiteItemForm({ block, record, onSaved, onCancel }: SiteItemFormP
           </>
         ) : null}
 
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        ) : null}
+        {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
       </div>
 
       <div className="flex items-center gap-3 border-t border-ink-200/70 p-6">

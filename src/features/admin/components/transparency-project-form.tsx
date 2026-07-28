@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { ContentStatus, TransparencyProjectValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { useAdminUserId } from "./admin-user-context";
 import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
@@ -54,17 +55,21 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const fd = new FormData();
-      for (const f of newFiles) fd.append("newFile", f);
-      for (const id2 of keptIds) fd.append("keptFileId", id2);
-      const result = await saveTransparencyProject(id, values, fd);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const fd = new FormData();
+        for (const f of newFiles) fd.append("newFile", f);
+        for (const id2 of keptIds) fd.append("keptFileId", id2);
+        const result = await saveTransparencyProject(id, values, fd);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        if (result.id) setId(result.id);
+        draft.clear();
+        onSaved("Project saved.");
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      if (result.id) setId(result.id);
-      draft.clear();
-      onSaved("Project saved.");
     });
   }
 
@@ -73,13 +78,17 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
     if (!currentId) return;
     setError(null);
     startTransition(async () => {
-      const result = await setTransparencyProjectStatus(currentId, nextStatus);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await setTransparencyProjectStatus(currentId, nextStatus);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setStatus(nextStatus);
+        onSaved(message);
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      setStatus(nextStatus);
-      onSaved(message);
     });
   }
 
@@ -134,11 +143,7 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
             onNewFilesChange={setNewFiles}
           />
         </div>
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        ) : null}
+        {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 p-6">
         <div className="flex flex-wrap gap-2">

@@ -104,40 +104,52 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
   const handleReview = (id: string, values: AppointmentReviewValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await reviewAppointment(id, values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await reviewAppointment(id, values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        closeReview();
+        showToast(values.status === "confirmed" ? "Appointment confirmed." : "Appointment declined.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      closeReview();
-      showToast(values.status === "confirmed" ? "Appointment confirmed." : "Appointment declined.");
     });
   };
 
   const handleComplete = (id: string) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await completeAppointment(id);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await completeAppointment(id);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        closeReview();
+        showToast("Marked as completed.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      closeReview();
-      showToast("Marked as completed.");
     });
   };
 
   const handleCreate = (values: WalkInAppointmentValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await createWalkInAppointment(values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await createWalkInAppointment(values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        setCreateOpen(false);
+        setPage(1);
+        showToast("Walk-in appointment encoded.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      setCreateOpen(false);
-      setPage(1);
-      showToast("Walk-in appointment encoded.");
     });
   };
 
@@ -296,6 +308,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
             onCancel={closeReview}
             saving={isPending}
             error={formError}
+            onDismissError={() => setFormError(null)}
           />
         ) : null}
       </Drawer>
@@ -306,6 +319,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
             onCancel={() => setCreateOpen(false)}
             saving={isPending}
             error={formError}
+            onDismissError={() => setFormError(null)}
           />
         ) : null}
       </Drawer>

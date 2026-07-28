@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { AppointmentPeriod, AppointmentReviewValues, AppointmentRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatDate, manilaToday } from "@/lib/format";
 import { StatusChip } from "./status-chip";
 
@@ -14,6 +15,7 @@ interface AppointmentReviewDrawerProps {
   onCancel: () => void;
   saving: boolean;
   error: string | null;
+  onDismissError: () => void;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -33,11 +35,16 @@ export function AppointmentReviewDrawer({
   onCancel,
   saving,
   error,
+  onDismissError,
 }: AppointmentReviewDrawerProps) {
   const [confirmedDate, setConfirmedDate] = useState(record.preferredDate);
   const [confirmedPeriod, setConfirmedPeriod] = useState<AppointmentPeriod>(record.preferredPeriod);
   const [remarks, setRemarks] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const dismissError = () => {
+    setLocalError(null);
+    onDismissError();
+  };
 
   const submitReview = (status: AppointmentReviewValues["status"]) => {
     if (status === "declined" && !remarks.trim()) {
@@ -133,9 +140,7 @@ export function AppointmentReviewDrawer({
           </div>
         )}
         {(localError ?? error) ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {localError ?? error}
-          </p>
+          <InlineAlert message={localError ?? error!} onDismiss={dismissError} />
         ) : null}
       </div>
       {record.status === "pending" ? (

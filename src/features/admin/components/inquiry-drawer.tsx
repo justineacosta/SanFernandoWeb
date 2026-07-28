@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { InquiryRow, InquiryStatus, InquiryUpdateValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Select, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatDate } from "@/lib/format";
 import { StatusChip } from "./status-chip";
 
@@ -13,6 +14,7 @@ interface InquiryDrawerProps {
   onCancel: () => void;
   saving: boolean;
   error: string | null;
+  onDismissError: () => void;
 }
 
 export const INQUIRY_STATUS_OPTIONS: { value: InquiryStatus; label: string }[] = [
@@ -39,7 +41,14 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
  * is to make contacting the resident one click, and to record what was said in
  * the note so the next person picking up the inbox is not starting cold.
  */
-export function InquiryDrawer({ record, onSave, onCancel, saving, error }: InquiryDrawerProps) {
+export function InquiryDrawer({
+  record,
+  onSave,
+  onCancel,
+  saving,
+  error,
+  onDismissError,
+}: InquiryDrawerProps) {
   const [status, setStatus] = useState<InquiryStatus>(record.status);
   const [staffNote, setStaffNote] = useState(record.staffNote);
 
@@ -112,11 +121,7 @@ export function InquiryDrawer({ record, onSave, onCancel, saving, error }: Inqui
             Last handled by {record.handledByName} on {formatDate(record.handledAt)}
           </p>
         ) : null}
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        ) : null}
+        {error ? <InlineAlert message={error} onDismiss={onDismissError} /> : null}
       </div>
       <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
         <Button variant="ghost" onClick={onCancel}>

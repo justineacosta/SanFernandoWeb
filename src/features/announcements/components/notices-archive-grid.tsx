@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { NoticeArchiveCard } from "@/components/shared/notice-archive-card";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { loadMoreNotices } from "@/features/announcements/actions";
 import type { Announcement } from "@/types";
 
@@ -49,11 +50,7 @@ export function NoticesArchiveGrid({
           <NoticeArchiveCard key={announcement.id} announcement={announcement} />
         ))}
       </div>
-      {error ? (
-        <p role="alert" className="text-sm font-medium text-danger">
-          {error}
-        </p>
-      ) : null}
+      {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
       {hasMore ? (
         <div className="flex justify-center pt-4">
           <Button variant="outline" size="lg" onClick={handleLoadMore} disabled={isPending}>

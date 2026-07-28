@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, fieldClasses } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrength } from "@/components/ui/password-strength";
 import { Toast } from "@/components/ui/toast";
@@ -25,15 +26,19 @@ export function AccountSecurityForm() {
     }
     setError(null);
     startTransition(async () => {
-      const result = await changeMyPassword({ currentPassword: current, newPassword: next });
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await changeMyPassword({ currentPassword: current, newPassword: next });
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setCurrent("");
+        setNext("");
+        setConfirm("");
+        showToast("Password updated.");
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      setCurrent("");
-      setNext("");
-      setConfirm("");
-      showToast("Password updated.");
     });
   }
 
@@ -70,7 +75,7 @@ export function AccountSecurityForm() {
             />
           </Field>
         </div>
-        {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
+        {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
         <div className="flex justify-end">
           <Button variant="outline" type="submit" disabled={isPending}>
             {isPending ? "Updating…" : "Update Password"}

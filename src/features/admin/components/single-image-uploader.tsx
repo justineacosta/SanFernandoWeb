@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Trash2, Undo2, Upload } from "lucide-react";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "@/lib/storage";
 import { Field, Input } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 
 interface SingleImageUploaderProps {
   /** Storage path (or seed URL) already on the record being edited, or null. */
@@ -213,7 +214,7 @@ export function SingleImageUploader({
         onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ""; }}
       />
 
-      {error ? <p role="alert" className="text-sm font-medium text-danger">{error}</p> : null}
+      {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
 
       {!decorative && (file || showExisting) ? (
         <Field label="Image description (alt text)" htmlFor={altId}>

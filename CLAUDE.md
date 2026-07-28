@@ -481,9 +481,77 @@ a rate-limit collision, not a regression.
   submit. **This branch must not be deployed to production or staging before
   `TURNSTILE_SECRET_KEY` is set.** The failure is per-request, not per-build: the build
   succeeds and every page loads normally with no key configured, so a keyless deploy looks
-  perfectly healthy until the first resident actually submits a form — six of the 8 forms only
-  handle a `{ error }` return shape and have no error boundary tuned for an unhandled Server
-  Action rejection. A pre-existing, unrelated test bug surfaced while running the verification battery for this
+  perfectly healthy until the first resident actually submits a form. **Fixed 2026-07-28:** all
+  8 forms' `handleSubmit` originally wrapped the action call in `try { … } finally { … }` with no
+  `catch`, so a throw (rather than a returned `{ error }`) fell through as an unhandled rejection
+  to the nearest route `error.tsx` — a full-page crash that also lost whatever the resident had
+  typed, instead of the inline message every *expected* failure already got. Each of the 8 now
+  has a `catch { setError("Something went wrong. Please try again.") }` between the `try` and
+  `finally`, so an unexpected throw degrades to the same inline recoverable message as a normal
+  validation failure. The same `try { … } finally { … }`-with-no-`catch` shape existed in 6 admin
+  manager "open edit drawer" handlers too (`legislative-manager.tsx`, `news-manager.tsx` ×2 —
+  news and announcements each have their own — `officials-manager.tsx`,
+  `transparency-manager.tsx`, `transparency-projects-panel.tsx`), each fetching a record's full
+  detail via a `get*ForEditAction(id)` call before opening the drawer; fixed the same way, with a
+  `catch { showError(...) }` reusing the wording each handler's own null-detail branch already
+  used (e.g. "Could not load that post."). **Then swept the whole admin portal the same day:**
+  every `startTransition(async () => { … })` in `src/features/admin/components/` — 76 blocks
+  across 31 files — called its Server Action with zero exception handling, not even a bare
+  `try`/`finally`; each relied entirely on the action returning `{ error }` cleanly and would
+  otherwise crash the whole manager to `admin/(portal)/error.tsx` on any unexpected throw. All 76
+  now wrap the action call in `try { … } catch { showError(...) / setError(...) }`, reusing
+  each handler's own existing error-display mechanism (a few components use a local `error` state
+  banner instead of the `showError` toast — matched per-file, not standardized). Handlers that
+  already cleared a `pending`/`confirming` state unconditionally right after the `await` (the
+  row-action confirm dialogs — e.g. `team-manager.tsx`'s `runConfirmed`, `feedback-panel.tsx`'s
+  `runDelete`) had that cleanup moved into a `finally` rather than left to run only on the
+  non-throwing path, so a thrown exception can no longer leave a `ConfirmDialog` stuck open and
+  locked. Verified via `grep -c 'startTransition(async' file` vs `grep -c '} catch\|try {' file`
+  landing at exactly a 1:2 ratio (one `try` + one `catch` per block) across all 31 files — full
+  coverage, not spot-checked. The public-form sweep above and this one used the same generic
+  fallback copy, `"Something went wrong. Please try again."`, everywhere a handler had no more
+  specific message already in hand. **A second pass caught 3 more files the first grep missed**
+  (`news-photo-uploader.tsx`, `achievement-photo-uploader.tsx`, `achievements-editor.tsx`) because
+  they alias `useTransition`'s setter as `start` instead of `startTransition` — 12 more sites,
+  same fix. `grep -rn 'useTransition()' src/` is the reliable way to enumerate every call site;
+  grepping for the literal string `startTransition(async` misses aliased destructuring.
+  **`login-form.tsx`, `sign-out-button.tsx`, and `idle-timeout.tsx` are deliberately NOT part of
+  this pattern and were left alone on purpose:** they call `signIn`/`signOut`/`signOutIdle`
+  (`src/features/admin/actions/auth.ts`) via React's native `useActionState`/`<form action={...}>`
+  or a fire-and-forget `void signOutIdle()`, never a hand-rolled `try { await action() } finally`.
+  All three server actions end with Next's `redirect()`, which works by *throwing* a special
+  `NEXT_REDIRECT`-digest error that Next's router catches higher up — wrapping the call site in an
+  ordinary `catch` (client- or server-side) would swallow that throw and silently break the
+  redirect on every successful sign-in/sign-out, not just on a real failure. If this class of gap
+  ever gets closed for auth, the fix belongs *inside* `signIn`/`signOut`/`signOutIdle` themselves,
+  guarding only the pre-`redirect()` logic and checking `isRedirectError()` before treating a catch
+  as a real failure — not in these three call sites. **Every error banner is now dismissible
+  (2026-07-29):** the ~40 near-identical inline `{error ? <p role="alert" className="...">{error}</p>
+  : null}` blocks this whole pass had been adding were collapsed into one shared component,
+  `src/components/ui/inline-alert.tsx` — a `role="alert"` banner with a close (X) button, `message`/
+  `onDismiss`/optional `className`/`id` props, `twMerge` resolving any base-class override (dark-bg
+  `text-danger-bright` on `newsletter-form.tsx`, `text-xs` on `achievement-photo-uploader.tsx`,
+  `mb-4` on the category panels) so no variant prop was needed. The shared `<Toast>`
+  (`src/components/ui/toast.tsx`) got the same treatment — it only auto-dismissed on a timer before
+  (3s success / 5s error) and now also closes on click. Two categories were deliberately left as
+  plain, non-dismissible `role="alert"` text: **field-level validation** (`v.errorFor("consent")`
+  on the four consent checkboxes, `feedback-panel.tsx`'s public `fileError`) clears itself once the
+  field becomes valid — a close button on "this field is required" has nothing to dismiss *to*.
+  The four admin **review-drawers** (`application-`/`appointment-`/`assistance-`/
+  `complaint-review-drawer.tsx`) render `localError ?? error` — a local validation error and the
+  parent manager's `formError` prop layered together — so dismissing has to clear both; each gained
+  a `dismissError()` wrapper doing `setLocalError(null)` then a new `onDismissError` prop the
+  manager wires to `() => setFormError(null)`. The six manager children that only ever showed the
+  parent's `error` (the four walk-in create forms plus `feedback-drawer.tsx`/`inquiry-drawer.tsx`)
+  needed the same `onDismissError` prop threaded through with no local half. `login-form.tsx` is
+  the one true special case: `useActionState` gives no setter to null out `state.error` directly, so
+  dismissal is tracked by **object identity**, not the message text — `dismissedState` is compared
+  against `state` itself (`useState<AuthFormState | null>`), because a second failed login produces
+  a brand-new `state` object even when the copy reads identically, and comparing strings would leave
+  that second failure permanently suppressed. `admin-global-search.tsx`'s previously-silent catch
+  (noted above as the one exception to "every catch is visible") now sets a dismissible
+  `searchError` shown inside the results dropdown, cleared on dismiss or when the query is edited
+  back below `MIN_QUERY_LENGTH`. A pre-existing, unrelated test bug surfaced while running the verification battery for this
   task: `tests/e2e/public/feedback.spec.ts`'s "the rate limit blocks a 4th submission within
   the window" test has been broken since before this branch existed — it looks for a radio
   named `"General Feedback"` but `src/features/feedback/data.ts:20`'s actual label is just

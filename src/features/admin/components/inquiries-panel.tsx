@@ -100,25 +100,33 @@ export function InquiriesPanel({ inquiries, active }: InquiriesPanelProps) {
   const handleSave = (id: string, values: InquiryUpdateValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await updateInquiry(id, values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await updateInquiry(id, values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        closeDrawer();
+        showToast("Inquiry updated.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      closeDrawer();
-      showToast("Inquiry updated.");
     });
   };
 
   /** The kebab's one-click moves. They keep whatever note is already saved. */
   const setStatusFor = (record: InquiryRow, next: InquiryStatus, message: string) => {
     startTransition(async () => {
-      const result = await updateInquiry(record.id, { status: next, staffNote: record.staffNote });
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await updateInquiry(record.id, { status: next, staffNote: record.staffNote });
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(message);
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      showToast(message);
     });
   };
 
@@ -282,6 +290,7 @@ export function InquiriesPanel({ inquiries, active }: InquiriesPanelProps) {
             onCancel={closeDrawer}
             saving={isPending}
             error={formError}
+            onDismissError={() => setFormError(null)}
           />
         ) : null}
       </Drawer>

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { AnnouncementValues, ContentStatus } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { useAdminUserId } from "./admin-user-context";
 import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
@@ -76,20 +77,24 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const fd = new FormData();
-      if (image) fd.append("image", image);
-      if (removeImage) fd.append("removeImage", "1");
-      const result = await saveAnnouncement(id, values, fd);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const fd = new FormData();
+        if (image) fd.append("image", image);
+        if (removeImage) fd.append("removeImage", "1");
+        const result = await saveAnnouncement(id, values, fd);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        const wasNew = id === null;
+        if (result.id) setId(result.id);
+        // The work is on the server: drop the recovery copy and re-baseline, so
+        // the autosave effect does not immediately write it back.
+        draft.clear();
+        onSaved(wasNew ? "Draft saved." : "Announcement updated.");
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      const wasNew = id === null;
-      if (result.id) setId(result.id);
-      // The work is on the server: drop the recovery copy and re-baseline, so
-      // the autosave effect does not immediately write it back.
-      draft.clear();
-      onSaved(wasNew ? "Draft saved." : "Announcement updated.");
     });
   }
 
@@ -102,13 +107,17 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
     if (!currentId) return;
     setError(null);
     startTransition(async () => {
-      const result = await action(currentId);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await action(currentId);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setStatus(nextStatus);
+        onSaved(message);
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      setStatus(nextStatus);
-      onSaved(message);
     });
   }
 
@@ -195,11 +204,7 @@ export function AnnouncementForm({ record, onSaved, onCancel }: AnnouncementForm
             onRemoveExistingChange={setRemoveImage}
           />
         </div>
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        ) : null}
+        {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 p-6">
         <div className="flex flex-wrap gap-2">

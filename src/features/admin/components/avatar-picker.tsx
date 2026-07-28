@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { UploadCloud } from "lucide-react";
 import { ImageCropperDialog } from "@/components/ui/image-cropper-dialog";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { cropFromImage, decodeImageUrl, type PixelCrop } from "@/lib/crop-image";
 import { ALLOWED_AVATAR_SOURCE_TYPES, AVATARS_MEDIA_BUCKET, MAX_AVATAR_SOURCE_BYTES, mediaUrl } from "@/lib/storage";
 
@@ -211,7 +212,7 @@ export function AvatarPicker({
         }}
       />
 
-      {error ? <p role="alert" className="text-sm font-medium text-danger">{error}</p> : null}
+      {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
 
       <ImageCropperDialog
         open={Boolean(sourceUrl)}

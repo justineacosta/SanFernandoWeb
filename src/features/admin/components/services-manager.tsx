@@ -90,14 +90,18 @@ export function ServicesManager({ services }: ServicesManagerProps) {
   const toggleAvailability = (record: AdminServiceRow) => {
     const enabling = record.status !== "active";
     startTransition(async () => {
-      const result = await setServiceAvailable(record.id, enabling);
-      // Previously the error text was passed to the success toast, so a failure
-      // arrived with a green tick beside it.
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await setServiceAvailable(record.id, enabling);
+        // Previously the error text was passed to the success toast, so a failure
+        // arrived with a green tick beside it.
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(enabling ? `Enabled ${record.title}.` : `Disabled ${record.title}.`);
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      showToast(enabling ? `Enabled ${record.title}.` : `Disabled ${record.title}.`);
     });
   };
 

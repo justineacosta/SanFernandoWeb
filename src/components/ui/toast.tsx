@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ToastTone = "success" | "error";
@@ -14,7 +14,8 @@ interface ToastProps {
 
 /**
  * Transient bottom-right notice; auto-dismisses after 3 seconds (5 for errors,
- * which carry information the user may need to act on).
+ * which carry information the user may need to act on) or immediately on a
+ * manual close.
  *
  * Failures use `role="alert"` so assistive tech interrupts, successes
  * `role="status"` so they do not. Render with `key={toast.id}` — see
@@ -47,7 +48,15 @@ export function Toast({ message, tone = "success", onDismiss }: ToastProps) {
         className={cn("h-5 w-5 shrink-0", tone === "error" ? "text-danger-soft" : "text-brand-400")}
         aria-hidden="true"
       />
-      {message}
+      <span className="flex-1">{message}</span>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        className="-m-1 shrink-0 rounded-full p-1 text-white/70 transition-colors hover:text-white"
+      >
+        <X className="h-4 w-4" aria-hidden="true" />
+      </button>
     </div>
   );
 }

@@ -118,44 +118,56 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
   const handleReview = (id: string, values: AssistanceReviewValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await reviewAssistance(id, values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await reviewAssistance(id, values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        closeReview();
+        showToast(
+          values.status === "under-review"
+            ? "Request taken up for review."
+            : "Request declined.",
+        );
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      closeReview();
-      showToast(
-        values.status === "under-review"
-          ? "Request taken up for review."
-          : "Request declined.",
-      );
     });
   };
 
   const handleDecide = (id: string, values: AssistanceDecisionValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await decideAssistance(id, values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await decideAssistance(id, values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        closeReview();
+        showToast(values.status === "granted" ? "Request granted." : "Request declined.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      closeReview();
-      showToast(values.status === "granted" ? "Request granted." : "Request declined.");
     });
   };
 
   const handleCreate = (values: WalkInAssistanceValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await createWalkInAssistance(values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await createWalkInAssistance(values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        setCreateOpen(false);
+        setPage(1);
+        showToast("Walk-in request encoded.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      setCreateOpen(false);
-      setPage(1);
-      showToast("Walk-in request encoded.");
     });
   };
 
@@ -324,6 +336,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
             onCancel={closeReview}
             saving={isPending}
             error={formError}
+            onDismissError={() => setFormError(null)}
           />
         ) : null}
       </Drawer>
@@ -335,6 +348,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
             onCancel={() => setCreateOpen(false)}
             saving={isPending}
             error={formError}
+            onDismissError={() => setFormError(null)}
           />
         ) : null}
       </Drawer>

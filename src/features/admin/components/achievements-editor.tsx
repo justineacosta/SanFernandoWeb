@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import type { AchievementValues, AdminAchievement } from "@/types";
 import { Field, Input, Textarea } from "@/components/ui/form";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import {
   createAchievement,
   deleteAchievement,
@@ -63,22 +64,26 @@ export function AchievementsEditor({ officialId, achievements: initial }: Achiev
   function add() {
     setError(null);
     start(async () => {
-      const result = await createAchievement(officialId);
-      if (result.error || !result.id) {
-        setError(result.error ?? "Could not add the achievement.");
-        return;
+      try {
+        const result = await createAchievement(officialId);
+        if (result.error || !result.id) {
+          setError(result.error ?? "Could not add the achievement.");
+          return;
+        }
+        const created: AdminAchievement = {
+          id: result.id,
+          title: "",
+          description: "",
+          dateLabel: "",
+          isVisible: true,
+          photos: [],
+        };
+        savedRef.current[created.id] = toValues(created);
+        setItems((prev) => [...prev, created]);
+        setFocusId(created.id);
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      const created: AdminAchievement = {
-        id: result.id,
-        title: "",
-        description: "",
-        dateLabel: "",
-        isVisible: true,
-        photos: [],
-      };
-      savedRef.current[created.id] = toValues(created);
-      setItems((prev) => [...prev, created]);
-      setFocusId(created.id);
     });
   }
 
@@ -90,15 +95,22 @@ export function AchievementsEditor({ officialId, achievements: initial }: Achiev
     if (previous && sameValues(previous, next)) return;
     setError(null);
     start(async () => {
-      const result = await updateAchievement(id, next);
-      if (result.error) {
-        setError(result.error);
+      try {
+        const result = await updateAchievement(id, next);
+        if (result.error) {
+          setError(result.error);
+          if (previous) {
+            setItems((prev) => prev.map((a) => (a.id === id ? { ...a, ...previous } : a)));
+          }
+          return;
+        }
+        savedRef.current[id] = next;
+      } catch {
+        setError("Something went wrong. Please try again.");
         if (previous) {
           setItems((prev) => prev.map((a) => (a.id === id ? { ...a, ...previous } : a)));
         }
-        return;
       }
-      savedRef.current[id] = next;
     });
   }
 
@@ -107,10 +119,15 @@ export function AchievementsEditor({ officialId, achievements: initial }: Achiev
     setItems((prev) => prev.map((a) => (a.id === id ? { ...a, isVisible } : a)));
     setError(null);
     start(async () => {
-      const result = await setAchievementVisibility(id, isVisible);
-      if (result.error) {
+      try {
+        const result = await setAchievementVisibility(id, isVisible);
+        if (result.error) {
+          setItems(previous);
+          setError(result.error);
+        }
+      } catch {
         setItems(previous);
-        setError(result.error);
+        setError("Something went wrong. Please try again.");
       }
     });
   }
@@ -124,13 +141,18 @@ export function AchievementsEditor({ officialId, achievements: initial }: Achiev
     setItems(next);
     setError(null);
     start(async () => {
-      const result = await reorderAchievements(
-        officialId,
-        next.map((a) => a.id),
-      );
-      if (result.error) {
+      try {
+        const result = await reorderAchievements(
+          officialId,
+          next.map((a) => a.id),
+        );
+        if (result.error) {
+          setItems(previous);
+          setError(result.error);
+        }
+      } catch {
         setItems(previous);
-        setError(result.error);
+        setError("Something went wrong. Please try again.");
       }
     });
   }
@@ -143,12 +165,18 @@ export function AchievementsEditor({ officialId, achievements: initial }: Achiev
     setError(null);
     setRemoving(true);
     start(async () => {
-      const result = await deleteAchievement(id);
-      setRemoving(false);
-      setConfirming(null);
-      if (result.error) {
+      try {
+        const result = await deleteAchievement(id);
+        if (result.error) {
+          setItems(previous);
+          setError(result.error);
+        }
+      } catch {
         setItems(previous);
-        setError(result.error);
+        setError("Something went wrong. Please try again.");
+      } finally {
+        setRemoving(false);
+        setConfirming(null);
       }
     });
   }
@@ -264,11 +292,7 @@ export function AchievementsEditor({ officialId, achievements: initial }: Achiev
         ))}
       </ul>
 
-      {error ? (
-        <p role="alert" className="text-sm font-medium text-danger">
-          {error}
-        </p>
-      ) : null}
+      {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
 
       <button
         type="button"

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { FileText, ImageIcon, Trash2, Upload } from "lucide-react";
 import { ALLOWED_DOC_FILE_TYPES, MAX_DOC_FILE_BYTES, MAX_FILES_PER_RECORD, formatFileSize } from "@/lib/storage";
+import { InlineAlert } from "@/components/ui/inline-alert";
 
 /** An already-stored file the record currently has. */
 export interface ExistingFile {
@@ -134,7 +135,7 @@ export function MultiFileUploader({
         </div>
       ) : null}
 
-      {error ? <p role="alert" className="text-sm font-medium text-danger">{error}</p> : null}
+      {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
     </div>
   );
 }

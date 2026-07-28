@@ -133,6 +133,8 @@ export function LegislativeManager({ documents, isSuperAdmin }: LegislativeManag
         }
         setEditing({ id: row.id, values: detail.values, status: detail.status, fileUrl: detail.fileUrl });
         setDrawerOpen(true);
+      } catch {
+        showError("Could not load that document.");
       } finally {
         setLoadingEditId(null);
       }
@@ -153,39 +155,48 @@ export function LegislativeManager({ documents, isSuperAdmin }: LegislativeManag
     const { kind, id, name } = confirming;
     setActionPending(true);
     startTransition(async () => {
-      const result =
-        kind === "delete"
-          ? await deleteLegislative(id)
-          : kind === "restore"
-            ? await restoreLegislative(id)
-            : await setLegislativeStatus(id, "archived");
-      setActionPending(false);
-      setConfirming(null);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result =
+          kind === "delete"
+            ? await deleteLegislative(id)
+            : kind === "restore"
+              ? await restoreLegislative(id)
+              : await setLegislativeStatus(id, "archived");
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(
+          kind === "delete"
+            ? `Deleted ${name}.`
+            : kind === "restore"
+              ? `Restored ${name} as a draft.`
+              : `Archived ${name}.`,
+        );
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
+      } finally {
+        setActionPending(false);
+        setConfirming(null);
       }
-      showToast(
-        kind === "delete"
-          ? `Deleted ${name}.`
-          : kind === "restore"
-            ? `Restored ${name} as a draft.`
-            : `Archived ${name}.`,
-      );
-      router.refresh();
     });
   };
 
   /** Publish straight from the row, like News, Events, Projects and Officials. */
   const publish = (id: string, name: string) => {
     startTransition(async () => {
-      const result = await setLegislativeStatus(id, "published");
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await setLegislativeStatus(id, "published");
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(`Published ${name}.`);
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      showToast(`Published ${name}.`);
-      router.refresh();
     });
   };
 

@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
 import { FormSectionLabel } from "@/components/ui/form-section-label";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitApplication } from "@/features/services/actions";
@@ -66,6 +67,8 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
           return;
         }
         setTicketNo(result.ticketNo);
+      } catch {
+        setError("Something went wrong. Please try again.");
       } finally {
         submitting.current = false;
         turnstileRef.current?.reset();
@@ -262,11 +265,7 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
             ) : null}
           </div>
           <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
-          {error ? (
-            <p role="alert" className="text-sm font-medium text-danger">
-              {error}
-            </p>
-          ) : null}
+          {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
           <Button type="submit" variant="primary" className="w-full" disabled={isPending}>
             {isPending ? "Filing…" : "Submit application"}
           </Button>

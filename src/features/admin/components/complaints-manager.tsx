@@ -104,42 +104,54 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
   const handleReview = (id: string, values: ComplaintReviewValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await reviewComplaint(id, values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await reviewComplaint(id, values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        closeReview();
+        showToast(
+          values.status === "under-review" ? "Report taken up for mediation." : "Report dismissed.",
+        );
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      closeReview();
-      showToast(
-        values.status === "under-review" ? "Report taken up for mediation." : "Report dismissed.",
-      );
     });
   };
 
   const handleClose = (id: string, values: ComplaintCloseValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await closeComplaint(id, values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await closeComplaint(id, values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        closeReview();
+        showToast(values.status === "resolved" ? "Report resolved." : "Report dismissed.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      closeReview();
-      showToast(values.status === "resolved" ? "Report resolved." : "Report dismissed.");
     });
   };
 
   const handleCreate = (values: WalkInComplaintValues) => {
     setFormError(null);
     startTransition(async () => {
-      const result = await createWalkInComplaint(values);
-      if (result.error) {
-        setFormError(result.error);
-        return;
+      try {
+        const result = await createWalkInComplaint(values);
+        if (result.error) {
+          setFormError(result.error);
+          return;
+        }
+        setCreateOpen(false);
+        setPage(1);
+        showToast("Walk-in report encoded.");
+      } catch {
+        setFormError("Something went wrong. Please try again.");
       }
-      setCreateOpen(false);
-      setPage(1);
-      showToast("Walk-in report encoded.");
     });
   };
 
@@ -294,6 +306,7 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
             onCancel={closeReview}
             saving={isPending}
             error={formError}
+            onDismissError={() => setFormError(null)}
           />
         ) : null}
       </Drawer>
@@ -304,6 +317,7 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
             onCancel={() => setCreateOpen(false)}
             saving={isPending}
             error={formError}
+            onDismissError={() => setFormError(null)}
           />
         ) : null}
       </Drawer>

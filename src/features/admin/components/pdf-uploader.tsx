@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { FileText, Trash2, Upload } from "lucide-react";
 import { MAX_PDF_BYTES, formatFileSize } from "@/lib/storage";
+import { InlineAlert } from "@/components/ui/inline-alert";
 
 interface PdfUploaderProps {
   /** Storage path already on the record being edited, or null for a new record / no file. */
@@ -144,11 +145,7 @@ export function PdfUploader({
           </div>
         </>
       )}
-      {error ? (
-        <p role="alert" className="text-sm font-medium text-danger">
-          {error}
-        </p>
-      ) : null}
+      {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
     </div>
   );
 }

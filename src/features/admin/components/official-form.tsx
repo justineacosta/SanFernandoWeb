@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { AdminAchievement, ContentStatus, OfficialValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { saveOfficial, setOfficialStatus } from "@/features/admin/actions/officials";
 import { AchievementsEditor } from "./achievements-editor";
@@ -66,14 +67,18 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await saveOfficial(id, values, portraitForm());
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await saveOfficial(id, values, portraitForm());
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        if (result.id) setId(result.id);
+        draft.clear();
+        onSaved("Official saved.");
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      if (result.id) setId(result.id);
-      draft.clear();
-      onSaved("Official saved.");
     });
   }
 
@@ -91,24 +96,28 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
   function handlePublish() {
     setError(null);
     startTransition(async () => {
-      const saveResult = await saveOfficial(id, values, portraitForm());
-      if (saveResult.error) {
-        setError(saveResult.error);
-        return;
+      try {
+        const saveResult = await saveOfficial(id, values, portraitForm());
+        if (saveResult.error) {
+          setError(saveResult.error);
+          return;
+        }
+        const officialId = saveResult.id ?? id;
+        if (saveResult.id) setId(saveResult.id);
+        if (!officialId) {
+          setError("Could not save the official.");
+          return;
+        }
+        const statusResult = await setOfficialStatus(officialId, "published");
+        if (statusResult.error) {
+          setError(statusResult.error);
+          return;
+        }
+        setStatus("published");
+        onSaved("Published.");
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      const officialId = saveResult.id ?? id;
-      if (saveResult.id) setId(saveResult.id);
-      if (!officialId) {
-        setError("Could not save the official.");
-        return;
-      }
-      const statusResult = await setOfficialStatus(officialId, "published");
-      if (statusResult.error) {
-        setError(statusResult.error);
-        return;
-      }
-      setStatus("published");
-      onSaved("Published.");
     });
   }
 
@@ -248,9 +257,7 @@ export function OfficialForm({ record, onSaved, onCancel }: OfficialFormProps) {
       */}
       <div className="border-t border-ink-200/70 p-6">
         {error ? (
-          <p role="alert" className="mb-4 text-sm font-medium text-danger">
-            {error}
-          </p>
+          <InlineAlert message={error} onDismiss={() => setError(null)} className="mb-4" />
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">

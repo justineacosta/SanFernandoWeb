@@ -5,6 +5,7 @@ import { ExternalLink } from "lucide-react";
 import type { FeedbackRow, FeedbackStatus, FeedbackUpdateValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Select, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatDate } from "@/lib/format";
 import { StatusChip } from "./status-chip";
 
@@ -14,6 +15,7 @@ interface FeedbackDrawerProps {
   onCancel: () => void;
   saving: boolean;
   error: string | null;
+  onDismissError: () => void;
 }
 
 export const FEEDBACK_STATUS_OPTIONS: { value: FeedbackStatus; label: string }[] = [
@@ -42,7 +44,14 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
  * No autosave: two fields with no draft model, the same reason
  * AchievementsEditor is out of `useFormDraft`'s scope.
  */
-export function FeedbackDrawer({ record, onSave, onCancel, saving, error }: FeedbackDrawerProps) {
+export function FeedbackDrawer({
+  record,
+  onSave,
+  onCancel,
+  saving,
+  error,
+  onDismissError,
+}: FeedbackDrawerProps) {
   const [status, setStatus] = useState<FeedbackStatus>(record.status);
   const [staffNote, setStaffNote] = useState(record.staffNote);
 
@@ -139,11 +148,7 @@ export function FeedbackDrawer({ record, onSave, onCancel, saving, error }: Feed
             Last handled by {record.handledByName} on {formatDate(record.handledAt)}
           </p>
         ) : null}
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        ) : null}
+        {error ? <InlineAlert message={error} onDismiss={onDismissError} /> : null}
       </div>
       <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
         <Button variant="ghost" onClick={onCancel}>

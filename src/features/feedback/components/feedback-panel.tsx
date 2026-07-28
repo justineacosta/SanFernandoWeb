@@ -7,6 +7,7 @@ import { CheckCircle2, ImageUp, MessageSquarePlus, Send, X } from "lucide-react"
 import type { FeedbackCategory, PublicFeedbackValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { useFieldValidation } from "@/hooks/use-field-validation";
 import { FADE_QUICK, POP } from "@/lib/motion";
@@ -202,6 +203,8 @@ export function FeedbackPanel({ open, onClose }: FeedbackPanelProps) {
         return;
       }
       setSent(true);
+    } catch {
+      setError("Something went wrong. Please try again.");
     } finally {
       submitting.current = false;
       setPending(false);
@@ -425,11 +428,7 @@ export function FeedbackPanel({ open, onClose }: FeedbackPanelProps) {
                       className="flex justify-center"
                     />
 
-                    {error ? (
-                      <p role="alert" className="text-sm font-medium text-danger">
-                        {error}
-                      </p>
-                    ) : null}
+                    {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
                   </div>
 
                   <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">

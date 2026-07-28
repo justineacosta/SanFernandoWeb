@@ -18,6 +18,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { Toast } from "@/components/ui/toast";
 import { ViewToggle, type TableView } from "@/components/ui/view-toggle";
@@ -105,6 +106,8 @@ export function TransparencyProjectsPanel({
           files: detail.files,
         });
         setDrawerOpen(true);
+      } catch {
+        showError("Could not load that project.");
       } finally {
         setLoadingId(null);
       }
@@ -128,26 +131,34 @@ export function TransparencyProjectsPanel({
   function setStatus(project: AdminTransparencyProjectRow, nextStatus: "published" | "archived") {
     setError(null);
     startTransition(async () => {
-      const result = await setTransparencyProjectStatus(project.id, nextStatus);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await setTransparencyProjectStatus(project.id, nextStatus);
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(nextStatus === "published" ? "Project published." : "Project archived.");
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      showToast(nextStatus === "published" ? "Project published." : "Project archived.");
-      router.refresh();
     });
   }
 
   function move(id: string, direction: "up" | "down") {
     setError(null);
     startTransition(async () => {
-      const result = await moveTransparencyProject(id, direction);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result = await moveTransparencyProject(id, direction);
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast("Projects reordered.");
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
       }
-      showToast("Projects reordered.");
-      router.refresh();
     });
   }
 
@@ -158,20 +169,25 @@ export function TransparencyProjectsPanel({
     setActionPending(true);
     setError(null);
     startTransition(async () => {
-      const result =
-        kind === "delete"
-          ? await deleteTransparencyProject(project.id)
-          : await restoreTransparencyProject(project.id);
-      setActionPending(false);
-      setConfirming(null);
-      if (result.error) {
-        showError(result.error);
-        return;
+      try {
+        const result =
+          kind === "delete"
+            ? await deleteTransparencyProject(project.id)
+            : await restoreTransparencyProject(project.id);
+        if (result.error) {
+          showError(result.error);
+          return;
+        }
+        showToast(
+          kind === "delete" ? `Deleted ${project.name}.` : `Restored ${project.name} as a draft.`,
+        );
+        router.refresh();
+      } catch {
+        showError("Something went wrong. Please try again.");
+      } finally {
+        setActionPending(false);
+        setConfirming(null);
       }
-      showToast(
-        kind === "delete" ? `Deleted ${project.name}.` : `Restored ${project.name} as a draft.`,
-      );
-      router.refresh();
     });
   }
 
@@ -258,9 +274,7 @@ export function TransparencyProjectsPanel({
           onChange={setView}
         />
         {error ? (
-          <p role="alert" className="mb-4 text-sm font-medium text-danger">
-            {error}
-          </p>
+          <InlineAlert message={error} onDismiss={() => setError(null)} className="mb-4" />
         ) : null}
         <ul className="divide-y divide-ink-200/70 rounded-2xl border border-ink-200/70">
           {visible.map((project, index) => (

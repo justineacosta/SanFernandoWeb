@@ -7,6 +7,7 @@ import type { TransparencyCategoryRow } from "@/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { Toast } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
 import { ICON_OPTIONS, resolveIcon } from "@/lib/icon-map";
@@ -51,15 +52,19 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
   function saveEdit(id: string) {
     setError(null);
     startTransition(async () => {
-      const result = await renameTransparencyCategory(id, { label: editLabel, iconName: editIcon });
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await renameTransparencyCategory(id, { label: editLabel, iconName: editIcon });
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setEditingId(null);
+        setEditLabel("");
+        showToast("Category renamed.");
+        router.refresh();
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      setEditingId(null);
-      setEditLabel("");
-      showToast("Category renamed.");
-      router.refresh();
     });
   }
 
@@ -79,42 +84,54 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
   function saveCreate() {
     setError(null);
     startTransition(async () => {
-      const result = await createTransparencyCategory({ label: newLabel, iconName: newIcon });
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await createTransparencyCategory({ label: newLabel, iconName: newIcon });
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setCreating(false);
+        setNewLabel("");
+        showToast("Category added.");
+        router.refresh();
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      setCreating(false);
-      setNewLabel("");
-      showToast("Category added.");
-      router.refresh();
     });
   }
 
   function toggleActive(category: TransparencyCategoryRow) {
     setError(null);
     startTransition(async () => {
-      const nextActive = !category.isActive;
-      const result = await setTransparencyCategoryActive(category.id, nextActive);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const nextActive = !category.isActive;
+        const result = await setTransparencyCategoryActive(category.id, nextActive);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        showToast(nextActive ? "Category restored." : "Category retired.");
+        router.refresh();
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      showToast(nextActive ? "Category restored." : "Category retired.");
-      router.refresh();
     });
   }
 
   function move(id: string, direction: "up" | "down") {
     setError(null);
     startTransition(async () => {
-      const result = await moveTransparencyCategory(id, direction);
-      if (result.error) {
-        setError(result.error);
-        return;
+      try {
+        const result = await moveTransparencyCategory(id, direction);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        showToast("Categories reordered.");
+        router.refresh();
+      } catch {
+        setError("Something went wrong. Please try again.");
       }
-      showToast("Categories reordered.");
-      router.refresh();
     });
   }
 
@@ -137,9 +154,7 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
           </Button>
         </div>
         {error ? (
-          <p role="alert" className="mb-4 text-sm font-medium text-danger">
-            {error}
-          </p>
+          <InlineAlert message={error} onDismiss={() => setError(null)} className="mb-4" />
         ) : null}
         <ul className="divide-y divide-ink-200/70 rounded-2xl border border-ink-200/70">
           {categories.map((category, index) => {

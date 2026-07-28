@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { WalkInApplicationValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 
 interface ApplicationFormProps {
   services: { id: string; title: string }[];
@@ -11,6 +12,7 @@ interface ApplicationFormProps {
   onCancel: () => void;
   saving: boolean;
   error: string | null;
+  onDismissError: () => void;
 }
 
 /** Walk-in application encoding. Validation lives in the action; this is the fast feedback. */
@@ -20,6 +22,7 @@ export function ApplicationForm({
   onCancel,
   saving,
   error,
+  onDismissError,
 }: ApplicationFormProps) {
   const [values, setValues] = useState<WalkInApplicationValues>({
     firstName: "",
@@ -120,11 +123,7 @@ export function ApplicationForm({
             (Data Privacy Act of 2012).
           </span>
         </label>
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        ) : null}
+        {error ? <InlineAlert message={error} onDismiss={onDismissError} /> : null}
       </div>
       <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
         <Button variant="ghost" type="button" onClick={onCancel}>

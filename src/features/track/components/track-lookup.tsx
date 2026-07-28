@@ -6,6 +6,7 @@ import type { TicketLookupResult } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { lookupTicket } from "@/features/track/actions";
 import { TicketTimeline } from "./ticket-timeline";
@@ -28,6 +29,8 @@ export function TrackLookup({ initialTicket = "" }: { initialTicket?: string }) 
         const result = await lookupTicket(ticketNo, lastName, turnstileToken);
         setTicket(result.ticket);
         setError(result.error);
+      } catch {
+        setError("Something went wrong. Please try again.");
       } finally {
         turnstileRef.current?.reset();
         setTurnstileToken(null);
@@ -56,11 +59,7 @@ export function TrackLookup({ initialTicket = "" }: { initialTicket?: string }) 
               autoComplete="family-name"
             />
           </Field>
-          {error ? (
-            <p role="alert" className="text-sm font-medium text-danger">
-              {error}
-            </p>
-          ) : null}
+          {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
           <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
           <Button type="submit" variant="primary" className="w-full" disabled={isPending}>
             <Search className="h-4 w-4" aria-hidden="true" />

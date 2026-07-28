@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { WalkInComplaintValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { manilaToday } from "@/lib/format";
 
 interface ComplaintFormProps {
@@ -11,10 +12,17 @@ interface ComplaintFormProps {
   onCancel: () => void;
   saving: boolean;
   error: string | null;
+  onDismissError: () => void;
 }
 
 /** Walk-in incident report encoding. Validation lives in the action; this is the fast feedback. */
-export function ComplaintForm({ onSubmit, onCancel, saving, error }: ComplaintFormProps) {
+export function ComplaintForm({
+  onSubmit,
+  onCancel,
+  saving,
+  error,
+  onDismissError,
+}: ComplaintFormProps) {
   const [values, setValues] = useState<WalkInComplaintValues>({
     firstName: "",
     lastName: "",
@@ -129,11 +137,7 @@ export function ComplaintForm({ onSubmit, onCancel, saving, error }: ComplaintFo
             (Data Privacy Act of 2012).
           </span>
         </label>
-        {error ? (
-          <p role="alert" className="text-sm font-medium text-danger">
-            {error}
-          </p>
-        ) : null}
+        {error ? <InlineAlert message={error} onDismiss={onDismissError} /> : null}
       </div>
       <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
         <Button variant="ghost" type="button" onClick={onCancel}>

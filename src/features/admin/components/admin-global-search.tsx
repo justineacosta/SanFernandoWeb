@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Search } from "lucide-react";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { globalSearch } from "@/features/admin/actions/search";
 import {
   MIN_QUERY_LENGTH,
@@ -40,6 +41,7 @@ export function AdminGlobalSearch() {
   const [hits, setHits] = useState<GlobalSearchHit[]>([]);
   const [open, setOpen] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -56,10 +58,18 @@ export function AdminGlobalSearch() {
     const timer = setTimeout(() => {
       const token = ++latest.current;
       startTransition(async () => {
-        const result = await globalSearch(trimmed);
-        if (token !== latest.current) return;
-        setHits(result.hits);
-        setSearched(!result.tooShort);
+        try {
+          const result = await globalSearch(trimmed);
+          if (token !== latest.current) return;
+          setHits(result.hits);
+          setSearched(!result.tooShort);
+          setSearchError(null);
+        } catch {
+          if (token !== latest.current) return;
+          // A transient search failure shouldn't crash the whole admin shell —
+          // show it in the panel instead, dismissible like every other error.
+          setSearchError("Search failed. Please try again.");
+        }
       });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
@@ -126,6 +136,7 @@ export function AdminGlobalSearch() {
             latest.current += 1;
             setHits([]);
             setSearched(false);
+            setSearchError(null);
           }
         }}
         onFocus={() => setOpen(true)}
@@ -146,7 +157,11 @@ export function AdminGlobalSearch() {
           aria-label="Search results"
           className="absolute right-0 top-full z-50 mt-2 max-h-[70vh] w-full overflow-y-auto rounded-2xl border border-ink-200/70 bg-white p-2 shadow-xl"
         >
-          {groups.length === 0 ? (
+          {searchError ? (
+            <div className="p-2">
+              <InlineAlert message={searchError} onDismiss={() => setSearchError(null)} />
+            </div>
+          ) : groups.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-ink-500">
               {isPending || !searched ? "Searching…" : `No results for "${query.trim()}".`}
             </p>
