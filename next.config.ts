@@ -30,14 +30,21 @@ const supabaseOrigin = supabaseHost ? `https://${supabaseHost}` : "";
 // falls back to default-src 'self' and blocks the Supabase-hosted PDF from
 // rendering even though object-src allows it. frame-ancestors below is the
 // unrelated other half of framing (it governs other sites embedding this
-// one, not this site embedding Supabase) and stays 'none'.
+// one, not this site embedding Supabase) and stays 'none'. img-src includes
+// blob: because several upload previews (the feedback screenshot preview, the
+// avatar cropper, the single-image and news-photo uploaders) render a
+// client-side object URL before any network call happens; 'self' does not
+// implicitly cover the blob: scheme. This doesn't meaningfully weaken the
+// policy — a blob: URL can only be minted by script already running on the
+// page, the same reasoning Next.js's own CSP docs use for this exact token.
 const csp = [
   "default-src 'self'",
   "base-uri 'self'",
   "frame-ancestors 'none'",
+  "form-action 'self'",
   `object-src 'self' ${supabaseOrigin}`.trim(),
   `frame-src 'self' ${supabaseOrigin}`.trim(),
-  `img-src 'self' data: https://lh3.googleusercontent.com ${supabaseOrigin}`.trim(),
+  `img-src 'self' blob: data: https://lh3.googleusercontent.com ${supabaseOrigin}`.trim(),
   `connect-src 'self' ${supabaseOrigin}`.trim(),
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",

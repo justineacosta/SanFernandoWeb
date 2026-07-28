@@ -1,11 +1,11 @@
 -- ============================================================================
 -- Barangay San Fernando — CONSOLIDATED BASELINE SCHEMA
--- Squash of migrations 0001–0028, as of 2026-07-23.
+-- Squash of migrations 0001–0029, as of 2026-07-23.
 -- ============================================================================
 --
 -- WHAT THIS IS
 -- ------------
--- One file that builds the *final state* of migrations 0001 through 0028 on an
+-- One file that builds the *final state* of migrations 0001 through 0029 on an
 -- empty database, in a single transaction. It is not a replay: columns that a
 -- later migration dropped are never created, columns that a later migration
 -- relaxed are declared relaxed, and functions appear once in their final form.
@@ -14,7 +14,7 @@
 -- --------------
 --   • Standing up a NEW environment (production, a fresh staging, a local dev
 --     database) from nothing.
---   • NOT for an environment that already has any of 0001–0028 applied. This
+--   • NOT for an environment that already has any of 0001–0029 applied. This
 --     file assumes an empty `public` schema and will fail loudly on a database
 --     that already has these objects — which is the intended behaviour. To
 --     bring an existing environment forward, apply the individual numbered
@@ -28,7 +28,7 @@
 -- scripts the officials directory and the home/About pages render broken
 -- images. Original migrations 0012 and 0021 carry the same warning.
 --
--- HOW IT DIFFERS FROM RUNNING 0001–0028 IN SEQUENCE
+-- HOW IT DIFFERS FROM RUNNING 0001–0029 IN SEQUENCE
 -- --------------------------------------------------
 -- The end state is identical. Three mechanical differences, all deliberate:
 --
@@ -76,7 +76,8 @@
 --  11. Storage buckets
 --  12. Search functions
 --  13. Seed — reference data & real content (required)
---  14. Audit-log immutability (applied last, on purpose)
+--  14. Rate limiting
+--  15. Audit-log immutability (applied last, on purpose)
 -- ============================================================================
 
 begin;
@@ -1801,7 +1802,36 @@ insert into public.site_items (block, sort_order, icon_name, label, value, body)
    'As the catch basin of neighboring barangays, San Fernando rehabilitated its canals so typhoon floodwater now subsides quickly.');
 
 -- ════════════════════════════════════════════════════════════════════════════
--- 14. AUDIT-LOG IMMUTABILITY                                             [0014]
+-- 14. RATE LIMITING                                                      [0029]
+-- ════════════════════════════════════════════════════════════════════════════
+-- Durable sliding-window limiter backing src/lib/rate-limit.ts. Replaces an
+-- earlier in-memory Map, which reset on every redeploy and did not share state
+-- across serverless instances — checkRateLimit() now counts rows here instead
+-- of a Map, so the limit holds regardless of which instance serves a request
+-- or how recently the process restarted. RLS enabled with NO policies, same
+-- pattern as every other table — only the service-role client (inside
+-- checkRateLimit itself) ever touches this.
+--
+-- No cleanup job: checkRateLimit() opportunistically deletes rows older than
+-- 24 hours on a small random fraction of calls, mirroring the "opportunistic
+-- sweep" the old in-memory Map already did once it grew past 5000 keys. This
+-- avoids adding a pg_cron dependency for a table that self-limits in size.
+
+create table public.rate_limit_hits (
+  id bigint generated always as identity primary key,
+  key text not null,
+  hit_at timestamptz not null default now()
+);
+
+-- Every checkRateLimit() call filters by key and a recent hit_at window —
+-- this composite index serves both the count and the cleanup delete.
+create index rate_limit_hits_key_hit_at_idx
+  on public.rate_limit_hits (key, hit_at desc);
+
+alter table public.rate_limit_hits enable row level security;
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- 15. AUDIT-LOG IMMUTABILITY                                             [0014]
 -- ════════════════════════════════════════════════════════════════════════════
 -- LAST ON PURPOSE. Once these exist, no statement — including a future
 -- migration, and including one run as the table owner — can update or delete an

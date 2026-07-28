@@ -32,7 +32,8 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
  * shape. Nothing is revalidated either — no page renders feedback.
  */
 export async function submitFeedback(form: FormData): Promise<SubmitFeedbackResult> {
-  // Before parsing, so a flood costs one map lookup rather than a file read.
+  // Before parsing, so a flood is rejected before doing any real work — no
+  // Zod validation, no file read, no Storage upload.
   const ip = await requestIp();
   if (!(await checkRateLimit(`feedback:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {

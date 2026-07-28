@@ -1,6 +1,19 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
+ * Opportunistic sweep, ~1% of calls: keeps the table from growing forever
+ * without a scheduled job. 24h is comfortably past every window this file's
+ * callers use (the widest is 1 hour). Shared by every function below that
+ * writes a hit, so the sweep runs regardless of which one is called.
+ */
+async function opportunisticSweep(admin: ReturnType<typeof createSupabaseAdminClient>): Promise<void> {
+  if (Math.random() < 0.01) {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    await admin.from("rate_limit_hits").delete().lt("hit_at", cutoff);
+  }
+}
+
+/**
  * Durable sliding-window limiter backed by the rate_limit_hits table
  * (migration 0029). Replaces the earlier in-memory Map, which reset on every
  * redeploy and did not share state across serverless instances.
@@ -11,10 +24,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
  *
  * Fails open on a Supabase error: an outage in the rate limiter must not take
  * down the public forms it protects, which still have their own Zod
- * validation as the real correctness gate. For the one fail-closed-sensitive
- * caller (admin login, added in the hardening pass) this is still safe: if
- * Supabase itself is unreachable, signInWithPassword fails too, so there is
- * no window where brute-forcing succeeds because rate limiting alone is down.
+ * validation as the real correctness gate.
+ *
+ * This is the whole contract for every caller EXCEPT admin login, which
+ * counts only failed attempts (a successful sign-in must not consume the
+ * budget) — see `isRateLimited` / `recordRateLimitHit` below, used together
+ * by `signIn` in src/features/admin/actions/auth.ts instead of this function.
  */
 export async function checkRateLimit(key: string, limit: number, windowMs: number): Promise<boolean> {
   const admin = createSupabaseAdminClient();
@@ -37,15 +52,52 @@ export async function checkRateLimit(key: string, limit: number, windowMs: numbe
     console.error("checkRateLimit insert failed:", insertError.message);
   }
 
-  // Opportunistic sweep, ~1% of calls: keeps the table from growing forever
-  // without a scheduled job. 24h is comfortably past every window this file's
-  // callers use (the widest is 1 hour).
-  if (Math.random() < 0.01) {
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    await admin.from("rate_limit_hits").delete().lt("hit_at", cutoff);
-  }
+  await opportunisticSweep(admin);
 
   return true;
+}
+
+/**
+ * Read-only budget check — does NOT record a hit. True when the key is
+ * currently AT or OVER budget (i.e. the caller should be blocked).
+ *
+ * Exists for admin login only: `checkRateLimit`'s check-and-record-together
+ * contract would count every successful sign-in against the same budget as a
+ * failed one, which is wrong — the threat this limiter defends against is
+ * repeated *failures* (credential stuffing), not usage volume. Fails open
+ * (returns false, i.e. "not limited") on a Supabase error, same reasoning as
+ * `checkRateLimit`.
+ */
+export async function isRateLimited(key: string, limit: number, windowMs: number): Promise<boolean> {
+  const admin = createSupabaseAdminClient();
+  const since = new Date(Date.now() - windowMs).toISOString();
+
+  const { count, error } = await admin
+    .from("rate_limit_hits")
+    .select("id", { count: "exact", head: true })
+    .eq("key", key)
+    .gte("hit_at", since);
+
+  if (error) {
+    console.error("isRateLimited count failed:", error.message);
+    return false;
+  }
+  return (count ?? 0) >= limit;
+}
+
+/**
+ * Records a hit unconditionally — call only after deciding the attempt should
+ * count (admin login: after a failed sign-in or a disabled-account rejection,
+ * never after success). Pairs with `isRateLimited` above.
+ */
+export async function recordRateLimitHit(key: string): Promise<void> {
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.from("rate_limit_hits").insert({ key });
+  if (error) {
+    console.error("recordRateLimitHit insert failed:", error.message);
+  }
+
+  await opportunisticSweep(admin);
 }
 
 /** Caller IP from the proxy headers, or a shared fallback bucket. */

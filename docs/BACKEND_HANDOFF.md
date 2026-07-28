@@ -1493,9 +1493,10 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
     `braceExpand()` API the 5.x package no longer exports). Out of scope for a dependency-bump
     task; revisit as its own task when someone is ready to validate an ESLint major upgrade
     across the whole flat-config + `eslint-config-next` + plugin set. The two other advisories
-    audit surfaced alongside it — `postcss` and `sharp`, both bundled inside `next`'s own build
-    tooling — are fixed with zero breaking changes via the same `overrides` block
-    (`package.json`): `postcss@^8.5.23`, `sharp@^0.35.3`.
+    audit surfaced alongside it — `postcss` (genuinely bundled inside `next`'s own build
+    tooling) and `sharp` (an optional dependency `next/image` loads at **runtime** for
+    on-demand image optimization, not build tooling) — are fixed with zero breaking changes
+    via the same `overrides` block (`package.json`): `postcss@^8.5.23`, `sharp@^0.35.3`.
 13. **RLS + CSRF verification pass (2026-07-28 security-hardening Plan 1).** Querying
     `pg_policies` against staging found the `public` schema is **not** fully policy-free as
     CLAUDE.md's "RLS enabled, zero policies" line implies at face value: three rows exist —
@@ -1523,3 +1524,39 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
     expectation but the security property holds: the Origin check runs, and it runs before
     any app-level auth or action logic. No code change resulted from this pass; it verifies
     assumptions this file and CLAUDE.md already documented, and corrects one of them.
+14. **Baseline now includes `rate_limit_hits` (fixed 2026-07-28, final whole-branch review pass).**
+    Migration `0029` (added by this hardening plan's Task 3) had not been folded into
+    `supabase/baseline/0000_baseline_2026-07-23.sql`, breaking the pattern every migration
+    through `0028` had followed — a fresh environment (production, a new staging, local dev)
+    stood up from the baseline would have gotten a site with **no rate limiting at all**, and
+    silently: `checkRateLimit` fails open on the resulting missing-table error, so nothing would
+    have errored loudly to reveal the gap. Fixed: the baseline now creates `rate_limit_hits` in
+    its own section (placed before the audit-log-immutability section, which must stay last),
+    and the file's header comments now say `0001`–`0029` throughout. Any environment that
+    already applied the baseline *before* this fix still needs migration `0029` applied
+    manually, like every other numbered migration — staging first, then production, per this
+    repo's standing rule.
+15. **The PDF `<object>` preview was never exercised with real content (security-hardening Plan
+    1, Task 5).** No legislative document in the current dev/staging environment has an actual
+    uploaded PDF, so the real `<object type="application/pdf">` element in `pdf-viewer.tsx` was
+    verified only via injected test elements and a third-party negative control, never real
+    content end to end. Worth a real spot-check once a real PDF is uploaded through
+    `/admin/transparency`.
+16. **Known limitations of the durable rate limiter, accepted rather than fixed (security-
+    hardening Plan 1, Tasks 3/4, final whole-branch review pass).**
+    - `checkRateLimit`'s check-then-insert is two separate round trips to Postgres, not one
+      atomic operation, so a burst of concurrent requests for the same key can all pass the
+      count check before any of their inserts land. Accepted as a low-stakes risk: the public
+      forms this protects still have their own Zod validation as the real correctness gate
+      regardless, and for admin login a sequential attacker (the realistic case) still gets
+      exactly the configured limit — `signInWithPassword` itself still gates on real Supabase
+      Auth even in the narrow window where the limiter could be raced.
+    - Email-keyed login rate limiting (`login:email:<address>`) is a deliberate trade-off, not
+      a defect: an attacker who knows an admin's email can lock that admin out of their own
+      login by intentionally tripping the limit with 5 wrong passwords every 15 minutes. This
+      hardening pass chose to prioritize stopping credential stuffing over guaranteeing
+      availability.
+    - `requestIp()` falls back to a shared `"unknown"` bucket whenever no reverse proxy sets
+      `x-forwarded-for` (host-dependent). On such a host every admin shares one IP-side
+      rate-limit budget, so one admin's failed logins can tighten the budget for every other
+      admin signing in from that same host.

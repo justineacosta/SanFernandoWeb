@@ -55,7 +55,7 @@ export const getSessionUserIgnoringIdle = loadSessionUser;
  *
  * Reading cookies here is safe in both contexts; writing them is not, and this
  * function deliberately never does — `cookies()` is read-only inside a Server
- * Component. Middleware and the client heartbeat own every write.
+ * Component. Proxy (src/proxy.ts) and the client heartbeat own every write.
  */
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const cookieStore = await cookies();
