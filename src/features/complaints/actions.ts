@@ -3,6 +3,7 @@
 import type { PublicComplaintValues, SubmitTicketResult } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
+import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { COMPLAINT_SERVICE_ID } from "./queries";
 import { complaintSchema } from "./schema";
 
@@ -16,8 +17,14 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
  * everything it touches is validated first and nothing is read back out beyond
  * the new ticket number.
  */
-export async function submitComplaint(values: PublicComplaintValues): Promise<SubmitTicketResult> {
+export async function submitComplaint(
+  values: PublicComplaintValues,
+  turnstileToken: string | null,
+): Promise<SubmitTicketResult> {
   const ip = await requestIp();
+  if (!(await verifyTurnstileToken(turnstileToken, ip))) {
+    return { error: TURNSTILE_FAILURE_MESSAGE, ticketNo: null };
+  }
   if (!(await checkRateLimit(`complaint:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error:
