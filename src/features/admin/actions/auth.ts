@@ -6,6 +6,7 @@ import { cookies, headers } from "next/headers";
 import { getSessionUser, getSessionUserIgnoringIdle } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import {
   ACTIVITY_COOKIE,
   ACTIVITY_COOKIE_PATH,
@@ -16,6 +17,10 @@ import {
 export interface AuthFormState {
   error: string | null;
 }
+
+/** Tighter than the public forms' hour-long windows — credential-stuffing arrives fast. */
+const LOGIN_LIMIT = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -32,6 +37,24 @@ export async function signIn(
   });
   if (!parsed.success) {
     return { error: "Enter your email and password." };
+  }
+
+  // Two keys: IP stops one source hammering many accounts, email stops a
+  // distributed attempt against one account. Both are checked (not
+  // short-circuited) so both budgets tighten regardless of which one an
+  // attacker is closer to tripping.
+  const ip = await requestIp();
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
+  const withinIpLimit = await checkRateLimit(`login:ip:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS);
+  const withinEmailLimit = await checkRateLimit(
+    `login:email:${normalizedEmail}`,
+    LOGIN_LIMIT,
+    LOGIN_WINDOW_MS,
+  );
+  if (!withinIpLimit || !withinEmailLimit) {
+    // Same copy as a real bad password — a distinct "too many attempts"
+    // message would confirm to an attacker that their guesses were arriving.
+    return { error: "Incorrect email or password." };
   }
 
   const supabase = await createSupabaseServerClient();
