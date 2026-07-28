@@ -17,7 +17,7 @@
  * cookie is gone, the gate fires. No code.
  *
  * Pure module: no I/O, no `document`, no `cookies()`. The two gates
- * (src/middleware.ts, src/lib/auth.ts) and the client hook
+ * (src/proxy.ts, src/lib/auth.ts) and the client hook
  * (src/hooks/use-idle-timer.ts) supply their own.
  */
 
@@ -30,7 +30,7 @@ export const ACTIVITY_COOKIE_VALUE = "1";
  * `/admin/`), so the polled notification endpoint's `getSessionUser()` saw
  * no cookie and 401ed on every call regardless of real activity. Widening
  * to "/" only changes where the cookie is *sent*, not when it is written,
- * read for the idle gate, or expired: middleware's matcher below is scoped
+ * read for the idle gate, or expired: Proxy's matcher is scoped
  * to `/admin/:path*` and never runs for `/api/*`, so this cannot turn API
  * polling into something that slides the idle window. The cookie is still
  * only ever written from inside the admin portal, so a public visitor still

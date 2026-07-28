@@ -238,9 +238,11 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   browser expiring the cookie on disk is what makes "window closed for 30 minutes" work
   with no code. Constants live only in `src/lib/session-activity.ts`; `IDLE_MS` and the
   cookie's `Max-Age` are one derived value, never two literals. **Two gates read it:**
-  `src/middleware.ts` for page GETs, and `getSessionUser()` for everything else — the
-  second is not redundant, because Server Action POSTs are excluded from the middleware
-  matcher on purpose. `getSessionUserIgnoringIdle` exists for exactly one caller,
+  `src/proxy.ts` (renamed from `middleware.ts` in the 2026-07-28 hardening pass — Next 16
+  deprecated the `middleware` file convention in favor of `proxy`) for page GETs, and
+  `getSessionUser()` for everything else — the second is not redundant, because Server
+  Action POSTs are excluded from the Proxy matcher on purpose. `getSessionUserIgnoringIdle`
+  exists for exactly one caller,
   `signOutIdle`, which needs an actor for its audit entry at the moment the cookie has
   just died. The warning dialog owns the **final** minute (29:00→30:00), not a 31st, so
   the client deadline and the cookie expiry are the same instant; `<IdleTimeout />` mounts
@@ -250,17 +252,17 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   listen on `document` in the bubble phase and were registered first — so the dialog
   swallows the key from capture, where `stopImmediatePropagation()` still comes first.
   **The closed-window idle sign-out is audited too, discovered rather than witnessed:**
-  `signOutIdle` (open tab, client-driven) and the middleware idle-gate branch
-  (`src/middleware.ts`, closed tab) both end with the same `audit_log` shape — `type:
-  "logout"`, `detail: "signed out for inactivity"` — but the middleware branch has no
+  `signOutIdle` (open tab, client-driven) and the Proxy idle-gate branch
+  (`src/proxy.ts`, closed tab) both end with the same `audit_log` shape — `type:
+  "logout"`, `detail: "signed out for inactivity"` — but the Proxy branch has no
   live client to call `signOutIdle` from, since discovering the expiry *is* the request
   that trips it. It resolves the actor from the Supabase session `getUser()` already
   returned, fetches `full_name` via the service-role admin client (`profiles` has zero
   RLS policies, so nothing else can read it there), and calls `recordActivity` directly.
-  This is the one reason `middleware.ts` opts into `export const config = { runtime:
-  "nodejs" }` — Next 16's stable, non-experimental way to move a middleware file off the
-  Edge default — since a service-role client and an audit insert are not something to
-  assume is Edge-safe. A stale background tab hitting this branch after the real user
+  This runs safely because Proxy defaults to the Node.js runtime as of Next 16 — a
+  service-role client and an audit insert are not something to assume is Edge-safe, and
+  unlike the old `middleware.ts` convention (which required an explicit `runtime: "nodejs"`
+  opt-in), `proxy.ts` does not accept a `runtime` config at all; setting one throws. A stale background tab hitting this branch after the real user
   already re-authenticated elsewhere would file a second, harmless "signed out for
   inactivity" row; not deduplicated, since two rows both being true costs less than the
   query needed to suppress one.
@@ -275,7 +277,7 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   contains the other (search omits `inquiries`; not all six queues are searchable), so a unit
   test checks the two agree on the five keys they share rather than merging them.
   `NotificationProvider` runs the one 60s poll (`GET /api/admin/notifications`, outside
-  `src/middleware.ts`'s matcher, so it re-checks `getSessionUser` itself) that feeds the sidebar
+  `src/proxy.ts`'s matcher, so it re-checks `getSessionUser` itself) that feeds the sidebar
   badges, the mobile nav card and the bell — one poll, three consumers. A 401 stops it silently;
   `<IdleTimeout />` alone owns the sign-out UI. Counts and recent items are computed only for
   queues the viewer's permissions allow, the same disclosure rule `adminPageTitle` follows for
