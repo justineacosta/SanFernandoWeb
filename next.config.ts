@@ -37,16 +37,23 @@ const supabaseOrigin = supabaseHost ? `https://${supabaseHost}` : "";
 // implicitly cover the blob: scheme. This doesn't meaningfully weaken the
 // policy — a blob: URL can only be minted by script already running on the
 // page, the same reasoning Next.js's own CSP docs use for this exact token.
+// script-src, frame-src and connect-src all also allow
+// https://challenges.cloudflare.com for the Turnstile CAPTCHA
+// (security-hardening spec §5): it loads a script from that origin, renders
+// its challenge in an iframe from that origin, and the widget makes its own
+// XHR calls back to it. NewsletterForm (one of the 8 CAPTCHA'd forms) is
+// mounted sitewide via SiteFooter, so this is exercised on every page, not
+// just the forms that look CAPTCHA-specific.
 const csp = [
   "default-src 'self'",
   "base-uri 'self'",
   "frame-ancestors 'none'",
   "form-action 'self'",
   `object-src 'self' ${supabaseOrigin}`.trim(),
-  `frame-src 'self' ${supabaseOrigin}`.trim(),
+  `frame-src 'self' ${supabaseOrigin} https://challenges.cloudflare.com`.trim(),
   `img-src 'self' blob: data: https://lh3.googleusercontent.com ${supabaseOrigin}`.trim(),
-  `connect-src 'self' ${supabaseOrigin}`.trim(),
-  "script-src 'self' 'unsafe-inline'",
+  `connect-src 'self' ${supabaseOrigin} https://challenges.cloudflare.com`.trim(),
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
 ].join("; ");
 
