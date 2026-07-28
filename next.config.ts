@@ -23,23 +23,20 @@ const supabaseOrigin = supabaseHost ? `https://${supabaseHost}` : "";
 // are always self-hosted, never an arbitrary third-party URL, so allowing
 // just this one additional origin still blocks any attacker-controlled
 // <object>/<embed>/<applet>. This still blocks exfiltration to an
-// attacker-controlled connect-src.
-//
-// KNOWN GAP, verified 2026-07-28: this alone does not yet restore the PDF
-// preview in Chrome. Chrome's native PDF viewer renders <object
-// type="application/pdf"> content as an internal document/frame, so the
-// browser also enforces frame-src (which falls back to default-src 'self'
-// here, since frame-src is unset) against the Supabase origin — confirmed by
-// injecting a cross-origin <object> in a live browser and seeing "Framing
-// '<supabaseOrigin>' violates ... default-src 'self'" even though the
-// object-src check passes. Fully unblocking the preview needs an explicit
-// `frame-src 'self' ${supabaseOrigin}` line too; that's a separate directive
-// decision, not made here.
+// attacker-controlled connect-src. frame-src is scoped the same way and for
+// the same reason: Chrome's native PDF viewer renders <object
+// type="application/pdf"> content as an internal document/frame, which
+// falls under frame-src (not object-src) — without it, Chrome's frame-src
+// falls back to default-src 'self' and blocks the Supabase-hosted PDF from
+// rendering even though object-src allows it. frame-ancestors below is the
+// unrelated other half of framing (it governs other sites embedding this
+// one, not this site embedding Supabase) and stays 'none'.
 const csp = [
   "default-src 'self'",
   "base-uri 'self'",
   "frame-ancestors 'none'",
   `object-src 'self' ${supabaseOrigin}`.trim(),
+  `frame-src 'self' ${supabaseOrigin}`.trim(),
   `img-src 'self' data: https://lh3.googleusercontent.com ${supabaseOrigin}`.trim(),
   `connect-src 'self' ${supabaseOrigin}`.trim(),
   "script-src 'self' 'unsafe-inline'",
