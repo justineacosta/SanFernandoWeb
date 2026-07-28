@@ -7,6 +7,7 @@ import { SITE } from "@/constants/site";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitInquiry } from "@/features/contact/actions";
 import { INQUIRY_SUBJECTS } from "@/features/contact/data";
@@ -27,11 +28,13 @@ export function InquiryForm() {
   const [values, setValues] = useState<PublicInquiryValues>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   // `isPending` only flips once React commits, so the disabled button alone
   // cannot stop two clicks landing in the same tick — that would file the same
   // message twice. This ref closes that window.
   const submitting = useRef(false);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   const set = <K extends keyof PublicInquiryValues>(key: K, value: PublicInquiryValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -48,7 +51,7 @@ export function InquiryForm() {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await submitInquiry(values);
+        const result = await submitInquiry(values, turnstileToken);
         if (result.error) {
           setError(result.error);
           return;
@@ -56,6 +59,8 @@ export function InquiryForm() {
         setSent(true);
       } finally {
         submitting.current = false;
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
       }
     });
   }
@@ -207,6 +212,7 @@ export function InquiryForm() {
             {error}
           </p>
         ) : null}
+        <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
         <div className="pt-4 md:col-span-2">
           <Button type="submit" variant="primary" size="lg" disabled={isPending}>
             {isPending ? (

@@ -4,6 +4,7 @@ import type { PublicInquiryValues } from "@/types";
 import { SITE } from "@/constants/site";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
+import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { inquirySchema } from "./schema";
 
 export interface SubmitInquiryResult {
@@ -26,8 +27,14 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
  * an inquiry is not trackable at /track, and handing back a number that /track
  * cannot find would be the same lie in a new shape.
  */
-export async function submitInquiry(values: PublicInquiryValues): Promise<SubmitInquiryResult> {
+export async function submitInquiry(
+  values: PublicInquiryValues,
+  turnstileToken: string | null,
+): Promise<SubmitInquiryResult> {
   const ip = await requestIp();
+  if (!(await verifyTurnstileToken(turnstileToken, ip))) {
+    return { error: TURNSTILE_FAILURE_MESSAGE };
+  }
   if (!(await checkRateLimit(`inquiry:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error: `Too many messages from this connection. Please try again later, or call ${SITE.phone}.`,
