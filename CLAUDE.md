@@ -24,8 +24,8 @@ static lives in typed `data.ts` files — the contact channels and inquiry subje
 the home page's six Quick Services cards. The Home and About pages became DB-backed in
 sub-project 9 (`0021`). `docs/BACKEND_HANDOFF.md` is the living integration brief;
 `docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan history. Remaining
-work: 2D email (Resend), migrating `lh3`-hotlinked images to owned Storage, and a
-security-hardening pass.
+work: 2D email (Resend), migrating `lh3`-hotlinked images to owned Storage, and finishing the
+security-hardening pass (Plan 1 of 3 in progress — see the Architecture section's bullet).
 
 ## Commands
 
@@ -352,6 +352,21 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   it to `AnimatePresence` would also unmount closed editors and reset their form state).
 - **Icon caveat:** several data shapes carry `icon: LucideIcon` (a React component). A future
   API must return icon *name strings* mapped to components on the frontend.
+- **Security-hardening pass, Plan 1 of 3** (`docs/superpowers/plans/2026-07-28-security-hardening-foundation.md`,
+  in progress in the `security-hardening-foundation` worktree). Plan 2 (Turnstile CAPTCHA) and
+  Plan 3 (PDF-upload Route Handler / scoping down the global body-size limit) are deliberately
+  separate plans, not started. Task 1 renamed `src/middleware.ts` to `src/proxy.ts` (see the
+  idle-timeout bullet above for the file's actual behavior — unchanged, this was a pure Next 16
+  file-convention rename). Task 2 bumped `next` to `16.2.12` and added a `package.json`
+  `overrides` block pinning `postcss@^8.5.23` and `sharp@^0.35.3` — both are bundled inside
+  `next`'s own build tooling (not top-level app dependencies) and had unpatched-CVE versions
+  npm flagged; the override forces the patched version without waiting for `next` itself to
+  bump them. One `npm audit` finding (`brace-expansion`, reachable only through ESLint 9's own
+  dependency chain, a dev-time-only tool) was deliberately left unfixed — see
+  `docs/BACKEND_HANDOFF.md` §6 item 12 for why (the only fix is an ESLint major bump, out of
+  scope for a dependency-patch task; confirmed by testing that forcing `brace-expansion` to the
+  patched major via `overrides` breaks `eslint .` outright, since the chain's `minimatch@3.1.5`
+  calls an API the patched package no longer exports).
 
 ## Conventions and gotchas
 

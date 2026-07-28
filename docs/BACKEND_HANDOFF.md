@@ -1481,3 +1481,18 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
     staging first: apply `0028` → run `scripts/migrate-media-buckets.mjs` → deploy. The old
     `public-media`/`public-documents` pair stays in the baseline until a later cleanup plan
     removes it once every environment has migrated.
+12. **One `npm audit` finding left unfixed on purpose** (security-hardening Plan 1, Task 2,
+    2026-07-28): a DoS advisory (GHSA-mh99-v99m-4gvg) against `brace-expansion` reaches this
+    project only through ESLint 9's own dependency chain (`eslint` → `@eslint/config-array` →
+    `minimatch@3.1.5` → `brace-expansion@1.x`) — a devDependency that never runs against
+    production or user-supplied input, only developer-authored glob patterns at lint time. The
+    only fix is a same-major-line patch that doesn't exist for the 1.x line; clearing it means
+    bumping ESLint to a version whose chain resolves `minimatch` to 10.x / `brace-expansion` to
+    5.x, which is a breaking API change (confirmed: pinning `brace-expansion` to `^5.0.8` via
+    `overrides` alone breaks `eslint .` outright — `minimatch@3.1.5` calls the old
+    `braceExpand()` API the 5.x package no longer exports). Out of scope for a dependency-bump
+    task; revisit as its own task when someone is ready to validate an ESLint major upgrade
+    across the whole flat-config + `eslint-config-next` + plugin set. The two other advisories
+    audit surfaced alongside it — `postcss` and `sharp`, both bundled inside `next`'s own build
+    tooling — are fixed with zero breaking changes via the same `overrides` block
+    (`package.json`): `postcss@^8.5.23`, `sharp@^0.35.3`.
