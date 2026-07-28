@@ -32,9 +32,10 @@ const schema = z.object({
   role: z.string().trim().min(3, "Enter their position."),
   group: z.enum(["executive", "council", "administration", "members"]),
   badge: optionalText,
-  // A `public-media` officials object path only — never a remote URL. Accepts
-  // both seeded paths (officials/dominic-b-dela-cruz.jpg) and uploaded paths
-  // (officials/<uuid>.<ext>); rejects anything `next/image` would 500 on.
+  // An officials-media/officials-drafts object path only — never a remote
+  // URL. Accepts both seeded paths (officials/dominic-b-dela-cruz.jpg) and
+  // uploaded paths (officials/<uuid>.<ext>); rejects anything `next/image`
+  // would 500 on.
   photoPath: z
     .string()
     .regex(/^officials\/[A-Za-z0-9._-]+$/, "Invalid portrait path.")

@@ -230,7 +230,7 @@ export interface NewsCategoryValues {
 
 export interface GalleryPhoto {
   id: string;
-  src: string; // render-ready URL — every producer resolves it with photoUrl()
+  src: string; // render-ready URL — every producer resolves it with mediaUrl()
   alt: string;
 }
 

@@ -25,7 +25,7 @@ const SIZES = {
 const PIXELS = { sm: 36, md: 48, lg: 96 } as const;
 
 interface AvatarProps {
-  /** `public-media` object path, or null for initials. */
+  /** `avatars-media` object path, or null for initials. */
   src: string | null;
   fullName: string;
   size?: keyof typeof SIZES;

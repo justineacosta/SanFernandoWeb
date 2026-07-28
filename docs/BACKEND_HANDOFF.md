@@ -1476,9 +1476,20 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
     both environments are on the new per-content-type public buckets (`news-media`,
     `officials-media`, `events-media`, `announcements-media`, `legislative-media`,
     `transparency-media`, `site-media`, `avatars-media`) with production code deployed and
-    current. The old `public-media`/`public-documents` pair stays in the baseline until a
-    later cleanup plan removes it once its buckets are confirmed empty — they have not been
-    deleted from either environment yet.
+    current. **Cleanup pass, 2026-07-28:** the old `public-media`/`public-documents` pair is
+    now out of the baseline (a fresh environment never creates them) and migration `0030`
+    revokes their `public read` policy on existing environments; the dead `photoUrl()`/
+    `documentUrl()`/`PUBLIC_MEDIA_BUCKET`/`PUBLIC_DOCUMENTS_BUCKET` code that used to target
+    them is deleted from `src/lib/storage.ts`. Deleting the actual blobs needs the Storage API,
+    not raw SQL, hence `scripts/delete-old-media-buckets.mjs` (dry-run by default, `--yes` to
+    delete, no-ops cleanly if a bucket is already gone). **Checked clean on both staging/dev and
+    production, 2026-07-28** (two separate databases in this project, checked under each one's
+    own keys): `listBuckets()` found neither `public-media` nor `public-documents` on either
+    one — just the 15 new-style buckets. This contradicts item 11's own prior claim that both
+    environments still had the old pair; that claim was stale (or the buckets were removed
+    outside of tracked history). The old-bucket cleanup is done on both environments — nothing
+    was left to delete. `0030` should still be applied to production like any other pending
+    migration, even with no bucket left for it to act on.
 12. **One `npm audit` finding left unfixed on purpose** (security-hardening Plan 1, Task 2,
     2026-07-28): a DoS advisory (GHSA-mh99-v99m-4gvg) against `brace-expansion` reaches this
     project only through ESLint 9's own dependency chain (`eslint` → `@eslint/config-array` →

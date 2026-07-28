@@ -1,11 +1,11 @@
 -- ============================================================================
 -- Barangay San Fernando — CONSOLIDATED BASELINE SCHEMA
--- Squash of migrations 0001–0029, as of 2026-07-23.
+-- Squash of migrations 0001–0030, as of 2026-07-23.
 -- ============================================================================
 --
 -- WHAT THIS IS
 -- ------------
--- One file that builds the *final state* of migrations 0001 through 0029 on an
+-- One file that builds the *final state* of migrations 0001 through 0030 on an
 -- empty database, in a single transaction. It is not a replay: columns that a
 -- later migration dropped are never created, columns that a later migration
 -- relaxed are declared relaxed, and functions appear once in their final form.
@@ -14,7 +14,7 @@
 -- --------------
 --   • Standing up a NEW environment (production, a fresh staging, a local dev
 --     database) from nothing.
---   • NOT for an environment that already has any of 0001–0029 applied. This
+--   • NOT for an environment that already has any of 0001–0030 applied. This
 --     file assumes an empty `public` schema and will fail loudly on a database
 --     that already has these objects — which is the intended behaviour. To
 --     bring an existing environment forward, apply the individual numbered
@@ -22,13 +22,13 @@
 --
 -- AFTER APPLYING — TWO SCRIPTS ARE REQUIRED, in the same sitting
 -- --------------------------------------------------------------
---   1. node scripts/upload-official-portraits.mjs   (officials seed → public-media/officials/)
---   2. node scripts/upload-site-images.mjs          (site content seed → public-media/site/)
+--   1. node scripts/upload-official-portraits.mjs   (officials seed → officials-media/officials/)
+--   2. node scripts/upload-site-images.mjs          (site content seed → site-media/site/)
 -- Both seed sets below point at deterministic Storage paths. Without the
 -- scripts the officials directory and the home/About pages render broken
 -- images. Original migrations 0012 and 0021 carry the same warning.
 --
--- HOW IT DIFFERS FROM RUNNING 0001–0029 IN SEQUENCE
+-- HOW IT DIFFERS FROM RUNNING 0001–0030 IN SEQUENCE
 -- --------------------------------------------------
 -- The end state is identical. Three mechanical differences, all deliberate:
 --
@@ -188,7 +188,7 @@ create table public.profiles (
   updated_at timestamptz not null default now(),
   -- Cellphone, editable by the account owner in Settings.              [0003]
   phone text,
-  -- Profile picture: public-media path, or null for initials.          [0025]
+  -- Profile picture: avatars-media path, or null for initials.         [0025]
   avatar_src text,
   -- Bell "have I looked?" stamp. Null means never opened.              [0026]
   notifications_seen_at timestamptz,
@@ -1141,29 +1141,28 @@ create trigger site_items_updated_at
   for each row execute function public.set_updated_at();
 
 -- ════════════════════════════════════════════════════════════════════════════
--- 11. STORAGE BUCKETS                          [0007, 0009, 0023, 0028]
+-- 11. STORAGE BUCKETS                          [0007, 0009, 0023, 0028, 0030]
 -- ════════════════════════════════════════════════════════════════════════════
--- public-media and public-documents are still what every existing upload,
--- read, and delete action in the app actually targets — see CLAUDE.md's
--- "Media buckets are being split per content type" bullet. The eight
--- `-media` / six `-drafts` buckets below already exist (added by migration
--- 0028) so a fresh environment has them ready, but nothing reads or writes
--- them yet. Both groups coexist until a later, not-yet-written plan switches
--- the application over — at that point public-media/public-documents and
--- this comment both come out of the baseline.
+-- One public/private bucket pair per status-aware content type, plus two
+-- always-public buckets for content with no draft state and one private
+-- bucket for anonymous feedback screenshots — see CLAUDE.md's "Media buckets
+-- are split per content type" bullet. The old shared public-media/
+-- public-documents pair (every upload/read/delete action targeted these
+-- before the split) was dropped from this baseline by migration 0030 — a
+-- fresh environment never creates them, since nothing in the app has read or
+-- written them since the split was wired in. An existing environment that
+-- still has them keeps the bucket rows and their objects until someone runs
+-- scripts/delete-old-media-buckets.mjs by hand; migration 0030 only revokes
+-- their public-read policy there.
 --
---   public-media      images: news photos, announcement/event covers,
---                     officials/ portraits, achievements/<id>/ photos,
---                     site/ home & About imagery. JPEG/PNG/WebP, 2MB.
---   public-documents  PDFs and document images, 10MB.
---   news-media / news-drafts                  (not yet used) news photos
---   officials-media / officials-drafts         (not yet used) portraits, achievement photos
---   events-media / events-drafts               (not yet used) event covers
---   announcements-media / announcements-drafts (not yet used) announcement images
---   legislative-media / legislative-drafts     (not yet used) ordinance/resolution PDFs
---   transparency-media / transparency-drafts   (not yet used) transparency documents/projects' files
---   site-media                                 (not yet used) Home/About imagery
---   avatars-media                              (not yet used) staff avatars
+--   news-media / news-drafts                  news photos
+--   officials-media / officials-drafts        portraits, achievement photos
+--   events-media / events-drafts               event covers
+--   announcements-media / announcements-drafts announcement images
+--   legislative-media / legislative-drafts     ordinance/resolution PDFs
+--   transparency-media / transparency-drafts   transparency documents/projects' files
+--   site-media                                 Home/About imagery
+--   avatars-media                              staff avatars
 --   feedback-media                             PRIVATE. Screenshots attached to anonymous site feedback.
 --
 -- storage.objects is the ONLY storage table in this schema that gets an RLS
@@ -1173,26 +1172,20 @@ create trigger site_items_updated_at
 -- service-role client, which bypasses RLS, after the Server Action
 -- re-checks type and size server-side (never trusting the client).
 --
--- The `-drafts` buckets carry no read policy at all, unlike public-media/
--- public-documents — Supabase Storage's list() rides the same RLS SELECT
--- policy as an individual object GET, so a public-read policy on a bucket
--- also makes it anonymously enumerable. That's the whole reason the
--- per-type split exists: once wired in, draft/in-review/archived media
--- moves to a `-drafts` bucket where only the service-role client can reach
--- it, and gets promoted to its `-media` counterpart on publish.
+-- The `-drafts` buckets carry no read policy at all, unlike their `-media`
+-- counterparts — Supabase Storage's list() rides the same RLS SELECT policy
+-- as an individual object GET, so a public-read policy on a bucket also
+-- makes it anonymously enumerable. That was the whole reason the per-type
+-- split replaced the old shared public-media/public-documents pair (a single
+-- "public read" policy each, making every draft/in-review/archived object in
+-- them anonymously enumerable too): draft/in-review/archived media now moves
+-- to a `-drafts` bucket where only the service-role client can reach it, and
+-- gets promoted to its `-media` counterpart on publish.
 --
 -- Uploads defer to Save: every uploader is a pure file picker making no
 -- network calls, and the save action compensating-deletes the object if the
 -- row write fails — so "a storage object exists only if a row references it"
 -- holds by construction.
-
-insert into storage.buckets (id, name, public)
-  values ('public-media', 'public-media', true)
-  on conflict (id) do nothing;
-
-insert into storage.buckets (id, name, public)
-  values ('public-documents', 'public-documents', true)
-  on conflict (id) do nothing;
 
 insert into storage.buckets (id, name, public) values
   ('news-media', 'news-media', true),
@@ -1222,14 +1215,6 @@ insert into storage.buckets (id, name, public) values
 insert into storage.buckets (id, name, public)
   values ('feedback-media', 'feedback-media', false)
   on conflict (id) do nothing;
-
-drop policy if exists "public read public-media" on storage.objects;
-create policy "public read public-media" on storage.objects
-  for select to public using (bucket_id = 'public-media');
-
-drop policy if exists "public read public-documents" on storage.objects;
-create policy "public read public-documents" on storage.objects
-  for select to public using (bucket_id = 'public-documents');
 
 drop policy if exists "public read news-media" on storage.objects;
 create policy "public read news-media" on storage.objects
@@ -1872,10 +1857,9 @@ commit;
 --   3. Create the first SuperAdmin: sign the account up through Supabase Auth,
 --      then insert its public.profiles row with is_superadmin = true. Every
 --      other account is created from /admin/settings afterwards.
---   4. Confirm all 17 Storage buckets exist: public-media and
---      public-documents PUBLIC (everything in the app still reads/writes
---      these two), the eight new `-media` buckets PUBLIC (not yet used by
---      the app), the six new `-drafts` buckets and feedback-media PRIVATE.
+--   4. Confirm all 15 Storage buckets exist: the eight `-media` buckets
+--      PUBLIC (what every upload/read/delete action in the app actually
+--      targets), the six `-drafts` buckets and feedback-media PRIVATE.
 --      A public drafts bucket would expose unpublished content to anyone
 --      holding the URL; a public feedback-media would expose residents'
 --      screenshots to anyone holding a URL.

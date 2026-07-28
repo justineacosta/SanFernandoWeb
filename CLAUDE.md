@@ -213,10 +213,25 @@ a rate-limit collision, not a regression.
   sets were spot-checked directly via `storage.list()` to confirm). **Done on production
   2026-07-28 too:** the same sequence (`0028` → `migrate-media-buckets.mjs` →
   `upload-site-images.mjs` → deploy) was run against production, and this branch's code is
-  deployed and live. The old `public-media`/`public-documents` pair stays in
-  `supabase/baseline/0000_baseline_2026-07-23.sql` only until a future cleanup plan removes it
-  once every environment has migrated — the old buckets themselves have not been deleted yet on
-  either environment.
+  deployed and live. **Cleanup pass, 2026-07-28:** the old `public-media`/`public-documents`
+  pair is out of `supabase/baseline/0000_baseline_2026-07-23.sql` now (a fresh environment never
+  creates them) and migration `0030` drops their `public read` policy on existing environments —
+  confirmed via grep that nothing in the app had called `photoUrl()`/`documentUrl()` or
+  referenced `PUBLIC_MEDIA_BUCKET`/`PUBLIC_DOCUMENTS_BUCKET` since the wiring plan, so all four
+  were dead code and are now deleted from `src/lib/storage.ts`. Deleting a Storage object's
+  actual blob needs the Storage API, not raw SQL against `storage.objects` (that would orphan
+  the blob while only deleting its metadata row), hence `scripts/delete-old-media-buckets.mjs`
+  (new, dry-run by default / `--yes` to actually delete, and treats a bucket that's already gone
+  as a clean no-op rather than erroring). **Both staging/dev and production checked clean,
+  2026-07-28:** `listBuckets()` against each of this project's two separate databases (staging/
+  dev under one set of keys, production under another) found neither ever carried
+  `public-media`/`public-documents` — each has exactly the 15 new-style buckets and nothing
+  else. This contradicts this file's own prior claim that both environments still had the old
+  pair as of the same day; that claim was wrong (or the buckets were removed outside of tracked
+  history before this check). Either way, **the old-bucket cleanup is done on both
+  environments** — there was nothing to delete. `0030` (drops their `public read` policy) should
+  still be applied to production the same as any other pending migration, even though it has no
+  bucket left to act on, so the migration history stays contiguous.
   **A final whole-branch review of the signed-preview plan (same day) found the wiring above was
   still broken end-to-end for four of the six content types:** `next.config.ts` only allow-lists
   `next/image`'s remote-pattern check for `/storage/v1/object/public/**`, and a signed URL's path
