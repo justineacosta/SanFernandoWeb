@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Search } from "lucide-react";
 import type { TicketLookupResult } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/form";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { lookupTicket } from "@/features/track/actions";
 import { TicketTimeline } from "./ticket-timeline";
 
@@ -16,14 +17,18 @@ export function TrackLookup({ initialTicket = "" }: { initialTicket?: string }) 
   const [error, setError] = useState<string | null>(null);
   const [ticket, setTicket] = useState<TicketLookupResult | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await lookupTicket(ticketNo, lastName);
+      const result = await lookupTicket(ticketNo, lastName, turnstileToken);
       setTicket(result.ticket);
       setError(result.error);
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     });
   }
 
@@ -53,6 +58,7 @@ export function TrackLookup({ initialTicket = "" }: { initialTicket?: string }) 
               {error}
             </p>
           ) : null}
+          <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
           <Button type="submit" variant="primary" className="w-full" disabled={isPending}>
             <Search className="h-4 w-4" aria-hidden="true" />
             {isPending ? "Checking…" : "Check status"}

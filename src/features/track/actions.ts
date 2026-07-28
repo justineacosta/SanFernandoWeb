@@ -4,6 +4,7 @@ import type { TicketKind, TicketLookupResult, TicketStatus } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatDate, toManilaDate } from "@/lib/format";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
+import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 
 export interface LookupResult {
   error: string | null;
@@ -36,8 +37,15 @@ function sameSurname(a: string, b: string): boolean {
  * each kind's extras are loaded separately by `loadExtras` so a complaint's
  * narrative, respondent and location can never leak into the public result.
  */
-export async function lookupTicket(ticketNo: string, lastName: string): Promise<LookupResult> {
+export async function lookupTicket(
+  ticketNo: string,
+  lastName: string,
+  turnstileToken: string | null,
+): Promise<LookupResult> {
   const ip = await requestIp();
+  if (!(await verifyTurnstileToken(turnstileToken, ip))) {
+    return { error: TURNSTILE_FAILURE_MESSAGE, ticket: null };
+  }
   if (!(await checkRateLimit(`track:${ip}`, LOOKUP_LIMIT, LOOKUP_WINDOW_MS))) {
     return { error: "Too many lookups. Please wait a few minutes and try again.", ticket: null };
   }
