@@ -3,6 +3,7 @@
 import type { PublicApplicationValues, SubmitApplicationResult } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
+import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { applicationSchema } from "./schema";
 
 /** Generous enough for a household on one connection; tight enough to stop a script. */
@@ -17,8 +18,12 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
 export async function submitApplication(
   serviceId: string,
   values: PublicApplicationValues,
+  turnstileToken: string | null,
 ): Promise<SubmitApplicationResult> {
   const ip = await requestIp();
+  if (!(await verifyTurnstileToken(turnstileToken, ip))) {
+    return { error: TURNSTILE_FAILURE_MESSAGE, ticketNo: null };
+  }
   if (!(await checkRateLimit(`apply:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error: "Too many applications from this connection. Please try again later or visit the barangay hall.",

@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
 import { FormSectionLabel } from "@/components/ui/form-section-label";
+import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitApplication } from "@/features/services/actions";
 import { applicationSchema } from "@/features/services/schema";
@@ -37,12 +38,14 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
   const [error, setError] = useState<string | null>(null);
   const [ticketNo, setTicketNo] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   // `isPending` only flips once React commits, so the disabled button alone
   // cannot stop two clicks landing in the same tick — that would file the
   // resident two tickets for one application. This ref closes that window.
   const submitting = useRef(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const turnstileRef = useRef<TurnstileWidgetHandle>(null);
 
   const set = <K extends keyof PublicApplicationValues>(key: K, value: PublicApplicationValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -57,7 +60,7 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
     setError(null);
     startTransition(async () => {
       try {
-        const result = await submitApplication(serviceId, values);
+        const result = await submitApplication(serviceId, values, turnstileToken);
         if (result.error || !result.ticketNo) {
           setError(result.error ?? "Something went wrong. Please try again.");
           return;
@@ -65,6 +68,8 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
         setTicketNo(result.ticketNo);
       } finally {
         submitting.current = false;
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
       }
     });
   }
@@ -256,6 +261,7 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
               </p>
             ) : null}
           </div>
+          <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
           {error ? (
             <p role="alert" className="text-sm font-medium text-danger">
               {error}
