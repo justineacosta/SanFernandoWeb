@@ -27,8 +27,8 @@ About pages became DB-backed in
 sub-project 9 (`0021`). `docs/BACKEND_HANDOFF.md` is the living integration brief;
 `docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan history. Remaining
 work: 2D email (Resend), migrating `lh3`-hotlinked images to owned Storage, and security-
-hardening Plans 2 and 3 (Turnstile CAPTCHA; PDF-upload Route Handler — Plan 1 is finished, see
-the Architecture section's bullet).
+hardening Plan 3 (PDF-upload Route Handler / scoping down the global body-size limit — Plans 1
+and 2 are finished, see the Architecture section's bullet).
 
 ## Commands
 
@@ -374,11 +374,14 @@ a rate-limit collision, not a regression.
   it to `AnimatePresence` would also unmount closed editors and reset their form state).
 - **Icon caveat:** several data shapes carry `icon: LucideIcon` (a React component). A future
   API must return icon *name strings* mapped to components on the frontend.
-- **Security-hardening pass, Plan 1 of 3** (`docs/superpowers/plans/2026-07-28-security-hardening-foundation.md`,
+- **Security-hardening pass, Plans 1-2 of 3** (`docs/superpowers/plans/2026-07-28-security-hardening-foundation.md`,
   finished in the `security-hardening-foundation` worktree, including a final whole-branch
-  fix round). Plan 2 (Turnstile CAPTCHA) and
-  Plan 3 (PDF-upload Route Handler / scoping down the global body-size limit) are deliberately
-  separate plans, not started. Task 1 renamed `src/middleware.ts` to `src/proxy.ts` (see the
+  fix round; Plan 2's own plan and spec are
+  `docs/superpowers/plans/2026-07-28-security-hardening-turnstile.md` and
+  `docs/superpowers/specs/2026-07-28-security-hardening-design.md`, built in the
+  `security-hardening-turnstile` worktree). Plan 3 (PDF-upload Route Handler / scoping down
+  the global body-size limit) is deliberately a separate plan and remains the only piece of
+  the hardening pass not started. Task 1 renamed `src/middleware.ts` to `src/proxy.ts` (see the
   idle-timeout bullet above for the file's actual behavior — unchanged, this was a pure Next 16
   file-convention rename). Task 2 bumped `next` to `16.2.12` and added a `package.json`
   `overrides` block pinning `postcss@^8.5.23` (genuinely bundled inside `next`'s own build
@@ -419,6 +422,48 @@ a rate-limit collision, not a regression.
   `LegalSection`, same "not yet reviewed by legal counsel" treatment as `about/data.ts`'s
   `CAPTAIN.message`) — also now listed in the Project section's enumeration of still-static
   `data.ts` files above.
+  **Plan 2 (Turnstile CAPTCHA, Tasks 1-11, same day):** all 8 public anonymous Server Actions
+  (services/apply, track/lookup, contact/inquiry, feedback, assistance, complaints,
+  appointments, announcements/subscribe) now verify a Cloudflare Turnstile token before doing
+  anything else, through two new shared files. `src/lib/turnstile.ts` exports
+  `verifyTurnstileToken(token, ip)` (POSTs to Cloudflare's `siteverify` endpoint) and
+  `TURNSTILE_FAILURE_MESSAGE` — one rejection string reused for every failure reason (missing
+  key aside, missing token, wrong token, a Cloudflare-reported failure, and a network error to
+  `siteverify` all return the same copy) so a script probing the form can't learn which check
+  it tripped. `src/components/shared/turnstile-widget.tsx` exports `TurnstileWidget` (and its
+  `TurnstileWidgetHandle` ref type carrying `reset()`), a `"use client"` wrapper that loads
+  Cloudflare's `challenges.cloudflare.com/turnstile/v0/api.js` as a plain `<script>` (no npm
+  package) and renders through the imperative `window.turnstile` API rather than
+  data-attribute auto-render, because every one of the 8 forms must call `reset()` after a
+  submit attempt — Turnstile tokens are single-use — without remounting the form and losing
+  its state. **Every one of the 8 actions calls `verifyTurnstileToken` first, before
+  `checkRateLimit` and before Zod validation** (security-hardening spec §5) — e.g.
+  `submitInquiry` in `src/features/contact/actions.ts` — so a failed challenge is the cheapest
+  possible rejection and never touches the rate-limit budget. **`verifyTurnstileToken` has a
+  deliberate dev-skip/prod-throw asymmetry on a missing `TURNSTILE_SECRET_KEY`:** in
+  development it returns `true` (skips verification) with a one-time `console.warn`, so a
+  contributor without a Cloudflare account isn't blocked; in production it `throw`s instead of
+  silently passing, so a misconfigured deploy fails loudly rather than shipping with no
+  CAPTCHA. It fails *closed*, not open, on a missing token, a Cloudflare-reported failure, or a
+  `siteverify` network error — the opposite of the rate limiter's fail-open, because Turnstile
+  IS the anti-bot layer this plan adds, and failing open would silently disable the very
+  feature being shipped. `next.config.ts`'s CSP gained `https://challenges.cloudflare.com` on
+  three directives — `script-src` (loads the widget script), `frame-src` (renders its
+  challenge in an iframe from that origin), `connect-src` (the widget's own XHR calls back to
+  it) — verified by `site.spec.ts`'s CSP tests, which pass because `NewsletterForm` (one of
+  the 8 CAPTCHA'd forms) is mounted sitewide via `SiteFooter` and so is exercised on every
+  page load, not just the forms that look CAPTCHA-specific. **Going live still needs a real
+  Cloudflare account and a site/secret key pair** (`NEXT_PUBLIC_TURNSTILE_SITE_KEY` /
+  `TURNSTILE_SECRET_KEY`, documented in `.env.example`) — the same gating this file already
+  notes for Resend (§2D, the ticket-confirmation emails): until that account exists, the
+  widget silently renders nothing client-side and the server-side dev-skip bypass keeps every
+  form working end to end, exactly as designed, just with no CAPTCHA actually enforced. A
+  pre-existing, unrelated test bug surfaced while running the verification battery for this
+  task: `tests/e2e/public/feedback.spec.ts`'s "the rate limit blocks a 4th submission within
+  the window" test has been broken since before this branch existed — it looks for a radio
+  named `"General Feedback"` but `src/features/feedback/data.ts:20`'s actual label is just
+  `"General"`, so the locator times out. Confirmed via `git show` against the pre-branch base
+  commit, so it is not a Turnstile regression; left unfixed as out of scope for this plan.
 
 ## Conventions and gotchas
 
