@@ -1,19 +1,18 @@
 # Backend Handoff — Barangay San Fernando Website
 
-> **Current status (2026-07-22):** backend integration is well underway on **Supabase**
-> (Postgres + Auth + Storage) — migrations `0001`–`0013` applied to staging **and
-> production**; **`0014`–`0022` are applied to staging only** (audit log v2, audit fuzzy
-> search, fuzzy search, the `fuzzy_match` wildcard fix, global admin search, inquiries +
-> subscribers, archive provenance, site content, and the officials `members` section) and
-> still need to reach production at deploy time. ⚠️ **`0021` additionally requires
-> `node scripts/upload-site-images.mjs` once per environment**, and **`0022` is written but
-> not yet applied anywhere** — until the owner applies it, saving an official into the
-> Barangay Members section fails with an unknown-enum-label error. Auth, the services catalog,
-> all four ticket flows, news/announcements/events, transparency (documents + projects,
-> multi-file + optional dates), the officials directory, and each official's achievements
-> timeline are DB-backed and merged to `main`. See **§1 Current State** for the accurate
-> live picture; the dated blockquotes below are a running changelog, and the original
-> "fully static" framing that follows describes the *starting* point, not today.
+> **Current status (2026-07-28):** backend integration is well underway on **Supabase**
+> (Postgres + Auth + Storage) — migrations `0001`–`0028` are applied to **both staging and
+> production**, and production's deployed code is current with `main` (including the media
+> bucket split's required `migrate-media-buckets.mjs` / `upload-site-images.mjs` run on both
+> environments). Auth, the services catalog, all four ticket flows, news/announcements/events,
+> transparency (documents + projects, multi-file + optional dates), the officials directory,
+> each official's achievements timeline, inquiries + alert subscribers, anonymous site
+> feedback, and the Home/About CMS are DB-backed and live in production. See **§1 Current
+> State** for the accurate live picture; the dated blockquotes below are a running changelog
+> and are left as historical record — where a blockquote says a migration is "staging only"
+> or "still needs production," that has since been resolved (all migrations through `0028`
+> are on production as of 2026-07-28) — and the original "fully static" framing that follows
+> describes the *starting* point, not today.
 
 > Snapshot of the frontend as of **2026-07-11**, written as the starting brief for backend
 > development. The frontend is complete, fully static, and every piece of content that the
@@ -1467,17 +1466,16 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
    site) — both pending real content from the barangay.
 10. The officials-page achievements timeline (migration 0013, 2026-07-21) shipped with
     **no seeded content** — every official's timeline is empty until barangay staff add
-    real achievements through `/admin/officials`. Migration 0013 is also **staging only**
-    at time of writing; it needs to reach production alongside 0012 at deploy time (see the
-    top-of-file summary and the officials-achievements changelog entry above).
-11. **Media bucket split deploy-order hazard** (migration `0028`, 2026-07-27/28 — see
-    CLAUDE.md's media-bucket-split bullet for the full design). The per-content-type public
-    buckets (`news-media`, `officials-media`, `events-media`, `announcements-media`,
-    `legislative-media`, `transparency-media`, `site-media`, `avatars-media`) replace
-    `public-media`/`public-documents` for every public-facing query. **Deploying this code
-    before running `scripts/migrate-media-buckets.mjs` in that environment 404s every
-    currently-published image and document on the live site** — the new public queries ask a
-    bucket the already-published files haven't been copied into yet. Required deploy sequence,
-    staging first: apply `0028` → run `scripts/migrate-media-buckets.mjs` → deploy. The old
-    `public-media`/`public-documents` pair stays in the baseline until a later cleanup plan
-    removes it once every environment has migrated.
+    real achievements through `/admin/officials`. Migration 0013 is on both staging and
+    production as of 2026-07-28 (see the top-of-file summary); the empty-timeline gap itself
+    is still open.
+11. ~~**Media bucket split deploy-order hazard**~~ (migration `0028`, 2026-07-27/28 — see
+    CLAUDE.md's media-bucket-split bullet for the full design). **Resolved 2026-07-28** — the
+    required sequence (apply `0028` → `scripts/migrate-media-buckets.mjs` →
+    `scripts/upload-site-images.mjs` → deploy) was completed on staging and then production;
+    both environments are on the new per-content-type public buckets (`news-media`,
+    `officials-media`, `events-media`, `announcements-media`, `legislative-media`,
+    `transparency-media`, `site-media`, `avatars-media`) with production code deployed and
+    current. The old `public-media`/`public-documents` pair stays in the baseline until a
+    later cleanup plan removes it once its buckets are confirmed empty — they have not been
+    deleted from either environment yet.

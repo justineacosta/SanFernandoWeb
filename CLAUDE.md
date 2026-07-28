@@ -13,8 +13,8 @@ consequence (a typo fix, a comment).
 The official website of **Barangay San Fernando, San Nicolas, Ilocos Norte** (Philippines).
 Next.js 16 App Router + React 19 + TypeScript (strict) + Tailwind CSS v4, backed by
 **Supabase** (Postgres + Auth + Storage). The frontend was built first as a fully static
-mock; backend integration is now well underway (migrations `0001`–`0011` applied;
-`0012`–`0023` applied to staging, still pending on production). Live and
+mock; backend integration is now well underway (migrations `0001`–`0028` applied to both
+staging and production, production code deployed and current as of 2026-07-28). Live and
 DB-backed: auth + account self-service, the services catalog, all four ticketing flows
 (applications / appointments / complaints / assistance), contact inquiries + alert
 subscribers, anonymous site feedback, news + announcements + events, transparency
@@ -196,10 +196,13 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   `scripts/upload-site-images.mjs` (sub-project 9) was never run, since that script now seeds
   `site-media` directly and those objects therefore never existed in the old `public-media` for
   this script to copy *from*; running `upload-site-images.mjs` first resolves it, and both bucket
-  sets were spot-checked directly via `storage.list()` to confirm). Code has not yet been deployed
-  from this state. The old `public-media`/`public-documents` pair stays in
+  sets were spot-checked directly via `storage.list()` to confirm). **Done on production
+  2026-07-28 too:** the same sequence (`0028` → `migrate-media-buckets.mjs` →
+  `upload-site-images.mjs` → deploy) was run against production, and this branch's code is
+  deployed and live. The old `public-media`/`public-documents` pair stays in
   `supabase/baseline/0000_baseline_2026-07-23.sql` only until a future cleanup plan removes it
-  once every environment has migrated — staging's old buckets have not been deleted yet.
+  once every environment has migrated — the old buckets themselves have not been deleted yet on
+  either environment.
   **A final whole-branch review of the signed-preview plan (same day) found the wiring above was
   still broken end-to-end for four of the six content types:** `next.config.ts` only allow-lists
   `next/image`'s remote-pattern check for `/storage/v1/object/public/**`, and a signed URL's path
