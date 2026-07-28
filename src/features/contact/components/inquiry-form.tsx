@@ -212,7 +212,11 @@ export function InquiryForm() {
             {error}
           </p>
         ) : null}
-        <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
+        <TurnstileWidget
+          ref={turnstileRef}
+          onVerify={setTurnstileToken}
+          className="flex justify-center md:col-span-2"
+        />
         <div className="pt-4 md:col-span-2">
           <Button type="submit" variant="primary" size="lg" disabled={isPending}>
             {isPending ? (

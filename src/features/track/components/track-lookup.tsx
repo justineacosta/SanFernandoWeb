@@ -24,11 +24,14 @@ export function TrackLookup({ initialTicket = "" }: { initialTicket?: string }) 
     event.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await lookupTicket(ticketNo, lastName, turnstileToken);
-      setTicket(result.ticket);
-      setError(result.error);
-      turnstileRef.current?.reset();
-      setTurnstileToken(null);
+      try {
+        const result = await lookupTicket(ticketNo, lastName, turnstileToken);
+        setTicket(result.ticket);
+        setError(result.error);
+      } finally {
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
+      }
     });
   }
 

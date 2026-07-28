@@ -38,15 +38,33 @@ function loadTurnstileScript(): Promise<void> {
   if (window.turnstile) return Promise.resolve();
   const existing = document.getElementById(SCRIPT_ID);
   if (existing) {
-    return new Promise((resolve) => existing.addEventListener("load", () => resolve(), { once: true }));
+    return new Promise((resolve, reject) => {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener(
+        "error",
+        () => {
+          console.error("Turnstile script failed to load from", SCRIPT_SRC, "— the CAPTCHA widget will not render.");
+          reject(new Error("Turnstile script failed to load"));
+        },
+        { once: true },
+      );
+    });
   }
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.id = SCRIPT_ID;
     script.src = SCRIPT_SRC;
     script.async = true;
     script.defer = true;
     script.addEventListener("load", () => resolve(), { once: true });
+    script.addEventListener(
+      "error",
+      () => {
+        console.error("Turnstile script failed to load from", SCRIPT_SRC, "— the CAPTCHA widget will not render.");
+        reject(new Error("Turnstile script failed to load"));
+      },
+      { once: true },
+    );
     document.body.appendChild(script);
   });
 }
@@ -86,16 +104,21 @@ export const TurnstileWidget = forwardRef<TurnstileWidgetHandle, TurnstileWidget
       }
 
       let cancelled = false;
-      loadTurnstileScript().then(() => {
-        if (cancelled || !containerRef.current || !window.turnstile) return;
-        widgetIdRef.current = window.turnstile.render(containerRef.current, {
-          sitekey: siteKey,
-          callback: (token) => onVerify(token),
-          "expired-callback": () => onVerify(null),
-          "error-callback": () => onVerify(null),
-          size,
+      loadTurnstileScript()
+        .then(() => {
+          if (cancelled || !containerRef.current || !window.turnstile) return;
+          widgetIdRef.current = window.turnstile.render(containerRef.current, {
+            sitekey: siteKey,
+            callback: (token) => onVerify(token),
+            "expired-callback": () => onVerify(null),
+            "error-callback": () => onVerify(null),
+            size,
+          });
+        })
+        .catch(() => {
+          // Already console.error'd inside loadTurnstileScript; swallow here
+          // so a failed load is a clean rejection, not an unhandled one.
         });
-      });
 
       return () => {
         cancelled = true;

@@ -27,6 +27,12 @@ let warnedMissingSecret = false;
  * limiter (which fails open because Zod is its real correctness gate),
  * Turnstile IS the anti-bot layer this plan adds; failing open here would
  * silently disable the very feature being shipped.
+ *
+ * The siteverify fetch carries a 5s AbortSignal.timeout: Node's fetch has no
+ * default timeout, so a hung connection to Cloudflare would otherwise hold an
+ * unauthenticated Server Action open indefinitely on all 8 public endpoints.
+ * An abort throws inside the try block below and is caught by the existing
+ * catch, which already fails closed.
  */
 export async function verifyTurnstileToken(
   token: string | null | undefined,
@@ -49,10 +55,18 @@ export async function verifyTurnstileToken(
   if (!token) return false;
 
   try {
+    // "unknown" is requestIp()'s shared fallback bucket when no proxy header
+    // is present — not a real IP, so don't send it to Cloudflare (remoteip is
+    // optional; omitting it is safer than a value Cloudflare's docs don't
+    // define behavior for).
+    const params = new URLSearchParams({ secret, response: token });
+    if (ip !== "unknown") params.set("remoteip", ip);
+
     const response = await fetch(TURNSTILE_VERIFY_URL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ secret, response: token, remoteip: ip }),
+      body: params,
+      signal: AbortSignal.timeout(5000),
     });
     const result = (await response.json()) as { success: boolean };
     return result.success === true;

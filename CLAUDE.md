@@ -450,15 +450,25 @@ a rate-limit collision, not a regression.
   feature being shipped. `next.config.ts`'s CSP gained `https://challenges.cloudflare.com` on
   three directives — `script-src` (loads the widget script), `frame-src` (renders its
   challenge in an iframe from that origin), `connect-src` (the widget's own XHR calls back to
-  it) — verified by `site.spec.ts`'s CSP tests, which pass because `NewsletterForm` (one of
-  the 8 CAPTCHA'd forms) is mounted sitewide via `SiteFooter` and so is exercised on every
-  page load, not just the forms that look CAPTCHA-specific. **Going live still needs a real
-  Cloudflare account and a site/secret key pair** (`NEXT_PUBLIC_TURNSTILE_SITE_KEY` /
-  `TURNSTILE_SECRET_KEY`, documented in `.env.example`) — the same gating this file already
-  notes for Resend (§2D, the ticket-confirmation emails): until that account exists, the
-  widget silently renders nothing client-side and the server-side dev-skip bypass keeps every
-  form working end to end, exactly as designed, just with no CAPTCHA actually enforced. A
-  pre-existing, unrelated test bug surfaced while running the verification battery for this
+  it) — verified by code inspection now, and will be exercised for real by `site.spec.ts`'s
+  existing CSP tests only **once a real site key is configured**: with
+  `NEXT_PUBLIC_TURNSTILE_SITE_KEY` unset, `TurnstileWidget`'s effect returns before calling
+  `loadTurnstileScript()`, so today those tests pass with zero bytes ever requested from
+  `challenges.cloudflare.com` — they prove the CSP header is well-formed, not that Cloudflare's
+  actual traffic is allowed through it. **Going live still needs a real Cloudflare account and
+  a site/secret key pair** (`NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`,
+  documented in `.env.example`) — the same gating this file already notes for Resend (§2D, the
+  ticket-confirmation emails), but the production risk here is sharper than Resend's: **in
+  development only**, an unset `TURNSTILE_SECRET_KEY` makes the widget silently render nothing
+  client-side while the server-side dev-skip bypass keeps every form working end to end, no
+  CAPTCHA actually enforced. **In production, that same missing key makes `verifyTurnstileToken`
+  throw** instead of bypassing — every one of the 8 public Server Actions rejects on first
+  submit. **This branch must not be deployed to production or staging before
+  `TURNSTILE_SECRET_KEY` is set.** The failure is per-request, not per-build: the build
+  succeeds and every page loads normally with no key configured, so a keyless deploy looks
+  perfectly healthy until the first resident actually submits a form — six of the 8 forms only
+  handle a `{ error }` return shape and have no error boundary tuned for an unhandled Server
+  Action rejection. A pre-existing, unrelated test bug surfaced while running the verification battery for this
   task: `tests/e2e/public/feedback.spec.ts`'s "the rate limit blocks a 4th submission within
   the window" test has been broken since before this branch existed — it looks for a radio
   named `"General Feedback"` but `src/features/feedback/data.ts:20`'s actual label is just
