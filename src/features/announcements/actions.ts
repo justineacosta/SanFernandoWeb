@@ -27,7 +27,7 @@ const SUBSCRIBE_WINDOW_MS = 60 * 60 * 1000;
  */
 export async function subscribeToAlerts(input: string): Promise<SubscribeResult> {
   const ip = await requestIp();
-  if (!checkRateLimit(`subscribe:${ip}`, SUBSCRIBE_LIMIT, SUBSCRIBE_WINDOW_MS)) {
+  if (!(await checkRateLimit(`subscribe:${ip}`, SUBSCRIBE_LIMIT, SUBSCRIBE_WINDOW_MS))) {
     return { error: "Too many attempts from this connection. Please try again later." };
   }
 

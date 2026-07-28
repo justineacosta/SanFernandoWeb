@@ -34,7 +34,7 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
 export async function submitFeedback(form: FormData): Promise<SubmitFeedbackResult> {
   // Before parsing, so a flood costs one map lookup rather than a file read.
   const ip = await requestIp();
-  if (!checkRateLimit(`feedback:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS)) {
+  if (!(await checkRateLimit(`feedback:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error: `Too much feedback from this connection. Please try again later, or call ${SITE.phone}.`,
     };

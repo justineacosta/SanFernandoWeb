@@ -19,7 +19,7 @@ export async function submitApplication(
   values: PublicApplicationValues,
 ): Promise<SubmitApplicationResult> {
   const ip = await requestIp();
-  if (!checkRateLimit(`apply:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS)) {
+  if (!(await checkRateLimit(`apply:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error: "Too many applications from this connection. Please try again later or visit the barangay hall.",
       ticketNo: null,

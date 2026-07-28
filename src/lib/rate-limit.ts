@@ -1,32 +1,48 @@
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+
 /**
- * Best-effort in-memory sliding-window limiter for public endpoints.
+ * Durable sliding-window limiter backed by the rate_limit_hits table
+ * (migration 0029). Replaces the earlier in-memory Map, which reset on every
+ * redeploy and did not share state across serverless instances.
  *
- * Deliberately unsophisticated: the map lives in one serverless instance, so a
- * determined attacker spread across cold starts gets more attempts than the
- * limit suggests. It still stops naive scripted enumeration, and it costs
- * nothing. The hardening plan (spec §12 step 8) replaces this with a durable
- * store; keep the call sites, swap the body.
+ * True when the caller is still within budget. Records the attempt only when
+ * it's within budget — a caller hammering past the limit must not keep
+ * pushing its own window forward with rejected attempts.
+ *
+ * Fails open on a Supabase error: an outage in the rate limiter must not take
+ * down the public forms it protects, which still have their own Zod
+ * validation as the real correctness gate. For the one fail-closed-sensitive
+ * caller (admin login, added in the hardening pass) this is still safe: if
+ * Supabase itself is unreachable, signInWithPassword fails too, so there is
+ * no window where brute-forcing succeeds because rate limiting alone is down.
  */
-const hits = new Map<string, number[]>();
+export async function checkRateLimit(key: string, limit: number, windowMs: number): Promise<boolean> {
+  const admin = createSupabaseAdminClient();
+  const since = new Date(Date.now() - windowMs).toISOString();
 
-/** True when the caller is still within budget. Records the attempt. */
-export function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
-  const now = Date.now();
-  const recent = (hits.get(key) ?? []).filter((at) => now - at < windowMs);
+  const { count, error } = await admin
+    .from("rate_limit_hits")
+    .select("id", { count: "exact", head: true })
+    .eq("key", key)
+    .gte("hit_at", since);
 
-  if (recent.length >= limit) {
-    hits.set(key, recent);
-    return false;
+  if (error) {
+    console.error("checkRateLimit count failed:", error.message);
+    return true;
+  }
+  if ((count ?? 0) >= limit) return false;
+
+  const { error: insertError } = await admin.from("rate_limit_hits").insert({ key });
+  if (insertError) {
+    console.error("checkRateLimit insert failed:", insertError.message);
   }
 
-  recent.push(now);
-  hits.set(key, recent);
-
-  // Opportunistic sweep so a long-lived instance can't grow the map forever.
-  if (hits.size > 5000) {
-    for (const [entryKey, times] of hits) {
-      if (times.every((at) => now - at >= windowMs)) hits.delete(entryKey);
-    }
+  // Opportunistic sweep, ~1% of calls: keeps the table from growing forever
+  // without a scheduled job. 24h is comfortably past every window this file's
+  // callers use (the widest is 1 hour).
+  if (Math.random() < 0.01) {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    await admin.from("rate_limit_hits").delete().lt("hit_at", cutoff);
   }
 
   return true;

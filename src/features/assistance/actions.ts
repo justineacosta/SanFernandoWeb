@@ -17,7 +17,7 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
  */
 export async function submitAssistance(values: PublicAssistanceValues): Promise<SubmitTicketResult> {
   const ip = await requestIp();
-  if (!checkRateLimit(`assistance:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS)) {
+  if (!(await checkRateLimit(`assistance:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error:
         "Too many requests from this connection. Please try again later or visit the barangay hall.",

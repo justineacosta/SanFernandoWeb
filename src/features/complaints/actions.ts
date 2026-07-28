@@ -18,7 +18,7 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
  */
 export async function submitComplaint(values: PublicComplaintValues): Promise<SubmitTicketResult> {
   const ip = await requestIp();
-  if (!checkRateLimit(`complaint:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS)) {
+  if (!(await checkRateLimit(`complaint:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error:
         "Too many reports from this connection. Please try again later or visit the barangay hall.",

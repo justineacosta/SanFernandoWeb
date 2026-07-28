@@ -47,3 +47,26 @@ test("a complete report reaches the barangay", async ({ page }) => {
 
   await expect(page.getByText(/this reached the barangay/i)).toBeVisible();
 });
+
+test("the rate limit blocks a 4th submission within the window", async ({ page }) => {
+  for (let i = 0; i < 3; i++) {
+    await page.goto("/");
+    await page.getByRole("button", { name: /send feedback about this website/i }).click();
+    await page.getByRole("radio", { name: "General Feedback" }).click();
+    await page.getByLabel("Subject").fill(`E2E: rate limit probe ${i}`);
+    await page
+      .getByLabel("Message")
+      .fill("Filed by the Playwright rate-limit test. Safe to ignore/delete.");
+    await page.getByRole("button", { name: /^send feedback$/i }).click();
+    await expect(page.getByText(/this reached the barangay/i)).toBeVisible();
+  }
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /send feedback about this website/i }).click();
+  await page.getByRole("radio", { name: "General Feedback" }).click();
+  await page.getByLabel("Subject").fill("E2E: rate limit probe 4th");
+  await page.getByLabel("Message").fill("This one should be blocked by the limiter.");
+  await page.getByRole("button", { name: /^send feedback$/i }).click();
+
+  await expect(page.getByText(/too much feedback from this connection/i)).toBeVisible();
+});

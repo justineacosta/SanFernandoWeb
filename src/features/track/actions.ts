@@ -38,7 +38,7 @@ function sameSurname(a: string, b: string): boolean {
  */
 export async function lookupTicket(ticketNo: string, lastName: string): Promise<LookupResult> {
   const ip = await requestIp();
-  if (!checkRateLimit(`track:${ip}`, LOOKUP_LIMIT, LOOKUP_WINDOW_MS)) {
+  if (!(await checkRateLimit(`track:${ip}`, LOOKUP_LIMIT, LOOKUP_WINDOW_MS))) {
     return { error: "Too many lookups. Please wait a few minutes and try again.", ticket: null };
   }
 
