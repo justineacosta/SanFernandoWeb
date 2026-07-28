@@ -51,3 +51,40 @@ test.describe("transparency row actions", () => {
     await expect(kebab).toBeFocused();
   });
 });
+
+test("responses carry the baseline security headers", async ({ page }) => {
+  const response = await page.goto("/");
+  expect(response).not.toBeNull();
+  const headers = response!.headers();
+  expect(headers["x-frame-options"]).toBe("DENY");
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+  expect(headers["content-security-policy"]).toContain("default-src 'self'");
+  expect(headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+});
+
+test("the home page produces no CSP violations", async ({ page }) => {
+  const violations: string[] = [];
+  page.on("console", (msg) => {
+    if (msg.type() === "error" && msg.text().includes("Content Security Policy")) {
+      violations.push(msg.text());
+    }
+  });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  expect(violations).toEqual([]);
+});
+
+test.describe("legal pages", () => {
+  test("privacy and terms are reachable from the footer", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: "Privacy Policy" }).click();
+    await expect(page).toHaveURL(/\/privacy$/);
+    await expect(page.getByRole("heading", { name: "Privacy Policy", level: 1 })).toBeVisible();
+
+    await page.goto("/");
+    await page.getByRole("link", { name: "Terms of Use" }).click();
+    await expect(page).toHaveURL(/\/terms$/);
+    await expect(page.getByRole("heading", { name: "Terms of Use", level: 1 })).toBeVisible();
+  });
+});

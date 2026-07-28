@@ -4,9 +4,9 @@ import { getNotificationSnapshot } from "@/features/admin/queries/notifications"
 
 /**
  * Polled every 60s by NotificationProvider. Sits under `/api/`, outside
- * `src/middleware.ts`'s matcher (`/admin/:path*`), so it re-checks the
+ * `src/proxy.ts`'s matcher (`/admin/:path*`), so it re-checks the
  * session itself — including the idle timeout, since `getSessionUser` is the
- * second of the project's two idle gates and middleware only covers page
+ * second of the project's two idle gates and Proxy only covers page
  * GETs.
  *
  * 401 with no body on no session. The provider treats 401 as "stop polling,

@@ -48,14 +48,14 @@ export const getSessionUserIgnoringIdle = loadSessionUser;
  * Resolve the signed-in admin user (null if signed out, disabled, archived, or
  * idle past the timeout).
  *
- * The idle check lives here, not only in middleware, because Server Action
- * POSTs are excluded from the middleware matcher on purpose (see the comment on
- * `config` in src/middleware.ts). Without this gate a user could sit in a
+ * The idle check lives here, not only in Proxy, because Server Action
+ * POSTs are excluded from the Proxy matcher on purpose (see the comment on
+ * `config` in src/proxy.ts). Without this gate a user could sit in a
  * drawer submitting saves indefinitely without a single page GET.
  *
  * Reading cookies here is safe in both contexts; writing them is not, and this
  * function deliberately never does — `cookies()` is read-only inside a Server
- * Component. Middleware and the client heartbeat own every write.
+ * Component. Proxy (src/proxy.ts) and the client heartbeat own every write.
  */
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const cookieStore = await cookies();

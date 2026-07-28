@@ -20,12 +20,15 @@ DB-backed: auth + account self-service, the services catalog, all four ticketing
 subscribers, anonymous site feedback, news + announcements + events, transparency
 (legislative documents / disclosure documents / monitored projects), and the officials
 directory. What remains
-static lives in typed `data.ts` files — the contact channels and inquiry subject list, and
-the home page's six Quick Services cards. The Home and About pages became DB-backed in
+static lives in typed `data.ts` files — the contact channels and inquiry subject list,
+the home page's six Quick Services cards, and (since the security-hardening pass) the
+`/privacy` and `/terms` placeholder content in `src/features/legal/data.ts`. The Home and
+About pages became DB-backed in
 sub-project 9 (`0021`). `docs/BACKEND_HANDOFF.md` is the living integration brief;
 `docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan history. Remaining
-work: 2D email (Resend), migrating `lh3`-hotlinked images to owned Storage, and a
-security-hardening pass.
+work: 2D email (Resend), migrating `lh3`-hotlinked images to owned Storage, and security-
+hardening Plans 2 and 3 (Turnstile CAPTCHA; PDF-upload Route Handler — Plan 1 is finished, see
+the Architecture section's bullet).
 
 ## Commands
 
@@ -46,6 +49,17 @@ drives the real dev server through system Chrome; the `public` project needs no 
 `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` are set in `.env.local`. Component-level tests are
 deliberately *not* a thing here — behaviour is verified in the browser. The ad-hoc
 verification recipe still applies for one-off checks: `.claude/skills/verify/SKILL.md`.
+**Since the rate limiter became durable (migration `0029`, security-hardening pass), two e2e
+suites are not idempotent within their rate-limit window:** `tests/e2e/admin/login.spec.ts`
+(its five deliberate wrong-password attempts record 5 hits on `login:email:<test-admin>` — a
+successful sign-in, like `tests/e2e/auth.setup.ts`'s, records nothing, so it's `login.spec.ts`
+itself that spends the budget; `playwright.config.ts` runs `setup` before every `admin`-project
+test, so a second run within `LOGIN_WINDOW_MS` = 15 min has `auth.setup.ts` blocked by the
+*previous* run's hits, failing the whole `admin` project, not just the login test) and
+`tests/e2e/public/feedback.spec.ts` (consumes all 3 of `SUBMIT_LIMIT` on `feedback:unknown` per
+run — a second `test:e2e:public` run within an hour can fail the pre-existing "a complete
+report reaches the barangay" test too). A failure here after a recent run in the same window is
+a rate-limit collision, not a regression.
 
 ## Architecture
 
@@ -241,9 +255,11 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   browser expiring the cookie on disk is what makes "window closed for 30 minutes" work
   with no code. Constants live only in `src/lib/session-activity.ts`; `IDLE_MS` and the
   cookie's `Max-Age` are one derived value, never two literals. **Two gates read it:**
-  `src/middleware.ts` for page GETs, and `getSessionUser()` for everything else — the
-  second is not redundant, because Server Action POSTs are excluded from the middleware
-  matcher on purpose. `getSessionUserIgnoringIdle` exists for exactly one caller,
+  `src/proxy.ts` (renamed from `middleware.ts` in the 2026-07-28 hardening pass — Next 16
+  deprecated the `middleware` file convention in favor of `proxy`) for page GETs, and
+  `getSessionUser()` for everything else — the second is not redundant, because Server
+  Action POSTs are excluded from the Proxy matcher on purpose. `getSessionUserIgnoringIdle`
+  exists for exactly one caller,
   `signOutIdle`, which needs an actor for its audit entry at the moment the cookie has
   just died. The warning dialog owns the **final** minute (29:00→30:00), not a 31st, so
   the client deadline and the cookie expiry are the same instant; `<IdleTimeout />` mounts
@@ -253,20 +269,20 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   listen on `document` in the bubble phase and were registered first — so the dialog
   swallows the key from capture, where `stopImmediatePropagation()` still comes first.
   **The closed-window idle sign-out is audited too, discovered rather than witnessed:**
-  `signOutIdle` (open tab, client-driven) and the middleware idle-gate branch
-  (`src/middleware.ts`, closed tab) both end with the same `audit_log` shape — `type:
-  "logout"`, `detail: "signed out for inactivity"` — but the middleware branch has no
+  `signOutIdle` (open tab, client-driven) and the Proxy idle-gate branch
+  (`src/proxy.ts`, closed tab) both end with the same `audit_log` shape — `type:
+  "logout"`, `detail: "signed out for inactivity"` — but the Proxy branch has no
   live client to call `signOutIdle` from, since discovering the expiry *is* the request
   that trips it. It resolves the actor from the Supabase session `getUser()` already
   returned, fetches `full_name` via the service-role admin client (`profiles` has zero
   RLS policies, so nothing else can read it there), and calls `recordActivity` directly.
-  This is the one reason `middleware.ts` opts into `export const config = { runtime:
-  "nodejs" }` — Next 16's stable, non-experimental way to move a middleware file off the
-  Edge default — since a service-role client and an audit insert are not something to
-  assume is Edge-safe. A stale background tab hitting this branch after the real user
-  already re-authenticated elsewhere would file a second, harmless "signed out for
-  inactivity" row; not deduplicated, since two rows both being true costs less than the
-  query needed to suppress one.
+  This runs safely because Proxy defaults to the Node.js runtime as of Next 16 — a
+  service-role client and an audit insert are not something to assume is Edge-safe, and
+  unlike the old `middleware.ts` convention (which required an explicit `runtime: "nodejs"`
+  opt-in), `proxy.ts` does not accept a `runtime` config at all; setting one throws. A stale
+  background tab hitting this branch after the real user already re-authenticated elsewhere
+  would file a second, harmless "signed out for inactivity" row; not deduplicated, since two
+  rows both being true costs less than the query needed to suppress one.
 - **Request notifications are two signals, not one.** The five `requests` nav rows (six queues —
   Inquiries & Feedback sums two) get a count badge for unhandled work (rows still in their
   initial status — `pending`, `received`, or `new`, depending on the table) and the top bar's
@@ -278,7 +294,7 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   contains the other (search omits `inquiries`; not all six queues are searchable), so a unit
   test checks the two agree on the five keys they share rather than merging them.
   `NotificationProvider` runs the one 60s poll (`GET /api/admin/notifications`, outside
-  `src/middleware.ts`'s matcher, so it re-checks `getSessionUser` itself) that feeds the sidebar
+  `src/proxy.ts`'s matcher, so it re-checks `getSessionUser` itself) that feeds the sidebar
   badges, the mobile nav card and the bell — one poll, three consumers. A 401 stops it silently;
   `<IdleTimeout />` alone owns the sign-out UI. Counts and recent items are computed only for
   queues the viewer's permissions allow, the same disclosure rule `adminPageTitle` follows for
@@ -309,8 +325,13 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   and the de-facto API contract. Site-wide identity/nav/hotlines live in
   `src/constants/site.ts` (`SITE` object).
 - **Writes go through Server Actions + a service-role Supabase client.** All tables have
-  **RLS enabled with zero policies** — the service-role client (`src/lib/supabase/admin.ts`)
-  behind an explicit `requirePermission(...)` code check is the *entire* auth gate, and the
+  **RLS enabled with zero policies** — with three narrow, pre-existing read-only exceptions for
+  public/staff reference data (`profiles`, `services`, `assistance_categories`; migrations
+  `0001`/`0004`/`0006` respectively — see `docs/BACKEND_HANDOFF.md` §6 item 13) that predate the
+  2026-07-28 hardening pass and expose no write path. Read this bullet as "no policies on the
+  write-bearing/ticketing tables," not literally zero policies anywhere. The service-role client
+  (`src/lib/supabase/admin.ts`) behind an explicit `requirePermission(...)` code check is the
+  *entire* auth gate for every write-bearing table, and the
   public/published boundary is the `.eq("status","published")` filter in the query layer.
   Server Actions are public HTTP endpoints, so every write re-validates its input with Zod
   at runtime. Never expose the service-role key to the client. Migrations live in
@@ -319,11 +340,11 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   don't mix.** For a **new environment** (production, a fresh staging, a local dev database)
   standing up from nothing, apply `supabase/baseline/0000_baseline_2026-07-23.sql` instead of
   replaying the numbered migrations one by one — it is a single-transaction squash of `0001`–
-  `0024` that assumes an empty `public` schema and deliberately ships **without** the demo seed
+  `0029` that assumes an empty `public` schema and deliberately ships **without** the demo seed
   content those early migrations insert (`0007_news_content.sql` and `0009_transparency.sql`
   seed placeholder news, announcements, events, and legislative/transparency documents), so a
   fresh production apply doesn't land mock content on the live public site. For an **existing
-  environment** that already has some of `0001`–`0024` applied, keep applying the individual
+  environment** that already has some of `0001`–`0029` applied, keep applying the individual
   numbered migrations it is missing, in order, exactly as before — the baseline assumes an
   empty schema and will fail loudly against one that already has any of them. Either way, a new
   environment still needs the two upload scripts the baseline's own checklist names
@@ -353,6 +374,51 @@ verification recipe still applies for one-off checks: `.claude/skills/verify/SKI
   it to `AnimatePresence` would also unmount closed editors and reset their form state).
 - **Icon caveat:** several data shapes carry `icon: LucideIcon` (a React component). A future
   API must return icon *name strings* mapped to components on the frontend.
+- **Security-hardening pass, Plan 1 of 3** (`docs/superpowers/plans/2026-07-28-security-hardening-foundation.md`,
+  finished in the `security-hardening-foundation` worktree, including a final whole-branch
+  fix round). Plan 2 (Turnstile CAPTCHA) and
+  Plan 3 (PDF-upload Route Handler / scoping down the global body-size limit) are deliberately
+  separate plans, not started. Task 1 renamed `src/middleware.ts` to `src/proxy.ts` (see the
+  idle-timeout bullet above for the file's actual behavior — unchanged, this was a pure Next 16
+  file-convention rename). Task 2 bumped `next` to `16.2.12` and added a `package.json`
+  `overrides` block pinning `postcss@^8.5.23` (genuinely bundled inside `next`'s own build
+  tooling) and `sharp@^0.35.3` (an optional dependency `next/image` loads at **runtime** for
+  on-demand image optimization, not build tooling) — neither is a top-level app dependency, and
+  both had unpatched-CVE versions npm flagged; the override forces the patched version without
+  waiting for `next` itself to bump them. One `npm audit` finding (`brace-expansion`, reachable
+  only through ESLint 9's own
+  dependency chain, a dev-time-only tool) was deliberately left unfixed — see
+  `docs/BACKEND_HANDOFF.md` §6 item 12 for why (the only fix is an ESLint major bump, out of
+  scope for a dependency-patch task; confirmed by testing that forcing `brace-expansion` to the
+  patched major via `overrides` breaks `eslint .` outright, since the chain's `minimatch@3.1.5`
+  calls an API the patched package no longer exports). **Tasks 3+4:** the rate limiter is now
+  durable (`rate_limit_hits`, migration `0029`, `checkRateLimit` is `async` and DB-backed,
+  replacing the old in-memory Map — fails open on a Supabase error, same reasoning as
+  `src/lib/rate-limit.ts`'s own top-of-file comment), and admin login is now rate-limited by
+  both IP and normalized email (`src/features/admin/actions/auth.ts`, `LOGIN_LIMIT = 5` /
+  `LOGIN_WINDOW_MS = 15 min`). A final whole-branch review found the initial shape counted
+  *every* login attempt, including successes, against that budget — fixed by splitting
+  `checkRateLimit` (check-and-record-together, unchanged, still used by all 8 public-form call
+  sites) from a new read-only `isRateLimited` + explicit `recordRateLimitHit` pair, so `signIn`
+  now checks both keys before calling `signInWithPassword` and only records a hit after a
+  failed sign-in or a disabled-account rejection — a successful login records nothing.
+  **Task 5:** `next.config.ts` now sets a scoped CSP plus standard security response headers
+  (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy). Adding a
+  new remote image host now requires editing **two** places in that file —
+  `images.remotePatterns` AND the CSP's `img-src` — and `object-src`/`frame-src` are scoped to
+  `'self' + supabaseOrigin` specifically because Chrome renders the transparency section's
+  inline `<object type="application/pdf">` preview through an internal frame that `frame-src`
+  (not just `object-src`) governs. The CSP's `img-src` also carries `blob:` (client-side upload
+  previews — the feedback screenshot preview, the avatar cropper, the single-image and
+  news-photo uploaders — mint a `blob:` object URL before any network call, and `'self'` does
+  not implicitly cover that scheme), and the CSP carries a `form-action 'self'` directive
+  alongside `base-uri 'self'` / `frame-ancestors 'none'` — both gaps found in the plan's final
+  whole-branch review, since Task 5's own verification never picked a file mid-test and
+  `form-action` has no `default-src` fallback. **Task 6:** `/privacy` and `/terms` are new
+  placeholder-content routes, backed by `src/features/legal/data.ts` (`LegalDocument`/
+  `LegalSection`, same "not yet reviewed by legal counsel" treatment as `about/data.ts`'s
+  `CAPTAIN.message`) — also now listed in the Project section's enumeration of still-static
+  `data.ts` files above.
 
 ## Conventions and gotchas
 

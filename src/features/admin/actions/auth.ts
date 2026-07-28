@@ -6,6 +6,7 @@ import { cookies, headers } from "next/headers";
 import { getSessionUser, getSessionUserIgnoringIdle } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isRateLimited, recordRateLimitHit, requestIp } from "@/lib/rate-limit";
 import {
   ACTIVITY_COOKIE,
   ACTIVITY_COOKIE_PATH,
@@ -16,6 +17,10 @@ import {
 export interface AuthFormState {
   error: string | null;
 }
+
+/** Tighter than the public forms' hour-long windows — credential-stuffing arrives fast. */
+const LOGIN_LIMIT = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -34,9 +39,37 @@ export async function signIn(
     return { error: "Enter your email and password." };
   }
 
+  // Two keys: IP stops one source hammering many accounts, email stops a
+  // distributed attempt against one account. Both are checked (not
+  // short-circuited) so both budgets are read regardless of which one an
+  // attacker is closer to tripping.
+  //
+  // This check is read-only (isRateLimited, not checkRateLimit): a hit is
+  // recorded below ONLY when signInWithPassword or the profile check
+  // actually fails. Counting every attempt — including successful ones,
+  // which is what the old checkRateLimit-before-signIn shape did — would
+  // lock a legitimate admin out after their 6th successful login in 15
+  // minutes. The threat model here is repeated FAILURES (credential
+  // stuffing), not usage volume.
+  const ip = await requestIp();
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
+  const ipKey = `login:ip:${ip}`;
+  const emailKey = `login:email:${normalizedEmail}`;
+  const ipLimited = await isRateLimited(ipKey, LOGIN_LIMIT, LOGIN_WINDOW_MS);
+  const emailLimited = await isRateLimited(emailKey, LOGIN_LIMIT, LOGIN_WINDOW_MS);
+  if (ipLimited || emailLimited) {
+    // Same copy as a real bad password — a distinct "too many attempts"
+    // message would confirm to an attacker that their guesses were arriving.
+    return { error: "Incorrect email or password." };
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error || !data.user) {
+    // A failed attempt is exactly what should count against the budget —
+    // record it on both keys before returning, mirroring the read above.
+    await recordRateLimitHit(ipKey);
+    await recordRateLimitHit(emailKey);
     return { error: "Incorrect email or password." };
   }
 
@@ -46,15 +79,23 @@ export async function signIn(
     .eq("id", data.user.id)
     .single();
   if (!profile || !profile.is_active || profile.is_archived) {
+    // A disabled account still counts as a failed attempt for rate-limiting
+    // purposes — the credentials may have been correct, but no session
+    // should have resulted, same as a bad password.
+    await recordRateLimitHit(ipKey);
+    await recordRateLimitHit(emailKey);
     await supabase.auth.signOut();
     return { error: "This account is disabled. Contact the barangay administrator." };
   }
+
+  // Success: record nothing on either key. Proceed to the idle-cookie/
+  // audit-log/redirect logic below unchanged.
 
   // Open the idle window. Without this the very next page GET would see no
   // activity cookie and bounce the user straight back to the login page.
   //
   // `secure` is derived from the request's own protocol, the same rule the
-  // other two writers use (middleware reads `nextUrl.protocol`, the client
+  // other two writers use (Proxy reads `nextUrl.protocol`, the client
   // heartbeat reads `window.location.protocol`). Deriving it from NODE_ENV
   // instead would agree with them on Vercel and disagree anywhere else — an
   // https staging box running a dev build would drop this cookie on the floor

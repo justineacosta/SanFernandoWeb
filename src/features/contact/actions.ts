@@ -28,7 +28,7 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
  */
 export async function submitInquiry(values: PublicInquiryValues): Promise<SubmitInquiryResult> {
   const ip = await requestIp();
-  if (!checkRateLimit(`inquiry:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS)) {
+  if (!(await checkRateLimit(`inquiry:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error: `Too many messages from this connection. Please try again later, or call ${SITE.phone}.`,
     };

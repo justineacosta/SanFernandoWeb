@@ -20,7 +20,7 @@ export async function createSupabaseServerClient() {
             );
           } catch {
             // Called from a Server Component where cookies are read-only;
-            // middleware handles the session refresh in that case.
+            // Proxy handles the session refresh in that case.
           }
         },
       },

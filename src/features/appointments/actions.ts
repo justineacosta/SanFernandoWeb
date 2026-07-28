@@ -17,7 +17,7 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
  */
 export async function submitAppointment(values: PublicAppointmentValues): Promise<SubmitTicketResult> {
   const ip = await requestIp();
-  if (!checkRateLimit(`appointment:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS)) {
+  if (!(await checkRateLimit(`appointment:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error:
         "Too many appointment requests from this connection. Please try again later or visit the barangay hall.",

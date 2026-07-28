@@ -1052,7 +1052,7 @@
 | Rendering | 100% Server Components except a handful of client islands (see §5) |
 | Build | `npm run build` ✅ — static where possible; DB-backed routes (services, tickets, news/announcements/events, `/admin/*`) render dynamically |
 | Backend | **Supabase** (Postgres + Auth + Storage), reached through Server Actions and server-only query modules. Services, the four ticket flows, news/announcements/events, transparency documents (ordinances & resolutions, budget/financial documents, projects), the officials directory, and each official's achievements timeline are DB-backed. Still hardcoded: `src/constants/site.ts` and the remaining `src/features/*/data.ts` (about, home stats) |
-| Auth | **Supabase Auth**, live. Two layers: `src/middleware.ts` redirects unauthenticated `/admin` GETs to `/admin/login` and refreshes the session cookie (its matcher excludes Server Action POSTs via the `Next-Action` header — see the 2026-07-20 entry), and `src/lib/auth.ts` holds the real gate. Since 2026-07-22 those gates split by context: **pages** call `requirePermission(<permission>)` / `requireSuperAdmin()`, which `notFound()` so an unauthorized module is indistinguishable from a missing one; **Server Actions** call `checkPermission()` / `checkSuperAdmin()`, which return `null` so the action can hand back `{ error: NOT_FOUND }`. `requireSessionUser()` still redirects to login. Per-user permission checkboxes + a SuperAdmin role; portal stays `noindex` |
+| Auth | **Supabase Auth**, live. Two layers: `src/proxy.ts` redirects unauthenticated `/admin` GETs to `/admin/login` and refreshes the session cookie (its matcher excludes Server Action POSTs via the `Next-Action` header — see the 2026-07-20 entry), and `src/lib/auth.ts` holds the real gate. Since 2026-07-22 those gates split by context: **pages** call `requirePermission(<permission>)` / `requireSuperAdmin()`, which `notFound()` so an unauthorized module is indistinguishable from a missing one; **Server Actions** call `checkPermission()` / `checkSuperAdmin()`, which return `null` so the action can hand back `{ error: NOT_FOUND }`. `requireSessionUser()` still redirects to login. Per-user permission checkboxes + a SuperAdmin role; portal stays `noindex` |
 | Images | News/announcement/event uploads go to Supabase Storage (public bucket `public-media`, 2MB, JPEG/PNG/WebP); the 12 official portraits also live in `public-media/officials/` now (uploaded once via `scripts/upload-official-portraits.mjs`), and each official's achievement photos live under `public-media/achievements/<achievementId>/` (same 2MB/JPEG-PNG-WebP limits, migration 0013, staging only). Transparency PDFs go to a separate public bucket `public-documents` (10MB cap). Seed rows and the rest of the site are still hotlinked from `lh3.googleusercontent.com` (Stitch design exports) — moving those to owned storage is outstanding. Real bundled exceptions (static imports): hero carousel (`src/images/carousel/`), barangay seal (`src/images/logo/`), the Punong Barangay's portrait reused by the About-page `CAPTAIN` block, About history-timeline images (seal + carousel photo) |
 
 ### Routes
@@ -1479,3 +1479,82 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
     current. The old `public-media`/`public-documents` pair stays in the baseline until a
     later cleanup plan removes it once its buckets are confirmed empty — they have not been
     deleted from either environment yet.
+12. **One `npm audit` finding left unfixed on purpose** (security-hardening Plan 1, Task 2,
+    2026-07-28): a DoS advisory (GHSA-mh99-v99m-4gvg) against `brace-expansion` reaches this
+    project only through ESLint 9's own dependency chain (`eslint` → `@eslint/config-array` →
+    `minimatch@3.1.5` → `brace-expansion@1.x`) — a devDependency that never runs against
+    production or user-supplied input, only developer-authored glob patterns at lint time. The
+    only fix is a same-major-line patch that doesn't exist for the 1.x line; clearing it means
+    bumping ESLint to a version whose chain resolves `minimatch` to 10.x / `brace-expansion` to
+    5.x, which is a breaking API change (confirmed: pinning `brace-expansion` to `^5.0.8` via
+    `overrides` alone breaks `eslint .` outright — `minimatch@3.1.5` calls the old
+    `braceExpand()` API the 5.x package no longer exports). Out of scope for a dependency-bump
+    task; revisit as its own task when someone is ready to validate an ESLint major upgrade
+    across the whole flat-config + `eslint-config-next` + plugin set. The two other advisories
+    audit surfaced alongside it — `postcss` (genuinely bundled inside `next`'s own build
+    tooling) and `sharp` (an optional dependency `next/image` loads at **runtime** for
+    on-demand image optimization, not build tooling) — are fixed with zero breaking changes
+    via the same `overrides` block (`package.json`): `postcss@^8.5.23`, `sharp@^0.35.3`.
+13. **RLS + CSRF verification pass (2026-07-28 security-hardening Plan 1).** Querying
+    `pg_policies` against staging found the `public` schema is **not** fully policy-free as
+    CLAUDE.md's "RLS enabled, zero policies" line implies at face value: three rows exist —
+    `profiles readable by signed-in staff` (`profiles`, `select to authenticated using (true)`),
+    `services readable by anyone` (`services`, `select using (true)`), and
+    `assistance categories readable by anyone` (`assistance_categories`, `select using (true)`).
+    All three predate this hardening pass — they're from migrations `0001`, `0004`, and `0006`
+    respectively (also present in the `0000` baseline squash), each commented in its own
+    migration as a deliberate exception for read-only public/staff reference data with no write
+    path exposed (every write still goes through the service-role client after a code-level
+    permission check). Every other table remains policy-free as documented. This isn't a new
+    gap this pass introduced; it's a correction to CLAUDE.md's architecture description, which
+    should be read as "no policies on the write-bearing/ticketing tables," not literally zero
+    policies anywhere. `storage.objects` carries exactly the expected 8 public-read `SELECT`
+    policies, one per public bucket (`announcements-media`, `avatars-media`, `events-media`,
+    `legislative-media`, `news-media`, `officials-media`, `site-media`, `transparency-media`) —
+    no policy on any `-drafts` bucket or on `feedback-media`, matching the media-bucket-split
+    design exactly. Separately, confirmed Next Server Actions reject a forged `Origin` header
+    before the action's own permission check runs: a same-origin POST carrying a bogus
+    `Next-Action` id reached action-resolution (`404 Not Found`, body `Server action not found.`
+    — proves the framework tried to resolve it); the identical request with
+    `Origin: https://evil.example.com` was rejected earlier, before resolution (`500 Internal
+    Server Error`, body containing `"message":"Invalid Server Actions request."`). The status
+    code (500, not the "typically 403" this doc and CLAUDE.md previously assumed) differs from
+    expectation but the security property holds: the Origin check runs, and it runs before
+    any app-level auth or action logic. No code change resulted from this pass; it verifies
+    assumptions this file and CLAUDE.md already documented, and corrects one of them.
+14. **Baseline now includes `rate_limit_hits` (fixed 2026-07-28, final whole-branch review pass).**
+    Migration `0029` (added by this hardening plan's Task 3) had not been folded into
+    `supabase/baseline/0000_baseline_2026-07-23.sql`, breaking the pattern every migration
+    through `0028` had followed — a fresh environment (production, a new staging, local dev)
+    stood up from the baseline would have gotten a site with **no rate limiting at all**, and
+    silently: `checkRateLimit` fails open on the resulting missing-table error, so nothing would
+    have errored loudly to reveal the gap. Fixed: the baseline now creates `rate_limit_hits` in
+    its own section (placed before the audit-log-immutability section, which must stay last),
+    and the file's header comments now say `0001`–`0029` throughout. Any environment that
+    already applied the baseline *before* this fix still needs migration `0029` applied
+    manually, like every other numbered migration — staging first, then production, per this
+    repo's standing rule.
+15. **The PDF `<object>` preview was never exercised with real content (security-hardening Plan
+    1, Task 5).** No legislative document in the current dev/staging environment has an actual
+    uploaded PDF, so the real `<object type="application/pdf">` element in `pdf-viewer.tsx` was
+    verified only via injected test elements and a third-party negative control, never real
+    content end to end. Worth a real spot-check once a real PDF is uploaded through
+    `/admin/transparency`.
+16. **Known limitations of the durable rate limiter, accepted rather than fixed (security-
+    hardening Plan 1, Tasks 3/4, final whole-branch review pass).**
+    - `checkRateLimit`'s check-then-insert is two separate round trips to Postgres, not one
+      atomic operation, so a burst of concurrent requests for the same key can all pass the
+      count check before any of their inserts land. Accepted as a low-stakes risk: the public
+      forms this protects still have their own Zod validation as the real correctness gate
+      regardless, and for admin login a sequential attacker (the realistic case) still gets
+      exactly the configured limit — `signInWithPassword` itself still gates on real Supabase
+      Auth even in the narrow window where the limiter could be raced.
+    - Email-keyed login rate limiting (`login:email:<address>`) is a deliberate trade-off, not
+      a defect: an attacker who knows an admin's email can lock that admin out of their own
+      login by intentionally tripping the limit with 5 wrong passwords every 15 minutes. This
+      hardening pass chose to prioritize stopping credential stuffing over guaranteeing
+      availability.
+    - `requestIp()` falls back to a shared `"unknown"` bucket whenever no reverse proxy sets
+      `x-forwarded-for` (host-dependent). On such a host every admin shares one IP-side
+      rate-limit budget, so one admin's failed logins can tighten the budget for every other
+      admin signing in from that same host.
