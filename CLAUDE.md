@@ -51,13 +51,15 @@ deliberately *not* a thing here — behaviour is verified in the browser. The ad
 verification recipe still applies for one-off checks: `.claude/skills/verify/SKILL.md`.
 **Since the rate limiter became durable (migration `0029`, security-hardening pass), two e2e
 suites are not idempotent within their rate-limit window:** `tests/e2e/admin/login.spec.ts`
-(via `tests/e2e/auth.setup.ts`, which signs in through the real form and consumes a `login:*`
-slot every run — `playwright.config.ts` makes every `admin`-project test depend on that setup,
-so a second run within `LOGIN_WINDOW_MS` = 15 min can fail the whole `admin` project, not just
-the login test) and `tests/e2e/public/feedback.spec.ts` (consumes all 3 of `SUBMIT_LIMIT` on
-`feedback:unknown` per run — a second `test:e2e:public` run within an hour can fail the
-pre-existing "a complete report reaches the barangay" test too). A failure here after a recent
-run in the same window is a rate-limit collision, not a regression.
+(its five deliberate wrong-password attempts record 5 hits on `login:email:<test-admin>` — a
+successful sign-in, like `tests/e2e/auth.setup.ts`'s, records nothing, so it's `login.spec.ts`
+itself that spends the budget; `playwright.config.ts` runs `setup` before every `admin`-project
+test, so a second run within `LOGIN_WINDOW_MS` = 15 min has `auth.setup.ts` blocked by the
+*previous* run's hits, failing the whole `admin` project, not just the login test) and
+`tests/e2e/public/feedback.spec.ts` (consumes all 3 of `SUBMIT_LIMIT` on `feedback:unknown` per
+run — a second `test:e2e:public` run within an hour can fail the pre-existing "a complete
+report reaches the barangay" test too). A failure here after a recent run in the same window is
+a rate-limit collision, not a regression.
 
 ## Architecture
 
