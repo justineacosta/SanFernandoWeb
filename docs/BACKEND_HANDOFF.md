@@ -1496,3 +1496,30 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
     audit surfaced alongside it — `postcss` and `sharp`, both bundled inside `next`'s own build
     tooling — are fixed with zero breaking changes via the same `overrides` block
     (`package.json`): `postcss@^8.5.23`, `sharp@^0.35.3`.
+13. **RLS + CSRF verification pass (2026-07-28 security-hardening Plan 1).** Querying
+    `pg_policies` against staging found the `public` schema is **not** fully policy-free as
+    CLAUDE.md's "RLS enabled, zero policies" line implies at face value: three rows exist —
+    `profiles readable by signed-in staff` (`profiles`, `select to authenticated using (true)`),
+    `services readable by anyone` (`services`, `select using (true)`), and
+    `assistance categories readable by anyone` (`assistance_categories`, `select using (true)`).
+    All three predate this hardening pass — they're from migrations `0001`, `0004`, and `0006`
+    respectively (also present in the `0000` baseline squash), each commented in its own
+    migration as a deliberate exception for read-only public/staff reference data with no write
+    path exposed (every write still goes through the service-role client after a code-level
+    permission check). Every other table remains policy-free as documented. This isn't a new
+    gap this pass introduced; it's a correction to CLAUDE.md's architecture description, which
+    should be read as "no policies on the write-bearing/ticketing tables," not literally zero
+    policies anywhere. `storage.objects` carries exactly the expected 8 public-read `SELECT`
+    policies, one per public bucket (`announcements-media`, `avatars-media`, `events-media`,
+    `legislative-media`, `news-media`, `officials-media`, `site-media`, `transparency-media`) —
+    no policy on any `-drafts` bucket or on `feedback-media`, matching the media-bucket-split
+    design exactly. Separately, confirmed Next Server Actions reject a forged `Origin` header
+    before the action's own permission check runs: a same-origin POST carrying a bogus
+    `Next-Action` id reached action-resolution (`404 Not Found`, body `Server action not found.`
+    — proves the framework tried to resolve it); the identical request with
+    `Origin: https://evil.example.com` was rejected earlier, before resolution (`500 Internal
+    Server Error`, body containing `"message":"Invalid Server Actions request."`). The status
+    code (500, not the "typically 403" this doc and CLAUDE.md previously assumed) differs from
+    expectation but the security property holds: the Origin check runs, and it runs before
+    any app-level auth or action logic. No code change resulted from this pass; it verifies
+    assumptions this file and CLAUDE.md already documented, and corrects one of them.
