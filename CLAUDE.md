@@ -433,6 +433,18 @@ a rate-limit collision, not a regression.
   sites) from a new read-only `isRateLimited` + explicit `recordRateLimitHit` pair, so `signIn`
   now checks both keys before calling `signInWithPassword` and only records a hit after a
   failed sign-in or a disabled-account rejection — a successful login records nothing.
+  **`requestIp()` fixed 2026-07-29** (found in a full-system security audit, not part of the
+  original plan): every IP-keyed bucket — all 8 public forms plus admin login's `login:ip:*` —
+  derives from this one helper, and it previously trusted the *first* entry of
+  `X-Forwarded-For`, which is whatever the client itself put in the header it sent and is
+  trivially spoofable by a direct request, making IP-based throttling decorative regardless of
+  hosting platform. It now trusts the *last* entry (the hop closest to this app, appended by
+  its own immediate reverse proxy/edge — a client can prepend fake IPs but not append after
+  its own connection), and prefers `cf-connecting-ip` when present since Cloudflare's edge
+  always overwrites that header rather than forwarding a client-supplied value. This assumes
+  exactly one trusted hop in front of the app; an additional untrusted proxy in the chain would
+  need the Nth-from-last entry instead. Does not affect Turnstile (still requires a valid
+  token) or admin login's email-keyed limiter (unaffected by IP spoofing).
   **Task 5:** `next.config.ts` now sets a scoped CSP plus standard security response headers
   (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, Permissions-Policy). Adding a
   new remote image host now requires editing **two** places in that file —

@@ -100,10 +100,36 @@ export async function recordRateLimitHit(key: string): Promise<void> {
   await opportunisticSweep(admin);
 }
 
-/** Caller IP from the proxy headers, or a shared fallback bucket. */
+/**
+ * Caller IP from the proxy headers, or a shared fallback bucket.
+ *
+ * Trusts the LAST entry of X-Forwarded-For, not the first. Each hop appends
+ * the IP it received the request from, so the first entry is whatever the
+ * client itself claimed in the header it sent — trivially spoofable, and
+ * every IP-keyed limiter (all 8 public forms, admin login's `login:ip:*` key)
+ * derived its bucket from exactly that forgeable value. The last entry is the
+ * IP that reached this app's own immediate reverse proxy/edge, which a client
+ * cannot set. `cf-connecting-ip` is preferred when present, since Cloudflare's
+ * edge always overwrites it rather than forwarding a client-supplied value.
+ * This assumes exactly one trusted hop in front of the app; if this deploy is
+ * ever placed behind an additional untrusted proxy, take the Nth-from-last
+ * entry instead of the last.
+ */
 export async function requestIp(): Promise<string> {
   const { headers } = await import("next/headers");
   const store = await headers();
+
+  const cfIp = store.get("cf-connecting-ip")?.trim();
+  if (cfIp) return cfIp;
+
   const forwarded = store.get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || store.get("x-real-ip") || "unknown";
+  if (forwarded) {
+    const ips = forwarded
+      .split(",")
+      .map((ip) => ip.trim())
+      .filter(Boolean);
+    if (ips.length > 0) return ips[ips.length - 1];
+  }
+
+  return store.get("x-real-ip")?.trim() || "unknown";
 }
