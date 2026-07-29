@@ -8,8 +8,20 @@
 // from the list, delete by hand.
 //
 // Orphans exist because uploads used to happen on file-select: cancelling a
-// drawer, or replacing an announcement image, left the object behind. Both
-// paths are closed now, so this list should stop growing.
+// drawer, or replacing an image, left the object behind. That path is closed
+// for every save flow except the two-call PDF upload (security-hardening
+// Plan 3 — a request that dies between a successful Route Handler upload and
+// the save action committing leaves an object this script will catch).
+//
+// Rewritten for the media-bucket-split (2026-07-27, CLAUDE.md "Media buckets
+// are split per content type"). There is no single shared `public-media`
+// bucket with folder prefixes anymore — each status-aware content type has
+// its own public/private bucket pair (`news-media`/`news-drafts`, etc — see
+// MediaKind in src/lib/storage.ts), plus three single-bucket kinds with no
+// draft/publish split (site-media, avatars-media, feedback-media). This
+// mirrors that shape instead of a hardcoded BUCKET/FOLDERS list, which found
+// nothing once the split shipped — the objects had all moved to buckets this
+// script never looked at.
 import { readFile } from "node:fs/promises";
 import { createClient } from "@supabase/supabase-js";
 
@@ -27,26 +39,56 @@ if (!url || !key) {
 }
 const supabase = createClient(url, key, { auth: { persistSession: false } });
 
-const BUCKET = "public-media";
-// Every folder the app writes into, with the column(s) that reference it.
-const FOLDERS = ["announcements", "events", "officials", "news", "achievements"];
+// Mirrors publicBucketFor/draftBucketFor in src/lib/storage.ts — kept as a
+// plain formula here rather than imported, since this script runs outside
+// the Next/TS build.
+const publicBucketFor = (kind) => `${kind}-media`;
+const draftBucketFor = (kind) => `${kind}-drafts`;
 
-/** List a folder recursively — storage.list() is one level at a time. */
-async function listFolder(prefix) {
+// Every status-aware MediaKind, and each table.column that can hold one of
+// its paths. A row's path is checked against both halves of its kind's
+// bucket pair rather than just the bucket its current status implies —
+// promote/demote already guarantee the right bucket (see CLAUDE.md), and
+// checking both is the more defensive read for a script whose whole job is
+// catching what that guarantee missed.
+const STATUS_AWARE_SOURCES = {
+  news: [["news_photos", "src"]],
+  officials: [
+    ["officials", "photo_path"],
+    ["official_achievement_photos", "src"],
+  ],
+  events: [["events", "cover_src"]],
+  announcements: [["announcements", "image_src"]],
+  legislative: [["legislative_documents", "file_path"]],
+  // transparency_files holds attachments for both transparency_documents and
+  // transparency_projects (owner_type discriminates); both ride the one
+  // "transparency" MediaKind bucket pair.
+  transparency: [["transparency_files", "path"]],
+};
+
+// Kinds with exactly one bucket and no draft/publish split.
+const SINGLE_BUCKETS = [
+  { bucket: "site-media", table: "site_items", column: "image_path" },
+  { bucket: "avatars-media", table: "profiles", column: "avatar_src" },
+  { bucket: "feedback-media", table: "feedback", column: "screenshot_path" },
+];
+
+/** List a bucket recursively — storage.list() is one level at a time. */
+async function listBucket(bucket, prefix = "") {
   const found = [];
-  const { data, error } = await supabase.storage.from(BUCKET).list(prefix, { limit: 1000 });
-  if (error) throw new Error(`list ${prefix}: ${error.message}`);
+  const { data, error } = await supabase.storage.from(bucket).list(prefix, { limit: 1000 });
+  if (error) throw new Error(`list ${bucket}/${prefix}: ${error.message}`);
   for (const entry of data ?? []) {
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
     // A folder placeholder has no id; a real object always has one.
-    if (entry.id === null) found.push(...(await listFolder(path)));
+    if (entry.id === null) found.push(...(await listBucket(bucket, path)));
     else found.push(path);
   }
   return found;
 }
 
-/** Every storage path referenced by a row, across all tables that hold one. */
-async function referencedPaths() {
+/** Every path referenced across the given table.column pairs. */
+async function referencedPaths(sources) {
   const referenced = new Set();
   const add = (value) => {
     // Seed rows keep their original remote URLs; those own no object here.
@@ -54,14 +96,6 @@ async function referencedPaths() {
       referenced.add(value);
     }
   };
-
-  const sources = [
-    ["announcements", "image_src"],
-    ["events", "cover_src"],
-    ["officials", "photo_path"],
-    ["news_photos", "src"],
-    ["official_achievement_photos", "src"],
-  ];
   for (const [table, column] of sources) {
     const { data, error } = await supabase.from(table).select(column);
     if (error) throw new Error(`select ${table}.${column}: ${error.message}`);
@@ -70,18 +104,33 @@ async function referencedPaths() {
   return referenced;
 }
 
-const referenced = await referencedPaths();
-const stored = [];
-for (const folder of FOLDERS) stored.push(...(await listFolder(folder)));
-
-const orphans = stored.filter((path) => !referenced.has(path));
-
-console.log(`bucket           : ${BUCKET}`);
-console.log(`objects stored   : ${stored.length}`);
-console.log(`paths referenced : ${referenced.size}`);
-console.log(`orphans          : ${orphans.length}`);
-if (orphans.length > 0) {
-  console.log("\nNo row references these objects:\n");
+function report(bucket, stored, referenced) {
+  const orphans = stored.filter((path) => !referenced.has(path));
+  console.log(`\nbucket           : ${bucket}`);
+  console.log(`objects stored   : ${stored.length}`);
+  console.log(`paths referenced : ${referenced.size}`);
+  console.log(`orphans          : ${orphans.length}`);
   for (const path of orphans) console.log(`  ${path}`);
-  console.log("\nNothing was deleted. Review the list before removing anything.");
+  return orphans.length;
+}
+
+let totalOrphans = 0;
+
+for (const [kind, sources] of Object.entries(STATUS_AWARE_SOURCES)) {
+  const referenced = await referencedPaths(sources);
+  for (const bucket of [publicBucketFor(kind), draftBucketFor(kind)]) {
+    const stored = await listBucket(bucket);
+    totalOrphans += report(bucket, stored, referenced);
+  }
+}
+
+for (const { bucket, table, column } of SINGLE_BUCKETS) {
+  const referenced = await referencedPaths([[table, column]]);
+  const stored = await listBucket(bucket);
+  totalOrphans += report(bucket, stored, referenced);
+}
+
+console.log(`\ntotal orphans across all buckets: ${totalOrphans}`);
+if (totalOrphans > 0) {
+  console.log("Nothing was deleted. Review the list before removing anything.");
 }

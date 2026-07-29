@@ -34,3 +34,6 @@ next-env.d.ts
 # worktrees
 /.worktrees/
 /.claude/worktrees/
+
+# client-facing business docs (pricing/quotation) — not part of the app
+/proposal/

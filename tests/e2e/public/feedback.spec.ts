@@ -55,7 +55,7 @@ test("the rate limit blocks a 4th submission within the window", async ({ page }
   for (let i = 0; i < 2; i++) {
     await page.goto("/");
     await page.getByRole("button", { name: /send feedback about this website/i }).click();
-    await page.getByRole("radio", { name: "General Feedback" }).click();
+    await page.getByRole("radio", { name: "General" }).click();
     await page.getByLabel("Subject").fill(`E2E: rate limit probe ${i}`);
     await page
       .getByLabel("Message")
@@ -66,7 +66,7 @@ test("the rate limit blocks a 4th submission within the window", async ({ page }
 
   await page.goto("/");
   await page.getByRole("button", { name: /send feedback about this website/i }).click();
-  await page.getByRole("radio", { name: "General Feedback" }).click();
+  await page.getByRole("radio", { name: "General" }).click();
   await page.getByLabel("Subject").fill("E2E: rate limit probe 3rd");
   await page.getByLabel("Message").fill("This one should be blocked by the limiter.");
   await page.getByRole("button", { name: /^send feedback$/i }).click();

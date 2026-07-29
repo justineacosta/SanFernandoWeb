@@ -141,7 +141,16 @@ a rate-limit collision, not a regression.
   `uploadSingleImage` / `removeStoredImage` / `discardImage`. The one exception is
   `AchievementPhotoUploader`: its editor has no Save button to defer to, so it stays eager —
   see the sub-project 7 spec §2.4 before "fixing" it. `scripts/report-orphaned-media.mjs`
-  lists unreferenced objects and never deletes. **Every delete path removes the DB row before
+  lists unreferenced objects and never deletes — **rewritten 2026-07-29** for the media-bucket-
+  split below: it had gone stale the moment that split shipped, still hardcoded to one shared
+  `public-media` bucket and a `FOLDERS` prefix list, so it silently found zero orphans in every
+  run afterward (the objects had all moved to buckets it never looked at, not that none existed).
+  It now walks every status-aware `MediaKind`'s public **and** drafts bucket
+  (`publicBucketFor`/`draftBucketFor` from `src/lib/storage.ts`, reimplemented as a plain formula
+  since the script runs outside the Next/TS build) plus the three single-bucket kinds with no
+  draft/publish split (`site-media` against `site_items.image_path`, `avatars-media` against
+  `profiles.avatar_src`, `feedback-media` against `feedback.screenshot_path` — none of which the
+  old script covered either). Still read-only, still prints instead of deleting. **Every delete path removes the DB row before
   the Storage object, never the reverse** — an object deleted ahead of a failed row delete
   leaves a live row pointing at nothing (a broken image forever), while the reverse failure
   just leaves a logged orphan. `news-photos.ts`, `achievement-photos.ts`, `achievements.ts`,
@@ -232,9 +241,9 @@ a rate-limit collision, not a regression.
   else. This contradicts this file's own prior claim that both environments still had the old
   pair as of the same day; that claim was wrong (or the buckets were removed outside of tracked
   history before this check). Either way, **the old-bucket cleanup is done on both
-  environments** — there was nothing to delete. `0030` (drops their `public read` policy) should
-  still be applied to production the same as any other pending migration, even though it has no
-  bucket left to act on, so the migration history stays contiguous.
+  environments** — there was nothing to delete. `0030` (drops their `public read` policy) has
+  now been applied to both dev and production (confirmed by Justine, 2026-07-29), even though it
+  had no bucket left to act on by the time it ran — the migration history stays contiguous.
   **A final whole-branch review of the signed-preview plan (same day) found the wiring above was
   still broken end-to-end for four of the six content types:** `next.config.ts` only allow-lists
   `next/image`'s remote-pattern check for `/storage/v1/object/public/**`, and a signed URL's path
@@ -474,18 +483,17 @@ a rate-limit collision, not a regression.
   `NEXT_PUBLIC_TURNSTILE_SITE_KEY` unset, `TurnstileWidget`'s effect returns before calling
   `loadTurnstileScript()`, so today those tests pass with zero bytes ever requested from
   `challenges.cloudflare.com` — they prove the CSP header is well-formed, not that Cloudflare's
-  actual traffic is allowed through it. **Going live still needs a real Cloudflare account and
-  a site/secret key pair** (`NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`,
-  documented in `.env.example`) — the same gating this file already notes for Resend (§2D, the
-  ticket-confirmation emails), but the production risk here is sharper than Resend's: **in
-  development only**, an unset `TURNSTILE_SECRET_KEY` makes the widget silently render nothing
-  client-side while the server-side dev-skip bypass keeps every form working end to end, no
-  CAPTCHA actually enforced. **In production, that same missing key makes `verifyTurnstileToken`
-  throw** instead of bypassing — every one of the 8 public Server Actions rejects on first
-  submit. **This branch must not be deployed to production or staging before
-  `TURNSTILE_SECRET_KEY` is set.** The failure is per-request, not per-build: the build
-  succeeds and every page loads normally with no key configured, so a keyless deploy looks
-  perfectly healthy until the first resident actually submits a form. **Fixed 2026-07-28:** all
+  actual traffic is allowed through it. **Confirmed 2026-07-28: this is done.** Justine set
+  real `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` values in `.env.local`
+  (documented in `.env.example`) and confirmed Turnstile is live in production — no longer a
+  launch blocker. In development only, an unset `TURNSTILE_SECRET_KEY` makes the widget
+  silently render nothing client-side while the server-side dev-skip bypass keeps every form
+  working end to end, no CAPTCHA actually enforced — that asymmetry remains relevant for any
+  *new* environment (e.g. a fresh staging instance) that hasn't had its keys set yet: in
+  production a missing key makes `verifyTurnstileToken` **throw** instead of bypassing, so a
+  keyless production deploy still 500s on first submit rather than silently passing. Remember
+  the site key is inlined at build time, so a future key *rotation* needs a rebuild, not just
+  an env/redeploy. **Fixed 2026-07-28:** all
   8 forms' `handleSubmit` originally wrapped the action call in `try { … } finally { … }` with no
   `catch`, so a throw (rather than a returned `{ error }`) fell through as an unhandled rejection
   to the nearest route `error.tsx` — a full-page crash that also lost whatever the resident had
@@ -557,10 +565,11 @@ a rate-limit collision, not a regression.
   `searchError` shown inside the results dropdown, cleared on dismiss or when the query is edited
   back below `MIN_QUERY_LENGTH`. A pre-existing, unrelated test bug surfaced while running the verification battery for this
   task: `tests/e2e/public/feedback.spec.ts`'s "the rate limit blocks a 4th submission within
-  the window" test has been broken since before this branch existed — it looks for a radio
+  the window" test had been broken since before this branch existed — it looked for a radio
   named `"General Feedback"` but `src/features/feedback/data.ts:20`'s actual label is just
-  `"General"`, so the locator times out. Confirmed via `git show` against the pre-branch base
-  commit, so it is not a Turnstile regression; left unfixed as out of scope for this plan.
+  `"General"`, so the locator timed out. Confirmed via `git show` against the pre-branch base
+  commit that it predated this plan, not a Turnstile regression. **Fixed 2026-07-29** — both
+  `getByRole("radio", { name: ... })` call sites now match `"General"`.
   **Plan 3 (PDF-upload Route Handler / body-size-limit scoping, 2026-07-29, Tasks 1-10):** the
   design spec's original claim (§6) that `next.config.ts`'s
   `experimental.serverActions.bodySizeLimit` could simply be deleted once PDFs moved off the
@@ -614,10 +623,9 @@ a rate-limit collision, not a regression.
   window between a successful Route Handler upload and that point being reached in the save action
   — a lost connection, a closed drawer, an idle timeout — where an object is abandoned with
   nothing left to tell the server to clean it up. That is an accepted tradeoff of the two-call
-  design, not an open bug. Compounding it: `scripts/report-orphaned-media.mjs`, the janitor that
-  would otherwise surface such orphans, is still hardcoded to the retired `public-media` bucket
-  and finds nothing in the new per-kind buckets — a pre-existing gap this branch makes more
-  load-bearing, and deliberately not fixed here. **The Route Handler derives the destination
+  design, not an open bug; the janitor that surfaces such orphans, `scripts/report-orphaned-
+  media.mjs`, was rewritten 2026-07-29 (see below) to actually look in the buckets this window
+  can leave one in. **The Route Handler derives the destination
   bucket itself and never trusts a client-sent status:** its request contract is `kind` + an
   optional `id` (the record being edited; absent for a new one, which is always `draft`), and it
   reads that record's real `status` from `legislative_documents`/`transparency_documents`/
@@ -726,8 +734,11 @@ a rate-limit collision, not a regression.
   Development Plan** PDF, 2026-07-13): mission/vision, the About history timeline (1733
   founding) and "Community Programs", home glance stats, and the Services waste-collection
   schedule. Land area is **8.95 ha** — the PDF's own "(0.895 sq. km)" parenthetical is a
-  decimal error; don't reintroduce it. Still invented: the About `CAPTAIN.message` quotes
-  (flagged in `docs/BACKEND_HANDOFF.md` §6 — needs his real message before launch).
+  decimal error; don't reintroduce it. The About `CAPTAIN.message` quotes are still invented
+  placeholder text, but Justine has said (2026-07-29) this is **not a launch blocker** — it
+  can be swapped for his real message post-launch through the same admin-portal edit path
+  (`CaptainMessageSection` reads the officials table) at any time. Treat as done/no longer
+  owed for launch purposes.
 - The barangay identity is San Fernando everywhere (renamed 2026-07-12 from the
   "Barangay Sampaguita" design placeholder) — any "Sampaguita" appearing in `src/` is a
   regression. San Nicolas is a **municipality** (write "Municipal …", not "City …"), and the
