@@ -1,5 +1,3 @@
-import type { ContentStatus } from "@/types";
-
 export interface UploadedDocumentFile {
   path: string;
   sizeBytes: number;
@@ -15,15 +13,20 @@ export interface UploadDocumentFilesResult {
  * three document-editing forms call this first on Save, then pass the
  * returned path(s) to their Server Action — replacing the old pattern of
  * putting the File itself in the Server Action's FormData.
+ *
+ * `id` is the record being edited, or null for a new one. It is sent *instead
+ * of* a status: the route reads the record's real status itself to pick the
+ * destination bucket, because a client-supplied status can be stale and would
+ * put the object in the wrong half of the public/private bucket pair.
  */
 export async function uploadDocumentFiles(
   kind: "legislative" | "documents" | "projects",
-  status: ContentStatus,
+  id: string | null,
   files: File[],
 ): Promise<UploadDocumentFilesResult> {
   const fd = new FormData();
   fd.append("kind", kind);
-  fd.append("status", status);
+  if (id) fd.append("id", id);
   for (const file of files) fd.append("file", file);
 
   let response: Response;

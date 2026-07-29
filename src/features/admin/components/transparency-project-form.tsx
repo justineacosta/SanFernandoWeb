@@ -59,7 +59,7 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
       try {
         let uploaded: { path: string; mime: string; sizeBytes: number }[] = [];
         if (newFiles.length > 0) {
-          const uploadResult = await uploadDocumentFiles("projects", status, newFiles);
+          const uploadResult = await uploadDocumentFiles("projects", id, newFiles);
           if (uploadResult.error) {
             setError(uploadResult.error);
             return;

@@ -66,7 +66,7 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
       try {
         let upload: { path: string; sizeBytes: number } | null = null;
         if (file) {
-          const uploadResult = await uploadDocumentFiles("legislative", status, [file]);
+          const uploadResult = await uploadDocumentFiles("legislative", id, [file]);
           if (uploadResult.error || uploadResult.files.length === 0) {
             setError(uploadResult.error ?? "Upload failed. Try again.");
             return;

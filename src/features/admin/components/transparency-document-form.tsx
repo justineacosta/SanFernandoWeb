@@ -75,7 +75,7 @@ export function TransparencyDocumentForm({
       try {
         let uploaded: { path: string; mime: string; sizeBytes: number }[] = [];
         if (newFiles.length > 0) {
-          const uploadResult = await uploadDocumentFiles("documents", status, newFiles);
+          const uploadResult = await uploadDocumentFiles("documents", id, newFiles);
           if (uploadResult.error) {
             setError(uploadResult.error);
             return;
