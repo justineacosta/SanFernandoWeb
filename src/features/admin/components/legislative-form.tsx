@@ -7,6 +7,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { saveLegislative, setLegislativeStatus } from "@/features/admin/actions/legislative";
+import { uploadDocumentFiles } from "@/features/admin/lib/document-upload-client";
 import { useAdminUserId } from "./admin-user-context";
 import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import { FormSectionLabel } from "@/components/ui/form-section-label";
@@ -63,10 +64,16 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
     setError(null);
     startTransition(async () => {
       try {
-        const fd = new FormData();
-        if (file) fd.append("file", file);
-        if (removeFile) fd.append("removeFile", "1");
-        const result = await saveLegislative(id, values, fd);
+        let upload: { path: string; sizeBytes: number } | null = null;
+        if (file) {
+          const uploadResult = await uploadDocumentFiles("legislative", status, [file]);
+          if (uploadResult.error || uploadResult.files.length === 0) {
+            setError(uploadResult.error ?? "Upload failed. Try again.");
+            return;
+          }
+          upload = { path: uploadResult.files[0].path, sizeBytes: uploadResult.files[0].sizeBytes };
+        }
+        const result = await saveLegislative(id, values, upload, removeFile);
         if (result.error) {
           setError(result.error);
           return;
