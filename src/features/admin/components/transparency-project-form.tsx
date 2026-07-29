@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { useFormDraft } from "@/hooks/use-form-draft";
+import { uploadDocumentFiles } from "@/features/admin/lib/document-upload-client";
 import { useAdminUserId } from "./admin-user-context";
 import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
 import {
@@ -56,10 +57,16 @@ export function TransparencyProjectForm({ record, onSaved, onCancel }: Transpare
     setError(null);
     startTransition(async () => {
       try {
-        const fd = new FormData();
-        for (const f of newFiles) fd.append("newFile", f);
-        for (const id2 of keptIds) fd.append("keptFileId", id2);
-        const result = await saveTransparencyProject(id, values, fd);
+        let uploaded: { path: string; mime: string; sizeBytes: number }[] = [];
+        if (newFiles.length > 0) {
+          const uploadResult = await uploadDocumentFiles("projects", status, newFiles);
+          if (uploadResult.error) {
+            setError(uploadResult.error);
+            return;
+          }
+          uploaded = uploadResult.files;
+        }
+        const result = await saveTransparencyProject(id, values, { keptIds, uploaded });
         if (result.error) {
           setError(result.error);
           return;
