@@ -60,18 +60,20 @@ const csp = [
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      // Legislative/transparency PDFs are validated server-side against a
-      // 10 MB cap (see MAX_PDF_BYTES in src/lib/storage.ts); the framework's
-      // default 1 MB Server Action body limit would otherwise reject any
-      // upload above 1 MB with an opaque framework error before that check
-      // ever runs. Sized with headroom for multipart/form-data framing
-      // overhead above the raw 10 MB file payload.
+      // Legislative/transparency PDFs no longer flow through a Server Action
+      // body at all as of security-hardening Plan 3 — they go through
+      // POST /api/admin/uploads/document instead, which has its own
+      // Supabase-Storage-enforced ceiling (MAX_PDF_BYTES / MAX_DOC_FILE_BYTES
+      // in src/lib/storage.ts) unrelated to this setting.
       //
-      // TODO(security-hardening plan 3): this is global, so it also raises
-      // the accepted body size on every public unauthenticated Server
-      // Action. The PDF-upload Route Handler plan removes this line
-      // entirely once uploads no longer flow through a Server Action body.
-      bodySizeLimit: "12mb",
+      // This can't drop to Next's 1MB default, though: uploadSingleImage
+      // (src/lib/media.ts, MAX_IMAGE_BYTES = 2MB) still runs *inside*
+      // saveOfficial/saveEvent/saveAnnouncement/site-content Server Actions,
+      // and both saveNewsArticle and uploadAchievementPhotos accept up to
+      // MAX_PHOTOS = 3 images in a single Server Action call — up to 6MB.
+      // 8mb gives that ~2MB of multipart/form-data framing headroom, the
+      // same proportion the old 12mb gave a single 10MB PDF.
+      bodySizeLimit: "8mb",
     },
   },
   images: {
