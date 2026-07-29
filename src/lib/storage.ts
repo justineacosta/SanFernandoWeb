@@ -107,6 +107,36 @@ export const ALLOWED_DOC_FILE_TYPES = [
 export const MAX_DOC_FILE_BYTES = 10 * 1024 * 1024; // 10 MB per file
 export const MAX_FILES_PER_RECORD = 3;
 
+/** The three document/PDF upload surfaces the Route Handler at
+ * /api/admin/uploads/document (security-hardening Plan 3) serves. */
+export type DocUploadKind = "legislative" | "documents" | "projects";
+
+export interface DocUploadRules {
+  mediaKind: "legislative" | "transparency";
+  allowedTypes: readonly string[];
+  maxBytes: number;
+  maxFiles: number;
+}
+
+/**
+ * Validation ceiling per upload kind. Legislative accepts exactly one PDF;
+ * transparency documents/projects accept up to MAX_FILES_PER_RECORD
+ * PDF-or-image files each — mirrors the rules `uploadDocumentPdf`/
+ * `uploadTransparencyFile` used to enforce before this plan moved them into
+ * the Route Handler.
+ */
+export function uploadRulesFor(kind: DocUploadKind): DocUploadRules {
+  if (kind === "legislative") {
+    return { mediaKind: "legislative", allowedTypes: ALLOWED_PDF_TYPES, maxBytes: MAX_PDF_BYTES, maxFiles: 1 };
+  }
+  return {
+    mediaKind: "transparency",
+    allowedTypes: ALLOWED_DOC_FILE_TYPES,
+    maxBytes: MAX_DOC_FILE_BYTES,
+    maxFiles: MAX_FILES_PER_RECORD,
+  };
+}
+
 /** File extension for an allowed document MIME type. */
 export function extForDocType(mime: string): string {
   if (mime === "application/pdf") return "pdf";

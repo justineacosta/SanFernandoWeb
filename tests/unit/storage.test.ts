@@ -6,6 +6,7 @@ import {
   draftBucketFor,
   mediaUrl,
   publicBucketFor,
+  uploadRulesFor,
 } from "@/lib/storage";
 
 describe("publicBucketFor", () => {
@@ -51,5 +52,25 @@ describe("mediaUrl", () => {
     expect(mediaUrl("news-media", "news/abc-123/photo.jpg")).toContain(
       "/storage/v1/object/public/news-media/news/abc-123/photo.jpg",
     );
+  });
+});
+
+describe("uploadRulesFor", () => {
+  it("caps legislative uploads to exactly one PDF", () => {
+    const rules = uploadRulesFor("legislative");
+    expect(rules.mediaKind).toBe("legislative");
+    expect(rules.maxFiles).toBe(1);
+    expect(rules.allowedTypes).toEqual(["application/pdf"]);
+  });
+
+  it("caps transparency documents to MAX_FILES_PER_RECORD PDF-or-image files", () => {
+    const rules = uploadRulesFor("documents");
+    expect(rules.mediaKind).toBe("transparency");
+    expect(rules.maxFiles).toBe(3);
+    expect(rules.allowedTypes).toContain("image/png");
+  });
+
+  it("gives transparency projects the same rules as documents", () => {
+    expect(uploadRulesFor("projects")).toEqual(uploadRulesFor("documents"));
   });
 });
