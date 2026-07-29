@@ -9,7 +9,12 @@ import { auditTypeForStatus, recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTransparencyProjectForEdit } from "@/features/admin/queries/transparency";
 import { MAX_FILES_PER_RECORD } from "@/lib/storage";
-import { cleanupPromotedMedia, demoteMedia, promoteMedia } from "@/lib/media-lifecycle";
+import {
+  cleanupPromotedMedia,
+  demoteMedia,
+  promoteMedia,
+  storedObjectExists,
+} from "@/lib/media-lifecycle";
 import { removeStoredDocument } from "./documents";
 
 export interface ActionResult {
@@ -61,13 +66,16 @@ export async function saveTransparencyProject(
 ): Promise<SaveResult> {
   const actor = await checkPermission("manage-transparency");
   if (!actor) return { error: NOT_FOUND, id: null };
-  const parsed = schema.safeParse(values);
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
-  }
 
   const admin = createSupabaseAdminClient();
 
+  // The record's current status is read FIRST, before any validation, because
+  // it is what tells `cleanupUploads()` which bucket a compensating delete has
+  // to target — and since Plan 3 moved the upload into its own earlier request
+  // (/api/admin/uploads/document), the objects are already in Storage by the
+  // time this action starts. Validating anything before `cleanupUploads()`
+  // exists would orphan them on every rejected save (blank name, bad
+  // progress, …).
   let currentStatus: ContentStatus = "draft";
   if (id) {
     const { data: statusRow, error: statusErr } = await admin
@@ -80,25 +88,41 @@ export async function saveTransparencyProject(
     currentStatus = statusRow.status as ContentStatus;
   }
 
-  // Files were already uploaded by the Route Handler
-  // (/api/admin/uploads/document) before this action was called — see
-  // document-upload-client.ts. Every path is client-supplied and this is a
-  // public HTTP endpoint, so each is validated against the same allow-list
-  // removeStoredDocument already uses before it's trusted.
   const { keptIds, uploaded } = files;
-  if (keptIds.length + uploaded.length > MAX_FILES_PER_RECORD) {
-    return { error: `Up to ${MAX_FILES_PER_RECORD} files.`, id: null };
-  }
-  for (const u of uploaded) {
-    if (!/^(documents|projects)\//.test(u.path) || u.path.split("/").some((s) => s === "..")) {
-      return { error: "Invalid file reference.", id: null };
-    }
-  }
 
   async function cleanupUploads() {
     for (const u of uploaded) {
       const removed = await removeStoredDocument("transparency", currentStatus, u.path);
       if (removed.error) console.error(`Orphaned storage object (compensating delete failed): ${u.path}`);
+    }
+  }
+
+  const parsed = schema.safeParse(values);
+  if (!parsed.success) {
+    await cleanupUploads();
+    return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
+  }
+
+  // Files were already uploaded by the Route Handler
+  // (/api/admin/uploads/document) before this action was called — see
+  // document-upload-client.ts. Every path is client-supplied and this is a
+  // public HTTP endpoint, so each is validated against the same allow-list
+  // removeStoredDocument already uses, and then confirmed to name a real
+  // object in this record's own bucket: a well-formed path is not evidence
+  // that an upload produced it, and a path that isn't in the bucket
+  // `currentStatus` points at cannot be one this save should store.
+  if (keptIds.length + uploaded.length > MAX_FILES_PER_RECORD) {
+    await cleanupUploads();
+    return { error: `Up to ${MAX_FILES_PER_RECORD} files.`, id: null };
+  }
+  for (const u of uploaded) {
+    if (!/^(documents|projects)\//.test(u.path) || u.path.split("/").some((s) => s === "..")) {
+      await cleanupUploads();
+      return { error: "Invalid file reference.", id: null };
+    }
+    if (!(await storedObjectExists("transparency", currentStatus, u.path))) {
+      await cleanupUploads();
+      return { error: "Invalid file reference.", id: null };
     }
   }
 

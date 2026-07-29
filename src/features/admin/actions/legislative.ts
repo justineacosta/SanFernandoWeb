@@ -6,7 +6,12 @@ import type { ContentStatus, LegislativeValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { guardDelete, statusPatch } from "@/lib/archive";
 import { auditTypeForStatus, recordActivity } from "@/lib/audit";
-import { cleanupPromotedMedia, demoteMedia, promoteMedia } from "@/lib/media-lifecycle";
+import {
+  cleanupPromotedMedia,
+  demoteMedia,
+  promoteMedia,
+  storedObjectExists,
+} from "@/lib/media-lifecycle";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { MAX_SEQ_NO, formatLegislativeNumber } from "@/lib/legislative-number";
 import { getLegislativeForEdit } from "@/features/admin/queries/transparency";
@@ -108,20 +113,15 @@ export async function saveLegislative(
 ): Promise<SaveResult> {
   const actor = await checkPermission("manage-transparency");
   if (!actor) return { error: NOT_FOUND, id: null };
-  const parsed = schema.safeParse(values);
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid values.", id: null };
-  }
-  const number = formatLegislativeNumber(
-    parsed.data.docType,
-    parsed.data.seqNo,
-    parsed.data.year,
-  );
 
   const admin = createSupabaseAdminClient();
-  const base = slugify(`${number} ${parsed.data.title}`);
-  if (!base) return { error: "Enter a number and title with letters or numbers.", id: null };
 
+  // The record's current status is read FIRST, before any validation, because
+  // it is what tells `fail()` which bucket a compensating delete has to target
+  // — and since Plan 3 moved the upload into its own earlier request
+  // (/api/admin/uploads/document), the object is already in Storage by the
+  // time this action starts. Validating anything before `fail()` exists would
+  // orphan that object on every rejected save (blank title, bad number, …).
   let currentStatus: ContentStatus = "draft";
   if (id) {
     const { data: statusRow, error: statusErr } = await admin
@@ -134,21 +134,9 @@ export async function saveLegislative(
     currentStatus = statusRow.status as ContentStatus;
   }
 
-  // The file was already uploaded by the Route Handler
-  // (/api/admin/uploads/document) before this action was called — see
-  // document-upload-client.ts. `upload.path` is client-supplied and this is a
-  // public HTTP endpoint, so it's validated against the same allow-list
-  // removeStoredDocument already uses before it's trusted.
   const removeFile = removeExisting;
   let uploadedPath: string | null = null;
   let uploadedSize: number | null = null;
-  if (upload) {
-    if (!/^legislative\//.test(upload.path) || upload.path.split("/").some((s) => s === "..")) {
-      return { error: "Invalid file reference.", id: null };
-    }
-    uploadedPath = upload.path;
-    uploadedSize = upload.sizeBytes;
-  }
 
   async function fail(error: string): Promise<SaveResult> {
     if (uploadedPath) {
@@ -165,6 +153,40 @@ export async function saveLegislative(
     }
     return { error, id: null };
   }
+
+  // The file was already uploaded by the Route Handler
+  // (/api/admin/uploads/document) before this action was called — see
+  // document-upload-client.ts. `upload.path` is client-supplied and this is a
+  // public HTTP endpoint, so it's validated against the same allow-list
+  // removeStoredDocument already uses, and then confirmed to name a real
+  // object in this record's own bucket: a well-formed path is not evidence
+  // that an upload produced it, and a path that isn't in the bucket
+  // `currentStatus` points at cannot be the one this save is meant to store.
+  // This runs before the value checks below so `uploadedPath` is set — and
+  // therefore cleanable by fail() — by the time any of them can reject.
+  if (upload) {
+    if (!/^legislative\//.test(upload.path) || upload.path.split("/").some((s) => s === "..")) {
+      return { error: "Invalid file reference.", id: null };
+    }
+    if (!(await storedObjectExists("legislative", currentStatus, upload.path))) {
+      return { error: "Invalid file reference.", id: null };
+    }
+    uploadedPath = upload.path;
+    uploadedSize = upload.sizeBytes;
+  }
+
+  const parsed = schema.safeParse(values);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Invalid values.");
+  }
+  const number = formatLegislativeNumber(
+    parsed.data.docType,
+    parsed.data.seqNo,
+    parsed.data.year,
+  );
+
+  const base = slugify(`${number} ${parsed.data.title}`);
+  if (!base) return fail("Enter a number and title with letters or numbers.");
 
   if (id) {
     const { data: existing, error: readErr } = await admin

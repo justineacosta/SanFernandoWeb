@@ -1,7 +1,13 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { type MediaKind, draftBucketFor, mediaUrl, publicBucketFor } from "@/lib/storage";
+import {
+  type MediaKind,
+  bucketForStatus,
+  draftBucketFor,
+  mediaUrl,
+  publicBucketFor,
+} from "@/lib/storage";
 import type { ContentStatus } from "@/types";
 
 /**
@@ -113,6 +119,47 @@ export async function demoteMedia(
     return;
   }
   await bestEffortRemove(publicBucketFor(kind), owned, context);
+}
+
+/**
+ * Does `path` name a real object in the bucket that `kind` + `status` resolve
+ * to? Used by the three document save actions (`saveLegislative`,
+ * `saveTransparencyDocument`, `saveTransparencyProject`) on every path handed
+ * to them by a client.
+ *
+ * Since security-hardening Plan 3 the upload happens in a *separate* request
+ * (POST /api/admin/uploads/document) and the resulting path travels back
+ * through the browser before the save action ever sees it, so a save action is
+ * handed a string, not a file. The prefix/traversal allow-list those actions
+ * apply proves the string is well-formed; it does not prove an object is
+ * actually there. This is the cheap other half: it confirms the object exists,
+ * and specifically that it exists in the bucket this record's *current* status
+ * points at — which also catches an upload that landed in the other bucket of
+ * the pair (a stale tab, or a status change between page load and Save).
+ *
+ * It deliberately stops short of proving the object was created by this
+ * request: another record's path in the same bucket still passes. Closing that
+ * would need a signed upload receipt, which is disproportionate here — the
+ * caller is already an authenticated `manage-transparency` holder.
+ */
+export async function storedObjectExists(
+  kind: MediaKind,
+  status: ContentStatus,
+  path: string,
+): Promise<boolean> {
+  const slash = path.lastIndexOf("/");
+  const folder = slash === -1 ? "" : path.slice(0, slash);
+  const name = path.slice(slash + 1);
+  if (name.length === 0) return false;
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.storage
+    .from(bucketForStatus(kind, status))
+    .list(folder, { limit: 100, search: name });
+  // `search` is a substring match, so the exact-name comparison below is what
+  // makes this precise; a Storage error is treated as "no", never as "yes".
+  if (error || !data) return false;
+  return data.some((entry) => entry.name === name);
 }
 
 /** Ten minutes: long enough to open a preview, short enough to be worthless if leaked — matches `listFeedback`'s convention. */
