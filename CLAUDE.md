@@ -26,9 +26,8 @@ the home page's six Quick Services cards, and (since the security-hardening pass
 About pages became DB-backed in
 sub-project 9 (`0021`). `docs/BACKEND_HANDOFF.md` is the living integration brief;
 `docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan history. Remaining
-work: 2D email (Resend), migrating `lh3`-hotlinked images to owned Storage, and security-
-hardening Plan 3 (PDF-upload Route Handler / scoping down the global body-size limit — Plans 1
-and 2 are finished, see the Architecture section's bullet).
+work: 2D email (Resend) and migrating `lh3`-hotlinked images to owned Storage — the
+security-hardening pass (all 3 plans, see the Architecture section's bullet) is finished.
 
 ## Commands
 
@@ -389,14 +388,15 @@ a rate-limit collision, not a regression.
   it to `AnimatePresence` would also unmount closed editors and reset their form state).
 - **Icon caveat:** several data shapes carry `icon: LucideIcon` (a React component). A future
   API must return icon *name strings* mapped to components on the frontend.
-- **Security-hardening pass, Plans 1-2 of 3** (`docs/superpowers/plans/2026-07-28-security-hardening-foundation.md`,
+- **Security-hardening pass, all 3 plans shipped** (`docs/superpowers/plans/2026-07-28-security-hardening-foundation.md`,
   finished in the `security-hardening-foundation` worktree, including a final whole-branch
   fix round; Plan 2's own plan and spec are
   `docs/superpowers/plans/2026-07-28-security-hardening-turnstile.md` and
   `docs/superpowers/specs/2026-07-28-security-hardening-design.md`, built in the
-  `security-hardening-turnstile` worktree). Plan 3 (PDF-upload Route Handler / scoping down
-  the global body-size limit) is deliberately a separate plan and remains the only piece of
-  the hardening pass not started. Task 1 renamed `src/middleware.ts` to `src/proxy.ts` (see the
+  `security-hardening-turnstile` worktree; Plan 3's plan is
+  `docs/superpowers/plans/2026-07-29-security-hardening-body-size.md`, built in the
+  `security-hardening-body-size` worktree, reusing the same design spec's §6 with one
+  correction — see below). Task 1 renamed `src/middleware.ts` to `src/proxy.ts` (see the
   idle-timeout bullet above for the file's actual behavior — unchanged, this was a pure Next 16
   file-convention rename). Task 2 bumped `next` to `16.2.12` and added a `package.json`
   `overrides` block pinning `postcss@^8.5.23` (genuinely bundled inside `next`'s own build
@@ -557,6 +557,50 @@ a rate-limit collision, not a regression.
   named `"General Feedback"` but `src/features/feedback/data.ts:20`'s actual label is just
   `"General"`, so the locator times out. Confirmed via `git show` against the pre-branch base
   commit, so it is not a Turnstile regression; left unfixed as out of scope for this plan.
+  **Plan 3 (PDF-upload Route Handler / body-size-limit scoping, 2026-07-29, Tasks 1-10):** the
+  design spec's original claim (§6) that `next.config.ts`'s
+  `experimental.serverActions.bodySizeLimit` could simply be deleted once PDFs moved off the
+  Server Action path was wrong, and Task 9 corrects it rather than following it — `saveNewsArticle`
+  and `uploadAchievementPhotos` still accept up to `MAX_PHOTOS` = 3 images in one Server Action
+  call (~6MB) and `saveOfficial`/`saveEvent`/`saveAnnouncement`/the site-content actions still run
+  `uploadSingleImage` (`src/lib/media.ts`, `MAX_IMAGE_BYTES` = 2MB) inline, so the limit is
+  right-sized to `"8mb"` instead (down from `"12mb"`, which existed only to fit a 10MB PDF) — this
+  was caught and confirmed with the project owner before the plan was written, not discovered
+  mid-implementation. The actual fix: a new authenticated Route Handler, `POST
+  /api/admin/uploads/document` (`src/app/api/admin/uploads/document/route.ts`), takes over the
+  multipart upload for legislative documents and transparency documents/projects — the only
+  Server-Action call sites that were forcing the global limit up for every public, unauthenticated
+  form too. It gates on `checkPermission("manage-transparency")`, validates against
+  `uploadRulesFor(kind)` (new pure function in `src/lib/storage.ts`, alongside the new
+  `DocUploadKind` type — `"legislative"` allows exactly one 10MB PDF, `"documents"`/`"projects"`
+  allow up to `MAX_FILES_PER_RECORD` = 3 PDF-or-image files at 10MB each), uploads to the bucket
+  `bucketForStatus` already resolves, and returns `{ error, files: [{path, sizeBytes, mime}] }` —
+  deliberately no `recordActivity` call, mirroring the reasoning `documents.ts` already had for the
+  `uploadDocumentPdf`/`uploadTransparencyFile` Server Actions it replaces (both, plus their result
+  interfaces, are now deleted; `removeStoredDocument` is untouched and still lives in
+  `documents.ts`). A new client-side wrapper, `uploadDocumentFiles`
+  (`src/features/admin/lib/document-upload-client.ts`), `fetch`es the Route Handler; the three
+  admin forms (`legislative-form.tsx`, `transparency-document-form.tsx`,
+  `transparency-project-form.tsx`) now make two calls on Save instead of one — upload first, then
+  the (now-changed) save Server Action with the resolved path(s) — rather than putting the raw
+  `File` in the Server Action's own `FormData`. `saveLegislative`
+  (`src/features/admin/actions/legislative.ts`), `saveTransparencyDocument`
+  (`transparency-documents.ts`), and `saveTransparencyProject` (`transparency-projects.ts`)
+  changed signature accordingly: they take an already-uploaded `{path, sizeBytes}` (or
+  `{keptIds, uploaded}` for the two multi-file ones) instead of a `File` inside `FormData`. Because
+  the Route Handler is a public HTTP endpoint and its returned `path` travels back through the
+  client before the save action ever sees it, each save action validates that client-supplied path
+  against the same prefix/traversal allow-list `removeStoredDocument` already used before trusting
+  it — e.g. `saveLegislative` rejects unless `/^legislative\//.test(upload.path)` and no path
+  segment is `".."`. The compensating-delete-on-row-write-failure guarantee (see the "Uploads defer
+  to Save" bullet above) is unchanged: it was always downstream of the upload step, and still is —
+  only *where* the upload happens moved. `src/proxy.ts`'s Server Action POST matcher exclusion (the
+  `missing: [{type: "header", key: "next-action"}]` line) was re-checked against this change and
+  deliberately left alone: it was never PDF-specific, it's a blanket exclusion for every Server
+  Action POST under `/admin`, and after the `bodySizeLimit` change the largest remaining
+  Server-Action-embedded payload (~6-8MB of images) is still comfortably under
+  `proxyClientMaxBodySize`'s 10MB default buffer, so the truncation risk the exclusion guards
+  against is unchanged in kind.
 
 ## Conventions and gotchas
 
