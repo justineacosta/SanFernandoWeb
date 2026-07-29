@@ -10,7 +10,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTransparencyDocumentForEdit } from "@/features/admin/queries/transparency";
 import { MAX_FILES_PER_RECORD } from "@/lib/storage";
 import { cleanupPromotedMedia, demoteMedia, promoteMedia } from "@/lib/media-lifecycle";
-import { removeStoredDocument, uploadTransparencyFile } from "./documents";
+import { removeStoredDocument } from "./documents";
 
 export interface ActionResult {
   error: string | null;
@@ -59,7 +59,7 @@ export async function getTransparencyDocumentForEditAction(id: string) {
 export async function saveTransparencyDocument(
   id: string | null,
   values: TransparencyDocumentValues,
-  formData: FormData,
+  files: { keptIds: string[]; uploaded: { path: string; mime: string; sizeBytes: number }[] },
 ): Promise<SaveResult> {
   const actor = await checkPermission("manage-transparency");
   if (!actor) return { error: NOT_FOUND, id: null };
@@ -84,36 +84,26 @@ export async function saveTransparencyDocument(
     currentStatus = statusRow.status as ContentStatus;
   }
 
-  const newFiles = formData.getAll("newFile").filter((f): f is File => f instanceof File && f.size > 0);
-  const keptIds = formData.getAll("keptFileId").map(String);
-
-  if (keptIds.length + newFiles.length > MAX_FILES_PER_RECORD) {
+  // Files were already uploaded by the Route Handler
+  // (/api/admin/uploads/document) before this action was called — see
+  // document-upload-client.ts. Every path is client-supplied and this is a
+  // public HTTP endpoint, so each is validated against the same allow-list
+  // removeStoredDocument already uses before it's trusted.
+  const { keptIds, uploaded } = files;
+  if (keptIds.length + uploaded.length > MAX_FILES_PER_RECORD) {
     return { error: `Up to ${MAX_FILES_PER_RECORD} files.`, id: null };
   }
+  for (const u of uploaded) {
+    if (!/^(documents|projects)\//.test(u.path) || u.path.split("/").some((s) => s === "..")) {
+      return { error: "Invalid file reference.", id: null };
+    }
+  }
 
-  const uploaded: { path: string; mime: string; sizeBytes: number }[] = [];
   async function cleanupUploads() {
     for (const u of uploaded) {
       const removed = await removeStoredDocument("transparency", currentStatus, u.path);
       if (removed.error) console.error(`Orphaned storage object (compensating delete failed): ${u.path}`);
     }
-  }
-  for (const file of newFiles) {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await uploadTransparencyFile("documents", currentStatus, fd);
-    if (res.error || res.path === null || res.mime === null || res.sizeBytes === null) {
-      await cleanupUploads();
-      return { error: res.error ?? "Upload failed. Try again.", id: null };
-    }
-    uploaded.push({ path: res.path, mime: res.mime, sizeBytes: res.sizeBytes });
-  }
-
-  // Enforce the ≤3 cap BEFORE any parent write, so an over-limit direct API
-  // call can't leave an empty draft row behind. keptIds is client-supplied.
-  if (keptIds.length + uploaded.length > MAX_FILES_PER_RECORD) {
-    await cleanupUploads();
-    return { error: `Up to ${MAX_FILES_PER_RECORD} files.`, id: null };
   }
 
   const dateReleased = normalizeDate(parsed.data.dateReleased);
