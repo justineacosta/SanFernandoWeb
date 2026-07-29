@@ -133,7 +133,11 @@ a rate-limit collision, not a regression.
   and `NewsPhotoUploader`'s pending list. The save Server Action uploads server-side and
   **compensating-deletes** the object if the row write fails, so "a storage object exists only
   if a row references it" holds by construction. Copy `saveLegislative`'s `fail()` helper for
-  any new one. `src/lib/media.ts` (not a `"use server"` module, deliberately unaudited) holds
+  any new one. **`PdfUploader`/`MultiFileUploader` are still pure pickers, but since
+  security-hardening Plan 3 their bytes no longer travel inside the save Server Action** — the
+  three document forms upload through a Route Handler first and pass the resulting path to the
+  action, which narrows that guarantee for them specifically; see the Plan 3 paragraph in the
+  security-hardening bullet below for exactly how far it still holds. `src/lib/media.ts` (not a `"use server"` module, deliberately unaudited) holds
   `uploadSingleImage` / `removeStoredImage` / `discardImage`. The one exception is
   `AchievementPhotoUploader`: its editor has no Save button to defer to, so it stays eager —
   see the sub-project 7 spec §2.4 before "fixing" it. `scripts/report-orphaned-media.mjs`
@@ -592,9 +596,37 @@ a rate-limit collision, not a regression.
   client before the save action ever sees it, each save action validates that client-supplied path
   against the same prefix/traversal allow-list `removeStoredDocument` already used before trusting
   it — e.g. `saveLegislative` rejects unless `/^legislative\//.test(upload.path)` and no path
-  segment is `".."`. The compensating-delete-on-row-write-failure guarantee (see the "Uploads defer
-  to Save" bullet above) is unchanged: it was always downstream of the upload step, and still is —
-  only *where* the upload happens moved. `src/proxy.ts`'s Server Action POST matcher exclusion (the
+  segment is `".."` — and then confirms the path names a real object via `storedObjectExists`
+  (`src/lib/media-lifecycle.ts`, added in the final-review fix wave): a well-formed path is not
+  evidence that an upload produced it, and a path absent from the bucket the record's *current*
+  status points at cannot be the one this save should store, which also catches an object that
+  landed in the wrong half of the public/private bucket pair. It deliberately stops short of
+  proving the object came from this request's own upload (another record's path in the same
+  bucket still passes) — closing that needs a signed upload receipt, disproportionate against an
+  already-authenticated `manage-transparency` holder. **The
+  compensating-delete-on-row-write-failure guarantee (see the "Uploads defer to Save" bullet
+  above) is narrowed by this two-call split, not preserved.** It holds from the point each save
+  action's cleanup helper (`fail()` in `legislative.ts`, `cleanupUploads()` in the other two) is
+  defined onward — the final-review fix wave hoisted all three above every validation check
+  (`schema.safeParse`, the empty-slug check, the category lookup, the second file-cap check),
+  which until then ran *before* the helper existed and so orphaned an object on any rejected save;
+  reproducible by attaching a file, blanking the title and clicking Save. What remains is a narrow
+  window between a successful Route Handler upload and that point being reached in the save action
+  — a lost connection, a closed drawer, an idle timeout — where an object is abandoned with
+  nothing left to tell the server to clean it up. That is an accepted tradeoff of the two-call
+  design, not an open bug. Compounding it: `scripts/report-orphaned-media.mjs`, the janitor that
+  would otherwise surface such orphans, is still hardcoded to the retired `public-media` bucket
+  and finds nothing in the new per-kind buckets — a pre-existing gap this branch makes more
+  load-bearing, and deliberately not fixed here. **The Route Handler derives the destination
+  bucket itself and never trusts a client-sent status:** its request contract is `kind` + an
+  optional `id` (the record being edited; absent for a new one, which is always `draft`), and it
+  reads that record's real `status` from `legislative_documents`/`transparency_documents`/
+  `transparency_projects` — an earlier shape took `status` from the client, which let a stale tab
+  put a published record's file in the private `-drafts` bucket (permanent 404 on the public site)
+  or a draft's file in the anonymously-enumerable `-media` one, with nothing downstream to
+  self-heal it since every cleanup and URL-resolution path computes the bucket from the row's
+  current status. A missing row returns the same generic upload-failed message as every other
+  failure, so the endpoint never answers whether an id exists. `src/proxy.ts`'s Server Action POST matcher exclusion (the
   `missing: [{type: "header", key: "next-action"}]` line) was re-checked against this change and
   deliberately left alone: it was never PDF-specific, it's a blanket exclusion for every Server
   Action POST under `/admin`, and after the `bodySizeLimit` change the largest remaining

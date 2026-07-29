@@ -18,8 +18,18 @@ path/size/mime), then the existing Server Action — `saveLegislative` /
 `saveTransparencyDocument` / `saveTransparencyProject` — now taking the
 already-uploaded path(s) as plain arguments instead of a `File` inside
 `FormData`. The compensating-delete guarantee ("a storage object exists only if
-a row references it") is unchanged: the save actions still delete the newly
-uploaded object if the row write fails, exactly as today.
+a row references it") is *narrowed*, not preserved: it holds from the point
+each save action's cleanup helper (`fail()` / `cleanupUploads()`) is defined
+onward — now hoisted above every validation check, so a rejected save still
+deletes what was uploaded for it — but there remains a narrow window between
+a successful Route Handler upload and that point being reached in the save
+action (a lost connection, a closed drawer, an idle timeout) where an object
+can be abandoned with nothing left to tell the server to clean it up. That is
+an accepted tradeoff of the two-call design, not a bug left open. Note also
+that `scripts/report-orphaned-media.mjs`, the tool that would otherwise surface
+such orphans, is still hardcoded to the retired `public-media` bucket and so
+finds nothing in the new per-kind buckets — a pre-existing gap this branch
+makes more load-bearing, not one it introduces or fixes.
 
 **Important correction to the design spec, confirmed with the project owner
 before this plan was written:** §6 of the design spec says `bodySizeLimit` can
