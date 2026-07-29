@@ -1488,8 +1488,8 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
     one — just the 15 new-style buckets. This contradicts item 11's own prior claim that both
     environments still had the old pair; that claim was stale (or the buckets were removed
     outside of tracked history). The old-bucket cleanup is done on both environments — nothing
-    was left to delete. `0030` should still be applied to production like any other pending
-    migration, even with no bucket left for it to act on.
+    was left to delete. `0030` has since been applied to both dev and production (confirmed by
+    Justine, 2026-07-29), even though it had no bucket left to act on by the time it ran.
 12. **One `npm audit` finding left unfixed on purpose** (security-hardening Plan 1, Task 2,
     2026-07-28): a DoS advisory (GHSA-mh99-v99m-4gvg) against `brace-expansion` reaches this
     project only through ESLint 9's own dependency chain (`eslint` → `@eslint/config-array` →

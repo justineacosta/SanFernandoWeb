@@ -748,9 +748,6 @@ a rate-limit collision, not a regression.
   strip is `src/components/ui/tab-pills.tsx`; `transparency-manager.tsx` now consumes the same
   `<TabPills>` component too (its hand-rolled copy of that markup was the last one — no other
   admin tab strip is left to migrate).
-- `stitch/` holds the original design-tool HTML exports — reference material only, ignored
-  by ESLint, not part of the app. Newer exports (`stitch_tabbed_content_manager/` — source
-  of the admin screens) sit untracked at the repo root by choice: don't commit or delete them.
 - Design/implementation history (specs and plans) lives in `docs/superpowers/specs/` and
   `docs/superpowers/plans/`; those dated files are historical records — don't retro-edit them.
 - Staff avatars are `profiles.avatar_src` → `public-media/avatars/<uuid>.<ext>` (migration
