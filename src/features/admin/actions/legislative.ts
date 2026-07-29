@@ -10,7 +10,7 @@ import { cleanupPromotedMedia, demoteMedia, promoteMedia } from "@/lib/media-lif
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { MAX_SEQ_NO, formatLegislativeNumber } from "@/lib/legislative-number";
 import { getLegislativeForEdit } from "@/features/admin/queries/transparency";
-import { removeStoredDocument, uploadDocumentPdf } from "./documents";
+import { removeStoredDocument } from "./documents";
 
 export interface ActionResult {
   error: string | null;
@@ -103,7 +103,8 @@ export async function getLegislativeForEditAction(id: string) {
 export async function saveLegislative(
   id: string | null,
   values: LegislativeValues,
-  fileForm: FormData,
+  upload: { path: string; sizeBytes: number } | null,
+  removeExisting: boolean,
 ): Promise<SaveResult> {
   const actor = await checkPermission("manage-transparency");
   if (!actor) return { error: NOT_FOUND, id: null };
@@ -133,20 +134,20 @@ export async function saveLegislative(
     currentStatus = statusRow.status as ContentStatus;
   }
 
-  // Upload a newly chosen file (if any) up front — this is the only side
-  // effect in this action before the row write below, so every failure past
-  // this point must delete the object it just created. `fail()` does that.
-  const incomingFile = fileForm.get("file");
-  const removeFile = fileForm.get("removeFile") === "1";
+  // The file was already uploaded by the Route Handler
+  // (/api/admin/uploads/document) before this action was called — see
+  // document-upload-client.ts. `upload.path` is client-supplied and this is a
+  // public HTTP endpoint, so it's validated against the same allow-list
+  // removeStoredDocument already uses before it's trusted.
+  const removeFile = removeExisting;
   let uploadedPath: string | null = null;
   let uploadedSize: number | null = null;
-  if (incomingFile instanceof File && incomingFile.size > 0) {
-    const uploadFd = new FormData();
-    uploadFd.append("file", incomingFile);
-    const uploadResult = await uploadDocumentPdf("legislative", currentStatus, uploadFd);
-    if (uploadResult.error) return { error: uploadResult.error, id: null };
-    uploadedPath = uploadResult.path;
-    uploadedSize = uploadResult.sizeBytes;
+  if (upload) {
+    if (!/^legislative\//.test(upload.path) || upload.path.split("/").some((s) => s === "..")) {
+      return { error: "Invalid file reference.", id: null };
+    }
+    uploadedPath = upload.path;
+    uploadedSize = upload.sizeBytes;
   }
 
   async function fail(error: string): Promise<SaveResult> {
