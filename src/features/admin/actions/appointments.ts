@@ -3,8 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { AppointmentReviewValues, WalkInAppointmentValues } from "@/types";
+import { AppointmentConfirmedEmail } from "@/emails/AppointmentConfirmedEmail";
+import { AppointmentDeclinedEmail } from "@/emails/AppointmentDeclinedEmail";
+import { AppointmentSubmittedEmail } from "@/emails/AppointmentSubmittedEmail";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
+import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { manilaToday, manilaTodayNextYear } from "@/lib/format";
 
@@ -114,12 +118,32 @@ export async function reviewAppointment(
     })
     .eq("id", id)
     .eq("status", "pending")
-    .select("ticket_no")
+    .select("ticket_no, email, first_name")
     .maybeSingle();
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That appointment was already reviewed. Refresh to see its status." };
 
   const confirmed = parsed.data.status === "confirmed";
+  if (data.email) {
+    await sendEmail({
+      to: data.email,
+      subject: confirmed
+        ? `Your appointment is confirmed — ${data.ticket_no}`
+        : `Update on your appointment request — ${data.ticket_no}`,
+      template: confirmed
+        ? AppointmentConfirmedEmail({
+            firstName: data.first_name,
+            ticketNo: data.ticket_no,
+            confirmedDate: parsed.data.confirmedDate,
+            confirmedPeriod: parsed.data.confirmedPeriod as "am" | "pm",
+          })
+        : AppointmentDeclinedEmail({
+            firstName: data.first_name,
+            ticketNo: data.ticket_no,
+            remarks: parsed.data.remarks,
+          }),
+    });
+  }
   await recordActivity(actor, {
     type: confirmed ? "approve" : "reject",
     action: confirmed ? "confirmed appointment" : "declined appointment",
@@ -196,6 +220,20 @@ export async function createWalkInAppointment(
   if (error || !data) {
     console.error("createWalkInAppointment failed:", error?.message);
     return { error: "Could not encode the appointment." };
+  }
+
+  if (parsed.data.email) {
+    await sendEmail({
+      to: parsed.data.email,
+      subject: `Appointment request received — ${data.ticket_no}`,
+      template: AppointmentSubmittedEmail({
+        firstName: parsed.data.firstName,
+        ticketNo: data.ticket_no,
+        purpose: parsed.data.purpose,
+        preferredDate: parsed.data.preferredDate,
+        preferredPeriod: parsed.data.preferredPeriod,
+      }),
+    });
   }
 
   await recordActivity(actor, {

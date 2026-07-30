@@ -1,6 +1,8 @@
 "use server";
 
 import type { PublicAppointmentValues, SubmitTicketResult } from "@/types";
+import { AppointmentSubmittedEmail } from "@/emails/AppointmentSubmittedEmail";
+import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
@@ -60,6 +62,20 @@ export async function submitAppointment(
   if (error || !data) {
     console.error("submitAppointment failed:", error?.message);
     return { error: "We could not file your request. Please try again.", ticketNo: null };
+  }
+
+  if (parsed.data.email) {
+    await sendEmail({
+      to: parsed.data.email,
+      subject: `Appointment request received — ${data.ticket_no}`,
+      template: AppointmentSubmittedEmail({
+        firstName: parsed.data.firstName,
+        ticketNo: data.ticket_no,
+        purpose: parsed.data.purpose,
+        preferredDate: parsed.data.preferredDate,
+        preferredPeriod: parsed.data.preferredPeriod,
+      }),
+    });
   }
 
   return { error: null, ticketNo: data.ticket_no };
