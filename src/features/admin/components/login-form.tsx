@@ -51,10 +51,7 @@ export function LoginForm() {
         />
       </div>
       <div className="flex items-center justify-between text-sm">
-        <label
-          className="flex items-center gap-2 text-ink-600"
-          title="Sessions stay active for 30 minutes of inactivity."
-        >
+        <label className="flex items-center gap-2 text-ink-600">
           <Checkbox checked disabled className="h-4 w-4 accent-brand-500" />
           Remember me
         </label>
@@ -66,6 +63,7 @@ export function LoginForm() {
           Forgot password?
         </button>
       </div>
+      <p className="text-xs text-ink-400">Sessions stay active for 30 minutes of inactivity.</p>
       {showForgotNote ? (
         <InlineAlert
           message="Contact a SuperAdmin to reset your password."
@@ -76,7 +74,7 @@ export function LoginForm() {
       {visibleError ? (
         <InlineAlert message={visibleError} onDismiss={() => setDismissedState(state)} />
       ) : null}
-      <Button type="submit" variant="primary" size="lg" className="w-full gap-2" disabled={isPending}>
+      <Button type="submit" variant="primary" size="lg" className="w-full" disabled={isPending}>
         {isPending ? (
           "Signing in…"
         ) : (
