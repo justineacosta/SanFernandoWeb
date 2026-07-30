@@ -4,9 +4,9 @@
 
 **Goal:** Stand up the shared Resend mailer + React Email template system, and wire the first real trigger (contact inquiries) end to end — proving the whole pipeline before Plans 2 and 3 build on it.
 
-**Architecture:** A plain (non-`"use server"`) helper library, `src/lib/email.ts`, wraps the `resend` SDK behind a `sendEmail()` function that never throws (fail-open, matching this codebase's rate-limiter pattern). Templates are `@react-email/components` JSX under `src/emails/`, composed inside one shared `<EmailLayout>`. `submitInquiry` becomes the first caller: it sends a resident acknowledgment and a staff notification, using a new `staffEmailsFor()` helper in `src/lib/notifications.ts` that resolves recipients from the same permission model the notification-badge system already uses.
+**Architecture:** A plain (non-`"use server"`) helper library, `src/lib/email.ts`, wraps the `resend` SDK behind a `sendEmail()` function that never throws (fail-open, matching this codebase's rate-limiter pattern). Templates are `react-email` JSX under `src/emails/`, composed inside one shared `<EmailLayout>`. `submitInquiry` becomes the first caller: it sends a resident acknowledgment and a staff notification, using a new `staffEmailsFor()` helper in `src/lib/notifications.ts` that resolves recipients from the same permission model the notification-badge system already uses.
 
-**Tech Stack:** Next.js 16 Server Actions, `resend` SDK, `@react-email/components` + `@react-email/render`, Supabase (service-role client), Vitest.
+**Tech Stack:** Next.js 16 Server Actions, `resend` SDK, `react-email` (components — `@react-email/components` is deprecated as of React Email 6.0, April 2026; consumers now import from the unified `react-email` package) + `@react-email/render` (still its own package, used to render templates to a string in tests — both are regular `dependencies`, not devDependencies, because Resend's SDK needs `@react-email/render` at runtime to turn a `react:` template into HTML when `.emails.send()` is called), Supabase (service-role client), Vitest.
 
 ## Global Constraints
 
@@ -41,7 +41,7 @@
 ### Task 1: `sendEmail()` foundation
 
 **Files:**
-- Modify: `package.json` (add `resend`, `@react-email/components` as dependencies; `@react-email/render` as a devDependency)
+- Modify: `package.json` (add `resend`, `react-email`, and `@react-email/render` as regular **dependencies** — `@react-email/render` is a runtime need of the `resend` SDK, which uses it to render a `react:` template to HTML when `.emails.send()` is called, not a dev-only tool, so it does not belong in devDependencies even though this task's own tests are the only thing that imports it directly)
 - Modify: `.env.example`
 - Create: `src/lib/email.ts`
 - Test: `tests/unit/email.test.ts`
@@ -55,9 +55,20 @@
 - [ ] **Step 1: Install the new dependencies**
 
 ```bash
-npm install resend @react-email/components
-npm install -D @react-email/render
+npm install resend react-email @react-email/render
 ```
+
+Note: `@react-email/components` is deprecated as of React Email 6.0 (April
+2026) — Resend consolidated every component package into one `react-email`
+package. Install `react-email` instead; the named exports (`Html`, `Body`,
+`Container`, `Text`, `Button`, etc.) are the same, only the package name
+changed. `@react-email/render` remains its own package (not folded into
+`react-email`) and is a regular dependency here, not a devDependency —
+Resend's SDK depends on it at runtime to render a `react:` template into
+HTML when `.emails.send()` is called, so pruning devDependencies before a
+production deploy would otherwise make every email silently fail to render
+(caught by `sendEmail`'s fail-open try/catch, so it would not crash — it
+would just silently send nothing).
 
 - [ ] **Step 2: Add env vars to `.env.example`**
 
@@ -355,7 +366,7 @@ Expected: FAIL — `Cannot find module '@/emails/EmailLayout'`.
 - [ ] **Step 4: Implement `src/emails/EmailLayout.tsx`**
 
 ```tsx
-import { Body, Container, Head, Hr, Html, Img, Preview, Section, Text } from "@react-email/components";
+import { Body, Container, Head, Hr, Html, Img, Preview, Section, Text } from "react-email";
 import type { ReactNode } from "react";
 import { SITE } from "@/constants/site";
 import { EMAIL_SITE_URL } from "./site-url";
@@ -492,7 +503,7 @@ Expected: FAIL — modules don't exist yet.
 - [ ] **Step 3: Implement `src/emails/InquiryAcknowledgedEmail.tsx`**
 
 ```tsx
-import { Text } from "@react-email/components";
+import { Text } from "react-email";
 import { EmailLayout } from "./EmailLayout";
 
 export interface InquiryAcknowledgedEmailProps {
@@ -519,7 +530,7 @@ export function InquiryAcknowledgedEmail({ firstName, subject }: InquiryAcknowle
 - [ ] **Step 4: Implement `src/emails/InquiryStaffNotifyEmail.tsx`**
 
 ```tsx
-import { Button, Text } from "@react-email/components";
+import { Button, Text } from "react-email";
 import { EmailLayout } from "./EmailLayout";
 import { EMAIL_SITE_URL } from "./site-url";
 
@@ -835,7 +846,7 @@ section of `CLAUDE.md`, placed after the existing media-bucket-split bullet
   divergence from Turnstile's dev-skip/prod-throw asymmetry — Turnstile IS
   the anti-bot layer, so failing open there would defeat its purpose; email
   is a best-effort layer with nothing depending on it succeeding). Templates
-  are `@react-email/components` JSX under `src/emails/`, every one composed
+  are `react-email` JSX under `src/emails/`, every one composed
   inside the shared `<EmailLayout>` (seal, amber header, footer address/phone)
   — the email equivalent of `AdminShell`. `EMAIL_SITE_URL`
   (`src/emails/site-url.ts`, from `NEXT_PUBLIC_SITE_URL`) exists because email
