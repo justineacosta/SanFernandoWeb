@@ -258,6 +258,34 @@ a rate-limit collision, not a regression.
   `uploadSingleImage` had the identical disguised bug in its returned (uncalled) `url` field —
   built via `mediaUrl(bucket, path)` where `bucket` can be a private `-drafts` bucket — fixed to
   `resolveMediaUrl` the same way `documents.ts`'s `uploadDocumentPdf` already was.
+- **Transactional email (Resend), Plan 1 of 3: foundation, 2026-07-30**
+  (`docs/superpowers/specs/2026-07-30-resend-email-integration-design.md`).
+  Closes `docs/BACKEND_HANDOFF.md`'s previously-undesigned §2D. `src/lib/email.ts`'s
+  `sendEmail()` wraps the `resend` SDK and is **fail-open by construction, in
+  every environment** — it never throws to its caller, matching the rate
+  limiter's fail-open reasoning: every trigger fires after its own DB write
+  already committed, so an email failure must never turn into a failed
+  resident submission. Missing `RESEND_API_KEY`/`RESEND_FROM_EMAIL` skips
+  sending either way; development warns once via `console.warn`, production
+  logs via `console.error` on every call rather than throwing (a deliberate
+  divergence from Turnstile's dev-skip/prod-throw asymmetry — Turnstile IS
+  the anti-bot layer, so failing open there would defeat its purpose; email
+  is a best-effort layer with nothing depending on it succeeding). Templates
+  are `react-email` JSX under `src/emails/`, every one composed
+  inside the shared `<EmailLayout>` (seal, amber header, footer address/phone)
+  — the email equivalent of `AdminShell`. `EMAIL_SITE_URL`
+  (`src/emails/site-url.ts`, from `NEXT_PUBLIC_SITE_URL`) exists because email
+  clients can't resolve relative paths the way the app's own pages can.
+  `staffEmailsFor()` (`src/lib/notifications.ts`) resolves staff recipients
+  by reusing the exact `permission` each `NOTIFICATION_QUEUES` entry already
+  declares — no new permission model. **`submitInquiry` is the first and,
+  as of this plan, only wired trigger**: an acknowledgment to the resident
+  plus a staff notification to every `handle-inquiries` holder. Plan 2
+  (feedback's staff alert, all four ticketing flows' submission receipts and
+  status-change notices) and Plan 3 (delivery monitoring via a dedicated
+  `email_log` table + Resend webhook — deliberately not `audit_log`, which
+  is built for human staff actions, not automated system events) are not
+  yet built.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
