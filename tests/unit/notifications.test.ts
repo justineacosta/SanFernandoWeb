@@ -8,6 +8,7 @@ import {
   hasUnseen,
   mergeRecent,
   permittedQueues,
+  staffQualifies,
   type NotificationCounts,
   type NotificationItem,
 } from "@/lib/notifications";
@@ -125,6 +126,24 @@ describe("formatRelativeTime", () => {
 
   it("reads in days beyond that", () => {
     expect(formatRelativeTime("2026-07-22T12:00:00Z", now)).toBe("3d ago");
+  });
+});
+
+describe("staffQualifies", () => {
+  it("qualifies a SuperAdmin regardless of their permissions list", () => {
+    expect(staffQualifies({ isSuperAdmin: true, permissions: [] }, "handle-inquiries")).toBe(true);
+  });
+
+  it("qualifies a staff member who holds the exact permission", () => {
+    expect(
+      staffQualifies({ isSuperAdmin: false, permissions: ["handle-inquiries"] }, "handle-inquiries"),
+    ).toBe(true);
+  });
+
+  it("does not qualify a staff member missing the permission", () => {
+    expect(
+      staffQualifies({ isSuperAdmin: false, permissions: ["process-applications"] }, "handle-inquiries"),
+    ).toBe(false);
   });
 });
 
