@@ -1,6 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Permission } from "@/types";
 import { MODULE_META, MODULE_PERMISSION } from "@/features/admin/search-modules";
+
+// vi.mock factories are hoisted above regular `const` declarations, so the
+// mock functions themselves must be created inside vi.hoisted() — same
+// reasoning tests/unit/email.test.ts documents for its own `resend` mock.
+const { fromMock, createSupabaseAdminClientMock } = vi.hoisted(() => ({
+  fromMock: vi.fn(),
+  createSupabaseAdminClientMock: vi.fn(),
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createSupabaseAdminClient: createSupabaseAdminClientMock,
+}));
+
 import {
   NOTIFICATION_QUEUES,
   countForNavHref,
@@ -8,6 +21,7 @@ import {
   hasUnseen,
   mergeRecent,
   permittedQueues,
+  staffEmailsFor,
   staffQualifies,
   type NotificationCounts,
   type NotificationItem,
@@ -144,6 +158,63 @@ describe("staffQualifies", () => {
     expect(
       staffQualifies({ isSuperAdmin: false, permissions: ["process-applications"] }, "handle-inquiries"),
     ).toBe(false);
+  });
+});
+
+describe("staffEmailsFor", () => {
+  /**
+   * Builds a stub matching admin.from("profiles").select(...).eq(...).eq(...),
+   * where the second .eq() resolves to `result` — mirroring the real
+   * Supabase query builder, which is thenable at any point in the chain.
+   */
+  function stubQuery(result: { data: unknown; error: { message: string } | null }) {
+    const eq2 = vi.fn().mockResolvedValue(result);
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 });
+    const select = vi.fn().mockReturnValue({ eq: eq1 });
+    fromMock.mockReturnValue({ select });
+    return { select, eq1, eq2 };
+  }
+
+  beforeEach(() => {
+    fromMock.mockReset();
+    createSupabaseAdminClientMock.mockReset();
+    createSupabaseAdminClientMock.mockReturnValue({ from: fromMock });
+  });
+
+  it("returns emails only for profiles that qualify, reusing staffQualifies", async () => {
+    stubQuery({
+      data: [
+        { email: "super@example.com", is_superadmin: true, permissions: [] },
+        { email: "handler@example.com", is_superadmin: false, permissions: ["handle-inquiries"] },
+        { email: "other@example.com", is_superadmin: false, permissions: ["process-applications"] },
+      ],
+      error: null,
+    });
+
+    const result = await staffEmailsFor("handle-inquiries");
+
+    expect(result).toEqual(["super@example.com", "handler@example.com"]);
+  });
+
+  it("returns an empty array, not a throw, when the query errors", async () => {
+    stubQuery({ data: null, error: { message: "connection refused" } });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await staffEmailsFor("handle-inquiries");
+
+    expect(result).toEqual([]);
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it("filters active, non-archived profiles server-side via .eq()", async () => {
+    const { select, eq1, eq2 } = stubQuery({ data: [], error: null });
+
+    await staffEmailsFor("handle-inquiries");
+
+    expect(select).toHaveBeenCalledWith("email, is_superadmin, permissions");
+    expect(eq1).toHaveBeenCalledWith("is_active", true);
+    expect(eq2).toHaveBeenCalledWith("is_archived", false);
   });
 });
 
