@@ -182,7 +182,11 @@
 > `/services/apply/[slug]`), and `/assistance/new` (category picker
 > sourced from `assistance_categories`; shows an unavailable notice if every
 > category is retired). Each ends in an on-screen ticket-number receipt only —
-> **no email is sent** (that remains plan 2D, blocked on a Resend account). Three
+> **no email is sent** (§2D was blocked on a Resend account; that account now exists and
+> §2D's Plan 1, `docs/superpowers/specs/2026-07-30-resend-email-integration-design.md`,
+> shipped 2026-07-30, but it wired only the contact-inquiry form — see item A below. These
+> four ticket flows' own submission receipts are still unbuilt, scoped to §2D's Plan 2).
+> Three
 > new admin queues mirror `/admin/applications`'s pattern: `/admin/appointments`
 > (confirm/reschedule/decline, then mark completed; permission
 > `process-appointments`), `/admin/complaints` (take up for mediation, then resolve
@@ -804,8 +808,10 @@
 > 6. **17 new unit tests** (45 total) pin the inquiry schema and the mobile normaliser.
 >
 > **Still open:** inquiries are not in the global admin search (`search_admin_global` is a
-> Postgres function — another migration), and nothing emails anyone yet, which is what §2D
-> below is for.
+> Postgres function — another migration). Email was open when this entry was written;
+> §2D's Plan 1 (2026-07-30) closed it for this queue specifically — `submitInquiry` now
+> sends the resident an acknowledgment and every `handle-inquiries` holder a staff
+> notification, `replyTo`-wired back to the resident. See item A below.
 
 > **Sub-project 6 shipped 2026-07-22 — archive & restore.** Spec:
 > `docs/superpowers/specs/2026-07-22-archive-restore-design.md`. **Migration `0020`**
@@ -1198,9 +1204,16 @@ rate-limits, validates, and writes to `inquiries`; staff answer from `/admin/inq
 behind the new `handle-inquiries` permission. See the sub-project 10 phase D changelog entry
 above and spec §8.
 
-**Still needed**: the email half. Nothing notifies the barangay that a message arrived, and
-nothing acknowledges it to the resident — that is §2D (Resend) below, and it is what makes
-the form's "within 24-48 business hours" promise real.
+**Still needed**: ~~the email half~~ **BUILT 2026-07-30** (§2D Plan 1,
+`docs/superpowers/specs/2026-07-30-resend-email-integration-design.md`). `submitInquiry`
+now sends the resident an acknowledgment (`InquiryAcknowledgedEmail`) and every
+`handle-inquiries` holder a staff notification (`InquiryStaffNotifyEmail`, `replyTo` set to
+the resident's own address so hitting Reply reaches them, not the notifications inbox) —
+this is what makes the form's "within 24-48 business hours" promise real. Both sends are
+best-effort: `sendEmail()`/`staffEmailsFor()` fail open by construction (`src/lib/email.ts`,
+`src/lib/notifications.ts`), so an email outage never turns into a failed submission. §2D's
+Plan 2 (feedback's staff alert below, plus the four ticketing flows' own receipts) and Plan
+3 (delivery monitoring) remain open.
 
 ### B. ~~Newsletter / SMS alerts signup~~ — **BUILT 2026-07-22** (migration `0019`)
 `subscribeToAlerts` in `src/features/announcements/actions.ts` writes to
@@ -1231,7 +1244,9 @@ project, because a screenshot can contain the sender's own account page or ticke
 
 **Still needed**:
 - **Staff notification on arrival.** Nothing tells anyone a report came in; the queue is
-  checked, not pushed. Blocked on §2D (Resend).
+  checked, not pushed. No longer blocked on Resend itself — §2D's Plan 1 (2026-07-30) built
+  the send pipeline and `staffEmailsFor()` this trigger would reuse (see item A above) — but
+  feedback's own trigger is unwired, scoped to §2D's Plan 2.
 - **Spam housekeeping.** The endpoint is anonymous and accepts images. `deleteFeedback` is
   SuperAdmin-only and reachable only from a `dismissed` row, and it removes the screenshot —
   but nothing prunes automatically, so a flood needs a human. `scripts/report-orphaned-media.mjs`
@@ -1318,8 +1333,10 @@ The admin **UI now exists in full** (`/admin` redirects to the first module the 
    queues end-to-end~~ **BUILT 2026-07-17 — see the ticketing-flows changelog entry
    above.** Same pattern as (5): Server Actions, service-role client, walk-in
    encoding, real reviewer identity. **Still outstanding: emailing residents their
-   ticket number or a status update** — that is plan 2D, blocked on a Resend
-   account; today every flow ends in an on-screen receipt only.
+   ticket number or a status update** — §2D's Plan 1 (2026-07-30) built the send pipeline
+   these four flows would use but wired only the contact-inquiry form (see item A above);
+   these ticket receipts/status notices remain scoped to §2D's Plan 2, and today every flow
+   still ends in an on-screen receipt only.
 
 Citizen accounts are **not** required by any current UI.
 
