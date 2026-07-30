@@ -351,25 +351,44 @@ a rate-limit collision, not a regression.
   (the "bring a valid ID" line is a blanket rule, not itself a per-service requirement — the
   seed data in `src/features/services/data.ts` doesn't uniformly list ID as a requirement).
 - **`/admin/login` is a responsive split-screen at `md:` (768px)+, 2026-07-31** — a brand panel
-  (seal, name, the three portal feature groups — Requests/Content/System) beside the form,
-  with the pre-existing centered-card layout frozen unchanged below that breakpoint.
-  `src/app/admin/login/page.tsx` renders both responsive trees unconditionally and toggles
-  visibility with `md:hidden`/`hidden md:flex` (CSS `display:none`, not conditional
-  mounting), so **`LoginForm`'s form-control ids must stay `useId()`-derived, never
-  hardcoded string literals** — two copies of the same static id in one DOM breaks label
-  association (a `<label for>` binds to the first same-id element in tree order) and breaks
-  Playwright locators like `getByLabel`, whichever tree mounts second. The right (form)
-  panel centers its content via `my-auto` on the inner wrapper, not `items-center` on the
-  scrollable container — flex `align-items: center` clips the overflowing side with no way
-  to scroll back to it, while margin-auto degrades to top-aligned-and-scrollable; the outer
-  `<main>` and the desktop split container use `min-h-screen`, not a hard `h-screen`, so a
-  short viewport grows the page instead of clipping the brand panel's feature list. The
-  "Remember me" (checked/disabled, with an always-visible explanatory caption — not a
-  hover-only tooltip, for accessibility) and "Forgot password?" (reveals an inline note, not
-  a link to a nonexistent route) controls are deliberately honest placeholders, matching this
-  codebase's existing "no dead UI" convention (the same one that removed the dead FOI
-  Guide/More Statistics CTAs), since this app has no real password-reset flow or a second
-  "remembered" session lifetime beyond the existing 30-minute idle-timeout model.
+  (currently `w-[55%]`, the form panel takes the rest) beside the form, with a **separate**
+  centered-card layout below that breakpoint. `src/app/admin/login/page.tsx` renders both
+  responsive trees unconditionally and toggles visibility with `md:hidden`/`hidden md:flex`
+  (CSS `display:none`, not conditional mounting), so **`LoginForm`'s form-control ids must
+  stay `useId()`-derived, never hardcoded string literals** — two copies of the same static id
+  in one DOM breaks label association (a `<label for>` binds to the first same-id element in
+  tree order) and breaks Playwright locators like `getByLabel`, whichever tree mounts second.
+  The right (form) panel centers its content via `my-auto` on the inner wrapper, not
+  `items-center` on the scrollable container — flex `align-items: center` clips the
+  overflowing side with no way to scroll back to it, while margin-auto degrades to
+  top-aligned-and-scrollable; the outer `<main>` and the desktop split container use
+  `min-h-screen`, not a hard `h-screen`, so a short viewport grows the page instead of clipping
+  the brand panel's feature list. **Both trees' backgrounds are the same photo**
+  (`src/images/loginpageImage/TrickOrTreat.jpg`, a barangay community event), rendered
+  `scale-105 object-cover blur-[2px]` under a flat `bg-ink-950/70` scrim for text legibility —
+  the desktop brand panel keeps its dot-grid/blur-glow/watermark-seal decoration layered on
+  top of that scrim, unchanged from the plain-`bg-ink-950` version. **The mobile card is no
+  longer visually frozen** (a prior version of this bullet claimed it was) — it now carries the
+  same photo/scrim treatment and its own "Home" link (top-left, in-flow, abbreviated — the
+  desktop panel's equivalent reads "Back to home", bottom-left, absolutely positioned); both
+  are plain `next/link` to `/` with a leading `ArrowLeft` icon, not styled as buttons. The
+  desktop brand-panel heading is a single `<h1>` — "San Fernando – "Onse"" then a `<br/>` then
+  "San Nicolas, Ilocos Norte" — with no `BrandStroke` underline and no seal image in that
+  panel's header row (only the "Barangay Portal" `Eyebrow`); the seal moved to the **form**
+  panel instead, at 240px, above an `Eyebrow`+`BrandStroke` heading+subtext block that
+  deliberately mirrors the mobile card's own header copy ("Barangay Portal" / "San Fernando" /
+  "Sign in to continue") rather than reading "Welcome back". **"Remember me" is a real,
+  interactive checkbox** (`defaultChecked`, `name="remember"`, no `disabled`) as of this same
+  day — it was originally shipped `checked disabled` with an explanatory caption as a
+  deliberate "honest, not dead, UI" placeholder (see the design spec), but the caption is now
+  removed and the checkbox itself un-disabled per explicit follow-up direction. **This reverses
+  the honesty rationale without replacing it**: the form still submits a `remember` value, but
+  no Server Action reads it, so ticking/unticking currently has zero effect on session
+  length — the 30-minute idle-timeout model (`src/lib/session-activity.ts`) is unchanged and is
+  still the only thing governing session duration. Wiring `remember` to an actual longer-lived
+  session is a real, not-yet-scoped security change, not a UI tweak. "Forgot password?" is
+  unchanged: still a button revealing an inline note, not a link to a nonexistent route, since
+  this app has no real password-reset flow.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a

@@ -60,7 +60,7 @@ export function LoginForm() {
       </div>
       <div className="flex items-center justify-between text-sm">
         <label className="flex items-center gap-2 text-ink-600">
-          <Checkbox checked disabled className="h-4 w-4 accent-brand-500" />
+          <Checkbox name="remember" defaultChecked className="h-4 w-4 accent-brand-500" />
           Remember me
         </label>
         <button
@@ -71,7 +71,6 @@ export function LoginForm() {
           Forgot password?
         </button>
       </div>
-      <p className="text-xs text-ink-600">Sessions stay active for 30 minutes of inactivity.</p>
       {showForgotNote ? (
         <InlineAlert
           message="Contact a SuperAdmin to reset your password."
