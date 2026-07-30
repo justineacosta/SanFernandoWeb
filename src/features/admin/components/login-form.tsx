@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useId, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/form";
@@ -11,6 +11,14 @@ import { signIn, type AuthFormState } from "@/features/admin/actions/auth";
 const initialState: AuthFormState = { error: null };
 
 export function LoginForm() {
+  // Both responsive trees in `admin/login/page.tsx` render `<LoginForm />`
+  // simultaneously (CSS `display:none`, not conditional mounting), so a
+  // hardcoded id would collide across the two copies in the DOM — derive a
+  // per-instance id instead, the same pattern `sortable-list.tsx` uses for
+  // its `DndContext` id.
+  const uid = useId();
+  const emailId = `${uid}-email`;
+  const passwordId = `${uid}-password`;
   const [state, formAction, isPending] = useActionState(signIn, initialState);
   // `useActionState` gives no setter to clear `state.error` directly, so a
   // manual dismiss is tracked by comparing object identity, not the message
@@ -26,11 +34,11 @@ export function LoginForm() {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div>
-        <label htmlFor="login-email" className="mb-1 block text-sm font-semibold text-ink-700">
+        <label htmlFor={emailId} className="mb-1 block text-sm font-semibold text-ink-700">
           Email
         </label>
         <input
-          id="login-email"
+          id={emailId}
           name="email"
           type="email"
           autoComplete="email"
@@ -39,11 +47,11 @@ export function LoginForm() {
         />
       </div>
       <div>
-        <label htmlFor="login-password" className="mb-1 block text-sm font-semibold text-ink-700">
+        <label htmlFor={passwordId} className="mb-1 block text-sm font-semibold text-ink-700">
           Password
         </label>
         <PasswordInput
-          id="login-password"
+          id={passwordId}
           name="password"
           autoComplete="current-password"
           required
@@ -63,7 +71,7 @@ export function LoginForm() {
           Forgot password?
         </button>
       </div>
-      <p className="text-xs text-ink-400">Sessions stay active for 30 minutes of inactivity.</p>
+      <p className="text-xs text-ink-600">Sessions stay active for 30 minutes of inactivity.</p>
       {showForgotNote ? (
         <InlineAlert
           message="Contact a SuperAdmin to reset your password."

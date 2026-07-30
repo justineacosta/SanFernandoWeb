@@ -13,7 +13,10 @@ test("repeated bad passwords trip the login rate limit", async ({ page }) => {
 
   for (let i = 0; i < 5; i++) {
     await page.goto("/admin/login");
-    await page.getByLabel("Email").fill(email!);
+    // getByRole, not getByLabel: both responsive `<LoginForm />` trees are
+    // always mounted (one hidden via CSS `display:none`), so getByLabel
+    // matches two legitimately-labeled inputs. See auth.setup.ts.
+    await page.getByRole("textbox", { name: "Email" }).fill(email!);
     await page.getByRole("textbox", { name: "Password" }).fill("definitely-wrong-password");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.getByText("Incorrect email or password.")).toBeVisible();
@@ -22,7 +25,7 @@ test("repeated bad passwords trip the login rate limit", async ({ page }) => {
   // 6th attempt: still the same message (rate limit and bad-password share
   // copy on purpose), but this one is the limiter, not a real auth check.
   await page.goto("/admin/login");
-  await page.getByLabel("Email").fill(email!);
+  await page.getByRole("textbox", { name: "Email" }).fill(email!);
   await page.getByRole("textbox", { name: "Password" }).fill("definitely-wrong-password");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Incorrect email or password.")).toBeVisible();
@@ -31,7 +34,10 @@ test("repeated bad passwords trip the login rate limit", async ({ page }) => {
   const password = process.env.E2E_ADMIN_PASSWORD;
   if (password) {
     await page.goto("/admin/login");
-    await page.getByLabel("Email").fill(email!);
+    // getByRole, not getByLabel: both responsive `<LoginForm />` trees are
+    // always mounted (one hidden via CSS `display:none`), so getByLabel
+    // matches two legitimately-labeled inputs. See auth.setup.ts.
+    await page.getByRole("textbox", { name: "Email" }).fill(email!);
     await page.getByRole("textbox", { name: "Password" }).fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page).not.toHaveURL(/\/admin(?!\/login)/);

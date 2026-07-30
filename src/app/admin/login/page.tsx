@@ -43,7 +43,7 @@ export default async function AdminLoginPage({
   const { reason } = await searchParams;
 
   return (
-    <main className="min-h-screen md:h-screen md:overflow-hidden">
+    <main className="min-h-screen md:overflow-hidden">
       {/* Mobile (< md): unchanged centered-card layout. */}
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-ink-950 px-4 md:hidden">
         <div
@@ -73,7 +73,7 @@ export default async function AdminLoginPage({
       </div>
 
       {/* Desktop (md+): split-screen layout. */}
-      <div className="hidden md:flex md:h-screen">
+      <div className="hidden md:flex md:min-h-screen">
         <div className="relative flex w-[42%] shrink-0 flex-col justify-between overflow-hidden bg-ink-950 p-12">
           <div
             aria-hidden="true"
@@ -131,8 +131,8 @@ export default async function AdminLoginPage({
           </ul>
         </div>
 
-        <div className="flex flex-1 items-center justify-center overflow-y-auto bg-ink-50 px-8">
-          <div className="w-full max-w-sm">
+        <div className="flex flex-1 justify-center overflow-y-auto bg-ink-50 px-8">
+          <div className="my-auto w-full max-w-sm">
             <h2 className="font-display text-3xl font-semibold tracking-tight text-ink-900">
               Welcome back
             </h2>

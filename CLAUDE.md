@@ -350,6 +350,26 @@ a rate-limit collision, not a regression.
   `requirements` through to `ApplicationApprovedEmail`. `closingNote` itself is unchanged
   (the "bring a valid ID" line is a blanket rule, not itself a per-service requirement — the
   seed data in `src/features/services/data.ts` doesn't uniformly list ID as a requirement).
+- **`/admin/login` is a responsive split-screen at `md:` (768px)+, 2026-07-31** — a brand panel
+  (seal, name, the three portal feature groups — Requests/Content/System) beside the form,
+  with the pre-existing centered-card layout frozen unchanged below that breakpoint.
+  `src/app/admin/login/page.tsx` renders both responsive trees unconditionally and toggles
+  visibility with `md:hidden`/`hidden md:flex` (CSS `display:none`, not conditional
+  mounting), so **`LoginForm`'s form-control ids must stay `useId()`-derived, never
+  hardcoded string literals** — two copies of the same static id in one DOM breaks label
+  association (a `<label for>` binds to the first same-id element in tree order) and breaks
+  Playwright locators like `getByLabel`, whichever tree mounts second. The right (form)
+  panel centers its content via `my-auto` on the inner wrapper, not `items-center` on the
+  scrollable container — flex `align-items: center` clips the overflowing side with no way
+  to scroll back to it, while margin-auto degrades to top-aligned-and-scrollable; the outer
+  `<main>` and the desktop split container use `min-h-screen`, not a hard `h-screen`, so a
+  short viewport grows the page instead of clipping the brand panel's feature list. The
+  "Remember me" (checked/disabled, with an always-visible explanatory caption — not a
+  hover-only tooltip, for accessibility) and "Forgot password?" (reveals an inline note, not
+  a link to a nonexistent route) controls are deliberately honest placeholders, matching this
+  codebase's existing "no dead UI" convention (the same one that removed the dead FOI
+  Guide/More Statistics CTAs), since this app has no real password-reset flow or a second
+  "remembered" session lifetime beyond the existing 30-minute idle-timeout model.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
