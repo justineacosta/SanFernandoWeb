@@ -63,7 +63,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
       resend.emails.send({
         from,
         // to: input.to,
-        to: 'justine.psalm0923@gmail.com',
+        to: 'justine.psalm0923@gmail.com' as string,
         replyTo: input.replyTo,
         subject: input.subject,
         react: input.template,
