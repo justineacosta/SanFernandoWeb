@@ -33,10 +33,18 @@ three staged implementation plans (see Rollout below):
   - Never throws to its caller. Internally: `try { await resend.emails.send(...) } catch (err) { console.error(...); return { error: true } }`.
 - New env vars in `.env.example`: `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (e.g.
   `Barangay San Fernando <notifications@yourdomain>`).
-- Dev/prod asymmetry, matching the existing Turnstile pattern
-  (`verifyTurnstileToken`): missing `RESEND_API_KEY` in development skips
-  sending with a one-time `console.warn`; in production a missing key is a
-  configuration error the deploy should surface, not silently pass.
+- Dev/prod asymmetry in how a missing `RESEND_API_KEY` is *logged*, but never
+  in whether it blocks the caller — `sendEmail` never throws, in dev or prod,
+  per the fail-open decision below. In development it skips sending with a
+  one-time `console.warn`. In production it still skips sending (never
+  throws), but logs via `console.error` on every call, not just once — a
+  misconfigured deploy should be loud in the logs, but "loud" here means
+  visible to whoever checks logs, not a thrown exception that would turn a
+  missing env var into a failed resident submission. This is a deliberate
+  divergence from Turnstile's dev-skip/prod-throw asymmetry: Turnstile IS the
+  anti-bot layer, so failing open there defeats its purpose; email is a
+  best-effort notification layered on top of an already-committed DB write,
+  so failing open there is safe by construction.
 - No new queue, no outbox table for sending itself (rejected — see Approaches
   below). `email_log` (Section: Monitoring) is a delivery-status record, not a
   send queue; sends still go out synchronously, inline, in the triggering
