@@ -6,6 +6,10 @@ import type { ApplicationReviewValues, WalkInApplicationValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email";
+import { ApplicationSubmittedEmail } from "@/emails/ApplicationSubmittedEmail";
+import { ApplicationApprovedEmail } from "@/emails/ApplicationApprovedEmail";
+import { ApplicationRejectedEmail } from "@/emails/ApplicationRejectedEmail";
 
 export interface ActionResult {
   error: string | null;
@@ -85,12 +89,30 @@ export async function reviewApplication(
     })
     .eq("id", id)
     .eq("status", "pending")
-    .select("ticket_no")
+    .select("ticket_no, email, first_name, services (title)")
     .maybeSingle();
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That application was already reviewed. Refresh to see its status." };
 
   const approved = parsed.data.status === "approved";
+  if (data.email) {
+    const service = data.services as unknown as { title: string } | null;
+    const serviceTitle = service?.title ?? "document";
+    await sendEmail({
+      to: data.email,
+      subject: approved
+        ? `Your application is ready to claim — ${data.ticket_no}`
+        : `Update on your application — ${data.ticket_no}`,
+      template: approved
+        ? ApplicationApprovedEmail({ firstName: data.first_name, ticketNo: data.ticket_no, serviceTitle })
+        : ApplicationRejectedEmail({
+            firstName: data.first_name,
+            ticketNo: data.ticket_no,
+            serviceTitle,
+            remarks: parsed.data.remarks,
+          }),
+    });
+  }
   await recordActivity(actor, {
     type: approved ? "approve" : "reject",
     action: approved ? "approved application" : "rejected application",
@@ -148,7 +170,7 @@ export async function createWalkInApplication(
   const admin = createSupabaseAdminClient();
   const { data: service, error: serviceError } = await admin
     .from("services")
-    .select("id, tone")
+    .select("id, tone, title")
     .eq("id", parsed.data.serviceId)
     .maybeSingle();
   if (serviceError) return { error: "Could not encode the application." };
@@ -175,6 +197,18 @@ export async function createWalkInApplication(
     return { error: "Could not encode the application." };
   }
 
+  if (parsed.data.email) {
+    await sendEmail({
+      to: parsed.data.email,
+      subject: `Application received — ${data.ticket_no}`,
+      template: ApplicationSubmittedEmail({
+        firstName: parsed.data.firstName,
+        ticketNo: data.ticket_no,
+        serviceTitle: service.title,
+        purpose: parsed.data.purpose,
+      }),
+    });
+  }
   await recordActivity(actor, {
     type: "create",
     action: "encoded walk-in application",

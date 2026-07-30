@@ -4,6 +4,8 @@ import type { PublicApplicationValues, SubmitApplicationResult } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
+import { sendEmail } from "@/lib/email";
+import { ApplicationSubmittedEmail } from "@/emails/ApplicationSubmittedEmail";
 import { applicationSchema } from "./schema";
 
 /** Generous enough for a household on one connection; tight enough to stop a script. */
@@ -42,7 +44,7 @@ export async function submitApplication(
   // belong to the applications flow (primary tone — danger is the 2C complaint flow).
   const { data: service, error: serviceError } = await admin
     .from("services")
-    .select("id, is_available, tone")
+    .select("id, is_available, tone, title")
     .eq("id", serviceId)
     .maybeSingle();
   if (serviceError) {
@@ -76,6 +78,19 @@ export async function submitApplication(
   if (error || !data) {
     console.error("submitApplication failed:", error?.message);
     return { error: "We could not file your application. Please try again.", ticketNo: null };
+  }
+
+  if (parsed.data.email) {
+    await sendEmail({
+      to: parsed.data.email,
+      subject: `Application received — ${data.ticket_no}`,
+      template: ApplicationSubmittedEmail({
+        firstName: parsed.data.firstName,
+        ticketNo: data.ticket_no,
+        serviceTitle: service.title,
+        purpose: parsed.data.purpose,
+      }),
+    });
   }
 
   return { error: null, ticketNo: data.ticket_no };
