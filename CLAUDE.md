@@ -285,7 +285,26 @@ a rate-limit collision, not a regression.
   status-change notices) and Plan 3 (delivery monitoring via a dedicated
   `email_log` table + Resend webhook — deliberately not `audit_log`, which
   is built for human staff actions, not automated system events) are not
-  yet built.
+  yet built. **A final whole-branch review (2026-07-30) found and fixed 5
+  cross-cutting gaps.** `EMAIL_SITE_URL` now logs via `console.error` when
+  `NEXT_PUBLIC_SITE_URL` is unset in production, the same silent-prod-
+  misconfiguration treatment `sendEmail()` already gave a missing
+  `RESEND_API_KEY` (never throws — the fallback to `localhost:3000` still
+  applies, only louder). `sendEmail()` now races the Resend call against a
+  5s `SEND_TIMEOUT_MS` via `Promise.race` (not an SDK-version-dependent
+  AbortSignal), so a stalled connection still resolves `{ ok: false }`
+  through the existing catch instead of hanging the resident's submission.
+  `submitInquiry` now runs the ack email and the `staffEmailsFor` lookup
+  concurrently via `Promise.all` (neither depends on the other), and the
+  staff-notify `sendEmail()` call now sets `replyTo: parsed.data.email` —
+  hitting Reply on that email now reaches the resident, not
+  `RESEND_FROM_EMAIL`; `replyTo` is a `sendEmail()`-level field, deliberately
+  not a prop on `InquiryStaffNotifyEmailProps`. `docs/BACKEND_HANDOFF.md`'s
+  several "nothing emails anyone yet, blocked on §2D" claims (the ticket-flow
+  ones, the sub-project 5 inquiries changelog entry, item A's "still needed",
+  and the feedback section) are now annotated: closed for the contact-inquiry
+  case specifically, still open for feedback/ticketing (Plan 2) and delivery
+  monitoring (Plan 3).
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a

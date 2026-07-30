@@ -110,4 +110,28 @@ describe("sendEmail", () => {
     expect(result).toEqual({ ok: false });
     expect(error).toHaveBeenCalled();
   });
+
+  it("fails open within a bounded time when the Resend call hangs, never resolving", async () => {
+    process.env.RESEND_API_KEY = "test-key";
+    process.env.RESEND_FROM_EMAIL = "Barangay San Fernando <test@example.com>";
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    // A promise that never resolves — simulates a stalled connection.
+    sendMock.mockImplementation(() => new Promise(() => {}));
+    vi.useFakeTimers();
+    try {
+      const { sendEmail } = await import("@/lib/email");
+
+      const pending = sendEmail({
+        to: "resident@example.com",
+        subject: "Hi",
+        template: {} as never,
+      });
+      await vi.advanceTimersByTimeAsync(5000);
+      const result = await pending;
+
+      expect(result).toEqual({ ok: false });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

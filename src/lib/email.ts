@@ -15,6 +15,15 @@ export interface SendEmailResult {
 
 let warnedDevSkip = false;
 
+/** A hung Resend call must still resolve within a bounded time, not hang the caller. */
+const SEND_TIMEOUT_MS = 5000;
+
+function timeout(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error("sendEmail: timed out")), ms);
+  });
+}
+
 /**
  * Sends one transactional email through Resend. Never throws — a missing
  * API key, a Resend-reported error, or the send call itself throwing all
@@ -27,6 +36,10 @@ let warnedDevSkip = false;
  * Production also skips (never throws) but logs via console.error on every
  * call, so a misconfigured deploy is loud in the logs without blocking
  * anything it's layered on top of.
+ *
+ * A stalled Resend connection is raced against a SEND_TIMEOUT_MS ceiling so
+ * this still resolves (never hangs) within a few seconds — a timeout is
+ * just another rejection the same catch below turns into `{ ok: false }`.
  */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -46,13 +59,16 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
 
   try {
     const resend = new Resend(apiKey);
-    const { data, error } = await resend.emails.send({
-      from,
-      to: input.to,
-      replyTo: input.replyTo,
-      subject: input.subject,
-      react: input.template,
-    });
+    const { data, error } = await Promise.race([
+      resend.emails.send({
+        from,
+        to: input.to,
+        replyTo: input.replyTo,
+        subject: input.subject,
+        react: input.template,
+      }),
+      timeout(SEND_TIMEOUT_MS),
+    ]);
     if (error) {
       console.error("sendEmail: Resend API returned an error:", error.message);
       return { ok: false };
