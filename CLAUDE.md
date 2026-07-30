@@ -305,6 +305,40 @@ a rate-limit collision, not a regression.
   and the feedback section) are now annotated: closed for the contact-inquiry
   case specifically, still open for feedback/ticketing (Plan 2) and delivery
   monitoring (Plan 3).
+  **Plan 2 of 3: remaining triggers, 2026-07-30**
+  (`docs/superpowers/plans/2026-07-30-resend-email-remaining-triggers.md`). Wires every
+  trigger the design scoped to Plan 2: `submitFeedback` now emails every `handle-inquiries`
+  holder via `FeedbackStaffNotifyEmail` (feedback stays anonymous — no resident-facing
+  email, matching its no-PII design); all four ticketing flows' public submission actions
+  (`submitApplication`, `submitAppointment`, `submitComplaint`, `submitAssistance`) and
+  their walk-in siblings (`createWalkInApplication` and its three counterparts in
+  `src/features/admin/actions/*.ts`) send a `<Flow>SubmittedEmail` receipt to the
+  resident's email when one was given; and all 8 "final outcome" status-change admin
+  actions (`reviewApplication`'s approved/rejected, `reviewAppointment`'s
+  confirmed/declined, `reviewComplaint`'s dismissed + `closeComplaint`'s
+  resolved/dismissed, `reviewAssistance`'s declined + `decideAssistance`'s
+  granted/declined) send the matching notice — skipping the non-terminal
+  `released`/`completed`/`under-review` transitions the design deliberately excluded.
+  Every resident template composes a new shared component, `<TicketNotice>`
+  (`src/emails/shared/TicketNotice.tsx`) — the "Track this ticket" button, the ticket-number
+  treatment, and the optional remarks/detail-line rendering live there once rather than in
+  12 near-identical files, the same DRY reasoning the design used to pick composed JSX
+  templates over plain HTML strings in the first place. `src/emails/shared/text.ts` holds
+  two small pure helpers reused across templates: `periodLabel()` (the exact
+  "Morning (8:00 AM – 12:00 NN)" / "Afternoon (1:00 PM – 5:00 PM)" copy
+  `src/features/track/actions.ts` already established, not a second wording of the same
+  fact) and `excerpt()` (truncates a long free-text field — assistance's `details` — for an
+  email body). A complaint's `narrative` and `respondent` are deliberately never echoed
+  into `ComplaintSubmittedEmail` beyond the incident date and location: the same "status
+  only" restraint `TicketLookupResult` already documents for why `/track` never surfaces a
+  complaint's narrative applies here too, on principle, even though the email goes only to
+  the reporter's own inbox. `staffEmailsFor()` needed no changes — Plan 1's final review
+  already built and unit-tested it (`tests/unit/notifications.test.ts`) ahead of schedule.
+  Every new send follows Plan 1's established shape exactly: `await`ed (never
+  fire-and-forget), the resident's `email` column checked for null/`""` before sending (the
+  same nullable handling the row insert itself already applies), and the caller never
+  inspects `sendEmail()`'s return value. §2D's Plan 3 (delivery monitoring — `email_log` +
+  the Resend webhook) is the only piece of the original design still open.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a

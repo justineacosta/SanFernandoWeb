@@ -181,11 +181,10 @@
 > `tone === "danger"` already routed its service-card CTA away from
 > `/services/apply/[slug]`), and `/assistance/new` (category picker
 > sourced from `assistance_categories`; shows an unavailable notice if every
-> category is retired). Each ends in an on-screen ticket-number receipt only —
-> **no email is sent** (§2D was blocked on a Resend account; that account now exists and
-> §2D's Plan 1, `docs/superpowers/specs/2026-07-30-resend-email-integration-design.md`,
-> shipped 2026-07-30, but it wired only the contact-inquiry form — see item A below. These
-> four ticket flows' own submission receipts are still unbuilt, scoped to §2D's Plan 2).
+> category is retired). Each ends in an on-screen ticket-number receipt — **and now also an
+> emailed one**, when the resident gave an email address (§2D's Plan 2,
+> `docs/superpowers/plans/2026-07-30-resend-email-remaining-triggers.md`, shipped
+> 2026-07-30 — see item 6 below).
 > Three
 > new admin queues mirror `/admin/applications`'s pattern: `/admin/appointments`
 > (confirm/reschedule/decline, then mark completed; permission
@@ -1212,8 +1211,9 @@ the resident's own address so hitting Reply reaches them, not the notifications 
 this is what makes the form's "within 24-48 business hours" promise real. Both sends are
 best-effort: `sendEmail()`/`staffEmailsFor()` fail open by construction (`src/lib/email.ts`,
 `src/lib/notifications.ts`), so an email outage never turns into a failed submission. §2D's
-Plan 2 (feedback's staff alert below, plus the four ticketing flows' own receipts) and Plan
-3 (delivery monitoring) remain open.
+Plan 2 (feedback's staff alert, the four ticketing flows' own receipts and status notices —
+`docs/superpowers/plans/2026-07-30-resend-email-remaining-triggers.md`) shipped 2026-07-30
+too. Only Plan 3 (delivery monitoring) remains open.
 
 ### B. ~~Newsletter / SMS alerts signup~~ — **BUILT 2026-07-22** (migration `0019`)
 `subscribeToAlerts` in `src/features/announcements/actions.ts` writes to
@@ -1243,10 +1243,11 @@ mints ten-minute signed URLs in one batch per page load. This is the only privat
 project, because a screenshot can contain the sender's own account page or ticket.
 
 **Still needed**:
-- **Staff notification on arrival.** Nothing tells anyone a report came in; the queue is
-  checked, not pushed. No longer blocked on Resend itself — §2D's Plan 1 (2026-07-30) built
-  the send pipeline and `staffEmailsFor()` this trigger would reuse (see item A above) — but
-  feedback's own trigger is unwired, scoped to §2D's Plan 2.
+- ~~**Staff notification on arrival.**~~ **BUILT 2026-07-30** (§2D Plan 2,
+  `docs/superpowers/plans/2026-07-30-resend-email-remaining-triggers.md`). `submitFeedback`
+  now emails every `handle-inquiries` holder via `FeedbackStaffNotifyEmail`, reusing
+  `staffEmailsFor()` from item A above. Still no resident-facing email — feedback stays
+  anonymous by design.
 - **Spam housekeeping.** The endpoint is anonymous and accepts images. `deleteFeedback` is
   SuperAdmin-only and reachable only from a `dismissed` row, and it removes the screenshot —
   but nothing prunes automatically, so a flood needs a human. `scripts/report-orphaned-media.mjs`
@@ -1332,11 +1333,13 @@ The admin **UI now exists in full** (`/admin` redirects to the first module the 
    `/admin/complaints`, and `/admin/assistance` model the remaining three ticket
    queues end-to-end~~ **BUILT 2026-07-17 — see the ticketing-flows changelog entry
    above.** Same pattern as (5): Server Actions, service-role client, walk-in
-   encoding, real reviewer identity. **Still outstanding: emailing residents their
-   ticket number or a status update** — §2D's Plan 1 (2026-07-30) built the send pipeline
-   these four flows would use but wired only the contact-inquiry form (see item A above);
-   these ticket receipts/status notices remain scoped to §2D's Plan 2, and today every flow
-   still ends in an on-screen receipt only.
+   encoding, real reviewer identity. ~~**Still outstanding: emailing residents their
+   ticket number or a status update**~~ **BUILT 2026-07-30** (§2D Plan 2,
+   `docs/superpowers/plans/2026-07-30-resend-email-remaining-triggers.md`). All four flows
+   — applications, appointments, complaints, assistance, online and walk-in alike — now
+   email a submission receipt when the resident gave an email address, and the 8
+   "final outcome" status transitions (approved/rejected, confirmed/declined,
+   resolved/dismissed, granted/declined) each email a matching notice.
 
 Citizen accounts are **not** required by any current UI.
 
