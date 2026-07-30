@@ -1,7 +1,9 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { PasswordInput } from "@/components/ui/password-input";
 import { signIn, type AuthFormState } from "@/features/admin/actions/auth";
@@ -16,6 +18,10 @@ export function LoginForm() {
   // reads the same, and that new state must still show.
   const [dismissedState, setDismissedState] = useState<AuthFormState | null>(null);
   const visibleError = state.error && state !== dismissedState ? state.error : null;
+
+  // "Forgot password?" has no reset flow to link to yet — this reveals an
+  // honest note instead of a dead link. See the 2026-07-31 login design spec.
+  const [showForgotNote, setShowForgotNote] = useState(false);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -44,11 +50,41 @@ export function LoginForm() {
           className="w-full rounded-full border border-ink-200 bg-ink-50 px-4 py-2.5 text-ink-900 transition-colors focus:border-ink-300 focus:outline-none focus:ring-1 focus:ring-brand-400/30"
         />
       </div>
+      <div className="flex items-center justify-between text-sm">
+        <label
+          className="flex items-center gap-2 text-ink-600"
+          title="Sessions stay active for 30 minutes of inactivity."
+        >
+          <Checkbox checked disabled className="h-4 w-4 accent-brand-500" />
+          Remember me
+        </label>
+        <button
+          type="button"
+          onClick={() => setShowForgotNote((value) => !value)}
+          className="font-semibold text-brand-600 transition-colors hover:text-brand-700"
+        >
+          Forgot password?
+        </button>
+      </div>
+      {showForgotNote ? (
+        <InlineAlert
+          message="Contact a SuperAdmin to reset your password."
+          onDismiss={() => setShowForgotNote(false)}
+          className="text-ink-600"
+        />
+      ) : null}
       {visibleError ? (
         <InlineAlert message={visibleError} onDismiss={() => setDismissedState(state)} />
       ) : null}
-      <Button type="submit" variant="primary" className="w-full" disabled={isPending}>
-        {isPending ? "Signing in…" : "Sign in"}
+      <Button type="submit" variant="primary" size="lg" className="w-full gap-2" disabled={isPending}>
+        {isPending ? (
+          "Signing in…"
+        ) : (
+          <>
+            Sign in
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </>
+        )}
       </Button>
     </form>
   );
