@@ -1,7 +1,9 @@
 "use server";
 
 import type { PublicAssistanceValues, SubmitTicketResult } from "@/types";
+import { AssistanceSubmittedEmail } from "@/emails/AssistanceSubmittedEmail";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { assistanceSchema } from "./schema";
@@ -45,7 +47,7 @@ export async function submitAssistance(
   // Never trust the client's categoryId: it must exist and still be active.
   const { data: category, error: categoryError } = await admin
     .from("assistance_categories")
-    .select("id, is_active")
+    .select("id, is_active, label")
     .eq("id", parsed.data.categoryId)
     .maybeSingle();
   if (categoryError) {
@@ -76,6 +78,19 @@ export async function submitAssistance(
   if (error || !data) {
     console.error("submitAssistance failed:", error?.message);
     return { error: "We could not file your request. Please try again.", ticketNo: null };
+  }
+
+  if (parsed.data.email) {
+    await sendEmail({
+      to: parsed.data.email,
+      subject: `Assistance request received — ${data.ticket_no}`,
+      template: AssistanceSubmittedEmail({
+        firstName: parsed.data.firstName,
+        ticketNo: data.ticket_no,
+        categoryLabel: category.label,
+        details: parsed.data.details,
+      }),
+    });
   }
 
   return { error: null, ticketNo: data.ticket_no };

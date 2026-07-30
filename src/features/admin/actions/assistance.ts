@@ -7,8 +7,12 @@ import type {
   AssistanceReviewValues,
   WalkInAssistanceValues,
 } from "@/types";
+import { AssistanceDeclinedEmail } from "@/emails/AssistanceDeclinedEmail";
+import { AssistanceGrantedEmail } from "@/emails/AssistanceGrantedEmail";
+import { AssistanceSubmittedEmail } from "@/emails/AssistanceSubmittedEmail";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
+import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export interface ActionResult {
@@ -102,12 +106,23 @@ export async function reviewAssistance(
     })
     .eq("id", id)
     .eq("status", "pending")
-    .select("ticket_no")
+    .select("ticket_no, email, first_name")
     .maybeSingle();
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That request was already reviewed. Refresh to see its status." };
 
   const declined = parsed.data.status === "declined";
+  if (data.email && declined) {
+    await sendEmail({
+      to: data.email,
+      subject: `Update on your assistance request — ${data.ticket_no}`,
+      template: AssistanceDeclinedEmail({
+        firstName: data.first_name,
+        ticketNo: data.ticket_no,
+        remarks: parsed.data.remarks,
+      }),
+    });
+  }
   await recordActivity(actor, {
     // "took up" is a mid-flow status move, not a decision — hence update.
     type: declined ? "reject" : "update",
@@ -145,7 +160,7 @@ export async function decideAssistance(
     })
     .eq("id", id)
     .eq("status", "under-review")
-    .select("ticket_no")
+    .select("ticket_no, email, first_name, assistance_categories (label)")
     .maybeSingle();
   if (error) return { error: "Could not save the decision." };
   if (!data) {
@@ -153,6 +168,27 @@ export async function decideAssistance(
   }
 
   const granted = parsed.data.status === "granted";
+  if (data.email) {
+    const category = data.assistance_categories as unknown as { label: string } | null;
+    await sendEmail({
+      to: data.email,
+      subject: granted
+        ? `Your assistance request was granted — ${data.ticket_no}`
+        : `Update on your assistance request — ${data.ticket_no}`,
+      template: granted
+        ? AssistanceGrantedEmail({
+            firstName: data.first_name,
+            ticketNo: data.ticket_no,
+            categoryLabel: category?.label ?? "assistance",
+            remarks: parsed.data.remarks || null,
+          })
+        : AssistanceDeclinedEmail({
+            firstName: data.first_name,
+            ticketNo: data.ticket_no,
+            remarks: parsed.data.remarks,
+          }),
+    });
+  }
   await recordActivity(actor, {
     type: granted ? "approve" : "reject",
     action: granted ? "granted assistance request" : "declined assistance request",
@@ -183,7 +219,7 @@ export async function createWalkInAssistance(
   // availability toggle, nothing may write one, online or at the counter.
   const { data: category, error: categoryError } = await admin
     .from("assistance_categories")
-    .select("id, is_active")
+    .select("id, is_active, label")
     .eq("id", parsed.data.categoryId)
     .maybeSingle();
   if (categoryError) {
@@ -213,6 +249,19 @@ export async function createWalkInAssistance(
   if (error || !data) {
     console.error("createWalkInAssistance failed:", error?.message);
     return { error: "Could not encode the request." };
+  }
+
+  if (parsed.data.email) {
+    await sendEmail({
+      to: parsed.data.email,
+      subject: `Assistance request received — ${data.ticket_no}`,
+      template: AssistanceSubmittedEmail({
+        firstName: parsed.data.firstName,
+        ticketNo: data.ticket_no,
+        categoryLabel: category.label,
+        details: parsed.data.details,
+      }),
+    });
   }
 
   await recordActivity(actor, {
