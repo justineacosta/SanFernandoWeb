@@ -1,11 +1,13 @@
 "use client";
 
 import { useActionState, useId, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { PasswordInput } from "@/components/ui/password-input";
+import { Toast } from "@/components/ui/toast";
 import { signIn, type AuthFormState } from "@/features/admin/actions/auth";
 
 const initialState: AuthFormState = { error: null };
@@ -29,7 +31,7 @@ export function LoginForm() {
 
   // "Forgot password?" has no reset flow to link to yet — this reveals an
   // honest note instead of a dead link. See the 2026-07-31 login design spec.
-  const [showForgotNote, setShowForgotNote] = useState(false);
+  const [showForgotToast, setShowForgotToast] = useState(false);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -65,19 +67,22 @@ export function LoginForm() {
         </label>
         <button
           type="button"
-          onClick={() => setShowForgotNote((value) => !value)}
+          onClick={() => setShowForgotToast(true)}
           className="font-semibold text-brand-600 transition-colors hover:text-brand-700"
         >
           Forgot password?
         </button>
       </div>
-      {showForgotNote ? (
-        <InlineAlert
-          message="Contact a SuperAdmin to reset your password."
-          onDismiss={() => setShowForgotNote(false)}
-          className="text-ink-600"
-        />
-      ) : null}
+      {/* Portalled: the desktop tree wraps this form in a `-translate-y-10` for a visual
+          nudge, and any `transform` on an ancestor creates a new containing block for
+          `position:fixed` — without the portal, "bottom-right" resolves against that
+          transformed div instead of the viewport. */}
+      {showForgotToast
+        ? createPortal(
+            <Toast message="Contact SuperAdmin" onDismiss={() => setShowForgotToast(false)} />,
+            document.body,
+          )
+        : null}
       {visibleError ? (
         <InlineAlert message={visibleError} onDismiss={() => setDismissedState(state)} />
       ) : null}

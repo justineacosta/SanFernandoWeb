@@ -387,8 +387,25 @@ a rate-limit collision, not a regression.
   length — the 30-minute idle-timeout model (`src/lib/session-activity.ts`) is unchanged and is
   still the only thing governing session duration. Wiring `remember` to an actual longer-lived
   session is a real, not-yet-scoped security change, not a UI tweak. "Forgot password?" is
-  unchanged: still a button revealing an inline note, not a link to a nonexistent route, since
-  this app has no real password-reset flow.
+  still a button, not a link to a nonexistent route, since this app has no real password-reset
+  flow — but its honest note (now just "Contact SuperAdmin") surfaces as an unmodified
+  `Toast` (reusing the admin portal's own `src/components/ui/toast.tsx` exactly as-is, rendered
+  directly rather than through `useToast`, since this is a one-off informational message, not an
+  action confirmation the hook's success/error tone model fits) instead of an inline
+  `InlineAlert` block under the checkbox row, per a 2026-07-31 follow-up request for a more
+  polished look. A same-day iteration tried dead-centering it and widening the box (both via
+  short-lived props added to `Toast`) before landing back on the component's stock bottom-right,
+  content-sized presentation — those props were removed once unused, so `Toast` carries no
+  login-specific surface. **It must render through `createPortal(..., document.body)`, not
+  inline** — the desktop tree's form panel wraps `<LoginForm />` in a `-translate-y-10` div (a
+  visual nudge off the `my-auto` vertical-centering trick described below), and any `transform`
+  on an ancestor creates a new containing block for `position:fixed` descendants, so an inline
+  `<Toast>` resolved "bottom-right" against that transformed div's box instead of the true
+  viewport — confirmed visually, the toast rendered floating mid-panel over the Sign In button
+  rather than pinned to the screen corner. `login-form.tsx` portals it directly rather than
+  reworking the desktop layout's transform, the same fix `RowActions`/`Tooltip`/
+  `NotificationBell`/`AdminMobileNav` already use for the equivalent problem elsewhere in the
+  admin portal.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
@@ -532,6 +549,29 @@ a rate-limit collision, not a regression.
   it to `AnimatePresence` would also unmount closed editors and reset their form state).
 - **Icon caveat:** several data shapes carry `icon: LucideIcon` (a React component). A future
   API must return icon *name strings* mapped to components on the frontend.
+- **The public header links to `/admin/login` directly** (2026-07-30), so staff don't have to
+  know the URL by hand. Desktop: a labeled outline `Button` ("Login" + `CircleUserRound`,
+  read "Staff Login" until a final wording pass shortened it) in `SiteHeader`
+  (`src/components/layout/site-header.tsx`). It **replaced** the header's standalone accent
+  "Contact Us" button rather than sitting alongside it — with both buttons present, the label
+  pushed the row past its width budget and wrapped the wordmark and the
+  "Track a Request" nav item onto two lines even at 1440px, because `Container`'s
+  `--container-page` (80rem/1280px) caps the header's available width the same for *any*
+  viewport ≥1280px, so there was no wider breakpoint that ever granted more room — the fix had
+  to remove width demand, not defer it. "Contact Us" was redundant with `NAV_ITEMS`' own
+  "Contact" entry, so dropping it (rather than shrinking `DesktopNav`'s padding or collapsing
+  either button to icon-only) was the cleanest fix; confirmed the residual wrapping right at the
+  1024px `lg` boundary is unchanged pre-existing behavior, not something this introduced, by
+  diffing against the untouched header at that width. Mobile: a labeled "Login" row (icon
+  `LogIn`, kept different from desktop's icon on request) appended in `MobileNav`
+  (`src/components/navigation/mobile-nav.tsx`) below the `NAV_ITEMS` list, separated by a
+  divider rather than mixed into that array, since it's a staff-only utility link, not public
+  nav content — `NAV_ITEMS` stays public-page-only; the mobile hero's own "Contact Us" button is
+  untouched. `UserKey` isn't in `lucide-react@0.525.0` (the version this project had pinned
+  before this work) — it was added later, so this bumped the dependency to `^0.577.0`, the last
+  release still on the pre-1.0 major, deliberately avoiding the newer `1.x` line's larger,
+  unvetted diff for a one-icon need; the pin stays at `^0.577.0` even now that the icon settled
+  on (`CircleUserRound`) predates it, since downgrading would be pure churn.
 - **Security-hardening pass, all 3 plans shipped** (`docs/superpowers/plans/2026-07-28-security-hardening-foundation.md`,
   finished in the `security-hardening-foundation` worktree, including a final whole-branch
   fix round; Plan 2's own plan and spec are

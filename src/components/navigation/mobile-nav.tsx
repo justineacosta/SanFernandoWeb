@@ -1,7 +1,8 @@
 "use client";
 
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
-import { Menu, X } from "lucide-react";
+import Link from "next/link";
+import { LogIn, Menu, X } from "lucide-react";
 import { FADE_QUICK, POP } from "@/lib/motion";
 import { NAV_ITEMS } from "@/constants/site";
 import { NavLink } from "@/components/navigation/nav-link";
@@ -49,6 +50,16 @@ export function MobileNav() {
                   </li>
                 ))}
               </ul>
+              <div className="mt-1 border-t border-ink-100 pt-1">
+                <Link
+                  href="/admin/login"
+                  onClick={close}
+                  className="flex items-center gap-2 rounded-full px-4 py-3 text-sm font-medium text-ink-600 transition-colors hover:bg-ink-50 hover:text-ink-900"
+                >
+                  <LogIn className="h-4 w-4" aria-hidden="true" />
+                  Login
+                </Link>
+              </div>
             </motion.nav>
           ) : null}
         </AnimatePresence>

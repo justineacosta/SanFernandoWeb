@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { CircleUserRound } from "lucide-react";
 import { SITE } from "@/constants/site";
 import { cn } from "@/lib/utils";
 import { Container } from "@/components/ui/container";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { DesktopNav } from "@/components/navigation/desktop-nav";
 import { MobileNav } from "@/components/navigation/mobile-nav";
 
-/** Fixed floating pill header: seal + wordmark, pill nav, contact CTA. */
+/** Fixed floating pill header: seal + wordmark, pill nav, staff login CTA. */
 export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
 
@@ -47,8 +47,8 @@ export function SiteHeader() {
           </Link>
           <DesktopNav />
           <div className="flex items-center gap-2">
-            <Button href="/contact" variant="accent" size="sm" className="hidden lg:inline-flex">
-              Contact Us <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            <Button href="/admin/login" variant="outline" size="sm" className="hidden lg:inline-flex">
+              <CircleUserRound className="h-4 w-4" aria-hidden="true" /> Login
             </Button>
             <MobileNav />
           </div>
