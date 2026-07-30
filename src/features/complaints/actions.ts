@@ -1,7 +1,9 @@
 "use server";
 
 import type { PublicComplaintValues, SubmitTicketResult } from "@/types";
+import { ComplaintSubmittedEmail } from "@/emails/ComplaintSubmittedEmail";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { COMPLAINT_SERVICE_ID } from "./queries";
@@ -80,6 +82,19 @@ export async function submitComplaint(
   if (error || !data) {
     console.error("submitComplaint failed:", error?.message);
     return { error: "We could not file your report. Please try again.", ticketNo: null };
+  }
+
+  if (parsed.data.email) {
+    await sendEmail({
+      to: parsed.data.email,
+      subject: `Report filed — ${data.ticket_no}`,
+      template: ComplaintSubmittedEmail({
+        firstName: parsed.data.firstName,
+        ticketNo: data.ticket_no,
+        incidentDate: parsed.data.incidentDate,
+        location: parsed.data.location,
+      }),
+    });
   }
 
   return { error: null, ticketNo: data.ticket_no };

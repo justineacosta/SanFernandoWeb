@@ -3,8 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ComplaintCloseValues, ComplaintReviewValues, WalkInComplaintValues } from "@/types";
+import { ComplaintDismissedEmail } from "@/emails/ComplaintDismissedEmail";
+import { ComplaintResolvedEmail } from "@/emails/ComplaintResolvedEmail";
+import { ComplaintSubmittedEmail } from "@/emails/ComplaintSubmittedEmail";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
+import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { manilaToday } from "@/lib/format";
 
@@ -112,12 +116,23 @@ export async function reviewComplaint(
     })
     .eq("id", id)
     .eq("status", "received")
-    .select("ticket_no")
+    .select("ticket_no, email, first_name")
     .maybeSingle();
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That report was already reviewed. Refresh to see its status." };
 
   const dismissed = parsed.data.status === "dismissed";
+  if (data.email && dismissed) {
+    await sendEmail({
+      to: data.email,
+      subject: `Update on your report — ${data.ticket_no}`,
+      template: ComplaintDismissedEmail({
+        firstName: data.first_name,
+        ticketNo: data.ticket_no,
+        remarks: parsed.data.remarks,
+      }),
+    });
+  }
   await recordActivity(actor, {
     // "took up" moves the report into mediation — a status move, not a verdict.
     type: dismissed ? "reject" : "update",
@@ -155,7 +170,7 @@ export async function closeComplaint(
     })
     .eq("id", id)
     .eq("status", "under-review")
-    .select("ticket_no")
+    .select("ticket_no, email, first_name")
     .maybeSingle();
   if (error) return { error: "Could not close the report." };
   if (!data) {
@@ -163,6 +178,25 @@ export async function closeComplaint(
   }
 
   const resolved = parsed.data.status === "resolved";
+  if (data.email) {
+    await sendEmail({
+      to: data.email,
+      subject: resolved
+        ? `Your report has been resolved — ${data.ticket_no}`
+        : `Update on your report — ${data.ticket_no}`,
+      template: resolved
+        ? ComplaintResolvedEmail({
+            firstName: data.first_name,
+            ticketNo: data.ticket_no,
+            remarks: parsed.data.remarks || null,
+          })
+        : ComplaintDismissedEmail({
+            firstName: data.first_name,
+            ticketNo: data.ticket_no,
+            remarks: parsed.data.remarks,
+          }),
+    });
+  }
   await recordActivity(actor, {
     // Resolved is the positive terminal outcome; it files with approve so a
     // reviewer filtering decisions sees all four flows' outcomes together.
@@ -208,6 +242,19 @@ export async function createWalkInComplaint(values: WalkInComplaintValues): Prom
   if (error || !data) {
     console.error("createWalkInComplaint failed:", error?.message);
     return { error: "Could not encode the report." };
+  }
+
+  if (parsed.data.email) {
+    await sendEmail({
+      to: parsed.data.email,
+      subject: `Report filed — ${data.ticket_no}`,
+      template: ComplaintSubmittedEmail({
+        firstName: parsed.data.firstName,
+        ticketNo: data.ticket_no,
+        incidentDate: parsed.data.incidentDate,
+        location: parsed.data.location,
+      }),
+    });
   }
 
   await recordActivity(actor, {
