@@ -6,6 +6,10 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { inquirySchema } from "./schema";
+import { sendEmail } from "@/lib/email";
+import { staffEmailsFor } from "@/lib/notifications";
+import { InquiryAcknowledgedEmail } from "@/emails/InquiryAcknowledgedEmail";
+import { InquiryStaffNotifyEmail } from "@/emails/InquiryStaffNotifyEmail";
 
 export interface SubmitInquiryResult {
   error: string | null;
@@ -47,17 +51,47 @@ export async function submitInquiry(
   }
 
   const admin = createSupabaseAdminClient();
-  const { error } = await admin.from("inquiries").insert({
-    first_name: parsed.data.firstName,
-    last_name: parsed.data.lastName,
-    email: parsed.data.email,
-    phone: parsed.data.phone,
-    subject: parsed.data.subject,
-    message: parsed.data.message,
-  });
-  if (error) {
-    console.error("submitInquiry failed:", error.message);
+  const { data, error } = await admin
+    .from("inquiries")
+    .insert({
+      first_name: parsed.data.firstName,
+      last_name: parsed.data.lastName,
+      email: parsed.data.email,
+      phone: parsed.data.phone,
+      subject: parsed.data.subject,
+      message: parsed.data.message,
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    console.error("submitInquiry failed:", error?.message);
     return { error: "We could not send your message. Please try again." };
+  }
+
+  // Best-effort notifications: the inquiry row is already saved above, so
+  // sendEmail()/staffEmailsFor() failing must never surface as an error to
+  // the resident — both fail open by construction (see src/lib/email.ts).
+  await sendEmail({
+    to: parsed.data.email,
+    subject: "We received your message — Barangay San Fernando",
+    template: InquiryAcknowledgedEmail({
+      firstName: parsed.data.firstName,
+      subject: parsed.data.subject,
+    }),
+  });
+
+  const staffEmails = await staffEmailsFor("handle-inquiries");
+  if (staffEmails.length > 0) {
+    await sendEmail({
+      to: staffEmails,
+      subject: `New inquiry: ${parsed.data.subject}`,
+      template: InquiryStaffNotifyEmail({
+        fullName: `${parsed.data.firstName} ${parsed.data.lastName}`,
+        subject: parsed.data.subject,
+        message: parsed.data.message,
+        inquiryId: data.id,
+      }),
+    });
   }
 
   return { error: null };
