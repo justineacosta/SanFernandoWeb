@@ -17,6 +17,8 @@ export interface TicketNoticeProps {
   remarksLabel?: string;
   remarks?: string | null;
   closingNote?: string;
+  requirementsLabel?: string;
+  requirements?: string[];
   trackHref: string;
 }
 
@@ -37,6 +39,8 @@ export function TicketNotice({
   remarksLabel = "Remarks",
   remarks,
   closingNote,
+  requirementsLabel = "Bring these when you claim it",
+  requirements = [],
   trackHref,
 }: TicketNoticeProps) {
   return (
@@ -70,6 +74,18 @@ export function TicketNotice({
       ) : null}
       {closingNote ? (
         <Text style={{ fontSize: 14, lineHeight: 1.5, margin: "16px 0" }}>{closingNote}</Text>
+      ) : null}
+      {requirements.length > 0 ? (
+        <>
+          <Text style={{ fontSize: 14, fontWeight: 700, margin: "16px 0 4px" }}>
+            {requirementsLabel}:
+          </Text>
+          {requirements.map((requirement, index) => (
+            <Text key={`${index}-${requirement}`} style={{ fontSize: 14, lineHeight: 1.5, margin: "0 0 4px" }}>
+              • {requirement}
+            </Text>
+          ))}
+        </>
       ) : null}
       <Button
         href={`${EMAIL_SITE_URL}${trackHref}`}

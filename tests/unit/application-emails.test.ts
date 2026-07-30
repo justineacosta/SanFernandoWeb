@@ -31,12 +31,15 @@ describe("ApplicationApprovedEmail", () => {
         firstName: "Maria",
         ticketNo: "APP-2026-00001",
         serviceTitle: "Barangay Clearance",
+        requirements: ["Latest Community Tax Certificate (Cedula)", "Application fee: ₱50.00"],
       }),
     );
 
     expect(html).toContain("approved");
     expect(html).toContain("Barangay Clearance");
     expect(html).toContain("APP-2026-00001");
+    expect(html).toContain("Latest Community Tax Certificate (Cedula)");
+    expect(html).toContain("Application fee: ₱50.00");
   });
 });
 

@@ -4,12 +4,14 @@ export interface ApplicationApprovedEmailProps {
   firstName: string;
   ticketNo: string;
   serviceTitle: string;
+  requirements: string[];
 }
 
 export function ApplicationApprovedEmail({
   firstName,
   ticketNo,
   serviceTitle,
+  requirements,
 }: ApplicationApprovedEmailProps) {
   return (
     <TicketNotice
@@ -19,6 +21,7 @@ export function ApplicationApprovedEmail({
       intro={`Your ${serviceTitle} is ready to claim at the barangay hall.`}
       ticketNo={ticketNo}
       closingNote="Bring a valid ID when you claim it."
+      requirements={requirements}
       trackHref={`/track?ticket=${encodeURIComponent(ticketNo)}`}
     />
   );

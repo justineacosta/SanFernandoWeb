@@ -339,6 +339,17 @@ a rate-limit collision, not a regression.
   same nullable handling the row insert itself already applies), and the caller never
   inspects `sendEmail()`'s return value. §2D's Plan 3 (delivery monitoring — `email_log` +
   the Resend webhook) is the only piece of the original design still open.
+  **Fixed 2026-07-31:** `ApplicationApprovedEmail`'s `closingNote` was a hardcoded
+  `"Bring a valid ID when you claim it."` with no mention of the document's actual
+  requirements. `TicketNotice` (`src/emails/shared/TicketNotice.tsx`) gained an optional
+  `requirements: string[]` (+ `requirementsLabel`, default `"Bring these when you claim it"`)
+  rendered as a bulleted list below `closingNote` — the email equivalent of `ApplyForm`'s
+  "Bring these when you claim your {serviceTitle}" card (`src/features/services/components/
+  apply-form.tsx`). `reviewApplication` (`src/features/admin/actions/applications.ts`) now
+  selects `services (title, requirements)` instead of `title` alone and passes the row's
+  `requirements` through to `ApplicationApprovedEmail`. `closingNote` itself is unchanged
+  (the "bring a valid ID" line is a blanket rule, not itself a per-service requirement — the
+  seed data in `src/features/services/data.ts` doesn't uniformly list ID as a requirement).
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a

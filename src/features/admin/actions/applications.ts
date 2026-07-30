@@ -89,14 +89,14 @@ export async function reviewApplication(
     })
     .eq("id", id)
     .eq("status", "pending")
-    .select("ticket_no, email, first_name, services (title)")
+    .select("ticket_no, email, first_name, services (title, requirements)")
     .maybeSingle();
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That application was already reviewed. Refresh to see its status." };
 
   const approved = parsed.data.status === "approved";
   if (data.email) {
-    const service = data.services as unknown as { title: string } | null;
+    const service = data.services as unknown as { title: string; requirements: string[] } | null;
     const serviceTitle = service?.title ?? "document";
     await sendEmail({
       to: data.email,
@@ -104,7 +104,12 @@ export async function reviewApplication(
         ? `Your application is ready to claim — ${data.ticket_no}`
         : `Update on your application — ${data.ticket_no}`,
       template: approved
-        ? ApplicationApprovedEmail({ firstName: data.first_name, ticketNo: data.ticket_no, serviceTitle })
+        ? ApplicationApprovedEmail({
+            firstName: data.first_name,
+            ticketNo: data.ticket_no,
+            serviceTitle,
+            requirements: service?.requirements ?? [],
+          })
         : ApplicationRejectedEmail({
             firstName: data.first_name,
             ticketNo: data.ticket_no,
