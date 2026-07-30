@@ -62,8 +62,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     const { data, error } = await Promise.race([
       resend.emails.send({
         from,
-        // to: input.to,
-        to: "justine.psalm0923@gmail.com" as string,
+        to: input.to,
         replyTo: input.replyTo,
         subject: input.subject,
         react: input.template,
