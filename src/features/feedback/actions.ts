@@ -7,6 +7,10 @@ import { ALLOWED_IMAGE_TYPES, MAX_SCREENSHOT_BYTES } from "@/lib/storage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { feedbackSchema } from "./schema";
+import { sendEmail } from "@/lib/email";
+import { staffEmailsFor } from "@/lib/notifications";
+import { feedbackCategoryLabel } from "./data";
+import { FeedbackStaffNotifyEmail } from "@/emails/FeedbackStaffNotifyEmail";
 
 export interface SubmitFeedbackResult {
   error: string | null;
@@ -78,23 +82,44 @@ export async function submitFeedback(form: FormData): Promise<SubmitFeedbackResu
   }
 
   const admin = createSupabaseAdminClient();
-  const { error } = await admin.from("feedback").insert({
-    category: parsed.data.category,
-    subject: parsed.data.subject,
-    message: parsed.data.message,
-    // 0 crosses the boundary as "not rated"; the column stores null so it stays
-    // out of every average.
-    rating: parsed.data.rating === 0 ? null : parsed.data.rating,
-    page_path: parsed.data.pagePath,
-    screenshot_path: screenshotPath,
-  });
-  if (error) {
+  const { data, error } = await admin
+    .from("feedback")
+    .insert({
+      category: parsed.data.category,
+      subject: parsed.data.subject,
+      message: parsed.data.message,
+      // 0 crosses the boundary as "not rated"; the column stores null so it stays
+      // out of every average.
+      rating: parsed.data.rating === 0 ? null : parsed.data.rating,
+      page_path: parsed.data.pagePath,
+      screenshot_path: screenshotPath,
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
     // Compensating delete: without this the object outlives the row that was
     // supposed to reference it, which is exactly the orphan the deferred-upload
     // rule exists to prevent.
     await discardFeedbackScreenshot(screenshotPath, "submitFeedback insert failed");
-    console.error("submitFeedback failed:", error.message);
+    console.error("submitFeedback failed:", error?.message);
     return { error: "We could not send your feedback. Please try again." };
+  }
+
+  // Best-effort: the feedback row is already saved above, so a Resend outage or
+  // nobody currently holding handle-inquiries must never surface as an error to
+  // the (anonymous) submitter — sendEmail()/staffEmailsFor() both fail open.
+  const staffEmails = await staffEmailsFor("handle-inquiries");
+  if (staffEmails.length > 0) {
+    await sendEmail({
+      to: staffEmails,
+      subject: `New feedback: ${parsed.data.subject}`,
+      template: FeedbackStaffNotifyEmail({
+        category: feedbackCategoryLabel(parsed.data.category),
+        subject: parsed.data.subject,
+        message: parsed.data.message,
+        feedbackId: data.id,
+      }),
+    });
   }
 
   return { error: null };
