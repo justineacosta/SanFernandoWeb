@@ -139,14 +139,38 @@ export interface RequestResetState {
 const RESET_LIMIT = 3;
 const RESET_WINDOW_MS = 15 * 60 * 1000;
 
+/**
+ * Wall-clock floor for every post-validation `{ error: null, submitted: true }`
+ * response, timed from right after Turnstile/Zod validation passes (see
+ * `start` below). Without this, the "found, active account" branch — which
+ * awaits a Resend network call plus an audit-log insert — measurably takes
+ * longer than every other branch that returns the identical payload right
+ * away (rate-limited, unknown email, inactive/archived account). An attacker
+ * could enumerate valid staff emails by timing the response instead of
+ * reading its content, the same attack class the identical-payload design
+ * exists to close. This is not trying to be provably constant-time — with
+ * `RESET_LIMIT` capping an attacker at 3 timing samples per 15 minutes per
+ * IP+email, there isn't much of a side channel to close precisely — just a
+ * practical narrowing of the gap, sized to the found-active branch's typical
+ * cost (one Supabase Auth call, one Resend call, one audit insert) without
+ * making every rejected request wait out sendEmail()'s full 5s timeout
+ * ceiling.
+ */
+const RESET_TIMING_FLOOR_MS = 600;
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const resetRequestSchema = z.object({ email: z.string().email() });
 
 /**
  * Request a password-reset link. Public, unauthenticated — anyone can submit
- * any email. ALWAYS returns the same generic response regardless of whether
- * the email matches a real, active account, or whether the rate limit was
- * hit — differing copy or timing here would let a script enumerate valid
- * staff emails. See the 2026-07-31 forgot-password design spec.
+ * any email. ALWAYS returns the same generic response, in comparable time,
+ * regardless of whether the email matches a real, active account, or
+ * whether the rate limit was hit — differing copy, or a measurably
+ * different response time, would let a script enumerate valid staff emails.
+ * See the 2026-07-31 forgot-password design spec.
  */
 export async function requestPasswordReset(
   _prev: RequestResetState,
@@ -164,6 +188,12 @@ export async function requestPasswordReset(
   }
   const normalizedEmail = parsed.data.email.trim().toLowerCase();
 
+  // Timed from here: every branch below returns the identical
+  // `{ error: null, submitted: true }` payload, so from this point on
+  // wall-clock time must not leak which branch was taken either — see
+  // RESET_TIMING_FLOOR_MS below, applied at the single return point.
+  const start = Date.now();
+
   // Record-on-every-call (checkRateLimit), NOT signIn's isRateLimited/
   // recordRateLimitHit split: every request must count identically whether
   // or not the email matches a real account, or differential counting
@@ -171,50 +201,63 @@ export async function requestPasswordReset(
   // signIn's own limiter.
   const ipOk = await checkRateLimit(`reset:ip:${ip}`, RESET_LIMIT, RESET_WINDOW_MS);
   const emailOk = await checkRateLimit(`reset:email:${normalizedEmail}`, RESET_LIMIT, RESET_WINDOW_MS);
-  if (!ipOk || !emailOk) {
-    // Still the generic response — a distinct "too many requests" message
-    // would itself confirm requests against this email were being processed.
-    return { error: null, submitted: true };
-  }
 
-  // generateLink is the account-existence check, not a separate `profiles`
-  // query by email: `profiles.email` isn't guaranteed to be stored in the
-  // same case Supabase Auth normalizes `auth.users.email` to (createTeamUser
-  // inserts whatever case the SuperAdmin typed), so looking it up by email
-  // risks a false "no such account" for an existing user typed in a
-  // different case. generateLink asks Supabase Auth directly and hands back
-  // the matching user's id, which is then used for an exact `profiles` id
-  // lookup below.
-  const admin = createSupabaseAdminClient();
-  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    type: "recovery",
-    email: normalizedEmail,
-    options: { redirectTo: `${EMAIL_SITE_URL}/admin/reset-password` },
-  });
+  if (ipOk && emailOk) {
+    // generateLink is the account-existence check, not a separate `profiles`
+    // query by email: `profiles.email` isn't guaranteed to be stored in the
+    // same case Supabase Auth normalizes `auth.users.email` to (createTeamUser
+    // inserts whatever case the SuperAdmin typed), so looking it up by email
+    // risks a false "no such account" for an existing user typed in a
+    // different case. generateLink asks Supabase Auth directly and hands back
+    // the matching user's id, which is then used for an exact `profiles` id
+    // lookup below.
+    const admin = createSupabaseAdminClient();
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email: normalizedEmail,
+      options: { redirectTo: `${EMAIL_SITE_URL}/admin/reset-password` },
+    });
 
-  if (!linkError && linkData?.user) {
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("full_name, is_active, is_archived")
-      .eq("id", linkData.user.id)
-      .maybeSingle();
+    if (!linkError && linkData?.user) {
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("full_name, is_active, is_archived")
+        .eq("id", linkData.user.id)
+        .maybeSingle();
 
-    if (profile && profile.is_active && !profile.is_archived) {
-      await sendEmail({
-        to: normalizedEmail,
-        subject: "Reset your password — Barangay San Fernando",
-        template: PasswordResetEmail({ resetUrl: linkData.properties.action_link }),
-      });
-      await recordActivity(
-        { id: linkData.user.id, fullName: profile.full_name },
-        {
-          type: "password_reset",
-          action: "requested a password reset",
-          entityType: "account",
-          entityId: linkData.user.id,
-        },
-      );
+      if (profile && profile.is_active && !profile.is_archived) {
+        // Concurrent, not sequential — neither call depends on the other's
+        // result, matching the Promise.all shape submitInquiry already uses
+        // for its own independent ack-email + staff-lookup pair.
+        await Promise.all([
+          sendEmail({
+            to: normalizedEmail,
+            subject: "Reset your password — Barangay San Fernando",
+            template: PasswordResetEmail({ resetUrl: linkData.properties.action_link }),
+          }),
+          recordActivity(
+            { id: linkData.user.id, fullName: profile.full_name },
+            {
+              type: "password_reset",
+              action: "requested a password reset",
+              entityType: "account",
+              entityId: linkData.user.id,
+            },
+          ),
+        ]);
+      }
     }
+  }
+  // Every branch above (rate-limited, unknown email, inactive/archived
+  // account, found-active account) converges here on the same generic
+  // response — a distinct "too many requests" message would itself confirm
+  // requests against this email were being processed, and skipping the
+  // timing floor below would leak the same thing through response latency
+  // instead of copy.
+
+  const elapsed = Date.now() - start;
+  if (elapsed < RESET_TIMING_FLOOR_MS) {
+    await delay(RESET_TIMING_FLOOR_MS - elapsed);
   }
 
   return { error: null, submitted: true };
