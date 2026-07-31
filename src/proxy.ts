@@ -50,9 +50,20 @@ export async function proxy(request: NextRequest) {
 
   // Exact match — assumes no nested routes exist under /admin/login.
   const isLoginPage = request.nextUrl.pathname === "/admin/login";
+  // The forgot/reset-password pages are public by design (2026-07-31
+  // forgot-password flow) — anti-enumeration means the request-reset page
+  // must be reachable by anyone, and the reset-completion page's proof of
+  // identity is the emailed `code`, not a session. Exempted only from the
+  // unauthenticated-redirect-away check below, not from `isLoginPage`'s other
+  // uses (the signed-in-user and idle-timeout branches), since a signed-in
+  // user landing on either page isn't the case this gate exists to catch.
+  const isPublicAuthPage =
+    isLoginPage ||
+    request.nextUrl.pathname === "/admin/forgot-password" ||
+    request.nextUrl.pathname === "/admin/reset-password";
   const secure = request.nextUrl.protocol === "https:";
 
-  if (!user && !isLoginPage) {
+  if (!user && !isPublicAuthPage) {
     const redirectResponse = NextResponse.redirect(
       new URL("/admin/login", request.url),
     );

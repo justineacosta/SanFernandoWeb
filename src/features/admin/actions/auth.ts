@@ -6,7 +6,12 @@ import { cookies, headers } from "next/headers";
 import { getSessionUser, getSessionUserIgnoringIdle } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { isRateLimited, recordRateLimitHit, requestIp } from "@/lib/rate-limit";
+import { checkRateLimit, isRateLimited, recordRateLimitHit, requestIp } from "@/lib/rate-limit";
+import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
+import { sendEmail } from "@/lib/email";
+import { EMAIL_SITE_URL } from "@/emails/site-url";
+import { PasswordResetEmail } from "@/emails/PasswordResetEmail";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   ACTIVITY_COOKIE,
   ACTIVITY_COOKIE_PATH,
@@ -114,6 +119,105 @@ export async function signIn(
   );
 
   redirect("/admin");
+}
+
+export interface RequestResetState {
+  error: string | null;
+  submitted: boolean;
+}
+
+// The generic "if an account exists..." copy shown for every outcome (found,
+// not found, inactive, rate-limited) lives in ForgotPasswordForm, not here —
+// a "use server" file may only export async functions, so a plain string
+// constant can't be exported alongside requestPasswordReset (Next's compiler
+// rejects the whole module, breaking every page that imports it, including
+// /admin/login). The action itself never returns this copy as `error`; it
+// returns `{ error: null, submitted: true }` and the form shows its own copy
+// whenever `submitted` is true.
+
+/** Tighter than the public forms' hour-long windows, matching admin login's own caution. */
+const RESET_LIMIT = 3;
+const RESET_WINDOW_MS = 15 * 60 * 1000;
+
+const resetRequestSchema = z.object({ email: z.string().email() });
+
+/**
+ * Request a password-reset link. Public, unauthenticated — anyone can submit
+ * any email. ALWAYS returns the same generic response regardless of whether
+ * the email matches a real, active account, or whether the rate limit was
+ * hit — differing copy or timing here would let a script enumerate valid
+ * staff emails. See the 2026-07-31 forgot-password design spec.
+ */
+export async function requestPasswordReset(
+  _prev: RequestResetState,
+  formData: FormData,
+): Promise<RequestResetState> {
+  const ip = await requestIp();
+  const turnstileToken = formData.get("turnstileToken");
+  if (!(await verifyTurnstileToken(typeof turnstileToken === "string" ? turnstileToken : null, ip))) {
+    return { error: TURNSTILE_FAILURE_MESSAGE, submitted: false };
+  }
+
+  const parsed = resetRequestSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) {
+    return { error: "Enter a valid email address.", submitted: false };
+  }
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
+
+  // Record-on-every-call (checkRateLimit), NOT signIn's isRateLimited/
+  // recordRateLimitHit split: every request must count identically whether
+  // or not the email matches a real account, or differential counting
+  // itself becomes an enumeration signal. Two keys, same IP+email shape as
+  // signIn's own limiter.
+  const ipOk = await checkRateLimit(`reset:ip:${ip}`, RESET_LIMIT, RESET_WINDOW_MS);
+  const emailOk = await checkRateLimit(`reset:email:${normalizedEmail}`, RESET_LIMIT, RESET_WINDOW_MS);
+  if (!ipOk || !emailOk) {
+    // Still the generic response — a distinct "too many requests" message
+    // would itself confirm requests against this email were being processed.
+    return { error: null, submitted: true };
+  }
+
+  // generateLink is the account-existence check, not a separate `profiles`
+  // query by email: `profiles.email` isn't guaranteed to be stored in the
+  // same case Supabase Auth normalizes `auth.users.email` to (createTeamUser
+  // inserts whatever case the SuperAdmin typed), so looking it up by email
+  // risks a false "no such account" for an existing user typed in a
+  // different case. generateLink asks Supabase Auth directly and hands back
+  // the matching user's id, which is then used for an exact `profiles` id
+  // lookup below.
+  const admin = createSupabaseAdminClient();
+  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email: normalizedEmail,
+    options: { redirectTo: `${EMAIL_SITE_URL}/admin/reset-password` },
+  });
+
+  if (!linkError && linkData?.user) {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("full_name, is_active, is_archived")
+      .eq("id", linkData.user.id)
+      .maybeSingle();
+
+    if (profile && profile.is_active && !profile.is_archived) {
+      await sendEmail({
+        to: normalizedEmail,
+        subject: "Reset your password — Barangay San Fernando",
+        template: PasswordResetEmail({ resetUrl: linkData.properties.action_link }),
+      });
+      await recordActivity(
+        { id: linkData.user.id, fullName: profile.full_name },
+        {
+          type: "password_reset",
+          action: "requested a password reset",
+          entityType: "account",
+          entityId: linkData.user.id,
+        },
+      );
+    }
+  }
+
+  return { error: null, submitted: true };
 }
 
 export async function signOut(): Promise<void> {
