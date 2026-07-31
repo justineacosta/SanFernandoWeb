@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 /**
  * The admin password-reset request/set flows. No session required — both
  * pages are public by design (the request form is anti-enumeration by
- * construction; the reset form's proof of identity is the emailed code, not
- * a session).
+ * construction; the reset form's proof of identity is the emailed
+ * `token_hash`, not a session).
  *
  * `getByRole`, not `getByLabel`, for the email field: AuthLayout mounts both
  * the mobile and desktop trees at once (one hidden via CSS `display:none`),
@@ -34,9 +34,12 @@ test("an invalid email is rejected client-side, before the generic message can s
   await expect(
     page.getByText(/if an account exists for that email, we've sent a link/i),
   ).not.toBeVisible();
+  // The negative assertion alone would also pass on a crashed or 404'd page,
+  // so assert the form is still standing and submittable.
+  await expect(page.getByRole("button", { name: "Send reset link" })).toBeVisible();
 });
 
-test("visiting the reset page with no code shows an invalid-link message", async ({ page }) => {
+test("visiting the reset page with no token_hash shows an invalid-link message", async ({ page }) => {
   await page.goto("/admin/reset-password");
 
   // .filter({ visible: true }): AuthLayout mounts this paragraph in both the

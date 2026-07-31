@@ -400,37 +400,87 @@ a rate-limit collision, not a regression.
   `requestPasswordReset` (`src/features/admin/actions/auth.ts`) is Turnstile-gated like the
   other 8 public forms, then rate-limited via `checkRateLimit`'s record-on-every-call form (not
   `signIn`'s success-doesn't-count split — every request must count identically, real account
-  or not, or differential counting itself becomes an enumeration signal), then calls the
-  service-role `auth.admin.generateLink({type:'recovery', ...})` and emails the resulting link
-  via a new `PasswordResetEmail` template through the existing Resend pipeline — Supabase's own
+  or not, or differential counting itself becomes an enumeration signal; `RESET_LIMIT` = 3 per
+  `RESET_WINDOW_MS` = 15 min, on both a `reset:ip:*` and a `reset:email:*` key), then calls the
+  service-role `auth.admin.generateLink({type:'recovery', email})` and emails a reset link
+  through the existing Resend pipeline via a new `PasswordResetEmail` template — Supabase's own
   mailer is never used. **It always returns the same generic response** ("If an account exists
   for that email...") regardless of whether the email matched a real/active account or whether
   the rate limit was hit; the UI cannot observably distinguish any of those cases, by design.
-  The account-existence check is `generateLink`'s own result, not a `profiles` lookup by email
-  — `profiles.email` isn't guaranteed to share `auth.users.email`'s case normalization
-  (`createTeamUser` inserts whatever case was typed), so matching by email risked a false
-  negative for an existing account; `generateLink` returns the matching user's id instead, and
-  `profiles` is then queried by that id (exact, no case ambiguity). `resetPassword` exchanges
-  the emailed link's `code` for a session via `exchangeCodeForSession` **only at submit time,
-  inside the Server Action — never when `/admin/reset-password` first renders**, because
-  corporate email "safe link" scanners pre-fetch every link in an inbound email before the
-  recipient opens it, which would otherwise burn the single-use code before the real user ever
-  clicks. After updating the password on that session, it's immediately signed back out before
-  redirecting to `/admin/login?reset=success` — the recovery session must not linger, and it
-  never touches the custom `sf-activity` idle cookie, so the idle-timeout model is unaffected.
-  Both new audit entries reuse the existing `"password_reset"` `AuditActionType` (already used
-  by `changeMyPassword`'s current-password-required flow, which this doesn't replace) rather
-  than adding a new enum value. **Requires a one-time Supabase dashboard change on every
-  environment** (Authentication → URL Configuration → Redirect URLs): `generateLink`'s
-  `redirectTo` must be on the project's allow-list, or the emailed link won't land on
-  `/admin/reset-password` with a usable `code`. `src/proxy.ts`'s unauthenticated-redirect-away
-  gate was widened — a new `isPublicAuthPage` constant (`isLoginPage || pathname ===
-  "/admin/forgot-password" || pathname === "/admin/reset-password"`) replaces `isLoginPage` in
-  just that one `if (!user && !isPublicAuthPage)` branch — to exempt both new routes by exact
-  pathname from the redirect-to-login check; the other three uses of `isLoginPage` in that file
-  (the idle-timeout branch's `!isLoginPage` guard, the signed-in-user-on-login-page redirect,
-  and the activity-cookie-slide condition) were deliberately left untouched, since a signed-in
-  user landing on either new page isn't the case those branches exist to catch. Tested via
+  `RESET_TIMING_FLOOR_MS` (1200) closes that same leak in the time dimension: every
+  post-validation branch returns the identical payload, so without a floor the found-active
+  branch — an admin `generateLink` round trip, then a `profiles` query, then max(one Resend
+  call, one audit insert) — would answer measurably slower than the rate-limited, unknown-email
+  and inactive-account ones, and a script could enumerate staff addresses by stopwatch instead
+  of by reading copy. It shipped at 600ms, which those three sequential network hops plausibly
+  exceed on their own; 1200 sits above them without making rejected requests wait out
+  `sendEmail()`'s full 5s ceiling. The account-existence check is `generateLink`'s own result,
+  not a `profiles` lookup by email — `profiles.email` isn't guaranteed to share
+  `auth.users.email`'s case normalization (`createTeamUser` inserts whatever case was typed),
+  so matching by email risked a false negative for an existing account; `generateLink` returns
+  the matching user's id instead, and `profiles` is then queried by that id (exact, no case
+  ambiguity). **The emailed link carries `generateLink`'s `properties.hashed_token`, not its
+  `action_link`, and `resetPassword` redeems it with `verifyOtp({type:"recovery", token_hash})`
+  — NOT `exchangeCodeForSession`.** Do not "simplify" this back: the flow originally shipped on
+  `action_link` + `exchangeCodeForSession` and was broken end-to-end for every possible link,
+  which six per-task reviews missed because it reads like the documented happy path.
+  `@supabase/ssr`'s `createServerClient` hardcodes `flowType: "pkce"`, setting that field
+  *after* spreading caller-supplied auth options so `src/lib/supabase/server.ts` cannot
+  override it; PKCE's `exchangeCodeForSession` then demands a code-verifier that
+  `@supabase/auth-js` reads from that same client's storage, and the verifier is written only
+  by the client that *initiated* the flow. Here the flow is initiated entirely server-side by
+  the service-role admin client, which writes nothing to the resident's browser — so the
+  verifier can never exist and every exchange throws `AuthPKCECodeVerifierMissingError`, even
+  on a perfectly fresh link. `verifyOtp` needs no verifier: it POSTs the hash to Supabase's
+  `/verify` endpoint and, on success, persists the returned session through the cookie-bound
+  client's normal adapter (`setAll` → `cookies().set`, mutable inside a Server Action), which
+  is exactly the session `updateUser({password})` then runs against. The URL is built by this
+  app — `${EMAIL_SITE_URL}/admin/reset-password?token_hash=…` — so **there is no Supabase
+  dashboard prerequisite on any environment**: nothing sends `redirectTo`, nothing uses
+  `action_link`, and `verifyOtp` is a server-to-server POST that performs no redirect, so no
+  Redirect-URL allow-list entry is involved. (A prior version of this bullet claimed such a
+  change was required. It was never true once this fix landed, and the claim is now false in
+  full.) Redemption happens **only at submit time, inside the Server Action — never when
+  `/admin/reset-password` first renders**, because corporate email "safe link" scanners
+  pre-fetch every link in an inbound email before the recipient opens it, which would otherwise
+  burn the single-use token before the real user ever clicks; the page only reads the
+  `token_hash` search param and forwards it to a hidden input. That name is a wire contract —
+  `token_hash` in the URL, in the hidden input's `name`, and in `formData.get("token_hash")`;
+  `tokenHash` everywhere internal (Zod key, page destructure, component prop) — and a mismatch
+  compiles clean while failing silently at runtime. `RESET_SUBMIT_LIMIT` /
+  `RESET_SUBMIT_WINDOW_MS` (10 per 15 min, keyed `reset-submit:ip:*`) is defense-in-depth
+  against replay or brute-force of the token itself. After updating the password the session is
+  immediately signed back out before redirecting to `/admin/login?reset=success` — the recovery
+  session must not linger, and it never touches the custom `sf-activity` idle cookie, so the
+  idle-timeout model is unaffected. Both new audit entries reuse the existing
+  `"password_reset"` `AuditActionType` (already used by `changeMyPassword`'s
+  current-password-required flow, which this doesn't replace) rather than adding a new enum
+  value. The request-side entry carries `detail: "requested from the public forgot-password
+  form"`, because it is filed against a *real* account by an unidentified anonymous caller —
+  anyone who guesses a staff address gets a row attributed to that identity. This does not
+  contradict `signIn`'s "a rejected sign-in is deliberately NOT logged" rule 15 lines above it:
+  that row would be unbounded and attacker-triggerable at will, whereas this one is capped by
+  the email-keyed `RESET_LIMIT` window and holds no attacker-controlled free text (every field
+  is a constant or server-derived from the matched account), so it can only ever prove volume.
+  "Someone is probing this account" is worth knowing; the `detail` is what stops a reader
+  mistaking the row for the holder's own action. **`src/proxy.ts`'s `isPublicAuthPage` constant
+  (`isLoginPage || pathname === "/admin/forgot-password" || pathname ===
+  "/admin/reset-password"`) exempts two branches, not one.** It was added for the
+  `if (!user && !isPublicAuthPage)` redirect-to-login check, and the idle gate was initially
+  left keyed on `isLoginPage` reasoning that "a signed-in user landing on either new page isn't
+  the case that branch exists to catch" — which was wrong. The `sb-*` refresh token lives for
+  days, so a staffer still signed in but idle 30+ minutes (no `sf-activity` cookie) who clicks
+  their own emailed reset link hits that gate, and its redirect to
+  `/admin/login?reason=timeout` **discards the query string**, throwing away the one-time
+  `token_hash` and leaving no route back to the form. The idle gate now tests
+  `!isPublicAuthPage`, and a second block right after it handles the same idle condition on the
+  two new pages by deleting the stale `sb-*` cookies onto the response that goes on to render
+  normally — same hygiene, no redirect, query string intact. That block carries `!isLoginPage`
+  so `/admin/login` still falls through to the unchanged redirect-to-`/admin` branch below it,
+  and files no audit entry (the redirecting branch records a user bounced *out* of an
+  authenticated area; this one is someone arriving at a page that is public by design). It sets
+  a `clearedStaleSession` flag the bottom activity-slide block now also checks, so no
+  `sf-activity` window is opened for a session that was just deleted. Tested via
   `tests/e2e/public/forgot-password.spec.ts`, which needs no
   `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD` (both pages are public) — the full emailed-link round
   trip isn't automatable without a live inbox, same limitation the Resend integration design

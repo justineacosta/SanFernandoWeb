@@ -53,15 +53,22 @@ export async function proxy(request: NextRequest) {
   // The forgot/reset-password pages are public by design (2026-07-31
   // forgot-password flow) — anti-enumeration means the request-reset page
   // must be reachable by anyone, and the reset-completion page's proof of
-  // identity is the emailed `code`, not a session. Exempted only from the
-  // unauthenticated-redirect-away check below, not from `isLoginPage`'s other
-  // uses (the signed-in-user and idle-timeout branches), since a signed-in
-  // user landing on either page isn't the case this gate exists to catch.
+  // identity is the emailed `token_hash`, not a session.
+  //
+  // Exempted from TWO branches below: the unauthenticated-redirect-away check
+  // (an anonymous visitor is the normal case here) and the idle-timeout
+  // *redirect* (which becomes a clear-in-place — see that block's comment for
+  // why a redirect would destroy the link). Deliberately NOT exempted from
+  // the signed-in-user-on-/admin/login redirect, which still keys off
+  // `isLoginPage` alone.
   const isPublicAuthPage =
     isLoginPage ||
     request.nextUrl.pathname === "/admin/forgot-password" ||
     request.nextUrl.pathname === "/admin/reset-password";
   const secure = request.nextUrl.protocol === "https:";
+  // Set when the idle gate clears a stale session in place instead of
+  // redirecting; read by the activity-slide block at the bottom.
+  let clearedStaleSession = false;
 
   if (!user && !isPublicAuthPage) {
     const redirectResponse = NextResponse.redirect(
@@ -99,10 +106,21 @@ export async function proxy(request: NextRequest) {
    * the old middleware.ts convention) so the service-role admin client is
    * safe to use; profile lookup bypasses RLS the same way recordActivity's
    * other callers do.
+   *
+   * Public auth pages take the clear-in-place path below instead of this
+   * redirect, and the difference matters: redirecting to
+   * /admin/login?reason=timeout discards the ORIGINAL query string, and for
+   * /admin/reset-password that query string is the one-time `token_hash`
+   * — the link's only proof of identity. A staffer who is still signed in
+   * (the sb-* refresh token lives for days) but has been idle 30+ minutes
+   * would click their own emailed reset link and be bounced to the login
+   * page with the token thrown away, leaving them no way back to the form.
+   * The stale session still deserves clearing, so it is cleared; only the
+   * redirect is dropped.
    */
   if (
     user &&
-    !isLoginPage &&
+    !isPublicAuthPage &&
     !hasActivityCookie(request.cookies.get(ACTIVITY_COOKIE)?.value)
   ) {
     const timedOut = NextResponse.redirect(
@@ -134,6 +152,34 @@ export async function proxy(request: NextRequest) {
     return timedOut;
   }
 
+  /*
+   * Same idle condition, but on /admin/forgot-password or
+   * /admin/reset-password: clear the stale session cookies onto the response
+   * that goes on to render the page normally, preserving the query string.
+   *
+   * `!isLoginPage` keeps /admin/login out — a signed-in user there is still
+   * handled by the redirect-to-/admin branch immediately below, exactly as
+   * before, so the "no loop is possible" note above still holds.
+   *
+   * No audit entry, unlike the redirecting branch: that one records a user
+   * being bounced OUT of an authenticated area, which is the event worth
+   * discovering. This one is someone arriving at a page that is public and
+   * unauthenticated by design; the session is dropped as hygiene, not as a
+   * sign-out worth attributing.
+   */
+  if (
+    user &&
+    isPublicAuthPage &&
+    !isLoginPage &&
+    !hasActivityCookie(request.cookies.get(ACTIVITY_COOKIE)?.value)
+  ) {
+    request.cookies
+      .getAll()
+      .filter((cookie) => cookie.name.startsWith("sb-"))
+      .forEach((cookie) => response.cookies.delete({ name: cookie.name, path: "/" }));
+    clearedStaleSession = true;
+  }
+
   if (user && isLoginPage) {
     const redirectResponse = NextResponse.redirect(
       new URL("/admin", request.url),
@@ -145,7 +191,10 @@ export async function proxy(request: NextRequest) {
   }
 
   // A real page navigation by a signed-in user IS activity — slide the window.
-  if (user && !isLoginPage && !isPrefetch(request)) {
+  // Skipped when the block above just deleted the session cookies: opening an
+  // idle window for a session that no longer exists would leave the browser
+  // holding a live sf-activity cookie with no sb-* session behind it.
+  if (user && !isLoginPage && !isPrefetch(request) && !clearedStaleSession) {
     response.cookies.set(activityCookieOptions(secure));
   }
 
