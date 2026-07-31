@@ -887,7 +887,24 @@ a rate-limit collision, not a regression.
   nothing left to tell the server to clean it up. That is an accepted tradeoff of the two-call
   design, not an open bug; the janitor that surfaces such orphans, `scripts/report-orphaned-
   media.mjs`, was rewritten 2026-07-29 (see below) to actually look in the buckets this window
-  can leave one in. **The Route Handler derives the destination
+  can leave one in. **Narrowed (not closed) 2026-07-31:** all three document forms
+  (`legislative-form.tsx`, `transparency-document-form.tsx`, `transparency-project-form.tsx`)
+  now catch the case where the save Server Action call itself throws — a dropped connection or
+  an in-app navigation away, tab still alive — right after the upload succeeded, and fire a new
+  `cleanupOrphanedUpload` (`src/features/admin/actions/documents.ts`, next to
+  `removeStoredDocument`, same "not audited" reasoning) for whatever just got uploaded. This is
+  deliberately **not** the umbrella-spec-rejected sweeper (§2.8 of
+  `docs/superpowers/specs/2026-07-22-transactional-uploads-design.md`, "a sweeper that deletes
+  on its own judgement... umbrella §3.3 rejected"): it is a targeted compensating action tied to
+  one specific failed client call, not a background process scanning storage on its own
+  schedule. A thrown client-side call doesn't prove the save never committed server-side — the
+  request can still succeed while the response is lost in transit — so `cleanupOrphanedUpload`
+  re-checks whether the exact path (`crypto.randomUUID()`-based, so an exact match is reliable)
+  is now referenced by `legislative_documents.file_path` or `transparency_files.path` before
+  deleting anything, and a failed lookup skips the delete rather than risk removing a file a row
+  now legitimately points to. It does not chase the remaining cases — a closed tab, a full page
+  reload, an idle timeout killing the request — since no JS survives to catch anything then;
+  those still surface only via the report script, unchanged. **The Route Handler derives the destination
   bucket itself and never trusts a client-sent status:** its request contract is `kind` + an
   optional `id` (the record being edited; absent for a new one, which is always `draft`), and it
   reads that record's real `status` from `legislative_documents`/`transparency_documents`/

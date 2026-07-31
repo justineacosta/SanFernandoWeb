@@ -7,6 +7,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { saveLegislative, setLegislativeStatus } from "@/features/admin/actions/legislative";
+import { cleanupOrphanedUpload } from "@/features/admin/actions/documents";
 import { uploadDocumentFiles } from "@/features/admin/lib/document-upload-client";
 import { useAdminUserId } from "./admin-user-context";
 import { DraftRecoveryBar, DraftSavedNote } from "./draft-recovery-bar";
@@ -62,9 +63,9 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
   function handleSave(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    let upload: { path: string; sizeBytes: number } | null = null;
     startTransition(async () => {
       try {
-        let upload: { path: string; sizeBytes: number } | null = null;
         if (file) {
           const uploadResult = await uploadDocumentFiles("legislative", id, [file]);
           if (uploadResult.error || uploadResult.files.length === 0) {
@@ -82,6 +83,11 @@ export function LegislativeForm({ record, onSaved, onCancel }: LegislativeFormPr
         draft.clear();
         onSaved("Document saved.");
       } catch {
+        // The save call itself never resolved (dropped connection, navigated
+        // away) after the file already reached Storage — clean it up rather
+        // than leave it for the orphan report. Best-effort: not awaited, and
+        // cleanupOrphanedUpload re-checks the row before deleting anything.
+        if (upload) cleanupOrphanedUpload("legislative", status, upload.path).catch(() => {});
         setError("Something went wrong. Please try again.");
       }
     });

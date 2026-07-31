@@ -13,6 +13,7 @@ import {
   saveTransparencyDocument,
   setTransparencyDocumentStatus,
 } from "@/features/admin/actions/transparency-documents";
+import { cleanupOrphanedUpload } from "@/features/admin/actions/documents";
 import { MultiFileUploader, type ExistingFile } from "./multi-file-uploader";
 
 export interface TransparencyDocumentEditRecord {
@@ -71,9 +72,9 @@ export function TransparencyDocumentForm({
   function handleSave(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    let uploaded: { path: string; mime: string; sizeBytes: number }[] = [];
     startTransition(async () => {
       try {
-        let uploaded: { path: string; mime: string; sizeBytes: number }[] = [];
         if (newFiles.length > 0) {
           const uploadResult = await uploadDocumentFiles("documents", id, newFiles);
           if (uploadResult.error) {
@@ -91,6 +92,14 @@ export function TransparencyDocumentForm({
         draft.clear();
         onSaved("Document saved.");
       } catch {
+        // The save call itself never resolved (dropped connection, navigated
+        // away) after the files already reached Storage — clean them up
+        // rather than leave them for the orphan report. Best-effort: not
+        // awaited, and cleanupOrphanedUpload re-checks each row before
+        // deleting anything.
+        for (const file of uploaded) {
+          cleanupOrphanedUpload("transparency", status, file.path).catch(() => {});
+        }
         setError("Something went wrong. Please try again.");
       }
     });
