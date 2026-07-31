@@ -263,6 +263,88 @@ export async function requestPasswordReset(
   return { error: null, submitted: true };
 }
 
+/** Defense-in-depth against replay/brute-force of the (long, single-use, random) emailed code. */
+const RESET_SUBMIT_LIMIT = 10;
+const RESET_SUBMIT_WINDOW_MS = 15 * 60 * 1000;
+
+const resetPasswordSchema = z
+  .object({
+    code: z.string().min(1),
+    password: z.string().min(10, "New password needs at least 10 characters."),
+    confirmPassword: z.string().min(1),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
+
+/**
+ * Set a new password from an emailed recovery link. Public, unauthenticated
+ * by design — the `code` itself, not a session, is the proof of identity.
+ *
+ * The code is exchanged for a session HERE, at submit time, never when the
+ * page renders: corporate email "safe link" scanners pre-fetch every link in
+ * an inbound email before the recipient opens it, which would silently burn
+ * Supabase's single-use recovery code before the real user ever clicks. The
+ * page (src/app/admin/reset-password/page.tsx) only ever reads the `code`
+ * search param, never exchanges it.
+ */
+export async function resetPassword(
+  _prev: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const ip = await requestIp();
+  if (!(await checkRateLimit(`reset-submit:ip:${ip}`, RESET_SUBMIT_LIMIT, RESET_SUBMIT_WINDOW_MS))) {
+    return { error: "Too many attempts. Please request a new reset link." };
+  }
+
+  const parsed = resetPasswordSchema.safeParse({
+    code: formData.get("code"),
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(parsed.data.code);
+  if (exchangeError || !data.user) {
+    return { error: "This reset link has expired or already been used. Request a new one." };
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({ password: parsed.data.password });
+  if (updateError) {
+    await supabase.auth.signOut();
+    return { error: "Could not update your password. Request a new reset link and try again." };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("full_name")
+    .eq("id", data.user.id)
+    .maybeSingle();
+
+  await recordActivity(
+    { id: data.user.id, fullName: profile?.full_name ?? data.user.email ?? "Unknown" },
+    {
+      type: "password_reset",
+      action: "reset password via emailed link",
+      entityType: "account",
+      entityId: data.user.id,
+    },
+  );
+
+  // The recovery session must not linger — sign it out before redirecting so
+  // this flow never leaves the browser "logged in" as a side effect. It also
+  // never touches the custom `sf-activity` idle cookie signIn sets, so the
+  // idle-timeout model is unaffected.
+  await supabase.auth.signOut();
+
+  redirect("/admin/login?reset=success");
+}
+
 export async function signOut(): Promise<void> {
   // Resolve the actor BEFORE signing out — afterwards there is no session to
   // attribute the entry to.
