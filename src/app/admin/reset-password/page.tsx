@@ -8,11 +8,14 @@ export const metadata: Metadata = { title: "Set a new password" };
 export default async function ResetPasswordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ code?: string }>;
+  searchParams: Promise<{ token_hash?: string }>;
 }) {
-  const { code } = await searchParams;
+  // Read only — never redeemed here. See resetPassword's doc comment: email
+  // "safe link" scanners pre-fetch this URL, and redeeming on render would
+  // burn the single-use token before the real user ever clicks.
+  const { token_hash: tokenHash } = await searchParams;
 
-  if (!code) {
+  if (!tokenHash) {
     return (
       <AuthLayout subtitle="Set a new password">
         <p className="text-center text-sm text-ink-600">
@@ -31,7 +34,7 @@ export default async function ResetPasswordPage({
 
   return (
     <AuthLayout subtitle="Set a new password">
-      <ResetPasswordForm code={code} />
+      <ResetPasswordForm tokenHash={tokenHash} />
     </AuthLayout>
   );
 }

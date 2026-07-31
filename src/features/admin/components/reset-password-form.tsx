@@ -9,7 +9,7 @@ import { resetPassword, type AuthFormState } from "@/features/admin/actions/auth
 
 const initialState: AuthFormState = { error: null };
 
-export function ResetPasswordForm({ code }: { code: string }) {
+export function ResetPasswordForm({ tokenHash }: { tokenHash: string }) {
   const uid = useId();
   const passwordId = `${uid}-password`;
   const confirmId = `${uid}-confirm`;
@@ -19,7 +19,8 @@ export function ResetPasswordForm({ code }: { code: string }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <input type="hidden" name="code" value={code} />
+      {/* Field name must stay "token_hash" — resetPassword reads it via formData.get("token_hash"). */}
+      <input type="hidden" name="token_hash" value={tokenHash} />
       <div>
         <label htmlFor={passwordId} className="mb-1 block text-sm font-semibold text-ink-700">
           New password

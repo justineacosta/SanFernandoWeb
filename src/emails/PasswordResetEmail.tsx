@@ -6,11 +6,13 @@ export interface PasswordResetEmailProps {
 }
 
 /**
- * resetUrl is Supabase's own generateLink() action_link — already a full,
- * absolute URL through Supabase's /auth/v1/verify endpoint (which redirects
- * to /admin/reset-password with a `code` param once clicked) — unlike
- * TicketNotice's trackHref, this is used as-is, not joined with
- * EMAIL_SITE_URL.
+ * resetUrl is a URL this app constructs itself in requestPasswordReset —
+ * `${EMAIL_SITE_URL}/admin/reset-password?token_hash=…`, carrying
+ * generateLink()'s `hashed_token` rather than its `action_link` (which would
+ * route through Supabase's own /auth/v1/verify endpoint; this flow redeems
+ * the token server-side instead). It is already absolute, so unlike
+ * TicketNotice's trackHref it is used as-is here, never joined with
+ * EMAIL_SITE_URL a second time.
  */
 export function PasswordResetEmail({ resetUrl }: PasswordResetEmailProps) {
   return (

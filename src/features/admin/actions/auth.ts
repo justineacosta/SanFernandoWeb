@@ -152,11 +152,16 @@ const RESET_WINDOW_MS = 15 * 60 * 1000;
  * `RESET_LIMIT` capping an attacker at 3 timing samples per 15 minutes per
  * IP+email, there isn't much of a side channel to close precisely — just a
  * practical narrowing of the gap, sized to the found-active branch's typical
- * cost (one Supabase Auth call, one Resend call, one audit insert) without
- * making every rejected request wait out sendEmail()'s full 5s timeout
- * ceiling.
+ * cost without making every rejected request wait out sendEmail()'s full 5s
+ * timeout ceiling.
+ *
+ * Sized at 1200ms, not the 600 this originally shipped with: the found-active
+ * branch is an admin generateLink() round trip, THEN a profiles query, THEN
+ * max(one Resend call, one audit insert) — three sequential network hops that
+ * plausibly exceed 600ms on their own, which would leave every over-floor
+ * response leaking exactly the branch this floor exists to hide.
  */
-const RESET_TIMING_FLOOR_MS = 600;
+const RESET_TIMING_FLOOR_MS = 1200;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -211,11 +216,17 @@ export async function requestPasswordReset(
     // different case. generateLink asks Supabase Auth directly and hands back
     // the matching user's id, which is then used for an exact `profiles` id
     // lookup below.
+    //
+    // No `options.redirectTo`: we never send Supabase's own `action_link`
+    // (the /auth/v1/verify?...&redirect_to=... URL that option shapes). Only
+    // `properties.hashed_token` is used, and the link the resident actually
+    // receives is built by this app below — so nothing here depends on the
+    // project's Redirect-URL allow-list. `options` is optional on
+    // GenerateRecoveryLinkParams, so it is omitted outright.
     const admin = createSupabaseAdminClient();
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: "recovery",
       email: normalizedEmail,
-      options: { redirectTo: `${EMAIL_SITE_URL}/admin/reset-password` },
     });
 
     if (!linkError && linkData?.user) {
@@ -226,6 +237,16 @@ export async function requestPasswordReset(
         .maybeSingle();
 
       if (profile && profile.is_active && !profile.is_archived) {
+        // The emailed link is built here rather than taken from
+        // `linkData.properties.action_link`: that action_link routes through
+        // Supabase's own /auth/v1/verify endpoint, whereas this flow verifies
+        // the token server-side at submit time (see resetPassword). Carrying
+        // the raw `hashed_token` straight to our own page is what lets
+        // verifyOtp do that without any PKCE round trip.
+        const resetUrl = `${EMAIL_SITE_URL}/admin/reset-password?token_hash=${encodeURIComponent(
+          linkData.properties.hashed_token,
+        )}`;
+
         // Concurrent, not sequential — neither call depends on the other's
         // result, matching the Promise.all shape submitInquiry already uses
         // for its own independent ack-email + staff-lookup pair.
@@ -233,8 +254,20 @@ export async function requestPasswordReset(
           sendEmail({
             to: normalizedEmail,
             subject: "Reset your password — Barangay San Fernando",
-            template: PasswordResetEmail({ resetUrl: linkData.properties.action_link }),
+            template: PasswordResetEmail({ resetUrl }),
           }),
+          // Logged, even though signIn deliberately does NOT log a rejected
+          // sign-in ("failed attempts against a guessed address would let
+          // anyone append rows to an append-only table"). Two material
+          // differences make this one safe where that one wasn't: it is
+          // bounded by the email-keyed RESET_LIMIT window, so an attacker
+          // cannot append at will against a single account; and every field
+          // is a constant or server-derived from the matched account, so
+          // there is no attacker-controlled free text to inject — the row can
+          // only ever prove volume. The `detail` exists so nobody reading
+          // audit_log mistakes the row for "the account holder did this":
+          // an anonymous third party typing a staff address into a public
+          // form produces exactly the same entry.
           recordActivity(
             { id: linkData.user.id, fullName: profile.full_name },
             {
@@ -242,6 +275,7 @@ export async function requestPasswordReset(
               action: "requested a password reset",
               entityType: "account",
               entityId: linkData.user.id,
+              detail: "requested from the public forgot-password form",
             },
           ),
         ]);
@@ -263,13 +297,13 @@ export async function requestPasswordReset(
   return { error: null, submitted: true };
 }
 
-/** Defense-in-depth against replay/brute-force of the (long, single-use, random) emailed code. */
+/** Defense-in-depth against replay/brute-force of the (long, single-use, random) emailed token hash. */
 const RESET_SUBMIT_LIMIT = 10;
 const RESET_SUBMIT_WINDOW_MS = 15 * 60 * 1000;
 
 const resetPasswordSchema = z
   .object({
-    code: z.string().min(1),
+    tokenHash: z.string().min(1),
     password: z.string().min(10, "New password needs at least 10 characters."),
     confirmPassword: z.string().min(1),
   })
@@ -280,14 +314,30 @@ const resetPasswordSchema = z
 
 /**
  * Set a new password from an emailed recovery link. Public, unauthenticated
- * by design — the `code` itself, not a session, is the proof of identity.
+ * by design — the `token_hash` itself, not a session, is the proof of
+ * identity.
  *
- * The code is exchanged for a session HERE, at submit time, never when the
- * page renders: corporate email "safe link" scanners pre-fetch every link in
- * an inbound email before the recipient opens it, which would silently burn
- * Supabase's single-use recovery code before the real user ever clicks. The
- * page (src/app/admin/reset-password/page.tsx) only ever reads the `code`
- * search param, never exchanges it.
+ * The token is redeemed HERE, at submit time, never when the page renders:
+ * corporate email "safe link" scanners pre-fetch every link in an inbound
+ * email before the recipient opens it, which would silently burn Supabase's
+ * single-use recovery token before the real user ever clicks. The page
+ * (src/app/admin/reset-password/page.tsx) only ever reads the `token_hash`
+ * search param and forwards it to a hidden input; nothing redeems it until
+ * this action runs.
+ *
+ * Redemption is `verifyOtp({type:"recovery", token_hash})`, NOT
+ * `exchangeCodeForSession`. The latter cannot work in this flow at all:
+ * @supabase/ssr's createServerClient hardcodes `flowType: "pkce"` (it sets
+ * the field AFTER spreading caller-supplied auth options, so it can't even be
+ * overridden), and PKCE requires a code-verifier that @supabase/auth-js reads
+ * from this client's own storage — a value written only by the client that
+ * INITIATED the flow. Here the flow is initiated entirely server-side by the
+ * service-role admin client's generateLink(), which writes nothing to the
+ * resident's browser, so that verifier can never exist and every exchange
+ * would throw AuthPKCECodeVerifierMissingError, even for a perfectly fresh
+ * link. verifyOtp needs no verifier: it POSTs the hash to Supabase's /verify
+ * endpoint and, on success, persists the returned session through this
+ * client's normal cookie adapter.
  */
 export async function resetPassword(
   _prev: AuthFormState,
@@ -299,7 +349,7 @@ export async function resetPassword(
   }
 
   const parsed = resetPasswordSchema.safeParse({
-    code: formData.get("code"),
+    tokenHash: formData.get("token_hash"),
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
   });
@@ -308,8 +358,11 @@ export async function resetPassword(
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(parsed.data.code);
-  if (exchangeError || !data.user) {
+  const { data, error: verifyError } = await supabase.auth.verifyOtp({
+    type: "recovery",
+    token_hash: parsed.data.tokenHash,
+  });
+  if (verifyError || !data.user) {
     return { error: "This reset link has expired or already been used. Request a new one." };
   }
 
