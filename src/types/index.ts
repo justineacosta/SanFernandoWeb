@@ -694,6 +694,11 @@ export interface TeamUser extends SessionUser {
   isArchived: boolean;
   /** ISO timestamp. */
   createdAt: string;
+  firstName: string;
+  middleName: string | null;
+  lastName: string;
+  /** True when the account has never signed in — the invite link is unredeemed. */
+  invitePending: boolean;
 }
 
 /**

@@ -2,12 +2,15 @@ import type { Permission, StaffStatusLabel, TeamUser } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const COLUMNS =
-  "id, email, full_name, status_label, is_superadmin, permissions, is_active, is_archived, created_at, phone, avatar_src";
+  "id, email, full_name, first_name, middle_name, last_name, status_label, is_superadmin, permissions, is_active, is_archived, created_at, phone, avatar_src";
 
 interface ProfileRow {
   id: string;
   email: string;
   full_name: string;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
   status_label: string;
   is_superadmin: boolean;
   permissions: unknown;
@@ -18,11 +21,14 @@ interface ProfileRow {
   avatar_src: string | null;
 }
 
-function toTeamUser(row: ProfileRow): TeamUser {
+function toTeamUser(row: ProfileRow, invitePending: boolean): TeamUser {
   return {
     id: row.id,
     email: row.email,
     fullName: row.full_name,
+    firstName: row.first_name,
+    middleName: row.middle_name,
+    lastName: row.last_name,
     statusLabel: row.status_label as StaffStatusLabel,
     isSuperAdmin: row.is_superadmin,
     permissions: row.permissions as Permission[],
@@ -31,7 +37,27 @@ function toTeamUser(row: ProfileRow): TeamUser {
     createdAt: row.created_at,
     phone: row.phone,
     avatarSrc: row.avatar_src,
+    invitePending,
   };
+}
+
+/**
+ * "Invite pending" is inferred from auth.users.last_sign_in_at being null — no
+ * new column. One getUserById call per row (N+1), accepted because team
+ * rosters in this app are small (single-digit to low tens of rows); see
+ * the 2026-08-01 admin-account-invite design spec.
+ */
+async function invitePendingFlags(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  ids: string[],
+): Promise<Record<string, boolean>> {
+  const entries = await Promise.all(
+    ids.map(async (id) => {
+      const { data } = await admin.auth.admin.getUserById(id);
+      return [id, !data?.user?.last_sign_in_at] as const;
+    }),
+  );
+  return Object.fromEntries(entries);
 }
 
 /**
@@ -53,7 +79,8 @@ export async function listTeamUsers(): Promise<TeamUser[]> {
     if (error) console.error("listTeamUsers failed:", error.message);
     return [];
   }
-  return data.map(toTeamUser);
+  const pending = await invitePendingFlags(admin, data.map((row) => row.id));
+  return data.map((row) => toTeamUser(row, pending[row.id] ?? false));
 }
 
 /**
@@ -72,5 +99,6 @@ export async function listArchivedTeamUsers(): Promise<TeamUser[]> {
     if (error) console.error("listArchivedTeamUsers failed:", error.message);
     return [];
   }
-  return data.map(toTeamUser);
+  const pending = await invitePendingFlags(admin, data.map((row) => row.id));
+  return data.map((row) => toTeamUser(row, pending[row.id] ?? false));
 }
