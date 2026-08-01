@@ -1,6 +1,7 @@
 -- ============================================================================
 -- Barangay San Fernando — CONSOLIDATED BASELINE SCHEMA
--- Squash of migrations 0001–0030, as of 2026-07-23.
+-- Squash of migrations 0001–0031, as of 2026-07-23 (0031 folded in after the fact —
+-- see supabase/migrations/README.md).
 -- ============================================================================
 --
 -- WHAT THIS IS
@@ -14,7 +15,7 @@
 -- --------------
 --   • Standing up a NEW environment (production, a fresh staging, a local dev
 --     database) from nothing.
---   • NOT for an environment that already has any of 0001–0030 applied. This
+--   • NOT for an environment that already has any of 0001–0031 applied. This
 --     file assumes an empty `public` schema and will fail loudly on a database
 --     that already has these objects — which is the intended behaviour. To
 --     bring an existing environment forward, apply the individual numbered
@@ -28,7 +29,7 @@
 -- scripts the officials directory and the home/About pages render broken
 -- images. Original migrations 0012 and 0021 carry the same warning.
 --
--- HOW IT DIFFERS FROM RUNNING 0001–0030 IN SEQUENCE
+-- HOW IT DIFFERS FROM RUNNING 0001–0031 IN SEQUENCE
 -- --------------------------------------------------
 -- The end state is identical. Three mechanical differences, all deliberate:
 --
@@ -178,6 +179,11 @@ create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
   full_name text not null,
+  -- Split name parts, captured on account creation and kept in sync with
+  -- full_name by buildFullName() on every SuperAdmin-driven write.      [0031]
+  first_name text not null,
+  middle_name text,
+  last_name text not null,
   status_label text not null default 'staff'
     check (status_label in ('staff', 'editor')),
   is_superadmin boolean not null default false,
