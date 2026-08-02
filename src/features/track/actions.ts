@@ -1,11 +1,24 @@
 "use server";
 
-import type { TicketKind, TicketLookupResult, TicketStatus, TicketUpdateEntry } from "@/types";
+import { z } from "zod";
+import type {
+  Permission,
+  TicketAttachment,
+  TicketKind,
+  TicketLookupResult,
+  TicketStatus,
+  TicketUpdateEntry,
+} from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatDate, toManilaDate } from "@/lib/format";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
-import { canReply } from "@/lib/ticket-updates";
+import { canReply, recordTicketUpdate, REPLY_RETURN_STATUS } from "@/lib/ticket-updates";
+import { discardTicketAttachment, uploadTicketAttachment } from "@/lib/media";
+import { MAX_REPLY_FILES } from "@/lib/storage";
+import { sendEmail } from "@/lib/email";
+import { staffEmailsFor } from "@/lib/notifications";
+import { TicketReplyStaffNotifyEmail } from "@/emails/TicketReplyStaffNotifyEmail";
 
 export interface LookupResult {
   error: string | null;
@@ -64,7 +77,7 @@ export async function lookupTicket(
   // see the note above sameSurname for why the name never goes into the query.
   const { data, error } = await admin
     .from("tickets_view")
-    .select("ticket_no, kind, first_name, last_name, status, remarks, created_at, reviewed_at, closed_at")
+    .select(TICKET_VIEW_COLUMNS)
     .eq("ticket_no", ticket)
     .maybeSingle();
 
@@ -77,31 +90,54 @@ export async function lookupTicket(
     return { error: NOT_FOUND, ticket: null };
   }
 
-  const kind = data.kind as TicketKind;
+  return { error: null, ticket: await buildTicketResult(admin, data) };
+}
+
+type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
+
+/** Row shape shared by lookupTicket's initial fetch and submitTicketReply's post-reply refresh. */
+interface TicketViewRow {
+  ticket_no: string;
+  kind: string;
+  first_name: string;
+  last_name: string;
+  status: string;
+  remarks: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+  closed_at: string | null;
+}
+
+const TICKET_VIEW_COLUMNS =
+  "ticket_no, kind, first_name, last_name, status, remarks, created_at, reviewed_at, closed_at";
+
+/**
+ * Builds the public `TicketLookupResult` from one `tickets_view` row. Shared by
+ * `lookupTicket` and `submitTicketReply` (the latter calls it again after the
+ * status update, so the returned ticket reflects the new status) — extracted
+ * so the two never drift into building the shape differently.
+ */
+async function buildTicketResult(admin: AdminClient, row: TicketViewRow): Promise<TicketLookupResult> {
+  const kind = row.kind as TicketKind;
   const base = {
     kind,
-    ticketNo: data.ticket_no,
-    applicantName: `${data.first_name} ${data.last_name}`,
-    status: data.status as TicketStatus,
-    submittedAt: toManilaDate(data.created_at),
-    reviewedAt: data.reviewed_at ? toManilaDate(data.reviewed_at) : null,
-    closedAt: data.closed_at ? toManilaDate(data.closed_at) : null,
-    remarks: data.remarks,
+    ticketNo: row.ticket_no,
+    applicantName: `${row.first_name} ${row.last_name}`,
+    status: row.status as TicketStatus,
+    submittedAt: toManilaDate(row.created_at),
+    reviewedAt: row.reviewed_at ? toManilaDate(row.reviewed_at) : null,
+    closedAt: row.closed_at ? toManilaDate(row.closed_at) : null,
+    remarks: row.remarks,
     requirements: [] as string[],
     scheduleNote: null as string | null,
   };
 
   const [extras, timeline] = await Promise.all([
-    loadExtras(admin, kind, ticket),
-    loadTimeline(admin, ticket),
+    loadExtras(admin, kind, row.ticket_no),
+    loadTimeline(admin, row.ticket_no),
   ]);
-  return {
-    error: null,
-    ticket: { ...base, ...extras, timeline, repliable: canReply(base.status) },
-  };
+  return { ...base, ...extras, timeline, repliable: canReply(base.status) };
 }
-
-type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
 /**
  * Resident-visible log entries for a ticket that has already passed the surname
@@ -200,4 +236,209 @@ async function loadExtras(
     requirements: service?.requirements ?? [],
     scheduleNote: null,
   };
+}
+
+export interface ReplyResult {
+  error: string | null;
+  ticket: TicketLookupResult | null;
+}
+
+/** Tighter than the lookup budget: this endpoint accepts files from nobody in particular. */
+const REPLY_LIMIT = 5;
+const REPLY_WINDOW_MS = 60 * 60 * 1000;
+
+/** Per-kind table, permission and admin deep link for the staff notification. */
+const REPLY_KINDS: Record<
+  TicketKind,
+  { table: string; permission: Permission; path: string; label: string }
+> = {
+  application: {
+    table: "applications",
+    permission: "process-applications",
+    path: "/admin/applications",
+    label: "certificate application",
+  },
+  appointment: {
+    table: "appointments",
+    permission: "process-appointments",
+    path: "/admin/appointments",
+    label: "appointment request",
+  },
+  complaint: {
+    table: "complaints",
+    permission: "handle-complaints",
+    path: "/admin/complaints",
+    label: "incident report",
+  },
+  assistance: {
+    table: "assistance_requests",
+    permission: "handle-assistance",
+    path: "/admin/assistance",
+    label: "assistance request",
+  },
+};
+
+const replySchema = z.object({
+  body: z
+    .string()
+    .trim()
+    .min(1, "Write your reply.")
+    .max(2000, "Please keep your reply under 2000 characters."),
+});
+
+/**
+ * A resident's answer to an information request.
+ *
+ * `FormData` rather than a values object because Files have to travel. No auth:
+ * the ticket number + surname pair IS the gate, and it is re-checked here —
+ * a Server Action is a public HTTP endpoint, and having been on the results
+ * page proves nothing about the next POST.
+ *
+ * Every rejection past validation returns the same NOT_FOUND string the lookup
+ * uses, so this endpoint cannot confirm that a ticket exists or leak its status.
+ *
+ * Returns the refreshed ticket (built AFTER the status update) rather than
+ * making the caller re-run `lookupTicket`: the lookup form nulls its Turnstile
+ * token the instant a lookup succeeds (see `track-lookup.tsx`), so a second
+ * round trip right after a successful reply would fail Turnstile verification
+ * and show the resident a CAPTCHA error immediately after their reply worked.
+ * This way there is exactly one round trip, one Turnstile token, and one
+ * rate-limit hit for the whole "read the reply back" experience.
+ */
+export async function submitTicketReply(form: FormData): Promise<ReplyResult> {
+  const ip = await requestIp();
+  const token = form.get("turnstileToken");
+  if (!(await verifyTurnstileToken(typeof token === "string" ? token : null, ip))) {
+    return { error: TURNSTILE_FAILURE_MESSAGE, ticket: null };
+  }
+
+  // Cheap and before any DB work, same reasoning as lookupTicket's IP check.
+  // The ticket-keyed budget below is NOT checked here: ticket numbers are
+  // sequential and guessable (that's the whole reason the surname gate
+  // exists), so checking it before the surname is confirmed would let anyone
+  // enumerate ticket numbers and burn every resident's reply budget without
+  // knowing a single surname.
+  if (!(await checkRateLimit(`reply:ip:${ip}`, REPLY_LIMIT, REPLY_WINDOW_MS))) {
+    return { error: "Too many replies. Please wait a few minutes and try again.", ticket: null };
+  }
+
+  const ticketNo = String(form.get("ticketNo") ?? "").trim().toUpperCase();
+  const surname = String(form.get("lastName") ?? "").trim();
+
+  const parsed = replySchema.safeParse({ body: form.get("body") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid reply.", ticket: null };
+  }
+
+  const files = form.getAll("files").filter((item): item is File => item instanceof File && item.size > 0);
+  if (files.length > MAX_REPLY_FILES) {
+    return { error: `You can attach up to ${MAX_REPLY_FILES} files.`, ticket: null };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data: view, error: viewError } = await admin
+    .from("tickets_view")
+    .select(TICKET_VIEW_COLUMNS)
+    .eq("ticket_no", ticketNo)
+    .maybeSingle();
+  if (viewError) {
+    console.error("submitTicketReply lookup failed:", viewError.message);
+    return { error: "Something went wrong. Please try again.", ticket: null };
+  }
+  // One message for "no such ticket", "wrong name" and "not repliable" alike.
+  if (!view || !sameSurname(view.last_name, surname) || !canReply(view.status as TicketStatus)) {
+    return { error: NOT_FOUND, ticket: null };
+  }
+
+  // Only a caller who has just PROVEN they hold this ticket (surname matched,
+  // status is awaiting-info) may spend its reply budget. Checking this any
+  // earlier is the denial-of-service vector described above.
+  if (!(await checkRateLimit(`reply:ticket:${view.ticket_no}`, REPLY_LIMIT, REPLY_WINDOW_MS))) {
+    return { error: "Too many replies. Please wait a few minutes and try again.", ticket: null };
+  }
+
+  const kind = view.kind as TicketKind;
+  const def = REPLY_KINDS[kind];
+
+  // view.ticket_no, not the client-submitted ticketNo, from here on — it is a
+  // storage path prefix (uploadTicketAttachment) and a DB filter value, and
+  // the client string is an accident of this query's .eq() match, not a
+  // guarantee that survives the rest of this function.
+  const uploaded: TicketAttachment[] = [];
+  for (const file of files) {
+    const result = await uploadTicketAttachment(file, view.ticket_no);
+    if (result.error || !result.src) {
+      // Compensating delete: nothing references these yet.
+      for (const done of uploaded) {
+        await discardTicketAttachment(done.path, "submitTicketReply upload failed");
+      }
+      return { error: result.error ?? "Upload failed. Try again.", ticket: null };
+    }
+    uploaded.push({ path: result.src, name: file.name, mime: file.type, sizeBytes: file.size });
+  }
+
+  const entryId = await recordTicketUpdate({
+    ticketNo: view.ticket_no,
+    kind,
+    entryType: "resident-reply",
+    body: parsed.data.body,
+    visibility: "public",
+    authorKind: "resident",
+    attachments: uploaded,
+  });
+  if (!entryId) {
+    for (const done of uploaded) {
+      await discardTicketAttachment(done.path, "submitTicketReply insert failed");
+    }
+    return { error: "We could not send your reply. Please try again.", ticket: null };
+  }
+
+  // Past this point nothing rolls the reply back: the row is the resident's
+  // evidence that they answered, and losing it is worse than a status left at
+  // awaiting-info that staff can move by hand.
+  const { data: row, error: statusError } = await admin
+    .from(def.table)
+    .update({ status: REPLY_RETURN_STATUS, replied_at: new Date().toISOString() })
+    .eq("ticket_no", view.ticket_no)
+    .eq("status", "awaiting-info")
+    .select("id")
+    .maybeSingle();
+  if (statusError) console.error("submitTicketReply status update failed:", statusError.message);
+
+  // Sent either way, even if the status update above matched no row (the
+  // ticket moved out of awaiting-info between the gate check and here) — the
+  // reply is the resident's evidence they answered and must not sit unseen.
+  // Fall back to the list page (no ?review=) when there's no row id to link.
+  const staffEmails = await staffEmailsFor(def.permission);
+  if (staffEmails.length > 0) {
+    await sendEmail({
+      to: staffEmails,
+      subject: `Resident reply — ${view.ticket_no}`,
+      template: TicketReplyStaffNotifyEmail({
+        ticketNo: view.ticket_no,
+        kindLabel: def.label,
+        attachmentCount: uploaded.length,
+        adminHref: row ? `${def.path}?review=${row.id}` : def.path,
+      }),
+    });
+  }
+
+  // Rebuild the result AFTER the status update, so the resident sees the new
+  // status (and the composer disappears, since it is no longer awaiting-info)
+  // without a second lookup, a second Turnstile token, or a second rate-limit
+  // hit.
+  const { data: refreshed, error: refreshError } = await admin
+    .from("tickets_view")
+    .select(TICKET_VIEW_COLUMNS)
+    .eq("ticket_no", view.ticket_no)
+    .maybeSingle();
+
+  let ticket: TicketLookupResult | null = null;
+  if (refreshError || !refreshed) {
+    if (refreshError) console.error("submitTicketReply refresh failed:", refreshError.message);
+  } else {
+    ticket = await buildTicketResult(admin, refreshed);
+  }
+
+  return { error: null, ticket };
 }

@@ -9,6 +9,7 @@ import { Field, Input } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { lookupTicket } from "@/features/track/actions";
+import { TicketReplyForm } from "./ticket-reply-form";
 import { TicketTimeline } from "./ticket-timeline";
 
 /** Ticket-number + last-name lookup, then the status timeline. */
@@ -86,6 +87,13 @@ export function TrackLookup({ initialTicket = "" }: { initialTicket?: string }) 
             </div>
           ) : null}
           <TicketTimeline key={ticket.ticketNo} ticket={ticket} />
+          {ticket.repliable ? (
+            <TicketReplyForm
+              ticketNo={ticket.ticketNo}
+              lastName={lastName}
+              onSent={(refreshed) => setTicket(refreshed)}
+            />
+          ) : null}
           {ticket.status === "approved" && ticket.requirements.length > 0 ? (
             <div className="mt-8 rounded-2xl border border-brand-200 bg-brand-100/50 p-6">
               <p className="mb-3 text-sm font-semibold text-ink-900">Bring these when you claim</p>
