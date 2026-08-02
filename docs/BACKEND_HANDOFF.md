@@ -1609,3 +1609,11 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
     inlined into the client bundle at **build** time — setting it in a hosting dashboard after
     a build already happened requires a rebuild, not just a redeploy/restart, or the server
     will enforce verification against a page that never rendered a challenge.
+18. **Migration `0031` (`first_name`/`middle_name`/`last_name` on `profiles`, added by the
+    2026-08-01 admin-account-invite feature) must be applied before this feature's code
+    deploys** — see CLAUDE.md's "Admin account creation is invite-based" bullet for the
+    silent-failure mode if it's skipped. Confirmed applied to the Supabase project this
+    repo's `.env.local` points at as of 2026-08-02 (confirmed by Justine); status on any
+    other environment (e.g. production, if different) has not been separately confirmed —
+    verify before deploying this branch there, per this repo's standing "never assume a
+    migration is applied without confirmation" rule.

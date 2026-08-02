@@ -488,8 +488,9 @@ a rate-limit collision, not a regression.
 - **Admin account creation is invite-based, not password-based, 2026-08-01**
   (`docs/superpowers/specs/2026-08-01-admin-account-invite-design.md`). `createTeamUser`
   (`/admin/users`, SuperAdmin-only) no longer accepts a password — it creates the Supabase
-  Auth user with an unguessable `crypto.randomUUID()` password (so the account exists but
-  cannot sign in), inserts the `profiles` row, then reuses the forgot-password flow's exact
+  Auth user with an unguessable `crypto.randomUUID()` password (so the account exists,
+  and the credential is valid, but nobody — including the SuperAdmin who created it —
+  knows it), inserts the `profiles` row, then reuses the forgot-password flow's exact
   mechanism (see the bullet above) to email a "set your password" link:
   `generateLink({type: "recovery"})` → this app's own
   `/admin/reset-password?token_hash=...` URL → the unchanged `resetPassword` Server Action
@@ -508,7 +509,11 @@ a rate-limit collision, not a regression.
   same "only when editing someone else" way the email field already was. "Invite pending" —
   inferred from `auth.users.last_sign_in_at is null`, no new column, an N+1 `getUserById`
   per row accepted because team rosters are small — shows as a badge in `TeamManager` and
-  gates the "Resend invite" row action.
+  gates the "Resend invite" row action. **Deploy order matters**: apply migration `0031`
+  before this code reaches an environment — `listTeamUsers`/`listArchivedTeamUsers` select
+  the new name columns, and a missing-column error there is caught and logged, not thrown,
+  so a skipped migration doesn't fail loud: `/admin/users` silently renders an empty roster
+  and `createTeamUser` fails with a generic "Could not save the profile."
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a

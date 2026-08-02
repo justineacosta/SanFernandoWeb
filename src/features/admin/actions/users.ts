@@ -58,7 +58,7 @@ const updateSchema = z.object({
   permissions: z.array(z.enum(PERMISSIONS)),
   isSuperAdmin: z.boolean(),
   email: z.string().email("Enter a valid email.").optional(),
-  phone: z.string().trim().min(1, "Enter a mobile number.").max(30, "Phone number is too long.").optional(),
+  phone: z.string().trim().max(30, "Phone number is too long.").optional(),
 });
 
 /** Active, non-archived SuperAdmins. The system must never drop below one. */
@@ -271,7 +271,7 @@ export async function updateTeamUser(
       permissions: parsed.data.permissions,
       is_superadmin: parsed.data.isSuperAdmin,
       ...(changingEmail ? { email: parsed.data.email } : {}),
-      ...(!isSelf && parsed.data.phone !== undefined ? { phone: parsed.data.phone } : {}),
+      ...(!isSelf && parsed.data.phone !== undefined ? { phone: parsed.data.phone || null } : {}),
     })
     .eq("id", id);
   if (error) {
