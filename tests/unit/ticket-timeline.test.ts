@@ -9,7 +9,6 @@ function entry(over: Partial<TicketUpdateEntry> = {}): TicketUpdateEntry {
     status: "pending",
     body: "",
     authorKind: "system",
-    authorName: null,
     attachmentCount: 0,
     createdAt: "2026-08-01",
     ...over,
@@ -100,5 +99,29 @@ describe("buildSteps", () => {
       }),
     );
     expect(steps[0].detail).toContain("2");
+  });
+
+  // An empty log is reachable in production: `loadTimeline` returns [] on any
+  // query error rather than failing the whole lookup, so a resident whose
+  // ticket_updates read failed still gets a page. It must not be a blank one.
+  it("still shows the next step when the log came back empty", () => {
+    const steps = buildSteps(ticket({ status: "pending", timeline: [] }));
+    expect(steps).toHaveLength(1);
+    expect(steps[0].state).toBe("todo");
+  });
+
+  it("renders nothing rather than throwing when a terminal ticket has an empty log", () => {
+    expect(buildSteps(ticket({ status: "released", timeline: [] }))).toEqual([]);
+  });
+
+  // Guards the `if (next)` branch in buildSteps. Every non-terminal status has a
+  // NEXT_STEP entry today, so this is the only thing proving the lookup miss
+  // degrades to "no trailing step" instead of pushing an undefined one.
+  it("omits the trailing step when the status has no next-step copy", () => {
+    const steps = buildSteps(
+      ticket({ status: "no-such-status" as TicketLookupResult["status"], timeline: [entry()] }),
+    );
+    expect(steps).toHaveLength(1);
+    expect(steps.every((step) => step.state !== "todo")).toBe(true);
   });
 });

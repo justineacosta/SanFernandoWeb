@@ -108,11 +108,16 @@ type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
  * gate. The `.eq("visibility","public")` filter is the ENTIRE guarantee that a
  * complaint's internal staff coordination never reaches the reporter — it lives
  * here, in the query, not in the component that renders the result.
+ *
+ * `author_name` is deliberately NOT selected. This is an anonymous endpoint, so
+ * every column named here ships in the response body whether or not anything
+ * renders it; the timeline speaks as the barangay, not as a named staff member.
+ * Do not add it back to satisfy a type — the public type has no field for it.
  */
 async function loadTimeline(admin: AdminClient, ticketNo: string): Promise<TicketUpdateEntry[]> {
   const { data, error } = await admin
     .from("ticket_updates")
-    .select("id, entry_type, status, body, author_kind, author_name, attachments, created_at")
+    .select("id, entry_type, status, body, author_kind, attachments, created_at")
     .eq("ticket_no", ticketNo)
     .eq("visibility", "public")
     .order("created_at", { ascending: true });
@@ -126,7 +131,6 @@ async function loadTimeline(admin: AdminClient, ticketNo: string): Promise<Ticke
     status: (row.status as TicketStatus | null) ?? null,
     body: row.body,
     authorKind: row.author_kind as TicketUpdateEntry["authorKind"],
-    authorName: row.author_name,
     attachmentCount: Array.isArray(row.attachments) ? row.attachments.length : 0,
     createdAt: toManilaDate(row.created_at),
   }));

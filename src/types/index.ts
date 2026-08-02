@@ -836,8 +836,16 @@ export interface TicketUpdateEntry {
   entryType: TicketUpdateEntryType;
   status: TicketStatus | null;
   body: string;
+  /**
+   * Whether the barangay, the resident or the system wrote this — never *which*
+   * staff member. `authorName` is deliberately absent from the public shape (it
+   * lives on `AdminTicketUpdate` instead): `/track` is an anonymous endpoint, the
+   * timeline speaks institutionally ("Update from the barangay"), and naming the
+   * handler of a complaint to the person who filed it invites pressure on them.
+   * Selecting the column here would ship the name in the response body even
+   * though nothing renders it.
+   */
   authorKind: TicketUpdateAuthorKind;
-  authorName: string | null;
   attachmentCount: number;
   /** Manila calendar date (YYYY-MM-DD). */
   createdAt: string;
