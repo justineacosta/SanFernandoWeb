@@ -3,12 +3,15 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ContentStatus } from "@/types";
 import {
+  ALLOWED_DOC_FILE_TYPES,
   ALLOWED_IMAGE_TYPES,
   AVATARS_MEDIA_BUCKET,
   FEEDBACK_MEDIA_BUCKET,
   MAX_IMAGE_BYTES,
+  MAX_REPLY_FILE_BYTES,
   MAX_SCREENSHOT_BYTES,
   SITE_MEDIA_BUCKET,
+  TICKET_MEDIA_BUCKET,
   bucketForStatus,
   extForType,
   feedbackScreenshotPath,
@@ -208,4 +211,46 @@ export async function discardFeedbackScreenshot(
   if (!path) return;
   const { error } = await removeFeedbackScreenshot(path);
   if (error) console.error(`Orphaned screenshot (${context}): ${path}`);
+}
+
+/**
+ * Upload one resident reply attachment into the private ticket-media bucket.
+ *
+ * Separate from `uploadFeedbackScreenshot` because the bucket, the prefix and
+ * the allowed types differ — replies accept PDFs, screenshots do not. As with
+ * every uploader here, persisting the returned `src` is the caller's job, and
+ * so is deleting the object if the row write then fails.
+ */
+export async function uploadTicketAttachment(
+  file: File,
+  ticketNo: string,
+): Promise<UploadResult> {
+  if (file.size === 0) return { error: "Choose a file.", src: null, url: null };
+  if (!ALLOWED_DOC_FILE_TYPES.includes(file.type as (typeof ALLOWED_DOC_FILE_TYPES)[number])) {
+    return { error: "Attachments must be JPG, PNG, WebP, or PDF.", src: null, url: null };
+  }
+  if (file.size > MAX_REPLY_FILE_BYTES) {
+    return { error: "Each attachment must be 2 MB or smaller.", src: null, url: null };
+  }
+  // ticketNo is server-derived (matched against the DB), never client free text.
+  const path = `${ticketNo}/${crypto.randomUUID()}.${extForType(file.type)}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.storage
+    .from(TICKET_MEDIA_BUCKET)
+    .upload(path, buffer, { contentType: file.type, upsert: false });
+  if (error) return { error: "Upload failed. Try again.", src: null, url: null };
+  return { error: null, src: path, url: null };
+}
+
+/** Best-effort cleanup, mirroring `discardFeedbackScreenshot`: logs, never throws. */
+export async function discardTicketAttachment(
+  path: string | null,
+  context: string,
+): Promise<void> {
+  if (!path) return;
+  if (path.split("/").some((segment) => segment === "..")) return;
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.storage.from(TICKET_MEDIA_BUCKET).remove([path]);
+  if (error) console.error(`Orphaned ticket attachment (${context}): ${path}`);
 }

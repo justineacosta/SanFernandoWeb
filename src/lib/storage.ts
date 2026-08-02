@@ -87,10 +87,16 @@ export function achievementPhotoPath(achievementId: string, ext: string): string
   return `achievements/${achievementId}/${crypto.randomUUID()}.${ext}`;
 }
 
-/** Map an allowed image MIME type to a file extension. */
+/**
+ * Map an allowed MIME type to a file extension. Originally image-only; now
+ * also used by `uploadTicketAttachment`, whose ALLOWED_DOC_FILE_TYPES include
+ * PDFs, so `application/pdf` must resolve to `pdf` rather than falling
+ * through to the `jpg` default.
+ */
 export function extForType(type: string): string {
   if (type === "image/png") return "png";
   if (type === "image/webp") return "webp";
+  if (type === "application/pdf") return "pdf";
   return "jpg";
 }
 
