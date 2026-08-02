@@ -156,7 +156,11 @@ async function loadTimeline(admin: AdminClient, ticketNo: string): Promise<Ticke
     .select("id, entry_type, status, body, author_kind, attachments, created_at")
     .eq("ticket_no", ticketNo)
     .eq("visibility", "public")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    // Tiebreaker, same reason /news, /notices and /events carry one:
+    // postTicketUpdate writes two rows back to back, and on a timestamp
+    // collision their order would otherwise be unstable.
+    .order("id", { ascending: true });
   if (error || !data) {
     if (error) console.error("loadTimeline failed:", error.message);
     return [];

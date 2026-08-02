@@ -9,6 +9,17 @@ import { formatDate } from "@/lib/format";
 import { StatusChip } from "./status-chip";
 import { TicketTimelinePanel } from "./ticket-timeline-panel";
 
+/**
+ * Mirrors `reviewApplication`'s `.in("status", [...])` guard exactly.
+ *
+ * These must stay in step: the timeline composer can move a ticket to
+ * `under-review` or `awaiting-info` from here, and the composer offers no way
+ * back to `pending`. Gating the decision buttons on `pending` alone — as this
+ * drawer did until the whole-branch review caught it — left every ticket the
+ * composer touched permanently un-approvable and un-rejectable.
+ */
+const DECIDABLE: ApplicationRow["status"][] = ["pending", "under-review", "awaiting-info"];
+
 interface ApplicationReviewDrawerProps {
   record: ApplicationRow;
   onReview: (id: string, values: ApplicationReviewValues) => void;
@@ -75,7 +86,7 @@ export function ApplicationReviewDrawer({
           <DetailRow label="Date Applied" value={formatDate(record.submittedAt)} />
           <DetailRow label="Filed" value={record.source === "walk-in" ? "Walk-in (encoded)" : "Online"} />
         </dl>
-        {record.status === "pending" ? (
+        {DECIDABLE.includes(record.status) ? (
           <Field label="Remarks" htmlFor="application-remarks">
             <Textarea
               id="application-remarks"
@@ -116,7 +127,7 @@ export function ApplicationReviewDrawer({
           onPosted={onPosted}
         />
       </div>
-      {record.status === "pending" ? (
+      {DECIDABLE.includes(record.status) ? (
         <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
           <Button variant="outline-danger" onClick={() => submit("rejected")} disabled={saving}>
             Reject

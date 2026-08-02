@@ -9,6 +9,17 @@ import { formatDate } from "@/lib/format";
 import { StatusChip } from "./status-chip";
 import { TicketTimelinePanel } from "./ticket-timeline-panel";
 
+/**
+ * Mirrors `closeComplaint`'s `.in("status", [...])` guard exactly.
+ *
+ * `awaiting-info` belongs here, not with the `received` triage branch above it:
+ * design §1 requires that staff can close a report the resident never answered.
+ * Until the whole-branch review caught this, a complaint parked on
+ * `awaiting-info` had no resolve/dismiss buttons at all, so an unanswered
+ * report could never be closed.
+ */
+const CLOSABLE: ComplaintRow["status"][] = ["under-review", "awaiting-info"];
+
 interface ComplaintReviewDrawerProps {
   record: ComplaintRow;
   onReview: (id: string, values: ComplaintReviewValues) => void;
@@ -105,7 +116,7 @@ export function ComplaintReviewDrawer({
               aria-invalid={Boolean(localError)}
             />
           </Field>
-        ) : record.status === "under-review" ? (
+        ) : CLOSABLE.includes(record.status) ? (
           <Field label="Remarks" htmlFor="complaint-remarks">
             <Textarea
               id="complaint-remarks"
@@ -155,7 +166,7 @@ export function ComplaintReviewDrawer({
             {saving ? "Saving…" : "Take up for mediation"}
           </Button>
         </div>
-      ) : record.status === "under-review" ? (
+      ) : CLOSABLE.includes(record.status) ? (
         <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
           <Button variant="outline-danger" onClick={() => submitClose("dismissed")} disabled={saving}>
             Dismiss

@@ -94,3 +94,48 @@ test("an internal note never reaches the public /track timeline", async ({ page 
   // rests on: `visibility` is filtered in the query, not the component.
   await expect(page.getByText(INTERNAL_NOTE)).toHaveCount(0);
 });
+
+/**
+ * Regression guard for the bug the whole-branch review caught: the four review
+ * drawers gated their decision buttons on the pre-branch status set, so moving
+ * a ticket to `awaiting-info` (which this feature's own composer does) removed
+ * every button that could decide it. Applications and appointments could not
+ * come back — the composer offers no route to `pending` — leaving the ticket
+ * permanently un-approvable.
+ *
+ * Complaints are the cheapest kind to drive here (no service lookup, no
+ * schedule fields) and exercise the same widened gate.
+ */
+test("a ticket parked on awaiting-info can still be decided", async ({ page }) => {
+  await page.goto("/admin/complaints");
+  await page.getByRole("button", { name: "New Report" }).click();
+
+  const drawer = page.getByRole("dialog", { name: "New Report" });
+  await drawer.getByLabel("First Name").fill("Testb");
+  await drawer.getByLabel("Last Name").fill("Bautista");
+  await drawer.getByLabel("Address").fill("Purok 2, San Fernando");
+  await drawer.getByLabel("Contact Number").fill("0917 000 0001");
+  await drawer.getByLabel("Where It Happened").fill("Barangay hall");
+  await drawer.getByLabel("Date of Incident").fill("2026-08-01");
+  await drawer.getByLabel("What Happened").fill("A second test incident for the decidability guard.");
+  await drawer.getByLabel(/consent/i).check();
+  await drawer.getByRole("button", { name: "Encode report" }).click();
+
+  const row = page.getByRole("row").filter({ hasText: "Testb Bautista" }).first();
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: /review/i }).click();
+
+  // Park it on awaiting-info through the composer, exactly as staff would.
+  const reviewDrawer = page.getByRole("dialog", { name: "Report Details" });
+  await reviewDrawer.getByLabel("Post an update").fill("Please send the blotter number.");
+  await reviewDrawer.getByLabel("Also set status to").selectOption("awaiting-info");
+  await reviewDrawer.getByRole("button", { name: "Post update" }).click();
+
+  // The status actually moved...
+  await expect(reviewDrawer.getByText("Awaiting Information").first()).toBeVisible();
+  // ...and the ticket is still closeable. Before the fix this footer was gone
+  // entirely, so an unanswered report could never be resolved or dismissed —
+  // which design §1 explicitly requires staff to be able to do.
+  await expect(reviewDrawer.getByRole("button", { name: "Dismiss" })).toBeVisible();
+  await expect(reviewDrawer.getByRole("button", { name: /resolve/i })).toBeVisible();
+});

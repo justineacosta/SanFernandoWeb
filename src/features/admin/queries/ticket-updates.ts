@@ -1,4 +1,4 @@
-import type { AdminTicketUpdate, TicketAttachment, TicketStatus } from "@/types";
+import type { AdminTicketUpdate, TicketAttachment, TicketKind, TicketStatus } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { toManilaDate } from "@/lib/format";
 import { TICKET_MEDIA_BUCKET } from "@/lib/storage";
@@ -12,11 +12,18 @@ const SIGNED_URL_TTL_SECONDS = 600;
  * MUST have checked the queue's permission first (postTicketUpdate and the
  * manager pages do).
  *
+ * Takes `kind` as well as `ticketNo` and filters on BOTH: the caller's
+ * permission is only meaningful if the rows returned belong to the queue that
+ * permission covers. See the `.eq("ticket_kind", ...)` note below.
+ *
  * Attachments are signed in ONE batch for the whole timeline rather than per
  * row, the same reasoning `listFeedback` documents: a long thread must not
  * become one round trip per file.
  */
-export async function listTicketUpdates(ticketNo: string): Promise<AdminTicketUpdate[]> {
+export async function listTicketUpdates(
+  kind: TicketKind,
+  ticketNo: string,
+): Promise<AdminTicketUpdate[]> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("ticket_updates")
@@ -24,7 +31,17 @@ export async function listTicketUpdates(ticketNo: string): Promise<AdminTicketUp
       "id, entry_type, status, body, visibility, author_kind, author_name, attachments, notified_at, created_at",
     )
     .eq("ticket_no", ticketNo)
-    .order("created_at", { ascending: true });
+    // Both filters, always. The caller's permission is checked against `kind`,
+    // so without binding the rows to that same `kind` a holder of ONE queue's
+    // permission could pass their own kind and any other queue's ticket number
+    // and read its internal notes — ticket numbers are sequential and guessable.
+    // `ticket_kind` is server-written on every insert and CHECK-constrained.
+    .eq("ticket_kind", kind)
+    .order("created_at", { ascending: true })
+    // Tiebreaker: postTicketUpdate writes two rows back to back, and this
+    // codebase already pairs every timestamp ordering with an id tiebreaker
+    // (/news, /notices, /events) so a collision cannot reorder them.
+    .order("id", { ascending: true });
   if (error || !data) {
     if (error) console.error("listTicketUpdates failed:", error.message);
     return [];

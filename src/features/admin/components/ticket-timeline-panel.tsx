@@ -48,6 +48,14 @@ export function TicketTimelinePanel({
   const visibilityLocked = setStatus === "awaiting-info";
   const effectiveVisibility = visibilityLocked ? "public" : visibility;
   const notifyDisabled = !hasEmail || effectiveVisibility === "internal";
+  // An information request always emails, for the same reason it is always
+  // public: `/track` is pull-only, so a resident who is never told is a ticket
+  // blocked on someone who does not know they were asked. Locked on rather
+  // than merely defaulted on — the checkbox's state otherwise persists between
+  // posts, so unticking it once would silently mute every later request.
+  // postTicketUpdate forces the same thing server-side.
+  const notifyLocked = visibilityLocked && hasEmail;
+  const effectiveNotify = notifyLocked ? true : notifyDisabled ? false : notify;
 
   const submit = () => {
     if (!body.trim()) {
@@ -60,7 +68,7 @@ export function TicketTimelinePanel({
         const result = await postTicketUpdate(kind, ticketId, {
           body: body.trim(),
           visibility: effectiveVisibility,
-          notify: notifyDisabled ? false : notify,
+          notify: effectiveNotify,
           setStatus,
         });
         if (result.error) {
@@ -69,6 +77,10 @@ export function TicketTimelinePanel({
         }
         setBody("");
         setSetStatus(null);
+        // Back to resident-visible for the next post. Left as-is, an internal
+        // note silently made the following update internal too, so an update
+        // meant for the resident would never reach them.
+        setVisibility("public");
         onPosted();
       } catch {
         setError("Something went wrong. Please try again.");
@@ -108,7 +120,10 @@ export function TicketTimelinePanel({
                   Internal — not visible to the resident
                 </span>
               ) : null}
-              {entry.notified ? <span>Resident notified</span> : null}
+              {/* "attempted", not "notified": sendEmail is fail-open by design and
+                  never reports a delivery failure back, so the stamp only proves we
+                  tried. Delivery monitoring is Resend Plan 3, still unbuilt. */}
+              {entry.notified ? <span>Email attempted</span> : null}
             </div>
             {entry.body ? <p className="mt-1 text-ink-900">{entry.body}</p> : null}
             {entry.attachments.length > 0 ? (
@@ -176,13 +191,15 @@ export function TicketTimelinePanel({
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              checked={!notifyDisabled && notify}
-              disabled={notifyDisabled}
+              checked={effectiveNotify}
+              disabled={notifyDisabled || notifyLocked}
               onChange={(event) => setNotify(event.target.checked)}
             />
             Email the resident
             {!hasEmail ? (
               <span className="text-xs text-ink-500">(no email on this ticket)</span>
+            ) : notifyLocked ? (
+              <span className="text-xs text-ink-500">(always sent for an information request)</span>
             ) : null}
           </label>
 

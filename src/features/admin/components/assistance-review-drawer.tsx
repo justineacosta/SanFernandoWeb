@@ -9,6 +9,14 @@ import { formatDate } from "@/lib/format";
 import { StatusChip } from "./status-chip";
 import { TicketTimelinePanel } from "./ticket-timeline-panel";
 
+/**
+ * Mirrors `decideAssistance`'s `.in("status", [...])` guard exactly. Same
+ * reasoning as `complaint-review-drawer.tsx`: a request parked on
+ * `awaiting-info` must still be grantable or declinable, or a resident who
+ * never sends the missing document leaves it permanently open.
+ */
+const DECIDABLE: AssistanceRow["status"][] = ["under-review", "awaiting-info"];
+
 interface AssistanceReviewDrawerProps {
   record: AssistanceRow;
   onReview: (id: string, values: AssistanceReviewValues) => void;
@@ -100,7 +108,7 @@ export function AssistanceReviewDrawer({
               aria-invalid={Boolean(localError)}
             />
           </Field>
-        ) : record.status === "under-review" ? (
+        ) : DECIDABLE.includes(record.status) ? (
           <Field label="Remarks" htmlFor="assistance-remarks">
             <Textarea
               id="assistance-remarks"
@@ -150,7 +158,7 @@ export function AssistanceReviewDrawer({
             {saving ? "Saving…" : "Take up for review"}
           </Button>
         </div>
-      ) : record.status === "under-review" ? (
+      ) : DECIDABLE.includes(record.status) ? (
         <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
           <Button variant="outline-danger" onClick={() => submitDecide("declined")} disabled={saving}>
             Decline

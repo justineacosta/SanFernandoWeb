@@ -9,6 +9,15 @@ import { formatDate, manilaToday } from "@/lib/format";
 import { StatusChip } from "./status-chip";
 import { TicketTimelinePanel } from "./ticket-timeline-panel";
 
+/**
+ * Mirrors `reviewAppointment`'s `.in("status", [...])` guard exactly. See the
+ * matching note in `application-review-drawer.tsx`: the timeline composer can
+ * move a ticket to `under-review`/`awaiting-info` and offers no way back to
+ * `pending`, so gating on `pending` alone strands it with no way to confirm or
+ * decline.
+ */
+const DECIDABLE: AppointmentRow["status"][] = ["pending", "under-review", "awaiting-info"];
+
 interface AppointmentReviewDrawerProps {
   record: AppointmentRow;
   onReview: (id: string, values: AppointmentReviewValues) => void;
@@ -84,7 +93,7 @@ export function AppointmentReviewDrawer({
           <DetailRow label="Date Filed" value={formatDate(record.submittedAt)} />
           <DetailRow label="Filed" value={record.source === "walk-in" ? "Walk-in (encoded)" : "Online"} />
         </dl>
-        {record.status === "pending" ? (
+        {DECIDABLE.includes(record.status) ? (
           <>
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">
@@ -156,7 +165,7 @@ export function AppointmentReviewDrawer({
           onPosted={onPosted}
         />
       </div>
-      {record.status === "pending" ? (
+      {DECIDABLE.includes(record.status) ? (
         <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
           <Button variant="outline-danger" onClick={() => submitReview("declined")} disabled={saving}>
             Decline
