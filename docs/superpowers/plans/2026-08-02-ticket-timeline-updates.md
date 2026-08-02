@@ -1670,12 +1670,20 @@ In each manager, alongside the existing `reviewingId` state:
 
 ```tsx
   const [updates, setUpdates] = useState<AdminTicketUpdate[]>([]);
+  // Guards against a stale response: closing ticket A's drawer and opening
+  // ticket B's before A's fetch resolves would otherwise render A's timeline —
+  // internal staff notes included — under B's ticket number.
+  const requestSeq = useRef(0);
 
   const loadUpdates = (ticketNo: string) => {
+    const seq = ++requestSeq.current;
     startTransition(async () => {
       try {
-        setUpdates(await getTicketUpdatesAction("complaint", ticketNo));
+        const rows = await getTicketUpdatesAction("complaint", ticketNo);
+        if (seq !== requestSeq.current) return; // a later drawer won the race
+        setUpdates(rows);
       } catch {
+        if (seq !== requestSeq.current) return;
         showError("Could not load the timeline.");
       }
     });

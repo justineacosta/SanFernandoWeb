@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { CalendarDays, CheckCircle2, ClipboardList, Plus } from "lucide-react";
 import type {
   AdminTicketUpdate,
@@ -52,14 +52,22 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [updates, setUpdates] = useState<AdminTicketUpdate[]>([]);
+  // Guards against a stale response: closing ticket A's drawer and opening
+  // ticket B's before A's fetch resolves would otherwise render A's timeline —
+  // internal staff notes included — under B's ticket number.
+  const requestSeq = useRef(0);
   const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const loadUpdates = (ticketNo: string) => {
+    const seq = ++requestSeq.current;
     startTransition(async () => {
       try {
-        setUpdates(await getTicketUpdatesAction("appointment", ticketNo));
+        const rows = await getTicketUpdatesAction("appointment", ticketNo);
+        if (seq !== requestSeq.current) return; // a later drawer won the race
+        setUpdates(rows);
       } catch {
+        if (seq !== requestSeq.current) return;
         showError("Could not load the timeline.");
       }
     });
