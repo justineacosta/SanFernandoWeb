@@ -357,19 +357,7 @@ export interface TicketUpdateValues {
 }
 ```
 
-Finally, add `timeline` to `TicketLookupResult` and a `repliable` flag:
-
-```ts
-  /** Appointments only: the confirmed schedule once staff set it, e.g. "20 July 2026, morning". */
-  scheduleNote: string | null;
-  /** Resident-visible log entries, oldest first. Internal notes are never included. */
-  timeline: TicketUpdateEntry[];
-  /** True iff status is `awaiting-info` — drives whether the reply composer renders. */
-  repliable: boolean;
-}
-```
-
-Do **not** add `repliedAt` to `ApplicationRow` / `AppointmentRow` / `ComplaintRow` / `AssistanceRow` here. Those are required fields on types the four list queries construct, so adding them before the queries select the column breaks `npm run typecheck` for every task in between. They land in Task 7, together with the query change that populates them.
+Do **not** touch `TicketLookupResult` here, and do **not** add `repliedAt` to `ApplicationRow` / `AppointmentRow` / `ComplaintRow` / `AssistanceRow`. Those are required fields on types the four list queries construct, so adding them before the queries select the column breaks `npm run typecheck` for every task in between. They land in Task 7, together with the query change that populates them.
 
 - [ ] **Step 4: Add the status chip entry**
 
@@ -2043,9 +2031,20 @@ Update the `key` on the rendered `<motion.li>` from `step.title` to `` `${step.t
 Run: `npm run test:unit -- ticket-timeline`
 Expected: PASS, 7 tests.
 
-- [ ] **Step 5: Load the timeline in `lookupTicket`**
+- [ ] **Step 5: Add the `TicketLookupResult` fields and load the timeline in `lookupTicket`**
 
-In `src/features/track/actions.ts`, add:
+Do these together — both fields are required, so the type and the code that fills them must land in the same commit or `npm run typecheck` fails in between. (Task 1 deliberately left `TicketLookupResult` alone for this reason. Do **not** make these optional: `timeline?:` would force a defensive `?? []` on every consumer, and `repliable?:` makes `boolean | undefined` leak into the reply-form gate.)
+
+In `src/types/index.ts`, add to `TicketLookupResult`, after `scheduleNote`:
+
+```ts
+  /** Resident-visible log entries, oldest first. Internal notes are never included. */
+  timeline: TicketUpdateEntry[];
+  /** True iff status is `awaiting-info` — drives whether the reply composer renders. */
+  repliable: boolean;
+```
+
+Then in `src/features/track/actions.ts`, add:
 
 ```ts
 /**
