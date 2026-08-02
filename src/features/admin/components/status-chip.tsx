@@ -9,6 +9,7 @@ const LABELS: Record<AdminStatus, string> = {
   active: "Active",
   inactive: "Inactive",
   "under-review": "Under Review",
+  "awaiting-info": "Awaiting Information",
   archived: "Archived",
   planning: "Planning",
   pending: "Pending",
@@ -44,6 +45,8 @@ const TONES: Record<AdminStatus, string> = {
   // Attention states are amber, not red: review is workflow, not danger.
   "in-review": "bg-brand-100 text-brand-800",
   "under-review": "bg-brand-100 text-brand-800",
+  // Blocked on the resident. Waiting is workflow, not danger — amber, like review.
+  "awaiting-info": "bg-brand-100 text-brand-800",
   in_progress: "bg-brand-100 text-brand-800",
   // True negatives keep danger.
   rejected: "bg-danger-soft text-danger-soft-fg",

@@ -169,3 +169,20 @@ export const MAX_SCREENSHOT_BYTES = MAX_IMAGE_BYTES;
 export function feedbackScreenshotPath(ext: string): string {
   return `feedback/${crypto.randomUUID()}.${ext}`;
 }
+
+/**
+ * Resident reply attachments. Private for the same reason feedback-media is:
+ * an attachment here is typically a photo of the resident's own ID, and
+ * Storage's list() rides the same RLS select policy as an individual get().
+ */
+export const TICKET_MEDIA_BUCKET = "ticket-media";
+
+/**
+ * 3 files x 2 MB = 6 MB, deliberately under next.config.ts's
+ * bodySizeLimit: "8mb". This is what lets reply bytes ride inside the Server
+ * Action instead of needing a Route Handler — and the Plan 3 document handler
+ * is authenticated, so a public twin of it would be the largest new attack
+ * surface in this feature. Do NOT raise these to fit a 10 MB scan.
+ */
+export const MAX_REPLY_FILES = 3;
+export const MAX_REPLY_FILE_BYTES = 2 * 1024 * 1024; // 2 MB

@@ -499,14 +499,18 @@ export interface TransparencyCategoryValues {
 export type AdminContentStatus = "published" | "scheduled" | "draft" | "in-review";
 export type AdminServiceStatus = "active" | "inactive";
 export type AdminEventStatus = "published" | "planning";
-/** Spec §3 flow: pending → approved (ready for pickup) → released, or rejected. */
-export type ApplicationStatus = "pending" | "approved" | "released" | "rejected";
-/** Spec §3 flow: pending → confirmed (final date/time) → completed, or declined. */
-export type AppointmentStatus = "pending" | "confirmed" | "completed" | "declined";
-/** Spec §3 flow: received → under review → resolved, or dismissed. */
-export type ComplaintStatus = "received" | "under-review" | "resolved" | "dismissed";
-/** Spec §3 flow: pending → under review → granted, or declined. */
-export type AssistanceStatus = "pending" | "under-review" | "granted" | "declined";
+/** Spec §3 flow: pending → under review ⇄ awaiting info → approved → released, or rejected. */
+export type ApplicationStatus =
+  | "pending" | "under-review" | "awaiting-info" | "approved" | "released" | "rejected";
+/** Spec §3 flow: pending → under review ⇄ awaiting info → confirmed → completed, or declined. */
+export type AppointmentStatus =
+  | "pending" | "under-review" | "awaiting-info" | "confirmed" | "completed" | "declined";
+/** Spec §3 flow: received → under review ⇄ awaiting info → resolved, or dismissed. */
+export type ComplaintStatus =
+  | "received" | "under-review" | "awaiting-info" | "resolved" | "dismissed";
+/** Spec §3 flow: pending → under review ⇄ awaiting info → granted, or declined. */
+export type AssistanceStatus =
+  | "pending" | "under-review" | "awaiting-info" | "granted" | "declined";
 /** Any status a ticket of any kind can hold. */
 export type TicketStatus =
   | ApplicationStatus
@@ -805,6 +809,60 @@ export interface ApplicationRow {
   source: "online" | "walk-in";
 }
 
+/* ── Ticket updates: the append-only timeline log (design 2026-08-02) ─────── */
+
+export type TicketUpdateEntryType = "status" | "staff-note" | "info-request" | "resident-reply";
+export type TicketUpdateVisibility = "public" | "internal";
+export type TicketUpdateAuthorKind = "staff" | "resident" | "system";
+
+/** One resident-uploaded file on a reply. Stored as jsonb, never queried by field. */
+export interface TicketAttachment {
+  path: string;
+  name: string;
+  mime: string;
+  sizeBytes: number;
+}
+
+/**
+ * A resident-visible timeline entry. Only ever built from rows where
+ * `visibility = 'public'` — internal staff notes never reach this shape.
+ * Attachments carry no URL here: a resident's own upload is not re-served to
+ * them, so there is nothing to sign.
+ */
+export interface TicketUpdateEntry {
+  id: string;
+  entryType: TicketUpdateEntryType;
+  status: TicketStatus | null;
+  body: string;
+  authorKind: TicketUpdateAuthorKind;
+  authorName: string | null;
+  attachmentCount: number;
+  /** Manila calendar date (YYYY-MM-DD). */
+  createdAt: string;
+}
+
+/** The admin view of the same row: internal notes included, attachments signed. */
+export interface AdminTicketUpdate {
+  id: string;
+  entryType: TicketUpdateEntryType;
+  status: TicketStatus | null;
+  body: string;
+  visibility: TicketUpdateVisibility;
+  authorKind: TicketUpdateAuthorKind;
+  authorName: string | null;
+  attachments: (TicketAttachment & { url: string | null })[];
+  notified: boolean;
+  createdAt: string;
+}
+
+/** Body of `postTicketUpdate`. `setStatus` covers only the two mid-flow moves. */
+export interface TicketUpdateValues {
+  body: string;
+  visibility: TicketUpdateVisibility;
+  notify: boolean;
+  setStatus: "under-review" | "awaiting-info" | null;
+}
+
 /**
  * A resident-visible ticket, normalized across all four kinds. Everything here
  * is safe to render publicly — in particular a complaint's narrative and
@@ -830,6 +888,10 @@ export interface TicketLookupResult {
   remarks: string | null;
   /** Appointments only: the confirmed schedule once staff set it, e.g. "20 July 2026, morning". */
   scheduleNote: string | null;
+  /** Resident-visible log entries, oldest first. Internal notes are never included. */
+  timeline?: TicketUpdateEntry[];
+  /** True iff status is `awaiting-info` — drives whether the reply composer renders. */
+  repliable?: boolean;
 }
 
 /* ── Ticketing flows 2C: appointments, complaints, assistance ─────────── */
