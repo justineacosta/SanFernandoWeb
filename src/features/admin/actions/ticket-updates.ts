@@ -121,12 +121,22 @@ export async function postTicketUpdate(
   if (parsed.data.setStatus) {
     // Guard the transition in the WHERE clause: a stale tab must not move a
     // ticket someone else has since decided.
-    const { error: statusError } = await admin
+    //
+    // A 0-row match is NOT an error in PostgREST, so checking `error` alone
+    // would let a concurrent decision silently no-op while this action went on
+    // to email the resident about a transition that never happened. Same
+    // `.select().maybeSingle()` + `if (!data)` shape reviewApplication uses.
+    const { data: moved, error: statusError } = await admin
       .from(def.table)
       .update({ status: parsed.data.setStatus, replied_at: null })
       .eq("id", id)
-      .eq("status", current);
+      .eq("status", current)
+      .select("id")
+      .maybeSingle();
     if (statusError) return { error: "Could not update the status." };
+    if (!moved) {
+      return { error: "That ticket changed while you were editing. Refresh to see its status." };
+    }
     await recordTicketUpdate({
       ticketNo: ticket.ticket_no,
       kind,
