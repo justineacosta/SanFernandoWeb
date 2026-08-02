@@ -20,6 +20,8 @@ export interface TicketNoticeProps {
   requirementsLabel?: string;
   requirements?: string[];
   trackHref: string;
+  /** Button copy. Defaults to the tracking wording; the info-request email overrides it. */
+  trackLabel?: string;
 }
 
 /**
@@ -42,6 +44,7 @@ export function TicketNotice({
   requirementsLabel = "Bring these when you claim it",
   requirements = [],
   trackHref,
+  trackLabel = "Track this ticket",
 }: TicketNoticeProps) {
   return (
     <EmailLayout previewText={previewText}>
@@ -98,7 +101,7 @@ export function TicketNotice({
           marginTop: 8,
         }}
       >
-        Track this ticket
+        {trackLabel}
       </Button>
     </EmailLayout>
   );
