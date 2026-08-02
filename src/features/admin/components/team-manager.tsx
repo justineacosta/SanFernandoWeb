@@ -1,17 +1,16 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Archive, RotateCcw, Trash2, Pencil, UserCheck, UserX } from "lucide-react";
+import { Plus, Archive, RotateCcw, Trash2, Pencil, UserCheck, UserX, Mail } from "lucide-react";
 import type { Permission, SessionUser, StaffStatusLabel, TeamUser } from "@/types";
 import { PERMISSION_GROUPS, PERMISSION_LABELS, STATUS_PRESETS } from "@/constants/permissions";
 import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
 import { InlineAlert } from "@/components/ui/inline-alert";
-import { PasswordInput } from "@/components/ui/password-input";
-import { PasswordStrength } from "@/components/ui/password-strength";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
@@ -23,6 +22,7 @@ import {
   archiveTeamUser,
   createTeamUser,
   deleteTeamUser,
+  resendTeamUserInvite,
   restoreTeamUser,
   setTeamUserActive,
   updateTeamUser,
@@ -93,9 +93,11 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
   const [isPending, startTransition] = useTransition();
 
   // Controlled drawer form state.
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [statusLabel, setStatusLabel] = useState<StaffStatusLabel>("staff");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [permissions, setPermissions] = useState<Permission[]>(STATUS_PRESETS.staff);
@@ -103,9 +105,11 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
   const editingSelf = drawer?.mode === "edit" && drawer.user?.id === currentUser.id;
 
   function openCreate() {
-    setFullName("");
+    setFirstName("");
+    setMiddleName("");
+    setLastName("");
+    setPhone("");
     setEmail("");
-    setPassword("");
     setStatusLabel("staff");
     setIsSuperAdmin(false);
     setPermissions(STATUS_PRESETS.staff);
@@ -114,9 +118,11 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
   }
 
   function openEdit(user: TeamUser) {
-    setFullName(user.fullName);
+    setFirstName(user.firstName);
+    setMiddleName(user.middleName ?? "");
+    setLastName(user.lastName);
+    setPhone(user.phone ?? "");
     setEmail(user.email);
-    setPassword("");
     setStatusLabel(user.statusLabel);
     setIsSuperAdmin(user.isSuperAdmin);
     setPermissions(user.permissions);
@@ -141,21 +147,25 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
   function submit() {
     startTransition(async () => {
       try {
+        const editingOther = drawer?.mode === "edit" && drawer.user && drawer.user.id !== currentUser.id;
         const result =
           drawer?.mode === "edit" && drawer.user
             ? await updateTeamUser(drawer.user.id, {
-                fullName,
+                firstName,
+                middleName,
+                lastName,
                 statusLabel,
                 permissions,
                 isSuperAdmin,
-                ...(drawer.user.id !== currentUser.id && email !== drawer.user.email
-                  ? { email }
-                  : {}),
+                ...(editingOther && email !== drawer.user.email ? { email } : {}),
+                ...(editingOther ? { phone } : {}),
               })
             : await createTeamUser({
-                fullName,
+                firstName,
+                middleName,
+                lastName,
+                phone,
                 email,
-                password,
                 statusLabel,
                 permissions,
                 isSuperAdmin,
@@ -233,6 +243,10 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
     );
   }
 
+  function resendInvite(user: TeamUser) {
+    runRowAction(() => resendTeamUserInvite(user.id), `Invite resent to ${user.fullName}.`);
+  }
+
   function actionsFor(member: TeamUser): RowAction[] {
     // Nobody may disable, archive, or delete their own account — that is the
     // one mistake with no way back into the portal.
@@ -258,6 +272,16 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
 
     return [
       { label: "Edit user", icon: Pencil, onSelect: () => openEdit(member) },
+      ...(member.invitePending
+        ? [
+            {
+              label: "Resend invite",
+              icon: Mail,
+              disabled: isPending,
+              onSelect: () => resendInvite(member),
+            },
+          ]
+        : []),
       {
         label: member.isActive ? "Disable sign-in" : "Enable sign-in",
         icon: member.isActive ? UserX : UserCheck,
@@ -401,6 +425,11 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
                                 (you)
                               </span>
                             ) : null}
+                            {member.invitePending ? (
+                              <Badge variant="soft" className="ml-2 align-middle">
+                                Invite pending
+                              </Badge>
+                            ) : null}
                           </span>
                         </span>
                       </td>
@@ -441,10 +470,26 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
         <div className="flex h-full flex-col">
           <div className="flex-1 space-y-4 overflow-y-auto p-6">
             <label className="text-sm font-semibold text-ink-700">
-              Full name
+              First name
               <input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className={`mt-1 ${inputClass}`}
+              />
+            </label>
+            <label className="text-sm font-semibold text-ink-700">
+              Middle name <span className="font-normal text-ink-400">(optional)</span>
+              <input
+                value={middleName}
+                onChange={(e) => setMiddleName(e.target.value)}
+                className={`mt-1 ${inputClass}`}
+              />
+            </label>
+            <label className="text-sm font-semibold text-ink-700">
+              Last name
+              <input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
                 className={`mt-1 ${inputClass}`}
               />
             </label>
@@ -463,19 +508,21 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
                 </span>
               ) : null}
             </label>
-            {drawer?.mode === "create" ? (
-              <label className="text-sm font-semibold text-ink-700">
-                Temporary password (min 10 characters)
-                <div className="mt-1">
-                  <PasswordInput
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-                <PasswordStrength value={password} />
-              </label>
-            ) : null}
+            <label className="text-sm font-semibold text-ink-700">
+              Mobile number
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={editingSelf}
+                className={`mt-1 ${inputClass} ${editingSelf ? "cursor-not-allowed opacity-60" : ""}`}
+              />
+              {editingSelf ? (
+                <span className="mt-1 block text-xs font-normal text-ink-500">
+                  You cannot change your own mobile number here — use Settings.
+                </span>
+              ) : null}
+            </label>
 
             <fieldset>
               <legend className="text-sm font-semibold text-ink-700">Status label</legend>
