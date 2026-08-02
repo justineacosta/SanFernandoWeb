@@ -88,8 +88,10 @@ export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormP
           // The reply was recorded (error is null) but the immediate re-read
           // failed — rare, since the reply's own write just committed moments
           // earlier. Say so rather than silently leaving the composer's state
-          // out of sync with what the DB now holds.
-          setError("Your reply was sent. Refresh this page to see the update.");
+          // out of sync with what the DB now holds. Worded so the alert's
+          // error styling is honest: the refresh IS what failed, and the
+          // resident is told first that the part they care about worked.
+          setError("Your reply was sent, but this page could not be refreshed. Reload to see it.");
         }
       } catch {
         // Never let a throw reach error.tsx — that loses what the resident typed.

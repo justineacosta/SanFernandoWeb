@@ -249,6 +249,12 @@ export async function discardTicketAttachment(
   context: string,
 ): Promise<void> {
   if (!path) return;
+  // Same fixed-prefix allow-list `removeStoredImage` and `removeFeedbackScreenshot`
+  // apply before any storage.remove(): today every caller passes a path this module
+  // minted moments earlier in the same request, but an arbitrary string must never
+  // reach storage.remove() on the strength of that — the next call site added won't
+  // necessarily hold. `<TICKET_NO>/<uuid>.<ext>` is the only shape ever written here.
+  if (!/^(APP|APT|CMP|AST)-\d{4}-\d{5,}\//.test(path)) return;
   if (path.split("/").some((segment) => segment === "..")) return;
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage.from(TICKET_MEDIA_BUCKET).remove([path]);
