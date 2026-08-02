@@ -485,6 +485,30 @@ a rate-limit collision, not a regression.
   `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD` (both pages are public) — the full emailed-link round
   trip isn't automatable without a live inbox, same limitation the Resend integration design
   already documented.
+- **Admin account creation is invite-based, not password-based, 2026-08-01**
+  (`docs/superpowers/specs/2026-08-01-admin-account-invite-design.md`). `createTeamUser`
+  (`/admin/users`, SuperAdmin-only) no longer accepts a password — it creates the Supabase
+  Auth user with an unguessable `crypto.randomUUID()` password (so the account exists but
+  cannot sign in), inserts the `profiles` row, then reuses the forgot-password flow's exact
+  mechanism (see the bullet above) to email a "set your password" link:
+  `generateLink({type: "recovery"})` → this app's own
+  `/admin/reset-password?token_hash=...` URL → the unchanged `resetPassword` Server Action
+  redeems it via `verifyOtp`. The shared helper, `sendAccountInvite` (same file,
+  `src/features/admin/actions/users.ts`), is called both from `createTeamUser` and from the
+  new `resendTeamUserInvite` action — SuperAdmin-only, unrate-limited, the same trust level
+  as every other row action in `TeamManager`, not a public form. `profiles` gained
+  `first_name`/`middle_name`/`last_name` (migration `0031`) alongside the unchanged
+  `full_name`, which the new `buildFullName()` helper
+  (`src/features/admin/lib/build-full-name.ts`) keeps in sync on every SuperAdmin-driven
+  write. Settings → Profile's self-service "Full Name" field is deliberately untouched and
+  still writes `full_name` directly — a user who renames themselves there will drift the
+  split columns out of sync with it (accepted, see the spec's "Accepted drift" section).
+  `profiles.phone` (already existed, migration `0003`) is now also captured at
+  account-creation time and editable by a SuperAdmin for someone else's account, gated the
+  same "only when editing someone else" way the email field already was. "Invite pending" —
+  inferred from `auth.users.last_sign_in_at is null`, no new column, an N+1 `getUserById`
+  per row accepted because team rosters are small — shows as a badge in `TeamManager` and
+  gates the "Resend invite" row action.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
