@@ -6,6 +6,7 @@ import type { ApplicationReviewValues, WalkInApplicationValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
 import { sendEmail } from "@/lib/email";
 import { ApplicationSubmittedEmail } from "@/emails/ApplicationSubmittedEmail";
 import { ApplicationApprovedEmail } from "@/emails/ApplicationApprovedEmail";
@@ -88,13 +89,23 @@ export async function reviewApplication(
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("status", "pending")
+    .in("status", ["pending", "under-review", "awaiting-info"])
     .select("ticket_no, email, first_name, services (title, requirements)")
     .maybeSingle();
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That application was already reviewed. Refresh to see its status." };
 
   const approved = parsed.data.status === "approved";
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "application",
+    entryType: "status",
+    status: parsed.data.status,
+    body: parsed.data.remarks || "",
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   if (data.email) {
     const service = data.services as unknown as { title: string; requirements: string[] } | null;
     const serviceTitle = service?.title ?? "document";
@@ -151,6 +162,16 @@ export async function releaseApplication(id: string): Promise<ActionResult> {
   if (error) return { error: "Could not mark it released." };
   if (!data) return { error: "Only approved applications can be released. Refresh to see its status." };
 
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "application",
+    entryType: "status",
+    status: "released",
+    body: "",
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   await recordActivity(actor, {
     type: "update",
     action: "released application",
@@ -202,6 +223,15 @@ export async function createWalkInApplication(
     return { error: "Could not encode the application." };
   }
 
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "application",
+    entryType: "status",
+    status: TICKET_INTAKE_STATUS.application,
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   if (parsed.data.email) {
     await sendEmail({
       to: parsed.data.email,

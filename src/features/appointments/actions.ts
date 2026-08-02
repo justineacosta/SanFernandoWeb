@@ -4,6 +4,7 @@ import type { PublicAppointmentValues, SubmitTicketResult } from "@/types";
 import { AppointmentSubmittedEmail } from "@/emails/AppointmentSubmittedEmail";
 import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { appointmentSchema } from "./schema";
@@ -64,6 +65,14 @@ export async function submitAppointment(
     return { error: "We could not file your request. Please try again.", ticketNo: null };
   }
 
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "appointment",
+    entryType: "status",
+    status: TICKET_INTAKE_STATUS.appointment,
+    visibility: "public",
+    authorKind: "system",
+  });
   if (parsed.data.email) {
     await sendEmail({
       to: parsed.data.email,

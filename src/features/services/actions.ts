@@ -2,6 +2,7 @@
 
 import type { PublicApplicationValues, SubmitApplicationResult } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { sendEmail } from "@/lib/email";
@@ -80,6 +81,14 @@ export async function submitApplication(
     return { error: "We could not file your application. Please try again.", ticketNo: null };
   }
 
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "application",
+    entryType: "status",
+    status: TICKET_INTAKE_STATUS.application,
+    visibility: "public",
+    authorKind: "system",
+  });
   if (parsed.data.email) {
     await sendEmail({
       to: parsed.data.email,

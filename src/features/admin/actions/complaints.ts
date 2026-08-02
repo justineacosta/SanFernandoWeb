@@ -10,6 +10,7 @@ import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
 import { manilaToday } from "@/lib/format";
 
 export interface ActionResult {
@@ -115,13 +116,23 @@ export async function reviewComplaint(
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("status", "received")
+    .in("status", ["received", "under-review", "awaiting-info"])
     .select("ticket_no, email, first_name")
     .maybeSingle();
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That report was already reviewed. Refresh to see its status." };
 
   const dismissed = parsed.data.status === "dismissed";
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "complaint",
+    entryType: "status",
+    status: parsed.data.status,
+    body: parsed.data.remarks || "",
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   if (data.email && dismissed) {
     await sendEmail({
       to: data.email,
@@ -169,15 +180,25 @@ export async function closeComplaint(
       closed_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("status", "under-review")
+    .in("status", ["under-review", "awaiting-info"])
     .select("ticket_no, email, first_name")
     .maybeSingle();
   if (error) return { error: "Could not close the report." };
   if (!data) {
-    return { error: "Only reports under review can be closed. Refresh to see its status." };
+    return { error: "Only open reports can be closed. Refresh to see its status." };
   }
 
   const resolved = parsed.data.status === "resolved";
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "complaint",
+    entryType: "status",
+    status: parsed.data.status,
+    body: parsed.data.remarks || "",
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   if (data.email) {
     await sendEmail({
       to: data.email,
@@ -244,6 +265,15 @@ export async function createWalkInComplaint(values: WalkInComplaintValues): Prom
     return { error: "Could not encode the report." };
   }
 
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "complaint",
+    entryType: "status",
+    status: TICKET_INTAKE_STATUS.complaint,
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   if (parsed.data.email) {
     await sendEmail({
       to: parsed.data.email,

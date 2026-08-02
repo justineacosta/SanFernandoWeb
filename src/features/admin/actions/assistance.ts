@@ -14,6 +14,7 @@ import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
 
 export interface ActionResult {
   error: string | null;
@@ -105,13 +106,23 @@ export async function reviewAssistance(
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("status", "pending")
+    .in("status", ["pending", "under-review", "awaiting-info"])
     .select("ticket_no, email, first_name")
     .maybeSingle();
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That request was already reviewed. Refresh to see its status." };
 
   const declined = parsed.data.status === "declined";
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "assistance",
+    entryType: "status",
+    status: parsed.data.status,
+    body: parsed.data.remarks || "",
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   if (data.email && declined) {
     await sendEmail({
       to: data.email,
@@ -159,15 +170,25 @@ export async function decideAssistance(
       decided_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("status", "under-review")
+    .in("status", ["under-review", "awaiting-info"])
     .select("ticket_no, email, first_name, assistance_categories (label)")
     .maybeSingle();
   if (error) return { error: "Could not save the decision." };
   if (!data) {
-    return { error: "Only requests under review can be decided. Refresh to see its status." };
+    return { error: "Only open requests can be decided. Refresh to see its status." };
   }
 
   const granted = parsed.data.status === "granted";
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "assistance",
+    entryType: "status",
+    status: parsed.data.status,
+    body: parsed.data.remarks || "",
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   if (data.email) {
     const category = data.assistance_categories as unknown as { label: string } | null;
     await sendEmail({
@@ -251,6 +272,15 @@ export async function createWalkInAssistance(
     return { error: "Could not encode the request." };
   }
 
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "assistance",
+    entryType: "status",
+    status: TICKET_INTAKE_STATUS.assistance,
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   if (parsed.data.email) {
     await sendEmail({
       to: parsed.data.email,

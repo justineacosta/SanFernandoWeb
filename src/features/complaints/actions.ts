@@ -4,6 +4,7 @@ import type { PublicComplaintValues, SubmitTicketResult } from "@/types";
 import { ComplaintSubmittedEmail } from "@/emails/ComplaintSubmittedEmail";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
+import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { COMPLAINT_SERVICE_ID } from "./queries";
@@ -84,6 +85,14 @@ export async function submitComplaint(
     return { error: "We could not file your report. Please try again.", ticketNo: null };
   }
 
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "complaint",
+    entryType: "status",
+    status: TICKET_INTAKE_STATUS.complaint,
+    visibility: "public",
+    authorKind: "system",
+  });
   if (parsed.data.email) {
     await sendEmail({
       to: parsed.data.email,

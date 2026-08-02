@@ -10,6 +10,7 @@ import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
 import { manilaToday, manilaTodayNextYear } from "@/lib/format";
 
 export interface ActionResult {
@@ -117,13 +118,23 @@ export async function reviewAppointment(
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("status", "pending")
+    .in("status", ["pending", "under-review", "awaiting-info"])
     .select("ticket_no, email, first_name")
     .maybeSingle();
   if (error) return { error: "Could not save the review." };
   if (!data) return { error: "That appointment was already reviewed. Refresh to see its status." };
 
   const confirmed = parsed.data.status === "confirmed";
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "appointment",
+    entryType: "status",
+    status: parsed.data.status,
+    body: parsed.data.remarks || "",
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   if (data.email) {
     await sendEmail({
       to: data.email,
@@ -178,6 +189,16 @@ export async function completeAppointment(id: string): Promise<ActionResult> {
     return { error: "Only confirmed appointments can be completed. Refresh to see its status." };
   }
 
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "appointment",
+    entryType: "status",
+    status: "completed",
+    body: "",
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   await recordActivity(actor, {
     type: "update",
     action: "completed appointment",
@@ -222,6 +243,15 @@ export async function createWalkInAppointment(
     return { error: "Could not encode the appointment." };
   }
 
+  await recordTicketUpdate({
+    ticketNo: data.ticket_no,
+    kind: "appointment",
+    entryType: "status",
+    status: TICKET_INTAKE_STATUS.appointment,
+    visibility: "public",
+    authorKind: "system",
+    authorName: actor.fullName,
+  });
   if (parsed.data.email) {
     await sendEmail({
       to: parsed.data.email,
