@@ -260,6 +260,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
                   options: [
                     { value: "all", label: "All Statuses" },
                     { value: "pending", label: "Pending" },
+                    { value: "awaiting-info", label: "Awaiting Information" },
                     { value: "approved", label: "Approved" },
                     { value: "released", label: "Released" },
                     { value: "rejected", label: "Rejected" },
@@ -311,6 +312,11 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
                       <td className="px-6 py-4 text-ink-600">{formatDate(record.submittedAt)}</td>
                       <td className="px-6 py-4">
                         <StatusChip status={record.status} />
+                        {record.repliedAt ? (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-800">
+                            New reply
+                          </span>
+                        ) : null}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button

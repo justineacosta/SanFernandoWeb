@@ -246,6 +246,7 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
                     { value: "all", label: "All Statuses" },
                     { value: "received", label: "Received" },
                     { value: "under-review", label: "Under Review" },
+                    { value: "awaiting-info", label: "Awaiting Information" },
                     { value: "resolved", label: "Resolved" },
                     { value: "dismissed", label: "Dismissed" },
                   ],
@@ -296,6 +297,11 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
                       <td className="px-6 py-4 text-ink-600">{formatDate(record.submittedAt)}</td>
                       <td className="px-6 py-4">
                         <StatusChip status={record.status} />
+                        {record.repliedAt ? (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-800">
+                            New reply
+                          </span>
+                        ) : null}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button

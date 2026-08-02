@@ -12,7 +12,7 @@ export async function listAppointments(): Promise<AppointmentRow[]> {
   const { data, error } = await admin
     .from("appointments")
     .select(
-      "id, ticket_no, first_name, last_name, address, contact_number, email, purpose, preferred_date, preferred_period, confirmed_date, confirmed_period, status, remarks, reviewed_by_name, reviewed_at, completed_by_name, completed_at, source, created_at",
+      "id, ticket_no, first_name, last_name, address, contact_number, email, purpose, preferred_date, preferred_period, confirmed_date, confirmed_period, status, remarks, reviewed_by_name, reviewed_at, completed_by_name, completed_at, source, replied_at, created_at",
     )
     .order("created_at", { ascending: false });
   if (error || !data) {
@@ -42,5 +42,6 @@ export async function listAppointments(): Promise<AppointmentRow[]> {
     reviewedAt: row.reviewed_at ? toManilaDate(row.reviewed_at) : null,
     completedAt: row.completed_at ? toManilaDate(row.completed_at) : null,
     source: row.source as AppointmentRow["source"],
+    repliedAt: row.replied_at ? toManilaDate(row.replied_at) : null,
   }));
 }

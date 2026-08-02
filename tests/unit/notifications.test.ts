@@ -232,4 +232,13 @@ describe("registry agreement with search-modules", () => {
       expect(NOTIFICATION_QUEUES[key].navHref).toBe(MODULE_META[key].href);
     }
   });
+
+  it("sets replyColumn on exactly the four ticket queues", () => {
+    expect(NOTIFICATION_QUEUES.applications.replyColumn).toBe("replied_at");
+    expect(NOTIFICATION_QUEUES.appointments.replyColumn).toBe("replied_at");
+    expect(NOTIFICATION_QUEUES.complaints.replyColumn).toBe("replied_at");
+    expect(NOTIFICATION_QUEUES.assistance.replyColumn).toBe("replied_at");
+    expect(NOTIFICATION_QUEUES.inquiries.replyColumn).toBeUndefined();
+    expect(NOTIFICATION_QUEUES.feedback.replyColumn).toBeUndefined();
+  });
 });

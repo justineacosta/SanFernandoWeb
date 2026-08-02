@@ -12,7 +12,7 @@ export async function listAssistanceRequests(): Promise<AssistanceRow[]> {
   const { data, error } = await admin
     .from("assistance_requests")
     .select(
-      "id, ticket_no, first_name, last_name, address, contact_number, email, category_id, details, status, remarks, reviewed_by_name, reviewed_at, decided_by_name, decided_at, source, created_at, assistance_categories (label)",
+      "id, ticket_no, first_name, last_name, address, contact_number, email, category_id, details, status, remarks, reviewed_by_name, reviewed_at, decided_by_name, decided_at, source, replied_at, created_at, assistance_categories (label)",
     )
     .order("created_at", { ascending: false });
   if (error || !data) {
@@ -41,6 +41,7 @@ export async function listAssistanceRequests(): Promise<AssistanceRow[]> {
       reviewedAt: row.reviewed_at ? toManilaDate(row.reviewed_at) : null,
       decidedAt: row.decided_at ? toManilaDate(row.decided_at) : null,
       source: row.source as AssistanceRow["source"],
+      repliedAt: row.replied_at ? toManilaDate(row.replied_at) : null,
     };
   });
 }

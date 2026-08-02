@@ -15,7 +15,7 @@ export async function listComplaints(): Promise<ComplaintRow[]> {
   const { data, error } = await admin
     .from("complaints")
     .select(
-      "id, ticket_no, first_name, last_name, address, contact_number, email, respondent, incident_date, location, narrative, status, remarks, reviewed_by_name, reviewed_at, closed_by_name, closed_at, source, created_at",
+      "id, ticket_no, first_name, last_name, address, contact_number, email, respondent, incident_date, location, narrative, status, remarks, reviewed_by_name, reviewed_at, closed_by_name, closed_at, source, replied_at, created_at",
     )
     .order("created_at", { ascending: false });
   if (error || !data) {
@@ -43,5 +43,6 @@ export async function listComplaints(): Promise<ComplaintRow[]> {
     reviewedAt: row.reviewed_at ? toManilaDate(row.reviewed_at) : null,
     closedAt: row.closed_at ? toManilaDate(row.closed_at) : null,
     source: row.source as ComplaintRow["source"],
+    repliedAt: row.replied_at ? toManilaDate(row.replied_at) : null,
   }));
 }

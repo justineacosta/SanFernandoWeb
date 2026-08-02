@@ -21,10 +21,15 @@ const RECENT_LIMIT = 8;
 
 async function countQueue(admin: SupabaseAdmin, key: NotificationQueueKey): Promise<number> {
   const def = NOTIFICATION_QUEUES[key];
-  const { count, error } = await admin
-    .from(def.table)
-    .select("id", { count: "exact", head: true })
-    .eq("status", def.newStatus);
+  // PostgREST `or` takes one comma-separated filter string. Both halves are
+  // literals from this module's own registry — never user input.
+  const filter = def.replyColumn
+    ? `status.eq.${def.newStatus},${def.replyColumn}.not.is.null`
+    : null;
+  const query = admin.from(def.table).select("id", { count: "exact", head: true });
+  const { count, error } = filter
+    ? await query.or(filter)
+    : await query.eq("status", def.newStatus);
   if (error) {
     console.error(`getNotificationSnapshot count failed (${key}):`, error.message);
     return 0;

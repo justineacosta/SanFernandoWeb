@@ -12,7 +12,7 @@ export async function listApplications(): Promise<ApplicationRow[]> {
   const { data, error } = await admin
     .from("applications")
     .select(
-      "id, ticket_no, first_name, last_name, address, contact_number, email, service_id, purpose, status, remarks, reviewed_by_name, reviewed_at, released_by_name, released_at, source, created_at, services (title)",
+      "id, ticket_no, first_name, last_name, address, contact_number, email, service_id, purpose, status, remarks, reviewed_by_name, reviewed_at, released_by_name, released_at, source, replied_at, created_at, services (title)",
     )
     .order("created_at", { ascending: false });
   if (error || !data) {
@@ -41,6 +41,7 @@ export async function listApplications(): Promise<ApplicationRow[]> {
       reviewedAt: row.reviewed_at ? toManilaDate(row.reviewed_at) : null,
       releasedAt: row.released_at ? toManilaDate(row.released_at) : null,
       source: row.source as ApplicationRow["source"],
+      repliedAt: row.replied_at ? toManilaDate(row.replied_at) : null,
     };
   });
 }

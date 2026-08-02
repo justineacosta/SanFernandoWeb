@@ -807,6 +807,8 @@ export interface ApplicationRow {
   reviewedAt: string | null;
   releasedAt: string | null;
   source: "online" | "walk-in";
+  /** Manila calendar date, or null. Non-null means a resident reply is unread. */
+  repliedAt: string | null;
 }
 
 /* ── Ticket updates: the append-only timeline log (design 2026-08-02) ─────── */
@@ -958,6 +960,8 @@ export interface AppointmentRow {
   reviewedAt: string | null;
   completedAt: string | null;
   source: "online" | "walk-in";
+  /** Manila calendar date, or null. Non-null means a resident reply is unread. */
+  repliedAt: string | null;
 }
 
 /** Queue row for the complaints manager. Staff-only: carries the narrative. */
@@ -981,6 +985,8 @@ export interface ComplaintRow {
   reviewedAt: string | null;
   closedAt: string | null;
   source: "online" | "walk-in";
+  /** Manila calendar date, or null. Non-null means a resident reply is unread. */
+  repliedAt: string | null;
 }
 
 /** Queue row for the assistance manager. */
@@ -1003,6 +1009,8 @@ export interface AssistanceRow {
   reviewedAt: string | null;
   decidedAt: string | null;
   source: "online" | "walk-in";
+  /** Manila calendar date, or null. Non-null means a resident reply is unread. */
+  repliedAt: string | null;
 }
 
 /** Staff decision bodies. Remarks are required on every negative outcome. */

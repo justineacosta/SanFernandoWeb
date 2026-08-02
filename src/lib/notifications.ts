@@ -35,6 +35,13 @@ export interface NotificationQueueDef {
   permission: Permission;
   /** Deep link to one record. Not uniform: feedback needs `?tab=feedback&review=`. */
   buildHref: (id: string) => string;
+  /**
+   * A timestamp column that also counts as unhandled when non-null. Set on the
+   * four ticket queues only: a resident reply flips the ticket to
+   * `under-review`, which is correctly NOT "untouched work", so without this
+   * the badge would never fire for a reply.
+   */
+  replyColumn?: string;
 }
 
 export const NOTIFICATION_QUEUES: Record<NotificationQueueKey, NotificationQueueDef> = {
@@ -44,6 +51,7 @@ export const NOTIFICATION_QUEUES: Record<NotificationQueueKey, NotificationQueue
     navHref: "/admin/applications",
     permission: "process-applications",
     buildHref: (id) => `/admin/applications?review=${id}`,
+    replyColumn: "replied_at",
   },
   complaints: {
     table: "complaints",
@@ -51,6 +59,7 @@ export const NOTIFICATION_QUEUES: Record<NotificationQueueKey, NotificationQueue
     navHref: "/admin/complaints",
     permission: "handle-complaints",
     buildHref: (id) => `/admin/complaints?review=${id}`,
+    replyColumn: "replied_at",
   },
   appointments: {
     table: "appointments",
@@ -58,6 +67,7 @@ export const NOTIFICATION_QUEUES: Record<NotificationQueueKey, NotificationQueue
     navHref: "/admin/appointments",
     permission: "process-appointments",
     buildHref: (id) => `/admin/appointments?review=${id}`,
+    replyColumn: "replied_at",
   },
   assistance: {
     table: "assistance_requests",
@@ -65,6 +75,7 @@ export const NOTIFICATION_QUEUES: Record<NotificationQueueKey, NotificationQueue
     navHref: "/admin/assistance",
     permission: "handle-assistance",
     buildHref: (id) => `/admin/assistance?review=${id}`,
+    replyColumn: "replied_at",
   },
   inquiries: {
     table: "inquiries",
