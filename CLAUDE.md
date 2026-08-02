@@ -58,7 +58,12 @@ test, so a second run within `LOGIN_WINDOW_MS` = 15 min has `auth.setup.ts` bloc
 `tests/e2e/public/feedback.spec.ts` (consumes all 3 of `SUBMIT_LIMIT` on `feedback:unknown` per
 run — a second `test:e2e:public` run within an hour can fail the pre-existing "a complete
 report reaches the barangay" test too). A failure here after a recent run in the same window is
-a rate-limit collision, not a regression.
+a rate-limit collision, not a regression. `tests/e2e/admin/ticket-updates.spec.ts` spends a
+`track:*` budget (`LOOKUP_LIMIT` = 10 per 10 minutes) per run — one `/track` lookup, nothing
+more. It never submits a reply, so it spends no `reply:*` budget at all. Ten lookups per ten
+minutes is generous enough that this suite is far less collision-prone than the two above; a
+failure here from rate-limiting alone would take several rapid re-runs in the same window, not
+just one.
 
 ## Architecture
 
@@ -350,6 +355,69 @@ a rate-limit collision, not a regression.
   `requirements` through to `ApplicationApprovedEmail`. `closingNote` itself is unchanged
   (the "bring a valid ID" line is a blanket rule, not itself a per-service requirement — the
   seed data in `src/features/services/data.ts` doesn't uniformly list ID as a requirement).
+- **Progressive ticket timeline, `awaiting-info`, and resident replies, 2026-08-02**
+  (`docs/superpowers/specs/2026-08-02-ticket-timeline-updates-design.md`, migration `0032`).
+  All four ticketing flows (`applications`/`appointments`/`complaints`/`assistance_requests`)
+  now share one status shape: `<intake>` → `under-review` ⇄ `awaiting-info` → `<stage-1>` →
+  `<stage-2>`. **`under-review` is optional, not mandatory** — a clerk can still approve
+  straight from the intake status in one click; the transition guards widened from
+  `.eq("status","pending")` to `.in("status", ["pending","under-review","awaiting-info"])`
+  (and the equivalent for complaints' `received`) rather than forcing every ticket through
+  it, and `awaiting-info` is reachable from any non-terminal status, including intake. An
+  append-only `ticket_updates` table (migration `0032`) is now the single source of the
+  resident-facing timeline, replacing the old three-step diagram derived from
+  `status`/`created_at`/`reviewed_at`/`closed_at`. **It is keyed on `ticket_no`, not a
+  polymorphic `(kind, uuid)` pair or four nullable FKs** — `next_ticket_number` (migration
+  `0005`) already makes `ticket_no` globally unique by construction across all four
+  prefixes, `lookupTicket` already depends on that uniqueness
+  (`.eq("ticket_no", ticket).maybeSingle()` against the `tickets_view` union), and a text key
+  needs no join in either direction; accepted tradeoff, no cascade delete, since no ticket in
+  this app has a delete path at all yet. **`visibility` (`'public' | 'internal'`), filtered
+  in the query layer, is the entire privacy gate that keeps a staff internal note off
+  `/track`** — `loadTimeline` in `src/features/track/actions.ts` filters
+  `.eq("visibility","public")` and the component never re-checks it; do not move this check
+  into `ticket-timeline.tsx` "for clarity," since that would make the guarantee depend on the
+  component being rendered correctly rather than on the query never returning the row at all.
+  `author_name` is deliberately NOT selected into that same public payload either, for the
+  same reason `loadExtras` withholds a complaint's narrative/respondent/location: an
+  anonymous endpoint ships every column it selects whether or not anything renders it, and
+  naming the staff member who handled a complaint to the reporter invites pressure on that
+  person. `replied_at` (one column added to all four ticket tables) exists because a
+  resident's reply flips a ticket from `awaiting-info` back to `under-review` — correctly NOT
+  "untouched work" by the existing `NOTIFICATION_QUEUES` status match — so without it staff
+  would learn about a reply only from an email, the channel most likely to be missed; it
+  clears whenever staff next post an update and renders as a "New reply" pill beside the
+  status chip. `postTicketUpdate` (`src/features/admin/actions/ticket-updates.ts`) **never
+  writes `reviewed_*`/`closed_*`/`released_*`/`decided_*` or `remarks`** — those columns
+  record who decided what, when, and moving a ticket to `under-review` or `awaiting-info` is
+  not a decision; `remarks` keeps holding the latest decision's own reason, unchanged. The
+  reply path (`submitTicketReply`, same file as `lookupTicket`) checks its ticket-keyed rate
+  limit (`reply:ticket:<ticket_no>`) **only after** the surname gate passes, never before:
+  ticket numbers are sequential and guessable (the entire reason the surname gate exists at
+  all), so checking that budget first would let anyone enumerate ticket numbers and burn
+  every resident's reply budget without ever knowing a single surname. It also returns the
+  refreshed `TicketLookupResult` directly (built by a `buildTicketResult` helper shared with
+  `lookupTicket`) rather than having the client re-run the lookup — `track-lookup.tsx` nulls
+  its Turnstile token the instant a lookup succeeds, so a second round trip right after a
+  successful reply would show the resident a CAPTCHA error immediately after their reply
+  worked. Every storage write and DB filter past the surname gate uses the **DB-resolved
+  `view.ticket_no`**, never the client-submitted ticket string — it becomes a storage path
+  prefix (`uploadTicketAttachment`), and the client string is only an accident of the
+  `.eq()` match that found the row, not a guarantee that survives the rest of the function.
+  Attachments land in a new **private** `ticket-media` bucket (Supabase Storage's `list()`
+  rides the same RLS `select` policy as an individual `get()`, so a public bucket would make
+  every resident's uploaded ID anonymously enumerable — the same reasoning `feedback-media`
+  already established), capped at **3 files × 2 MB, chosen specifically to stay under the
+  existing `"8mb"` Server Action `bodySizeLimit`** (security-hardening Plan 3) rather than
+  raise it — raising it would also mean building a second, anonymous, public-facing sibling
+  to the authenticated `/api/admin/uploads/document` Route Handler, the single largest new
+  attack surface this feature could have added, for a resident who only needs to attach a
+  scan of an ID. `scripts/report-orphaned-media.mjs` gained a `ticket-media` case with its
+  own jsonb-array extraction (`ticket_updates.attachments`), since every other bucket in that
+  script reads a plain text column. **Deploy-order hazard, same class as `0031`:** apply
+  migration `0032` before this code reaches an environment — the list queries select
+  `replied_at` and the drawers write `ticket_updates`; a missing column fails every update
+  write at runtime. Staging first, verified, then production.
 - **`/admin/login` is a responsive split-screen at `md:` (768px)+, 2026-07-31** — a brand panel
   (currently `w-[55%]`, the form panel takes the rest) beside the form, with a **separate**
   centered-card layout below that breakpoint. `src/app/admin/login/page.tsx` renders both

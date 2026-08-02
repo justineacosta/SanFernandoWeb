@@ -17,8 +17,10 @@
 // are split per content type"). There is no single shared `public-media`
 // bucket with folder prefixes anymore — each status-aware content type has
 // its own public/private bucket pair (`news-media`/`news-drafts`, etc — see
-// MediaKind in src/lib/storage.ts), plus three single-bucket kinds with no
-// draft/publish split (site-media, avatars-media, feedback-media). This
+// MediaKind in src/lib/storage.ts), plus single-bucket kinds with no
+// draft/publish split (site-media, avatars-media, feedback-media, and —
+// 2026-08-02, the ticket-timeline-updates feature — ticket-media, whose
+// referenced paths live in a jsonb array rather than a plain column). This
 // mirrors that shape instead of a hardcoded BUCKET/FOLDERS list, which found
 // nothing once the split shipped — the objects had all moved to buckets this
 // script never looked at.
@@ -72,6 +74,21 @@ const SINGLE_BUCKETS = [
   { bucket: "avatars-media", table: "profiles", column: "avatar_src" },
   { bucket: "feedback-media", table: "feedback", column: "screenshot_path" },
 ];
+
+// ticket-media: resident reply attachments, stored as a jsonb array of
+// {path,name,mime,sizeBytes} on ticket_updates. Needs its own extraction —
+// every other kind reads a plain text column.
+async function ticketMediaReferences(supabase) {
+  const { data, error } = await supabase.from("ticket_updates").select("attachments");
+  if (error) throw new Error(`ticket_updates read failed: ${error.message}`);
+  const paths = new Set();
+  for (const row of data ?? []) {
+    for (const file of row.attachments ?? []) {
+      if (file?.path) paths.add(file.path);
+    }
+  }
+  return paths;
+}
 
 /** List a bucket recursively — storage.list() is one level at a time. */
 async function listBucket(bucket, prefix = "") {
@@ -128,6 +145,12 @@ for (const { bucket, table, column } of SINGLE_BUCKETS) {
   const referenced = await referencedPaths([[table, column]]);
   const stored = await listBucket(bucket);
   totalOrphans += report(bucket, stored, referenced);
+}
+
+{
+  const referenced = await ticketMediaReferences(supabase);
+  const stored = await listBucket("ticket-media");
+  totalOrphans += report("ticket-media", stored, referenced);
 }
 
 console.log(`\ntotal orphans across all buckets: ${totalOrphans}`);

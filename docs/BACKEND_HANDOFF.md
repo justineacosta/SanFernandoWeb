@@ -1340,6 +1340,17 @@ The admin **UI now exists in full** (`/admin` redirects to the first module the 
    email a submission receipt when the resident gave an email address, and the 8
    "final outcome" status transitions (approved/rejected, confirmed/declined,
    resolved/dismissed, granted/declined) each email a matching notice.
+   **Mid-flow updates now email too, 2026-08-02** (the ticket-timeline-updates feature —
+   see CLAUDE.md's "Progressive ticket timeline" bullet). Staff can post a resident-visible
+   update or an information request to any of the four queues without it being a terminal
+   decision; `postTicketUpdate` sends `TicketUpdateEmail` when the resident has an email and
+   the "Email the resident" toggle is on, and a resident's `/track` reply back emails every
+   holder of that queue's permission via `TicketReplyStaffNotifyEmail`. This was the one gap
+   Plan 2 left: it fired only on submission and the 8 terminal transitions, never on anything
+   in between, because there was no mid-flow event in the data model to email about until this
+   feature added `ticket_updates` and `awaiting-info`. The remaining open piece of the
+   original Resend design is still Plan 3 (delivery monitoring via `email_log` + the Resend
+   webhook), unchanged by this work.
 
 Citizen accounts are **not** required by any current UI.
 
