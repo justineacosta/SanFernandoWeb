@@ -6,44 +6,59 @@ import { PERMISSIONS, type Permission, type StaffStatusLabel } from "@/types";
 import { NOT_FOUND, checkSuperAdmin } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { buildFullName } from "@/features/admin/lib/build-full-name";
+import { sendEmail } from "@/lib/email";
+import { EMAIL_SITE_URL } from "@/emails/site-url";
+import { AccountInviteEmail } from "@/emails/AccountInviteEmail";
 
 export interface ActionResult {
   error: string | null;
 }
 
 export interface TeamUserInput {
-  fullName: string;
+  firstName: string;
+  middleName: string; // "" means none
+  lastName: string;
+  phone: string;
   email: string;
-  password: string;
   statusLabel: StaffStatusLabel;
   permissions: Permission[];
   isSuperAdmin: boolean;
 }
 
 const teamUserSchema = z.object({
-  fullName: z.string().trim().min(2, "Name is too short."),
+  firstName: z.string().trim().min(1, "First name is required."),
+  middleName: z.string().trim(),
+  lastName: z.string().trim().min(1, "Last name is required."),
+  phone: z.string().trim().min(1, "Enter a mobile number.").max(30, "Phone number is too long."),
   email: z.string().email("Enter a valid email."),
-  password: z.string().min(10, "Password needs at least 10 characters."),
   statusLabel: z.enum(["staff", "editor"]),
   permissions: z.array(z.enum(PERMISSIONS)),
   isSuperAdmin: z.boolean(),
 });
 
 export interface UpdateTeamUserInput {
-  fullName: string;
+  firstName: string;
+  middleName: string; // "" means none
+  lastName: string;
   statusLabel: StaffStatusLabel;
   permissions: Permission[];
   isSuperAdmin: boolean;
   /** Only honored when editing another user; ignored on the actor's own row. */
   email?: string;
+  /** Only honored when editing another user; ignored on the actor's own row. */
+  phone?: string;
 }
 
 const updateSchema = z.object({
-  fullName: z.string().trim().min(2, "Name is too short."),
+  firstName: z.string().trim().min(1, "First name is required."),
+  middleName: z.string().trim(),
+  lastName: z.string().trim().min(1, "Last name is required."),
   statusLabel: z.enum(["staff", "editor"]),
   permissions: z.array(z.enum(PERMISSIONS)),
   isSuperAdmin: z.boolean(),
   email: z.string().email("Enter a valid email.").optional(),
+  phone: z.string().trim().min(1, "Enter a mobile number.").max(30, "Phone number is too long.").optional(),
 });
 
 /** Active, non-archived SuperAdmins. The system must never drop below one. */
@@ -74,6 +89,34 @@ async function wouldOrphanSuperAdmin(id: string): Promise<boolean> {
   return (await activeSuperAdminCount()) <= 1;
 }
 
+/**
+ * Emails a "set your password" link using the exact mechanism
+ * requestPasswordReset/resetPassword already built (src/features/admin/
+ * actions/auth.ts): generateLink({type: "recovery"}) returns a hashed_token,
+ * this app builds its own /admin/reset-password URL from it (never Supabase's
+ * action_link), and the unchanged resetPassword action redeems it via
+ * verifyOtp. Fails open, same as every sendEmail() call site in this app — an
+ * email failure must never undo the account this is called after creating.
+ */
+async function sendAccountInvite(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  user: { email: string; fullName: string },
+): Promise<void> {
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email: user.email,
+  });
+  if (error || !data) return;
+  const setPasswordUrl = `${EMAIL_SITE_URL}/admin/reset-password?token_hash=${encodeURIComponent(
+    data.properties.hashed_token,
+  )}`;
+  await sendEmail({
+    to: user.email,
+    subject: "Welcome to the Barangay San Fernando admin portal",
+    template: AccountInviteEmail({ fullName: user.fullName, setPasswordUrl }),
+  });
+}
+
 export async function createTeamUser(input: TeamUserInput): Promise<ActionResult> {
   const actor = await checkSuperAdmin();
   if (!actor) return { error: NOT_FOUND };
@@ -83,9 +126,13 @@ export async function createTeamUser(input: TeamUserInput): Promise<ActionResult
   }
 
   const admin = createSupabaseAdminClient();
+  const fullName = buildFullName(parsed.data.firstName, parsed.data.middleName, parsed.data.lastName);
+
+  // A random, never-surfaced password: the account exists but cannot sign in
+  // until the invite email's link is used to set a real one.
   const { data, error } = await admin.auth.admin.createUser({
     email: parsed.data.email,
-    password: parsed.data.password,
+    password: crypto.randomUUID(),
     email_confirm: true,
   });
   if (error || !data.user) {
@@ -95,7 +142,11 @@ export async function createTeamUser(input: TeamUserInput): Promise<ActionResult
   const { error: profileError } = await admin.from("profiles").insert({
     id: data.user.id,
     email: parsed.data.email,
-    full_name: parsed.data.fullName,
+    first_name: parsed.data.firstName,
+    middle_name: parsed.data.middleName || null,
+    last_name: parsed.data.lastName,
+    full_name: fullName,
+    phone: parsed.data.phone,
     status_label: parsed.data.statusLabel,
     permissions: parsed.data.permissions,
     is_superadmin: parsed.data.isSuperAdmin,
@@ -105,12 +156,41 @@ export async function createTeamUser(input: TeamUserInput): Promise<ActionResult
     return { error: "Could not save the profile. The account was not created." };
   }
 
+  await sendAccountInvite(admin, { email: parsed.data.email, fullName });
+
   await recordActivity(actor, {
     type: "create",
     action: "created user",
     entityType: "team-user",
     entityId: data.user.id,
-    entityLabel: parsed.data.fullName,
+    entityLabel: fullName,
+  });
+  revalidatePath("/admin/users");
+  return { error: null };
+}
+
+/** SuperAdmin-only, unrate-limited: same trust level as every other row action in TeamManager. */
+export async function resendTeamUserInvite(id: string): Promise<ActionResult> {
+  const actor = await checkSuperAdmin();
+  if (!actor) return { error: NOT_FOUND };
+
+  const admin = createSupabaseAdminClient();
+  const { data: target } = await admin
+    .from("profiles")
+    .select("email, full_name, is_archived")
+    .eq("id", id)
+    .maybeSingle();
+  if (!target) return { error: "That account no longer exists." };
+  if (target.is_archived) return { error: "Restore this account before resending an invite." };
+
+  await sendAccountInvite(admin, { email: target.email, fullName: target.full_name });
+
+  await recordActivity(actor, {
+    type: "update",
+    action: "resent account invite",
+    entityType: "team-user",
+    entityId: id,
+    entityLabel: target.full_name,
   });
   revalidatePath("/admin/users");
   return { error: null };
@@ -139,6 +219,7 @@ export async function updateTeamUser(
   }
 
   const admin = createSupabaseAdminClient();
+  const fullName = buildFullName(parsed.data.firstName, parsed.data.middleName, parsed.data.lastName);
 
   // Email is editable only for OTHER users, and only when it actually changes.
   // Look up the current email so we can skip a no-op auth write and roll back
@@ -182,11 +263,15 @@ export async function updateTeamUser(
   const { error } = await admin
     .from("profiles")
     .update({
-      full_name: parsed.data.fullName,
+      first_name: parsed.data.firstName,
+      middle_name: parsed.data.middleName || null,
+      last_name: parsed.data.lastName,
+      full_name: fullName,
       status_label: parsed.data.statusLabel,
       permissions: parsed.data.permissions,
       is_superadmin: parsed.data.isSuperAdmin,
       ...(changingEmail ? { email: parsed.data.email } : {}),
+      ...(!isSelf && parsed.data.phone !== undefined ? { phone: parsed.data.phone } : {}),
     })
     .eq("id", id);
   if (error) {
@@ -202,7 +287,7 @@ export async function updateTeamUser(
     action: roleChanged ? "changed user permissions" : "updated user",
     entityType: "team-user",
     entityId: id,
-    entityLabel: parsed.data.fullName,
+    entityLabel: fullName,
     detail: roleChanged
       ? `${parsed.data.isSuperAdmin ? "SuperAdmin" : "Staff"} · ${
           nextPermissions.length > 0 ? nextPermissions.join(", ") : "no permissions"
