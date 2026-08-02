@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { ClipboardList, FileText, HeartHandshake, Plus } from "lucide-react";
 import type {
+  AdminTicketUpdate,
   AssistanceCategoryRow,
   AssistanceDecisionValues,
   AssistanceReviewValues,
@@ -24,6 +25,7 @@ import {
   decideAssistance,
   reviewAssistance,
 } from "@/features/admin/actions/assistance";
+import { getTicketUpdatesAction } from "@/features/admin/actions/ticket-updates";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
@@ -53,8 +55,19 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [updates, setUpdates] = useState<AdminTicketUpdate[]>([]);
   const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
+
+  const loadUpdates = (ticketNo: string) => {
+    startTransition(async () => {
+      try {
+        setUpdates(await getTicketUpdatesAction("assistance", ticketNo));
+      } catch {
+        showError("Could not load the timeline.");
+      }
+    });
+  };
 
   const activeCategories = useMemo(
     () => categories.filter((category) => category.isActive),
@@ -102,9 +115,11 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
 
   // Global-search results link here as ?review=<id>.
   useEditDeepLink("review", (id) => {
-    if (requests.some((record) => record.id === id)) {
+    const record = requests.find((row) => row.id === id);
+    if (record) {
       setFormError(null);
       setReviewingId(id);
+      loadUpdates(record.ticketNo);
     } else {
       showError("That request no longer exists.");
     }
@@ -113,6 +128,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
   const closeReview = () => {
     setReviewingId(null);
     setFormError(null);
+    setUpdates([]);
   };
 
   const handleReview = (id: string, values: AssistanceReviewValues) => {
@@ -304,6 +320,7 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
                           onClick={() => {
                             setFormError(null);
                             setReviewingId(record.id);
+                            loadUpdates(record.ticketNo);
                           }}
                           aria-label={`Review ${record.ticketNo}`}
                           className="text-sm font-semibold text-brand-700 hover:underline"
@@ -337,6 +354,8 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
             saving={isPending}
             error={formError}
             onDismissError={() => setFormError(null)}
+            updates={updates}
+            onPosted={() => loadUpdates(reviewing.ticketNo)}
           />
         ) : null}
       </Drawer>

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { ComplaintCloseValues, ComplaintReviewValues, ComplaintRow } from "@/types";
+import type { AdminTicketUpdate, ComplaintCloseValues, ComplaintReviewValues, ComplaintRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatDate } from "@/lib/format";
 import { StatusChip } from "./status-chip";
+import { TicketTimelinePanel } from "./ticket-timeline-panel";
 
 interface ComplaintReviewDrawerProps {
   record: ComplaintRow;
@@ -16,6 +17,8 @@ interface ComplaintReviewDrawerProps {
   saving: boolean;
   error: string | null;
   onDismissError: () => void;
+  updates: AdminTicketUpdate[];
+  onPosted: () => void;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -36,6 +39,8 @@ export function ComplaintReviewDrawer({
   saving,
   error,
   onDismissError,
+  updates,
+  onPosted,
 }: ComplaintReviewDrawerProps) {
   const [remarks, setRemarks] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -132,6 +137,14 @@ export function ComplaintReviewDrawer({
         {(localError ?? error) ? (
           <InlineAlert message={localError ?? error!} onDismiss={dismissError} />
         ) : null}
+        <TicketTimelinePanel
+          kind="complaint"
+          ticketId={record.id}
+          updates={updates}
+          hasEmail={Boolean(record.email)}
+          canPost={record.status !== "resolved" && record.status !== "dismissed"}
+          onPosted={onPosted}
+        />
       </div>
       {record.status === "received" ? (
         <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">

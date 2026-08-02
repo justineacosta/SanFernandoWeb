@@ -2,7 +2,12 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { CheckCircle2, ClipboardList, FileText, Plus } from "lucide-react";
-import type { ApplicationReviewValues, ApplicationRow, WalkInApplicationValues } from "@/types";
+import type {
+  AdminTicketUpdate,
+  ApplicationReviewValues,
+  ApplicationRow,
+  WalkInApplicationValues,
+} from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
@@ -18,6 +23,7 @@ import {
   releaseApplication,
   reviewApplication,
 } from "@/features/admin/actions/applications";
+import { getTicketUpdatesAction } from "@/features/admin/actions/ticket-updates";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
@@ -47,8 +53,19 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [updates, setUpdates] = useState<AdminTicketUpdate[]>([]);
   const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
+
+  const loadUpdates = (ticketNo: string) => {
+    startTransition(async () => {
+      try {
+        setUpdates(await getTicketUpdatesAction("application", ticketNo));
+      } catch {
+        showError("Could not load the timeline.");
+      }
+    });
+  };
 
   const totalCount = applications.length;
   const pendingCount = applications.filter((record) => record.status === "pending").length;
@@ -92,9 +109,11 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
 
   // Global-search results link here as ?review=<id>.
   useEditDeepLink("review", (id) => {
-    if (applications.some((record) => record.id === id)) {
+    const record = applications.find((row) => row.id === id);
+    if (record) {
       setFormError(null);
       setReviewingId(id);
+      loadUpdates(record.ticketNo);
     } else {
       showError("That application no longer exists.");
     }
@@ -103,6 +122,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
   const closeReview = () => {
     setReviewingId(null);
     setFormError(null);
+    setUpdates([]);
   };
 
   const handleReview = (id: string, values: ApplicationReviewValues) => {
@@ -290,6 +310,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
                           onClick={() => {
                             setFormError(null);
                             setReviewingId(record.id);
+                            loadUpdates(record.ticketNo);
                           }}
                           aria-label={`Review ${record.ticketNo}`}
                           className="text-sm font-semibold text-brand-700 hover:underline"
@@ -323,6 +344,8 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
             saving={isPending}
             error={formError}
             onDismissError={() => setFormError(null)}
+            updates={updates}
+            onPosted={() => loadUpdates(reviewing.ticketNo)}
           />
         ) : null}
       </Drawer>

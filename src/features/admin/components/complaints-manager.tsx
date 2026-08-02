@@ -2,7 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { ClipboardList, FileText, Plus, Scale } from "lucide-react";
-import type { ComplaintReviewValues, ComplaintCloseValues, ComplaintRow, WalkInComplaintValues } from "@/types";
+import type {
+  AdminTicketUpdate,
+  ComplaintReviewValues,
+  ComplaintCloseValues,
+  ComplaintRow,
+  WalkInComplaintValues,
+} from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
@@ -18,6 +24,7 @@ import {
   createWalkInComplaint,
   reviewComplaint,
 } from "@/features/admin/actions/complaints";
+import { getTicketUpdatesAction } from "@/features/admin/actions/ticket-updates";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
@@ -45,8 +52,19 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [updates, setUpdates] = useState<AdminTicketUpdate[]>([]);
   const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
+
+  const loadUpdates = (ticketNo: string) => {
+    startTransition(async () => {
+      try {
+        setUpdates(await getTicketUpdatesAction("complaint", ticketNo));
+      } catch {
+        showError("Could not load the timeline.");
+      }
+    });
+  };
 
   const totalCount = complaints.length;
   const receivedCount = complaints.filter((record) => record.status === "received").length;
@@ -88,9 +106,11 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
 
   // Global-search results link here as ?review=<id>.
   useEditDeepLink("review", (id) => {
-    if (complaints.some((record) => record.id === id)) {
+    const record = complaints.find((row) => row.id === id);
+    if (record) {
       setFormError(null);
       setReviewingId(id);
+      loadUpdates(record.ticketNo);
     } else {
       showError("That report no longer exists.");
     }
@@ -99,6 +119,7 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
   const closeReview = () => {
     setReviewingId(null);
     setFormError(null);
+    setUpdates([]);
   };
 
   const handleReview = (id: string, values: ComplaintReviewValues) => {
@@ -274,6 +295,7 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
                           onClick={() => {
                             setFormError(null);
                             setReviewingId(record.id);
+                            loadUpdates(record.ticketNo);
                           }}
                           aria-label={`Review ${record.ticketNo}`}
                           className="text-sm font-semibold text-brand-700 hover:underline"
@@ -307,6 +329,8 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
             saving={isPending}
             error={formError}
             onDismissError={() => setFormError(null)}
+            updates={updates}
+            onPosted={() => loadUpdates(reviewing.ticketNo)}
           />
         ) : null}
       </Drawer>

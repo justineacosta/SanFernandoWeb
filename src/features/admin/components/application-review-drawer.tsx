@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { ApplicationReviewValues, ApplicationRow } from "@/types";
+import type { AdminTicketUpdate, ApplicationReviewValues, ApplicationRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatDate } from "@/lib/format";
 import { StatusChip } from "./status-chip";
+import { TicketTimelinePanel } from "./ticket-timeline-panel";
 
 interface ApplicationReviewDrawerProps {
   record: ApplicationRow;
@@ -16,6 +17,8 @@ interface ApplicationReviewDrawerProps {
   saving: boolean;
   error: string | null;
   onDismissError: () => void;
+  updates: AdminTicketUpdate[];
+  onPosted: () => void;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -36,6 +39,8 @@ export function ApplicationReviewDrawer({
   saving,
   error,
   onDismissError,
+  updates,
+  onPosted,
 }: ApplicationReviewDrawerProps) {
   const [remarks, setRemarks] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -102,6 +107,14 @@ export function ApplicationReviewDrawer({
         {(localError ?? error) ? (
           <InlineAlert message={localError ?? error!} onDismiss={dismissError} />
         ) : null}
+        <TicketTimelinePanel
+          kind="application"
+          ticketId={record.id}
+          updates={updates}
+          hasEmail={Boolean(record.email)}
+          canPost={record.status !== "released" && record.status !== "rejected"}
+          onPosted={onPosted}
+        />
       </div>
       {record.status === "pending" ? (
         <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">

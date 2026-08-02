@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { AppointmentPeriod, AppointmentReviewValues, AppointmentRow } from "@/types";
+import type { AdminTicketUpdate, AppointmentPeriod, AppointmentReviewValues, AppointmentRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatDate, manilaToday } from "@/lib/format";
 import { StatusChip } from "./status-chip";
+import { TicketTimelinePanel } from "./ticket-timeline-panel";
 
 interface AppointmentReviewDrawerProps {
   record: AppointmentRow;
@@ -16,6 +17,8 @@ interface AppointmentReviewDrawerProps {
   saving: boolean;
   error: string | null;
   onDismissError: () => void;
+  updates: AdminTicketUpdate[];
+  onPosted: () => void;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -36,6 +39,8 @@ export function AppointmentReviewDrawer({
   saving,
   error,
   onDismissError,
+  updates,
+  onPosted,
 }: AppointmentReviewDrawerProps) {
   const [confirmedDate, setConfirmedDate] = useState(record.preferredDate);
   const [confirmedPeriod, setConfirmedPeriod] = useState<AppointmentPeriod>(record.preferredPeriod);
@@ -142,6 +147,14 @@ export function AppointmentReviewDrawer({
         {(localError ?? error) ? (
           <InlineAlert message={localError ?? error!} onDismiss={dismissError} />
         ) : null}
+        <TicketTimelinePanel
+          kind="appointment"
+          ticketId={record.id}
+          updates={updates}
+          hasEmail={Boolean(record.email)}
+          canPost={record.status !== "completed" && record.status !== "declined"}
+          onPosted={onPosted}
+        />
       </div>
       {record.status === "pending" ? (
         <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">

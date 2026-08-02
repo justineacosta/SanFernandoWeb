@@ -2,7 +2,12 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { CalendarDays, CheckCircle2, ClipboardList, Plus } from "lucide-react";
-import type { AppointmentReviewValues, AppointmentRow, WalkInAppointmentValues } from "@/types";
+import type {
+  AdminTicketUpdate,
+  AppointmentReviewValues,
+  AppointmentRow,
+  WalkInAppointmentValues,
+} from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
@@ -18,6 +23,7 @@ import {
   createWalkInAppointment,
   reviewAppointment,
 } from "@/features/admin/actions/appointments";
+import { getTicketUpdatesAction } from "@/features/admin/actions/ticket-updates";
 import { AdminEmptyState } from "./admin-empty-state";
 import { AdminFilterBar } from "./admin-filter-bar";
 import { AdminPageHeader } from "./admin-page-header";
@@ -45,8 +51,19 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [updates, setUpdates] = useState<AdminTicketUpdate[]>([]);
   const { toast, showToast, showError, dismissToast } = useToast();
   const [isPending, startTransition] = useTransition();
+
+  const loadUpdates = (ticketNo: string) => {
+    startTransition(async () => {
+      try {
+        setUpdates(await getTicketUpdatesAction("appointment", ticketNo));
+      } catch {
+        showError("Could not load the timeline.");
+      }
+    });
+  };
 
   const totalCount = appointments.length;
   const pendingCount = appointments.filter((record) => record.status === "pending").length;
@@ -88,9 +105,11 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
 
   // Global-search results link here as ?review=<id>.
   useEditDeepLink("review", (id) => {
-    if (appointments.some((record) => record.id === id)) {
+    const record = appointments.find((row) => row.id === id);
+    if (record) {
       setFormError(null);
       setReviewingId(id);
+      loadUpdates(record.ticketNo);
     } else {
       showError("That appointment no longer exists.");
     }
@@ -99,6 +118,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
   const closeReview = () => {
     setReviewingId(null);
     setFormError(null);
+    setUpdates([]);
   };
 
   const handleReview = (id: string, values: AppointmentReviewValues) => {
@@ -276,6 +296,7 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
                           onClick={() => {
                             setFormError(null);
                             setReviewingId(record.id);
+                            loadUpdates(record.ticketNo);
                           }}
                           aria-label={`Review ${record.ticketNo}`}
                           className="text-sm font-semibold text-brand-700 hover:underline"
@@ -309,6 +330,8 @@ export function AppointmentsManager({ appointments }: AppointmentsManagerProps) 
             saving={isPending}
             error={formError}
             onDismissError={() => setFormError(null)}
+            updates={updates}
+            onPosted={() => loadUpdates(reviewing.ticketNo)}
           />
         ) : null}
       </Drawer>

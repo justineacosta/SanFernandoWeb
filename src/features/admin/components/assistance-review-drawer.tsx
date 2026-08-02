@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { AssistanceDecisionValues, AssistanceReviewValues, AssistanceRow } from "@/types";
+import type { AdminTicketUpdate, AssistanceDecisionValues, AssistanceReviewValues, AssistanceRow } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { formatDate } from "@/lib/format";
 import { StatusChip } from "./status-chip";
+import { TicketTimelinePanel } from "./ticket-timeline-panel";
 
 interface AssistanceReviewDrawerProps {
   record: AssistanceRow;
@@ -16,6 +17,8 @@ interface AssistanceReviewDrawerProps {
   saving: boolean;
   error: string | null;
   onDismissError: () => void;
+  updates: AdminTicketUpdate[];
+  onPosted: () => void;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -36,6 +39,8 @@ export function AssistanceReviewDrawer({
   saving,
   error,
   onDismissError,
+  updates,
+  onPosted,
 }: AssistanceReviewDrawerProps) {
   const [remarks, setRemarks] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -127,6 +132,14 @@ export function AssistanceReviewDrawer({
         {(localError ?? error) ? (
           <InlineAlert message={localError ?? error!} onDismiss={dismissError} />
         ) : null}
+        <TicketTimelinePanel
+          kind="assistance"
+          ticketId={record.id}
+          updates={updates}
+          hasEmail={Boolean(record.email)}
+          canPost={record.status !== "granted" && record.status !== "declined"}
+          onPosted={onPosted}
+        />
       </div>
       {record.status === "pending" ? (
         <div className="flex justify-end gap-3 border-t border-ink-200/70 p-6">
