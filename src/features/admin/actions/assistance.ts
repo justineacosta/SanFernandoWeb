@@ -104,6 +104,7 @@ export async function reviewAssistance(
       reviewed_by: actor.id,
       reviewed_by_name: actor.fullName,
       reviewed_at: new Date().toISOString(),
+      replied_at: null,
     })
     .eq("id", id)
     .in("status", ["pending", "under-review", "awaiting-info"])
@@ -168,6 +169,7 @@ export async function decideAssistance(
       decided_by: actor.id,
       decided_by_name: actor.fullName,
       decided_at: new Date().toISOString(),
+      replied_at: null,
     })
     .eq("id", id)
     .in("status", ["under-review", "awaiting-info"])

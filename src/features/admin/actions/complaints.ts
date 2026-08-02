@@ -114,6 +114,7 @@ export async function reviewComplaint(
       reviewed_by: actor.id,
       reviewed_by_name: actor.fullName,
       reviewed_at: new Date().toISOString(),
+      replied_at: null,
     })
     .eq("id", id)
     .in("status", ["received", "under-review", "awaiting-info"])
@@ -178,6 +179,7 @@ export async function closeComplaint(
       closed_by: actor.id,
       closed_by_name: actor.fullName,
       closed_at: new Date().toISOString(),
+      replied_at: null,
     })
     .eq("id", id)
     .in("status", ["under-review", "awaiting-info"])

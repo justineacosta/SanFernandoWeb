@@ -116,6 +116,7 @@ export async function reviewAppointment(
       reviewed_by: actor.id,
       reviewed_by_name: actor.fullName,
       reviewed_at: new Date().toISOString(),
+      replied_at: null,
     })
     .eq("id", id)
     .in("status", ["pending", "under-review", "awaiting-info"])
@@ -179,6 +180,7 @@ export async function completeAppointment(id: string): Promise<ActionResult> {
       completed_by: actor.id,
       completed_by_name: actor.fullName,
       completed_at: new Date().toISOString(),
+      replied_at: null,
     })
     .eq("id", id)
     .eq("status", "confirmed")

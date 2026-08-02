@@ -87,6 +87,7 @@ export async function reviewApplication(
       reviewed_by: actor.id,
       reviewed_by_name: actor.fullName,
       reviewed_at: new Date().toISOString(),
+      replied_at: null,
     })
     .eq("id", id)
     .in("status", ["pending", "under-review", "awaiting-info"])
@@ -154,6 +155,7 @@ export async function releaseApplication(id: string): Promise<ActionResult> {
       released_by: actor.id,
       released_by_name: actor.fullName,
       released_at: new Date().toISOString(),
+      replied_at: null,
     })
     .eq("id", id)
     .eq("status", "approved")

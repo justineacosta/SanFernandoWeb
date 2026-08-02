@@ -260,6 +260,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
                   options: [
                     { value: "all", label: "All Statuses" },
                     { value: "pending", label: "Pending" },
+                    { value: "under-review", label: "Under Review" },
                     { value: "awaiting-info", label: "Awaiting Information" },
                     { value: "approved", label: "Approved" },
                     { value: "released", label: "Released" },

@@ -1799,6 +1799,10 @@ Then in each list query (`src/features/admin/queries/{applications,appointments,
 
 In each manager, add `"awaiting-info"` to the status filter's options with the label `"Awaiting Information"` (find the existing options array — e.g. `complaints-manager.tsx` around the `id: "complaint-status-filter"` block — and match its shape).
 
+**`applications-manager.tsx` and `appointments-manager.tsx` also need an `"under-review"` option** with the label `"Under Review"`. Those two flows gained that status in Task 1, and `postTicketUpdate` can put a ticket into it — a state staff can reach but cannot filter for is a usability hole this plan introduced. `complaints-manager.tsx` and `assistance-manager.tsx` already had the option.
+
+**Also clear `replied_at` in all eight decision actions** (`reviewApplication`, `releaseApplication`, `reviewAppointment`, `completeAppointment`, `reviewComplaint`, `closeComplaint`, `reviewAssistance`, `decideAssistance`): add `replied_at: null` to each one's existing `.update({...})` object. Only `postTicketUpdate` cleared it, so a staff member who decided a replied-to ticket *without* first posting a timeline update left `replied_at` set forever — `countQueue`'s `or` filter would count that closed ticket as unhandled permanently and the "New reply" pill would sit next to a terminal status chip. This is the one column outside `remarks`/`reviewed_*`/`closed_*`/`released_*`/`decided_*` that the decision actions may write.
+
 In the table row, next to the `StatusChip`:
 
 ```tsx
