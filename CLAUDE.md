@@ -58,12 +58,24 @@ test, so a second run within `LOGIN_WINDOW_MS` = 15 min has `auth.setup.ts` bloc
 `tests/e2e/public/feedback.spec.ts` (consumes all 3 of `SUBMIT_LIMIT` on `feedback:unknown` per
 run — a second `test:e2e:public` run within an hour can fail the pre-existing "a complete
 report reaches the barangay" test too). A failure here after a recent run in the same window is
-a rate-limit collision, not a regression. `tests/e2e/admin/ticket-updates.spec.ts` spends a
-`track:*` budget (`LOOKUP_LIMIT` = 10 per 10 minutes) per run — one `/track` lookup, nothing
-more. It never submits a reply, so it spends no `reply:*` budget at all. Ten lookups per ten
-minutes is generous enough that this suite is far less collision-prone than the two above; a
-failure here from rate-limiting alone would take several rapid re-runs in the same window, not
-just one.
+a rate-limit collision, not a regression. **`tests/e2e/admin/ticket-updates.spec.ts` joined
+that list when the reply round trip was added** (it was previously the cheap one — an earlier
+version of this note said it spent one `/track` lookup and no `reply:*` budget at all; that
+stopped being true): per run it now spends **two** `track:*` lookups (`LOOKUP_LIMIT` = 10 per
+10 minutes, so ~5 runs per 10 min) and **one `reply:ip:*` hit** (`REPLY_LIMIT` = 5 per **hour**
+— the binding constraint, so roughly 5 runs an hour before the reply test starts failing on
+the limiter rather than on a regression). The reply's other budget, `reply:ticket:*`, is keyed
+on a ticket the test just created, so it can never collide. Same rule as the two suites above:
+a failure here shortly after a recent run is a rate-limit collision first, a regression second.
+**Row identity in that spec is not uniform, on purpose.** The two older tests use fixed
+surnames (`Testa Reyes`, `Testb Bautista`) and never re-find their row after navigating away;
+the reply test returns to the list to check the "New reply" pill, so it uses a `Date.now()`-
+suffixed surname instead. A fixed one is genuinely unsafe there: the queue's newest-first sort
+keys on `submittedAt`, a **date**, so every row a previous run left behind ties with the new
+one, and — worse — `expect(row).toBeVisible()` resolves instantly against the *stale* pre-insert
+list when a matching older row already exists, which had the test silently drive the previous
+run's ticket and then assert against the current run's. Copy the unique-surname pattern, not
+the fixed one, for any new test that looks its own row up twice.
 
 ## Architecture
 
@@ -387,7 +399,23 @@ just one.
   "untouched work" by the existing `NOTIFICATION_QUEUES` status match — so without it staff
   would learn about a reply only from an email, the channel most likely to be missed; it
   clears whenever staff next post an update and renders as a "New reply" pill beside the
-  status chip. `postTicketUpdate` (`src/features/admin/actions/ticket-updates.ts`) **never
+  status chip. **`notified_at` is the log's other stamp, and it is not automatic** — nothing
+  in `recordTicketUpdate` writes it, so every caller that emails the resident must call
+  `markTicketUpdateNotified(entryId)` itself, immediately after its own `sendEmail`, **inside
+  the same `if (email)` guard**. It shipped 2026-08-02 with exactly one such call
+  (`postTicketUpdate`'s), which left all 14 other resident emails — the four public
+  submissions, the four walk-in creates, and the six terminal-decision notices — raising no
+  "Email attempted" chip on the entry they belong to; closed 2026-08-03. The consequence was
+  never a duplicate send (nothing reads the stamp to decide whether to email): it is
+  human-driven, staff reading a missing chip as "the resident was never told" and messaging
+  them again by hand. Three deliberate non-callers, all for the same reason — no resident
+  email was attempted: `releaseApplication` and `completeAppointment` (non-terminal
+  transitions the email design excludes on purpose), and `submitTicketReply`'s own
+  resident-reply entry (that one emails **staff**; a chip there would read as the barangay
+  having already answered). Guard on the id (`if (entryId)`) at every call site —
+  `recordTicketUpdate` is fire-and-forget and returns null on failure, and a log write must
+  never turn a committed decision into a failed action. `postTicketUpdate`
+  (`src/features/admin/actions/ticket-updates.ts`) **never
   writes `reviewed_*`/`closed_*`/`released_*`/`decided_*` or `remarks`** — those columns
   record who decided what, when, and moving a ticket to `under-review` or `awaiting-info` is
   not a decision; `remarks` keeps holding the latest decision's own reason, unchanged. The
@@ -418,6 +446,18 @@ just one.
   migration `0032` before this code reaches an environment — the list queries select
   `replied_at` and the drawers write `ticket_updates`; a missing column fails every update
   write at runtime. Staging first, verified, then production.
+  **e2e coverage is `tests/e2e/admin/ticket-updates.spec.ts`, three tests**: the internal-note
+  privacy boundary (a staff `internal` entry must never appear on `/track`), the decidability
+  guard (a ticket parked on `awaiting-info` must still be closeable — the whole-branch review's
+  Critical), and, added 2026-08-03, the **resident reply round trip**: staff request info →
+  the resident answers through `/track` with a file attached → the answer lands on the admin
+  timeline attributed to `Resident`, with the attachment reachable and the "New reply" pill
+  raised. That third one exists because `submitTicketReply` is the most exposed surface here —
+  public, unauthenticated, accepts uploads — and every layer of it was previously proven only
+  by inspection. Both new assertions were verified to fail without their fix (forcing
+  `canReply` false kills the reply form; dropping the `replied_at` write kills the pill), the
+  same "a guard that has never been seen to fail is not a guard" discipline the decidability
+  test got. See the Commands section for the rate-limit budget this now spends per run.
 - **`/admin/login` is a responsive split-screen at `md:` (768px)+, 2026-07-31** — a brand panel
   (currently `w-[55%]`, the form panel takes the rest) beside the form, with a **separate**
   centered-card layout below that breakpoint. `src/app/admin/login/page.tsx` renders both

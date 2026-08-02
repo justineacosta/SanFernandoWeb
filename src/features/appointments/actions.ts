@@ -4,7 +4,11 @@ import type { PublicAppointmentValues, SubmitTicketResult } from "@/types";
 import { AppointmentSubmittedEmail } from "@/emails/AppointmentSubmittedEmail";
 import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
+import {
+  TICKET_INTAKE_STATUS,
+  markTicketUpdateNotified,
+  recordTicketUpdate,
+} from "@/lib/ticket-updates";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { appointmentSchema } from "./schema";
@@ -65,7 +69,7 @@ export async function submitAppointment(
     return { error: "We could not file your request. Please try again.", ticketNo: null };
   }
 
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "appointment",
     entryType: "status",
@@ -85,6 +89,7 @@ export async function submitAppointment(
         preferredPeriod: parsed.data.preferredPeriod,
       }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
 
   return { error: null, ticketNo: data.ticket_no };

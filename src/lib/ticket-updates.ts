@@ -157,7 +157,24 @@ export async function recordTicketUpdate(entry: TicketUpdateInput): Promise<stri
   }
 }
 
-/** Stamp `notified_at` after a resident email was attempted. Best-effort. */
+/**
+ * Stamp `notified_at` after a resident email was attempted. Best-effort.
+ *
+ * The rule, and it is narrower than it looks: call this wherever an entry's
+ * own action emailed **the resident**, immediately after the `sendEmail`, inside
+ * the same `if (email)` guard — never unconditionally, because the chip it
+ * raises reads "Email attempted" and a ticket with no email address on it was
+ * never told anything. Guard on the id (`if (entryId)`) so a failed log insert
+ * still cannot turn a decision into a failed action; `recordTicketUpdate` is
+ * fire-and-forget for that same reason.
+ *
+ * Deliberately NOT called for: `releaseApplication` / `completeAppointment`
+ * (non-terminal transitions the email design excludes on purpose — nothing was
+ * sent, so nothing to stamp), and `submitTicketReply`'s own resident-reply
+ * entry (that action emails STAFF, not the resident; stamping it would put an
+ * "Email attempted" chip on the resident's own message and read as though the
+ * barangay had already answered them).
+ */
 export async function markTicketUpdateNotified(id: string): Promise<void> {
   const admin = createSupabaseAdminClient();
   const { error } = await admin

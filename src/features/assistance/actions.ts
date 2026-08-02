@@ -4,7 +4,11 @@ import type { PublicAssistanceValues, SubmitTicketResult } from "@/types";
 import { AssistanceSubmittedEmail } from "@/emails/AssistanceSubmittedEmail";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
-import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
+import {
+  TICKET_INTAKE_STATUS,
+  markTicketUpdateNotified,
+  recordTicketUpdate,
+} from "@/lib/ticket-updates";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { assistanceSchema } from "./schema";
@@ -81,7 +85,7 @@ export async function submitAssistance(
     return { error: "We could not file your request. Please try again.", ticketNo: null };
   }
 
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "assistance",
     entryType: "status",
@@ -100,6 +104,7 @@ export async function submitAssistance(
         details: parsed.data.details,
       }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
 
   return { error: null, ticketNo: data.ticket_no };

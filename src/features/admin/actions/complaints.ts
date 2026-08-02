@@ -10,7 +10,11 @@ import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
+import {
+  TICKET_INTAKE_STATUS,
+  markTicketUpdateNotified,
+  recordTicketUpdate,
+} from "@/lib/ticket-updates";
 import { manilaToday } from "@/lib/format";
 
 export interface ActionResult {
@@ -124,7 +128,7 @@ export async function reviewComplaint(
   if (!data) return { error: "That report was already reviewed. Refresh to see its status." };
 
   const dismissed = parsed.data.status === "dismissed";
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "complaint",
     entryType: "status",
@@ -144,6 +148,7 @@ export async function reviewComplaint(
         remarks: parsed.data.remarks,
       }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
   await recordActivity(actor, {
     // "took up" moves the report into mediation — a status move, not a verdict.
@@ -191,7 +196,7 @@ export async function closeComplaint(
   }
 
   const resolved = parsed.data.status === "resolved";
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "complaint",
     entryType: "status",
@@ -219,6 +224,7 @@ export async function closeComplaint(
             remarks: parsed.data.remarks,
           }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
   await recordActivity(actor, {
     // Resolved is the positive terminal outcome; it files with approve so a
@@ -267,7 +273,7 @@ export async function createWalkInComplaint(values: WalkInComplaintValues): Prom
     return { error: "Could not encode the report." };
   }
 
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "complaint",
     entryType: "status",
@@ -287,6 +293,7 @@ export async function createWalkInComplaint(values: WalkInComplaintValues): Prom
         location: parsed.data.location,
       }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
 
   await recordActivity(actor, {

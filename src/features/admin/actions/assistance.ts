@@ -14,7 +14,11 @@ import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
+import {
+  TICKET_INTAKE_STATUS,
+  markTicketUpdateNotified,
+  recordTicketUpdate,
+} from "@/lib/ticket-updates";
 
 export interface ActionResult {
   error: string | null;
@@ -114,7 +118,7 @@ export async function reviewAssistance(
   if (!data) return { error: "That request was already reviewed. Refresh to see its status." };
 
   const declined = parsed.data.status === "declined";
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "assistance",
     entryType: "status",
@@ -134,6 +138,7 @@ export async function reviewAssistance(
         remarks: parsed.data.remarks,
       }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
   await recordActivity(actor, {
     // "took up" is a mid-flow status move, not a decision — hence update.
@@ -181,7 +186,7 @@ export async function decideAssistance(
   }
 
   const granted = parsed.data.status === "granted";
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "assistance",
     entryType: "status",
@@ -211,6 +216,7 @@ export async function decideAssistance(
             remarks: parsed.data.remarks,
           }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
   await recordActivity(actor, {
     type: granted ? "approve" : "reject",
@@ -274,7 +280,7 @@ export async function createWalkInAssistance(
     return { error: "Could not encode the request." };
   }
 
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "assistance",
     entryType: "status",
@@ -294,6 +300,7 @@ export async function createWalkInAssistance(
         details: parsed.data.details,
       }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
 
   await recordActivity(actor, {

@@ -6,7 +6,11 @@ import type { ApplicationReviewValues, WalkInApplicationValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
+import {
+  TICKET_INTAKE_STATUS,
+  markTicketUpdateNotified,
+  recordTicketUpdate,
+} from "@/lib/ticket-updates";
 import { sendEmail } from "@/lib/email";
 import { ApplicationSubmittedEmail } from "@/emails/ApplicationSubmittedEmail";
 import { ApplicationApprovedEmail } from "@/emails/ApplicationApprovedEmail";
@@ -97,7 +101,7 @@ export async function reviewApplication(
   if (!data) return { error: "That application was already reviewed. Refresh to see its status." };
 
   const approved = parsed.data.status === "approved";
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "application",
     entryType: "status",
@@ -129,6 +133,7 @@ export async function reviewApplication(
             remarks: parsed.data.remarks,
           }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
   await recordActivity(actor, {
     type: approved ? "approve" : "reject",
@@ -225,7 +230,7 @@ export async function createWalkInApplication(
     return { error: "Could not encode the application." };
   }
 
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "application",
     entryType: "status",
@@ -245,6 +250,7 @@ export async function createWalkInApplication(
         purpose: parsed.data.purpose,
       }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
   await recordActivity(actor, {
     type: "create",

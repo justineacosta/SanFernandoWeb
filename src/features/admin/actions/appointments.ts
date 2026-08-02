@@ -10,7 +10,11 @@ import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { TICKET_INTAKE_STATUS, recordTicketUpdate } from "@/lib/ticket-updates";
+import {
+  TICKET_INTAKE_STATUS,
+  markTicketUpdateNotified,
+  recordTicketUpdate,
+} from "@/lib/ticket-updates";
 import { manilaToday, manilaTodayNextYear } from "@/lib/format";
 
 export interface ActionResult {
@@ -126,7 +130,7 @@ export async function reviewAppointment(
   if (!data) return { error: "That appointment was already reviewed. Refresh to see its status." };
 
   const confirmed = parsed.data.status === "confirmed";
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "appointment",
     entryType: "status",
@@ -155,6 +159,7 @@ export async function reviewAppointment(
             remarks: parsed.data.remarks,
           }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
   await recordActivity(actor, {
     type: confirmed ? "approve" : "reject",
@@ -245,7 +250,7 @@ export async function createWalkInAppointment(
     return { error: "Could not encode the appointment." };
   }
 
-  await recordTicketUpdate({
+  const entryId = await recordTicketUpdate({
     ticketNo: data.ticket_no,
     kind: "appointment",
     entryType: "status",
@@ -266,6 +271,7 @@ export async function createWalkInAppointment(
         preferredPeriod: parsed.data.preferredPeriod,
       }),
     });
+    if (entryId) await markTicketUpdateNotified(entryId);
   }
 
   await recordActivity(actor, {
