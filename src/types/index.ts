@@ -890,6 +890,10 @@ export interface TicketLookupResult {
   remarks: string | null;
   /** Appointments only: the confirmed schedule once staff set it, e.g. "20 July 2026, morning". */
   scheduleNote: string | null;
+  /** Resident-visible log entries, oldest first. Internal notes are never included. */
+  timeline: TicketUpdateEntry[];
+  /** True iff status is `awaiting-info` — drives whether the reply composer renders. */
+  repliable: boolean;
 }
 
 /* ── Ticketing flows 2C: appointments, complaints, assistance ─────────── */

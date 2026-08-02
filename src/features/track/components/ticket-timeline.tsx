@@ -2,10 +2,11 @@
 
 import { MotionConfig, motion } from "motion/react";
 import { CheckCircle2, Circle, XCircle } from "lucide-react";
-import type { TicketKind, TicketLookupResult, TicketStatus } from "@/types";
+import type { TicketKind, TicketLookupResult, TicketStatus, TicketUpdateEntry } from "@/types";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import { riseVariants, staggerContainer } from "@/lib/motion";
+import { isTerminalStatus, statusEntryCopy } from "@/lib/ticket-updates";
 
 interface Step {
   title: string;
@@ -15,129 +16,84 @@ interface Step {
 }
 
 const NEGATIVE_STATUSES: TicketStatus[] = ["rejected", "declined", "dismissed"];
-const INITIAL_STATUSES: TicketStatus[] = ["pending", "received"];
-const FINAL_STATUSES: TicketStatus[] = ["released", "completed", "resolved", "granted"];
 
-interface StageCopy {
-  title: string;
-  failedTitle: string;
-  doneDetail: string;
-  failedDetail: string;
-  /** Shown while this stage is still ahead of the ticket. */
-  waitingDetail: string;
-}
-
-/** Every flow is Received → stage 1 → stage 2; only the words differ. */
-const COPY: Record<TicketKind, { stage1: StageCopy; stage2: StageCopy }> = {
+/** The step still ahead of a non-terminal ticket. Null once nothing is ahead. */
+const NEXT_STEP: Record<TicketKind, Partial<Record<TicketStatus, { title: string; detail: string }>>> = {
   application: {
-    stage1: {
-      title: "Reviewed",
-      failedTitle: "Not approved",
-      doneDetail: "Approved by barangay staff.",
-      failedDetail: "This request was not approved.",
-      waitingDetail: "Barangay staff are reviewing your request.",
-    },
-    stage2: {
-      title: "Released",
-      failedTitle: "Closed",
-      doneDetail: "Claimed at the barangay hall.",
-      failedDetail: "This request was closed.",
-      waitingDetail: "Bring a valid ID to the barangay hall to claim your document.",
-    },
+    pending: { title: "Review", detail: "Barangay staff will review your request." },
+    "under-review": { title: "Decision", detail: "Barangay staff are reviewing your request." },
+    "awaiting-info": { title: "Waiting for you", detail: "Send what the barangay asked for to continue." },
+    approved: { title: "Released", detail: "Bring a valid ID to the barangay hall to claim your document." },
   },
   appointment: {
-    stage1: {
-      title: "Confirmed",
-      failedTitle: "Declined",
-      doneDetail: "Barangay staff confirmed your schedule.",
-      failedDetail: "This appointment was not granted.",
-      waitingDetail: "Barangay staff are checking the schedule you asked for.",
-    },
-    stage2: {
-      title: "Completed",
-      failedTitle: "Closed",
-      doneDetail: "Thank you for coming in.",
-      failedDetail: "This appointment was closed.",
-      waitingDetail: "Once confirmed, come to the barangay hall at your scheduled time.",
-    },
+    pending: { title: "Confirmation", detail: "Barangay staff are checking the schedule you asked for." },
+    "under-review": { title: "Confirmation", detail: "Barangay staff are checking the schedule you asked for." },
+    "awaiting-info": { title: "Waiting for you", detail: "Send what the barangay asked for to continue." },
+    confirmed: { title: "Completed", detail: "Come to the barangay hall at your scheduled time." },
   },
   complaint: {
-    stage1: {
-      title: "Under review",
-      failedTitle: "Dismissed",
-      doneDetail: "The Lupong Tagapamayapa is looking into your report.",
-      failedDetail: "This report was not taken up.",
-      waitingDetail: "Your report is waiting for review.",
-    },
-    stage2: {
-      title: "Resolved",
-      failedTitle: "Dismissed",
-      doneDetail: "This report has been settled.",
-      failedDetail: "This report was closed without a settlement.",
-      waitingDetail: "Barangay staff will contact you about mediation.",
-    },
+    received: { title: "Review", detail: "Your report is waiting for review." },
+    "under-review": { title: "Resolution", detail: "Barangay staff will contact you about mediation." },
+    "awaiting-info": { title: "Waiting for you", detail: "Send what the barangay asked for to continue." },
   },
   assistance: {
-    stage1: {
-      title: "Under review",
-      failedTitle: "Declined",
-      doneDetail: "The Barangay Social Welfare Desk is assessing your request.",
-      failedDetail: "This request was not granted.",
-      waitingDetail: "Your request is waiting for review.",
-    },
-    stage2: {
-      title: "Granted",
-      failedTitle: "Declined",
-      doneDetail: "Your request was granted — barangay staff will contact you.",
-      failedDetail: "This request was not granted.",
-      waitingDetail: "The Barangay Social Welfare Desk will contact you with a decision.",
-    },
+    pending: { title: "Review", detail: "Your request is waiting for review." },
+    "under-review": { title: "Decision", detail: "The Barangay Social Welfare Desk will contact you with a decision." },
+    "awaiting-info": { title: "Waiting for you", detail: "Send what the barangay asked for to continue." },
   },
 };
 
-function buildSteps(ticket: TicketLookupResult): Step[] {
-  const copy = COPY[ticket.kind];
-  const negative = NEGATIVE_STATUSES.includes(ticket.status);
-  const initial = INITIAL_STATUSES.includes(ticket.status);
-  const final = FINAL_STATUSES.includes(ticket.status);
-  // Complaints and assistance can go negative at either stage; closedAt is what
-  // tells them apart. Applications and appointments only ever fail at stage 1,
-  // where their stage-2 actions guard on the positive stage-1 status.
-  const failedAtStage1 = negative && ticket.closedAt === null;
-  const failedAtStage2 = negative && ticket.closedAt !== null;
-
-  const steps: Step[] = [
-    {
-      title: "Received",
-      detail: "Your request reached the barangay office.",
-      date: ticket.submittedAt,
+function entryStep(kind: TicketKind, item: TicketUpdateEntry): Step {
+  if (item.entryType === "resident-reply") {
+    const files =
+      item.attachmentCount === 0
+        ? ""
+        : ` (${item.attachmentCount} ${item.attachmentCount === 1 ? "file" : "files"} attached)`;
+    return {
+      title: "Your reply",
+      detail: `${item.body}${files}`,
+      date: item.createdAt,
       state: "done",
-    },
-    {
-      title: failedAtStage1 ? copy.stage1.failedTitle : copy.stage1.title,
-      detail: failedAtStage1
-        ? (ticket.remarks ?? copy.stage1.failedDetail)
-        : initial
-          ? copy.stage1.waitingDetail
-          : copy.stage1.doneDetail,
-      date: ticket.reviewedAt,
-      state: failedAtStage1 ? "failed" : initial ? "current" : "done",
-    },
-  ];
+    };
+  }
 
-  // A ticket rejected on receipt has no third step — there is nothing ahead.
-  if (failedAtStage1) return steps;
+  if (item.entryType !== "status") {
+    return {
+      title: "Update from the barangay",
+      detail: item.body,
+      date: item.createdAt,
+      state: "done",
+    };
+  }
 
-  steps.push({
-    title: failedAtStage2 ? copy.stage2.failedTitle : copy.stage2.title,
-    detail: failedAtStage2
-      ? (ticket.remarks ?? copy.stage2.failedDetail)
-      : final
-        ? copy.stage2.doneDetail
-        : copy.stage2.waitingDetail,
-    date: ticket.closedAt,
-    state: failedAtStage2 ? "failed" : final ? "done" : "todo",
-  });
+  const copy = statusEntryCopy(kind, item.status ?? "pending");
+  const failed = item.status !== null && NEGATIVE_STATUSES.includes(item.status);
+  return {
+    title: copy.title,
+    detail: item.body || copy.detail,
+    date: item.createdAt,
+    state: failed ? "failed" : "done",
+  };
+}
+
+/**
+ * The timeline: every resident-visible log entry in order, plus at most ONE
+ * greyed step for what is still ahead.
+ *
+ * A pure log would lose the resident's sense of what happens next; the old
+ * fixed three-step diagram lost everything that happened in between. One
+ * trailing derived step is the smallest thing that keeps both.
+ *
+ * Exported for tests/unit/ticket-timeline.test.ts — it is the only pure logic
+ * on the public tracking page.
+ */
+export function buildSteps(ticket: TicketLookupResult): Step[] {
+  const steps = ticket.timeline.map((item) => entryStep(ticket.kind, item));
+
+  if (!isTerminalStatus(ticket.kind, ticket.status)) {
+    const next = NEXT_STEP[ticket.kind][ticket.status];
+    if (next) steps.push({ ...next, date: null, state: "todo" });
+  }
 
   return steps;
 }
@@ -154,7 +110,7 @@ export function TicketTimeline({ ticket }: { ticket: TicketLookupResult }) {
           const isLast = index === steps.length - 1;
           return (
             <motion.li
-              key={step.title}
+              key={`${step.title}-${index}`}
               variants={riseVariants}
               className={cn("relative flex gap-4", !isLast && "pb-6")}
             >

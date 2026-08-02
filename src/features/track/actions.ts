@@ -1,10 +1,11 @@
 "use server";
 
-import type { TicketKind, TicketLookupResult, TicketStatus } from "@/types";
+import type { TicketKind, TicketLookupResult, TicketStatus, TicketUpdateEntry } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatDate, toManilaDate } from "@/lib/format";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
+import { canReply } from "@/lib/ticket-updates";
 
 export interface LookupResult {
   error: string | null;
@@ -90,11 +91,46 @@ export async function lookupTicket(
     scheduleNote: null as string | null,
   };
 
-  const extras = await loadExtras(admin, kind, ticket);
-  return { error: null, ticket: { ...base, ...extras } };
+  const [extras, timeline] = await Promise.all([
+    loadExtras(admin, kind, ticket),
+    loadTimeline(admin, ticket),
+  ]);
+  return {
+    error: null,
+    ticket: { ...base, ...extras, timeline, repliable: canReply(base.status) },
+  };
 }
 
 type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
+
+/**
+ * Resident-visible log entries for a ticket that has already passed the surname
+ * gate. The `.eq("visibility","public")` filter is the ENTIRE guarantee that a
+ * complaint's internal staff coordination never reaches the reporter — it lives
+ * here, in the query, not in the component that renders the result.
+ */
+async function loadTimeline(admin: AdminClient, ticketNo: string): Promise<TicketUpdateEntry[]> {
+  const { data, error } = await admin
+    .from("ticket_updates")
+    .select("id, entry_type, status, body, author_kind, author_name, attachments, created_at")
+    .eq("ticket_no", ticketNo)
+    .eq("visibility", "public")
+    .order("created_at", { ascending: true });
+  if (error || !data) {
+    if (error) console.error("loadTimeline failed:", error.message);
+    return [];
+  }
+  return data.map((row) => ({
+    id: row.id,
+    entryType: row.entry_type as TicketUpdateEntry["entryType"],
+    status: (row.status as TicketStatus | null) ?? null,
+    body: row.body,
+    authorKind: row.author_kind as TicketUpdateEntry["authorKind"],
+    authorName: row.author_name,
+    attachmentCount: Array.isArray(row.attachments) ? row.attachments.length : 0,
+    createdAt: toManilaDate(row.created_at),
+  }));
+}
 
 /**
  * Per-kind extras for a ticket that has already passed the surname gate.
