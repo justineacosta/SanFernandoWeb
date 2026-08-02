@@ -16,11 +16,14 @@ import { expect, test } from "@playwright/test";
  * are unset (auth.setup.ts skips, so this file never gets a storage state to
  * run with) — no separate guard is needed here, matching inbox-tabs.spec.ts.
  *
- * Rate-limit note: this spends exactly one `track:*` lookup hit
- * (LOOKUP_LIMIT = 10 per 10 minutes) on the public side. It never submits a
- * reply, so it spends no `reply:*` budget at all — see CLAUDE.md's Commands
- * section for why that makes this suite far less collision-prone than
- * login.spec.ts or feedback.spec.ts.
+ * Rate-limit note — this suite is NOT cheap to re-run any more. Per run it
+ * spends two `track:*` lookup hits (LOOKUP_LIMIT = 10 per 10 minutes, so ~5
+ * runs per 10 minutes) AND, from the reply round trip below, one `reply:ip:*`
+ * hit (REPLY_LIMIT = 5 per HOUR — the binding constraint, roughly 5 runs an
+ * hour before the reply test starts failing on the limiter rather than on a
+ * regression). The reply's other budget, `reply:ticket:*`, is keyed on a
+ * ticket this test just created, so it can never collide. See CLAUDE.md's
+ * Commands section.
  */
 
 const INTERNAL_NOTE = `internal-only-${Date.now()}`;
@@ -138,4 +141,122 @@ test("a ticket parked on awaiting-info can still be decided", async ({ page }) =
   // which design §1 explicitly requires staff to be able to do.
   await expect(reviewDrawer.getByRole("button", { name: "Dismiss" })).toBeVisible();
   await expect(reviewDrawer.getByRole("button", { name: /resolve/i })).toBeVisible();
+});
+
+/**
+ * The resident reply round trip, end to end: staff ask for information, the
+ * resident answers through `/track` with a file attached, and the answer comes
+ * back on the admin timeline.
+ *
+ * `submitTicketReply` is the most exposed surface this feature added — public,
+ * unauthenticated, and it accepts file uploads — and every layer of it was
+ * proven only by inspection until this test: the surname gate, the
+ * `awaiting-info` reply gate, the upload into the private `ticket-media`
+ * bucket, the `resident-reply` log row, the `awaiting-info → under-review`
+ * flip, and the `replied_at` stamp that raises the "New reply" pill.
+ *
+ * A 1×1 PNG carried as an in-memory buffer rather than a checked-in fixture —
+ * Playwright accepts one directly, and the bytes are incidental here; what is
+ * being tested is that an attachment survives the trip, not what is in it.
+ */
+const REPLY_BODY = `resident-reply-${Date.now()}`;
+const REPLY_FILE_NAME = "blotter-copy.png";
+/**
+ * Unique per run, unlike the fixed surnames the two tests above use. Those two
+ * never look their row up again after navigating away; this one returns to the
+ * list to check the "New reply" pill, and the queue's newest-first sort keys on
+ * `submittedAt` — a DATE, so every row a previous run left behind ties with
+ * this one and `.first()` silently resolves to whichever the DB happened to
+ * return first. A surname nothing else can match removes the tie entirely.
+ * It doubles as the /track surname gate, so it must be used in both places.
+ */
+const REPLY_SURNAME = `Castillo${Date.now()}`;
+const ONE_PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+test("a resident's reply reaches the admin timeline", async ({ page }) => {
+  // 1. Encode a walk-in complaint, as in the tests above.
+  await page.goto("/admin/complaints");
+  await page.getByRole("button", { name: "New Report" }).click();
+
+  const drawer = page.getByRole("dialog", { name: "New Report" });
+  await drawer.getByLabel("First Name").fill("Testc");
+  await drawer.getByLabel("Last Name").fill(REPLY_SURNAME);
+  await drawer.getByLabel("Address").fill("Purok 3, San Fernando");
+  await drawer.getByLabel("Contact Number").fill("0917 000 0002");
+  await drawer.getByLabel("Where It Happened").fill("Barangay plaza");
+  await drawer.getByLabel("Date of Incident").fill("2026-08-01");
+  await drawer.getByLabel("What Happened").fill("A third test incident for the reply round trip.");
+  await drawer.getByLabel(/consent/i).check();
+  await drawer.getByRole("button", { name: "Encode report" }).click();
+
+  const row = page.getByRole("row").filter({ hasText: REPLY_SURNAME });
+  await expect(row).toBeVisible();
+  const ticketNo = (await row.textContent())?.match(/CMP-\d{4}-\d{5}/)?.[0];
+  expect(ticketNo).toBeTruthy();
+  await row.getByRole("button", { name: /review/i }).click();
+
+  // 2. Park it on awaiting-info. The reply form is gated on this status alone —
+  // without this step TicketReplyForm never renders and the rest proves nothing.
+  const reviewDrawer = page.getByRole("dialog", { name: "Report Details" });
+  const composerBody = reviewDrawer.getByLabel("Post an update");
+  await composerBody.fill("Please send a copy of the blotter entry.");
+  await reviewDrawer.getByLabel("Also set status to").selectOption("awaiting-info");
+  await reviewDrawer.getByRole("button", { name: "Post update" }).click();
+  await expect(reviewDrawer.getByText("Awaiting Information").first()).toBeVisible();
+  // Same composer-clearing race the first test documents: wait for the post to
+  // have actually resolved before navigating away, or the reply below can race
+  // the status write it depends on.
+  await expect(composerBody).toHaveValue("");
+
+  // 3. Answer it as the resident would, from the public page, with no session.
+  await page.goto("/track");
+  await page.getByLabel("Ticket number").fill(ticketNo!);
+  await page.getByLabel("Last name").fill(REPLY_SURNAME);
+  await page.getByRole("button", { name: "Check status" }).click();
+
+  const replyHeading = page.getByRole("heading", {
+    name: "Send the information the barangay asked for",
+  });
+  await expect(replyHeading).toBeVisible();
+
+  await page.getByLabel("Your reply").fill(REPLY_BODY);
+  await page.getByLabel("Attach files (optional)").setInputFiles({
+    name: REPLY_FILE_NAME,
+    mimeType: "image/png",
+    buffer: ONE_PIXEL_PNG,
+  });
+  await page.getByRole("button", { name: "Send reply" }).click();
+
+  // 4. The reply is on the resident's own timeline, attachment counted...
+  await expect(page.locator("ol").getByText(`${REPLY_BODY} (1 file attached)`)).toBeVisible();
+  // ...and the composer is gone, because the reply moved the ticket off
+  // awaiting-info and the refreshed result the action returns is no longer
+  // repliable. This is also the barrier proving the whole round trip resolved.
+  await expect(replyHeading).toHaveCount(0);
+
+  // 5. Back on the staff side. The pill is the only signal staff get that a
+  // reply landed — the notification queues match on initial status, and
+  // under-review is not one, which is the entire reason replied_at exists.
+  await page.goto("/admin/complaints");
+  const repliedRow = page.getByRole("row").filter({ hasText: REPLY_SURNAME });
+  await expect(repliedRow.getByText("New reply")).toBeVisible();
+  await repliedRow.getByRole("button", { name: /review/i }).click();
+
+  const replyEntry = reviewDrawer.locator("ol > li").filter({ hasText: REPLY_BODY });
+  await expect(replyEntry).toBeVisible();
+  // Attributed to the resident, not to staff — the timeline renders authorKind,
+  // and an inbound reply mislabelled as a staff update would be read as the
+  // barangay having already answered.
+  //
+  // `exact` is load-bearing, not tidiness: getByText's default is a
+  // case-INSENSITIVE substring match, so a bare "Resident" also matches this
+  // entry's own body ("resident-reply-<ts>") and fails on strict mode.
+  await expect(replyEntry.getByText("Resident", { exact: true })).toBeVisible();
+  // The attachment survived the trip and is reachable: the stored object is
+  // UUID-named, so seeing the original filename proves the jsonb row travelled
+  // with it, and the link proves a signed URL was minted for the private bucket.
+  await expect(replyEntry.getByRole("link", { name: REPLY_FILE_NAME })).toBeVisible();
 });
