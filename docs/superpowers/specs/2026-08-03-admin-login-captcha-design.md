@@ -135,6 +135,25 @@ required at all depends on state only a DB read reveals, so the read must come
 first. The inversion must be commented at the call site, or the next reader will
 correct it back into a bug.
 
+### A failed challenge gets its own copy (amended 2026-08-03)
+
+This section originally required the failed-challenge rejection to reuse the
+generic `"Incorrect email or password."` string. Implementation proved that
+wrong, for the same root cause as §6's correction: **the page can server-render
+the challenge only from the IP key.** No email is known at render time, so
+`login:email:*` hits are invisible to it — and a staff member whose own address
+carries a recent failure lands on a page with no widget, submits the right
+password with no token, and is rejected. Telling them "Incorrect email or
+password." is a lie about a working credential, and sends them to reset a
+password that is fine.
+
+The failed-challenge branch therefore returns `TURNSTILE_FAILURE_MESSAGE` — the
+same string all 8 public forms already use. This leaks nothing: the widget
+appears on the very next render, so "a challenge was required" is observable
+either way. Every other rejection keeps the generic copy, so the response still
+never distinguishes a real account from an unknown one, or a right password from
+a wrong one.
+
 ### A failed challenge records no rate-limit hit
 
 Rate-limit hits are keyed partly on email. If a missing or invalid token recorded

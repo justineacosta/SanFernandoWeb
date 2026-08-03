@@ -58,7 +58,24 @@ test, so a second run within `LOGIN_WINDOW_MS` = 15 min has `auth.setup.ts` bloc
 `tests/e2e/public/feedback.spec.ts` (consumes all 3 of `SUBMIT_LIMIT` on `feedback:unknown` per
 run — a second `test:e2e:public` run within an hour can fail the pre-existing "a complete
 report reaches the barangay" test too). A failure here after a recent run in the same window is
-a rate-limit collision, not a regression. **`tests/e2e/admin/ticket-updates.spec.ts` joined
+a rate-limit collision, not a regression. **Since the adaptive login challenge shipped (2026-08-03), `login.spec.ts` also needs
+Turnstile keys that solve headlessly** — attempts 2-6 of its five-failure test are
+challenged, as is its correct-password attempt. Use Cloudflare's always-pass test keys
+(`1x00000000000000000000AA` / `1x0000000000000000000000000000000AA`, documented in
+`.env.example`); the project owner cannot register `localhost` with the real widget, so
+the real keys will not solve locally at all. The site key is inlined at **build** time,
+so switching between real and test keys needs the dev server restarted, not just a saved
+file. Both tests in that file now pin each run to its own `login:ip:*` bucket via a
+forged `cf-connecting-ip` (a `page.route()` interception scoped to the app's own origin —
+deliberately NOT `test.use({ extraHTTPHeaders })`, which would also send the forged header
+to `challenges.cloudflare.com`, whose edge then refuses to serve the widget script), so
+runs no longer poison each other's IP key or `auth.setup.ts`. The **email** key still
+collides by design: the five-failure test spends 6 hits on `login:email:<test-admin>`
+against `LOGIN_LIMIT` = 5 per 15 min, so a second run inside that window still fails —
+unchanged, and still a collision rather than a regression. `auth.setup.ts` gained a
+token wait plus **one retry**, because the page cannot see the email key at render time:
+when the test account's own address is the flagged one, its first attempt renders no
+widget, sends no token, and is turned away with the Turnstile message. **`tests/e2e/admin/ticket-updates.spec.ts` joined
 that list when the reply round trip was added** (it was previously the cheap one — an earlier
 version of this note said it spent one `/track` lookup and no `reply:*` budget at all; that
 stopped being true): per run it now spends **two** `track:*` lookups (`LOOKUP_LIMIT` = 10 per
@@ -496,6 +513,62 @@ the fixed one, for any new test that looks its own row up twice.
   still the only thing governing session duration. Wiring `remember` to an actual longer-lived
   session is a real, not-yet-scoped security change, not a UI tweak. "Forgot password?" is a
   real link now, not a placeholder button — see the self-service reset flow bullet below.
+- **Admin login is challenged adaptively, not always, 2026-08-03**
+  (`docs/superpowers/specs/2026-08-03-admin-login-captcha-design.md`). `/admin/login`
+  shows a Turnstile challenge **only after a failed attempt** on that IP or email —
+  the trigger is ≥ 1 hit on `login:ip:*`/`login:email:*` inside the unchanged
+  `LOGIN_WINDOW_MS`, read off the same `rate_limit_hits` rows (migration `0029`) that
+  already drive the 5-failure block. No new table, column, or key namespace.
+  **Always-on was deliberately rejected**: `verifyTurnstileToken` fails closed and
+  throws in production on a missing key, so an unconditional widget would put a hard
+  Cloudflare dependency in front of the only door into the portal — an outage, a
+  blocked network, or a key rotation (the site key is inlined at build time, so
+  rotation needs a rebuild) would lock out every staffer including the SuperAdmin,
+  with nobody able to sign in and fix it. Adaptive keeps that door open for anyone who
+  types their password correctly. **There is deliberately no break-glass bypass flag.**
+  `isRateLimited` is **gone**, replaced by `countRateLimitHits(key, windowMs)` returning
+  `number | null`: `signIn` reads two thresholds off each key, and a boolean helper meant
+  running the same count query twice per key. The two thresholds interpret `null`
+  (Supabase unreachable) in **opposite** directions, and that asymmetry is the point —
+  `isOverLoginLimit` fails **open** (unchanged: a limiter outage must not lock out real
+  staff), `needsChallenge` fails **closed**, so the outage that previously removed *all*
+  brute-force protection now makes login challenge every attempt instead. Both predicates
+  are pure and unit-tested (`tests/unit/login-challenge.test.ts`), living in
+  `src/features/admin/lib/login-challenge.ts` (beside `build-full-name.ts`) because
+  `actions/auth.ts` is `"use server"` and Vitest cannot import it. **`signIn` recomputes
+  the condition server-side every call** — `SignInFormState.challengeRequired` is a UI
+  hint only, so a client that never mounts the widget is refused identically.
+  `SignInFormState extends AuthFormState` deliberately: the base type stays the
+  password-reset flow's, which has no challenge concept and must not carry an inert
+  field. **The Turnstile check runs AFTER the count reads, inverting the
+  security-hardening spec's §5 "verify first" rule**, because whether a challenge is
+  required at all depends on state only those reads reveal; commented at the call site so
+  it doesn't get "fixed" back. **A failed or missing token records no rate-limit hit** —
+  hits are keyed partly on email, so counting them would let anyone lock a known staff
+  address out with five tokenless POSTs.
+  **`/admin/login` server-renders the initial challenge state** (`page.tsx` reads
+  `countRateLimitHits` for the request IP and passes `initialChallengeRequired` into
+  `LoginForm`, which shows the widget on `initialChallengeRequired || state.challengeRequired`).
+  Without this the widget only appeared *after* a rejection, so a staffer whose shared
+  office IP a colleague had just flagged submitted correct credentials with no token and
+  was refused — for a barangay hall behind one public IP, the ordinary case. It passes
+  `0`, never `null`, for the email count: `needsChallenge` treats `null` as fail-closed,
+  which would put a widget on every first load and destroy the adaptive behaviour.
+  **The email half of that gap is unfixable at render time and is closed by copy
+  instead:** no email is known when the page renders, so `login:email:*` hits stay
+  invisible to it, and the failed-challenge branch therefore returns
+  `TURNSTILE_FAILURE_MESSAGE` rather than the generic `"Incorrect email or password."` —
+  otherwise a staffer whose own address is flagged is told a working password is wrong
+  and goes off to reset it. That copy leaks nothing the widget's own appearance doesn't.
+  Client-side this form cannot follow the 8 public forms' pattern: it is `useActionState`
+  + a native `<form action={...}>` with no `handleSubmit`, so the token rides in a hidden
+  `turnstileToken` input and the single-use widget is `reset()` from a `useEffect` keyed
+  on `state` **identity** (a second failure yields a new state object with identical copy
+  — the same reason `dismissedState` compares identity). That effect only fires on
+  failures, since a successful sign-in throws `NEXT_REDIRECT` and never returns a new
+  state, keeping `login-form.tsx` clear of the standing "never wrap `signIn` in a catch"
+  rule. `LoginForm` mounts twice (both responsive trees), so two widget instances exist
+  once challenged; the hidden one may never solve and nothing depends on it.
 - **Self-service "Forgot password?" flow, 2026-07-31**
   (`docs/superpowers/specs/2026-07-31-admin-forgot-password-design.md`). Closes the login
   page's honesty placeholder — "Forgot password?" used to just toast "Contact SuperAdmin"
