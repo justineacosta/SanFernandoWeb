@@ -18,14 +18,11 @@ import {
   activityCookieOptions,
   forwardedProtoIsHttps,
 } from "@/lib/session-activity";
+import { LOGIN_LIMIT, LOGIN_WINDOW_MS } from "@/features/admin/lib/login-challenge";
 
 export interface AuthFormState {
   error: string | null;
 }
-
-/** Tighter than the public forms' hour-long windows — credential-stuffing arrives fast. */
-const LOGIN_LIMIT = 5;
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
 const credentialsSchema = z.object({
   email: z.string().email(),
