@@ -15,7 +15,7 @@ import { signIn, type SignInFormState } from "@/features/admin/actions/auth";
 
 const initialState: SignInFormState = { error: null, challengeRequired: false };
 
-export function LoginForm() {
+export function LoginForm({ initialChallengeRequired }: { initialChallengeRequired: boolean }) {
   // Both responsive trees in `admin/login/page.tsx` render `<LoginForm />`
   // simultaneously (CSS `display:none`, not conditional mounting), so a
   // hardcoded id would collide across the two copies in the DOM — derive a
@@ -31,6 +31,13 @@ export function LoginForm() {
   // reads the same, and that new state must still show.
   const [dismissedState, setDismissedState] = useState<SignInFormState | null>(null);
   const visibleError = state.error && state !== dismissedState ? state.error : null;
+
+  // The server's read (this IP, at render time) OR the action's read (this IP and
+  // this email, at submit time). The first covers a colleague having flagged the
+  // shared IP before this page was ever loaded; the second covers this user's own
+  // failed attempt. Either one means signIn will demand a token, so either one
+  // must mount the widget.
+  const showChallenge = initialChallengeRequired || state.challengeRequired;
 
   // The token rides in a hidden input rather than being passed to the action
   // directly: this form is `useActionState` + a native `<form action={...}>`,
@@ -93,7 +100,7 @@ export function LoginForm() {
           Forgot password?
         </Link>
       </div>
-      {state.challengeRequired ? (
+      {showChallenge ? (
         <>
           <input type="hidden" name="turnstileToken" value={token ?? ""} />
           <TurnstileWidget ref={widgetRef} onVerify={setToken} size="compact" />
