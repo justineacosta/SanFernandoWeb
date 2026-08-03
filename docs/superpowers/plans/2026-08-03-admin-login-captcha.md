@@ -536,6 +536,108 @@ git commit -m "feat: challenge admin login with Turnstile after a failed attempt
 
 ---
 
+### Task 4B: Server-render the initial challenge state
+
+**Added 2026-08-03, mid-execution.** Task 5's e2e work exposed a design defect that
+four task reviews and a manual browser check all missed, because it only reproduces
+with a real `TURNSTILE_SECRET_KEY` set (the dev-skip masks it). See the corrected
+§6 of the design spec.
+
+**The defect:** `challengeRequired` starts `false` on every fresh page load, so no
+widget and no `turnstileToken` input are mounted. But `signIn` recomputes
+`needsChallenge` server-side from the **shared** `login:ip:*` key. A staff member
+whose office IP was flagged by a *colleague's* typo therefore submits correct
+credentials with no token and is refused with `"Incorrect email or password."` They
+recover on the second attempt, but the first rejection is spurious and its message
+is wrong. It also breaks `tests/e2e/auth.setup.ts`, which makes the entire `admin`
+Playwright project unrunnable.
+
+**Files:**
+- Modify: `src/app/admin/login/page.tsx`
+- Modify: `src/features/admin/components/login-form.tsx`
+
+**Interfaces:**
+- Consumes: `needsChallenge` + `LOGIN_WINDOW_MS` (Task 1), `countRateLimitHits` (Task 2), `requestIp` (`@/lib/rate-limit`).
+- Produces: `LoginForm` gains a required prop `initialChallengeRequired: boolean`.
+
+- [ ] **Step 1: Compute the initial state in the page**
+
+`src/app/admin/login/page.tsx` is already an `async` Server Component reading
+`searchParams`, so it is dynamic and this adds no new rendering constraint. Add the
+imports and compute the value before the `return`:
+
+```tsx
+import { countRateLimitHits, requestIp } from "@/lib/rate-limit";
+import { LOGIN_WINDOW_MS, needsChallenge } from "@/features/admin/lib/login-challenge";
+```
+
+```tsx
+  // Only the IP key is knowable here — no email has been typed yet. Passing null
+  // for the email count would fail CLOSED (needsChallenge treats null as
+  // "unreadable, so challenge everyone"), which would put a widget on every
+  // first load and defeat the whole point of being adaptive. 0 is the honest
+  // value: this key has no recorded failures because we have not been told which
+  // key to look at yet. signIn still reads the real email count at submit time.
+  const ip = await requestIp();
+  const ipHits = await countRateLimitHits(`login:ip:${ip}`, LOGIN_WINDOW_MS);
+  const initialChallengeRequired = needsChallenge(ipHits, 0);
+```
+
+Then pass it down — `AuthLayout` renders `children` twice (once per responsive
+tree), so both copies receive the same value from this one read:
+
+```tsx
+      <LoginForm initialChallengeRequired={initialChallengeRequired} />
+```
+
+- [ ] **Step 2: Consume it in `LoginForm`**
+
+Give the component its prop:
+
+```tsx
+export function LoginForm({ initialChallengeRequired }: { initialChallengeRequired: boolean }) {
+```
+
+**Do not** move this value into `useActionState`'s initial state. The reset effect
+guards on `state === initialState` against the module-level constant, and making
+that constant per-instance would break the guard. Instead derive a display value
+next to the existing `visibleError` line:
+
+```tsx
+  // The server's read (this IP, at render time) OR the action's read (this IP and
+  // this email, at submit time). The first covers a colleague having flagged the
+  // shared IP before this page was ever loaded; the second covers this user's own
+  // failed attempt. Either one means signIn will demand a token, so either one
+  // must mount the widget.
+  const showChallenge = initialChallengeRequired || state.challengeRequired;
+```
+
+and change the render condition from `state.challengeRequired` to `showChallenge`.
+
+- [ ] **Step 3: Verify the build**
+
+Run: `npm run typecheck && npm run lint && npm run test:unit`
+
+Expected: all clean.
+
+- [ ] **Step 4: Verify in the browser**
+
+Follow `.claude/skills/verify/SKILL.md`. With `TURNSTILE_SECRET_KEY` unset (the
+normal dev state) the widget renders nothing, so what you are proving is that the
+page still renders and signs in at both viewports, and that a *reload* after a
+failed attempt keeps the hidden `turnstileToken` input present — that last part is
+the actual regression this task fixes, and it is observable without any key,
+because the input's presence is driven by `showChallenge`, not by Cloudflare.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/app/admin/login/page.tsx src/features/admin/components/login-form.tsx
+git commit -m "fix: mount the login challenge on first paint when the IP is flagged"
+```
+
+---
+
 ### Task 5: Test keys and e2e coverage
 
 **Files:**
@@ -612,15 +714,24 @@ test("the challenge appears only after a failed attempt, and the server enforces
   // Supabase Auth whether the account exists.
   const unknownEmail = `no-such-user-${Date.now()}@example.com`;
 
-  // 1. First attempt on a clean key: no challenge.
+  // 1. Record whether this machine's IP key is already flagged. After Task 4B the
+  //    page server-renders the challenge from the SHARED login:ip:* key, so "no
+  //    challenge on a first attempt" is only true when that key is clean — and on
+  //    any dev machine that has run this suite recently, it will not be. Assert
+  //    the clean-start case only when the environment actually provides it,
+  //    rather than writing a test that passes or fails on run history.
   await page.goto("/admin/login");
+  const startedClean =
+    (await visibleForm(page).locator('input[name="turnstileToken"]').count()) === 0;
+
   await page.getByRole("textbox", { name: "Email" }).fill(unknownEmail);
   await page.getByRole("textbox", { name: "Password" }).fill("wrong-password");
-  await expect(visibleForm(page).locator('input[name="turnstileToken"]')).toHaveCount(0);
+  if (startedClean) await waitForToken(page).catch(() => {});
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Incorrect email or password.")).toBeVisible();
 
-  // 2. Second attempt: the challenge is now mounted.
+  // 2. After a failure the challenge is mounted — true regardless of the start
+  //    state, and the assertion that actually matters.
   await expect(visibleForm(page).locator('input[name="turnstileToken"]')).toHaveCount(1);
 
   // 3. The server refuses a tokenless POST even with the CORRECT password.
@@ -643,15 +754,32 @@ Note this test deliberately spends its failures on a throwaway address, so it do
 
 - [ ] **Step 5: Prove each new assertion can fail**
 
-*A guard that has never been seen to fail is not a guard.* Run the new test three times, each with one thing reverted, and confirm the matching assertion fails:
+*A guard that has never been seen to fail is not a guard.* Confirm each assertion can fail:
 
 | Revert | Assertion that must fail |
 |---|---|
-| Force `challengeRequired: true` on the Zod-failure return in `signIn` | #1 (`toHaveCount(0)`) |
-| Force `challengeRequired: false` on the bad-password return | #2 (`toHaveCount(1)`) |
+| Force `challengeRequired: false` on the bad-password return in `signIn`, AND pass `initialChallengeRequired={false}` from the page | #2 (`toHaveCount(1)`) |
 | Delete the `if (challenge) { ... }` enforcement block from `signIn` | #3 (reaches `/admin`) |
 
 Restore each revert before moving to the next.
+
+**Run ONLY the new test for these**, via Playwright's `--grep`:
+
+```bash
+npx playwright test tests/e2e/admin/login.spec.ts --project=admin --grep "the challenge appears only after a failed attempt"
+```
+
+**This scoping is mandatory, not an optimization.** The older five-failure test in
+the same file spends 6 hits on `E2E_ADMIN_EMAIL` per run against `LOGIN_LIMIT` = 5
+per 15 minutes, so a full-file rerun poisons the next one and forces a 15-minute
+wait between reverts. The new test mints a fresh throwaway address per run and
+never collides with itself. Run the full file once, at Step 6.
+
+Assertion #1 has no revert row on purpose: after Task 4B it is conditional on the
+shared IP key being clean, which no revert controls.
+
+**If you find yourself waiting on a timer, stop and report BLOCKED instead.**
+Waiting out a rate-limit window is never the answer here.
 
 - [ ] **Step 6: Run the suite**
 

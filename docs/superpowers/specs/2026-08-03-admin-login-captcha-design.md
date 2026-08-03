@@ -217,9 +217,34 @@ which is the entire reason adaptive was chosen over always-on.
 
 **A shared office IP couples colleagues.** One person's failed attempt puts the
 whole office behind a challenge for 15 minutes, since `login:ip:*` is one of the
-two trigger keys. This is already true of the 5-failure block and is not made
-worse here; a challenge is a far milder consequence than the lockout that key can
-already cause.
+two trigger keys. This is already true of the 5-failure block.
+
+**Corrected 2026-08-03, during implementation.** An earlier version of this
+paragraph went on to call the coupling "a far milder consequence than the lockout
+that key can already cause." That was wrong, and the e2e task found it. The
+challenge state was originally computed only *inside* `signIn` and surfaced to the
+client through `SignInFormState.challengeRequired`, which starts `false` on every
+fresh page load. So a staff member arriving at a login page whose IP was already
+flagged got **no widget and no `turnstileToken` input**, submitted correct
+credentials with no token, and was refused by the server's own recomputed
+`needsChallenge` — with the generic `"Incorrect email or password."` copy, on a
+password that was in fact correct. They recovered on the second attempt (the
+rejection sets `challengeRequired: true`, mounting the widget), but the first
+rejection was spurious and its message misleading. For a barangay hall behind one
+public IP, that is the ordinary case, not an edge case.
+
+The fix: **`/admin/login` computes the initial challenge state server-side at
+render time** and passes it into `LoginForm` as `initialChallengeRequired`, so the
+widget is mounted on first paint whenever the requesting IP (or nothing yet, for
+the email — no email is known at render time) is already flagged. The component
+shows the challenge when `initialChallengeRequired || state.challengeRequired`.
+Cost: one `countRateLimitHits` read per login-page GET. The page already reads
+`searchParams` and is therefore dynamic, so this adds no new rendering constraint.
+
+This also explains why four task reviews and a manual browser check all missed it:
+the defect only reproduces with a real `TURNSTILE_SECRET_KEY` set. In the normal
+development state the key is unset, `verifyTurnstileToken` dev-skips and returns
+`true`, and every tokenless submission succeeds.
 
 **Turnstile analytics will show renders from hidden widget instances** (§4). Cosmetic.
 
