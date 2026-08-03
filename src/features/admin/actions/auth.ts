@@ -53,7 +53,11 @@ export async function signIn(
     password: formData.get("password"),
   });
   if (!parsed.success) {
-    return { error: "Enter your email and password.", challengeRequired: false };
+    // Carry the previous flag rather than clearing it: this branch runs before
+    // any count is read, so it has no basis for lowering a challenge a prior
+    // rejection already raised. Clearing it would unmount a mounted widget and
+    // cost the user another tokenless round trip.
+    return { error: "Enter your email and password.", challengeRequired: _prev.challengeRequired };
   }
 
   // Two keys: IP stops one source hammering many accounts, email stops a
@@ -87,10 +91,27 @@ export async function signIn(
   // that person out of their own account with five tokenless POSTs.
   if (challenge) {
     const tokenValue = formData.get("turnstileToken");
-    const verified = await verifyTurnstileToken(
-      typeof tokenValue === "string" ? tokenValue : null,
-      ip,
-    );
+    // verifyTurnstileToken THROWS (rather than returning false) when
+    // TURNSTILE_SECRET_KEY is unset in production — deliberate, so a keyless
+    // deploy fails loudly instead of silently shipping with no CAPTCHA. But
+    // login-form.tsx has no catch (it must not — signIn ends in redirect(),
+    // which throws NEXT_REDIRECT), and /admin/login sits outside the
+    // admin/(portal) route group, so there is no error.tsx between here and
+    // global-error.tsx. Unguarded, one missing env var turns the only door
+    // into the portal into a full-page crash with no inline recovery —
+    // exactly the lockout the adaptive design exists to avoid. Catching here
+    // still fails CLOSED (the attempt is refused), so the "fail loudly" intent
+    // is intact; it just degrades to the same inline message every other
+    // challenge failure gets.
+    let verified = false;
+    try {
+      verified = await verifyTurnstileToken(
+        typeof tokenValue === "string" ? tokenValue : null,
+        ip,
+      );
+    } catch (err) {
+      console.error("signIn Turnstile verification threw:", err instanceof Error ? err.message : err);
+    }
     if (!verified) {
       // The ONE rejection that does NOT share the generic "Incorrect email or
       // password." copy, and deliberately so.

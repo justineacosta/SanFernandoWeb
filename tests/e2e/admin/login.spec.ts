@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 
 /**
  * Runs against the `admin` Playwright project, but deliberately does NOT use
@@ -28,12 +29,22 @@ test.use({ storageState: { cookies: [], origins: [] } });
  * header to `challenges.cloudflare.com`, whose edge then refuses to serve the
  * widget script, and the widget never issues a token.
  */
-const RUN_IP = `198.51.100.${1 + (Date.now() % 250)}`;
+test.beforeEach(async ({ page, baseURL }) => {
+  // Per TEST, not per module: `fullyParallel` puts this file's tests in separate
+  // workers, each evaluating a module-level constant independently, so a
+  // clock-derived value can hand two tests the same bucket and let one spend the
+  // other's budget mid-flight. A random 16-bit suffix gives ~65k buckets.
+  const h = randomUUID().replace(/-/g, "");
+  const ip = `198.51.${parseInt(h.slice(0, 2), 16)}.${1 + (parseInt(h.slice(2, 4), 16) % 254)}`;
 
-test.beforeEach(async ({ page }) => {
-  await page.route("http://localhost:3000/**", async (route) => {
+  // Derived from the baseURL fixture, not hardcoded: against any other
+  // E2E_BASE_URL a literal localhost pattern silently never matches, no header
+  // is forged, and these tests quietly revert to the shared machine IP — the
+  // exact non-idempotency this block exists to prevent, with nothing to signal it.
+  const origin = new URL(baseURL ?? "http://localhost:3000").origin;
+  await page.route(`${origin}/**`, async (route) => {
     await route.continue({
-      headers: { ...route.request().headers(), "cf-connecting-ip": RUN_IP },
+      headers: { ...route.request().headers(), "cf-connecting-ip": ip },
     });
   });
 });
@@ -136,7 +147,17 @@ test("the challenge appears only after a failed attempt, and the server enforces
   //    state, and the assertion that actually matters.
   await expect(visibleForm(page).locator('input[name="turnstileToken"]')).toHaveCount(1);
 
-  // 3. The server refuses a tokenless POST even with the CORRECT password.
+  // 3. A RELOAD still shows the challenge. This is the Task 4B guarantee — the
+  //    page server-renders it from the IP key, before any action has returned —
+  //    and it is the only assertion that covers it. Without this, the abandoned
+  //    `initialChallengeRequired={false}` scaffold that was once left live in
+  //    the tree passes every other check in this file, because state alone
+  //    mounts the widget after a rejection. The forged per-test IP guarantees
+  //    the hit recorded above is ours, so this is deterministic.
+  await page.goto("/admin/login");
+  await expect(visibleForm(page).locator('input[name="turnstileToken"]')).toHaveCount(1);
+
+  // 4. The server refuses a tokenless POST even with the CORRECT password.
   //    Blanking the input proves the gate lives in signIn, not in the widget.
   await page.getByRole("textbox", { name: "Email" }).fill(email!);
   await page.getByRole("textbox", { name: "Password" }).fill(password!);
@@ -147,6 +168,14 @@ test("the challenge appears only after a failed attempt, and the server enforces
       (el as HTMLInputElement).value = "";
     });
   await page.getByRole("button", { name: "Sign in" }).click();
+  // Assert the CHALLENGE message, not the generic one, and assert it BEFORE the
+  // URL check. Two reasons, both learned the hard way:
+  //  - `TURNSTILE_FAILURE_MESSAGE` is what this path actually returns, and it is
+  //    absent from the DOM before the click, so the assertion cannot pass
+  //    against stale pre-submit state the way a generic-copy assertion did.
+  //  - `not.toHaveURL` is satisfied at time zero (we are already on /admin/login),
+  //    so on its own it proves nothing; it only means something once a
+  //    post-round-trip assertion has forced the wait.
+  await expect(page.getByText("complete the challenge")).toBeVisible();
   await expect(page).not.toHaveURL(/\/admin(?!\/login)/);
-  await expect(page.getByText("Incorrect email or password.")).toBeVisible();
 });
