@@ -987,7 +987,45 @@ the fixed one, for any new test that looks its own row up twice.
   production a missing key makes `verifyTurnstileToken` **throw** instead of bypassing, so a
   keyless production deploy still 500s on first submit rather than silently passing. Remember
   the site key is inlined at build time, so a future key *rotation* needs a rebuild, not just
-  an env/redeploy. **Fixed 2026-07-28:** all
+  an env/redeploy.
+  **The widget reports its own failure states, 2026-08-03** (`turnstile-widget.tsx`,
+  `tests/e2e/public/turnstile.spec.ts`). `appearance: "interaction-only"` means a healthy
+  widget and a dead one look **identical** — both are a zero-height empty box — so every
+  failure path used to be completely silent: a blocked script `console.error`'d and
+  swallowed the rejection, and Cloudflare's `error-callback` only nulled the token. The
+  resident's sole feedback was the server's `TURNSTILE_FAILURE_MESSAGE`, which says
+  "complete the challenge and try again" about a challenge that is not on the page and
+  never will be — leaving all 10 surfaces permanently unsubmittable with instructions
+  impossible to follow. `TurnstileWidget` now tracks an `unavailable` flag set by both the
+  script-load rejection and `error-callback`, rendering a `role="alert"` banner plus a
+  **Try again** button; the fix lives entirely in the widget, so all 10 call sites (9
+  public forms + `LoginForm`) got it with no call-site change. Three things not to undo:
+  (1) **Try again bumps an `attempt` counter the mount effect keys on**, re-running script
+  load and render — `window.turnstile.reset()` cannot recover a script that never loaded,
+  which is the more common failure; (2) the success `callback` clears `unavailable`,
+  because Cloudflare retries most errors itself (`retry: "auto"`) and a self-healed widget
+  must stop accusing itself; (3) `expired-callback` deliberately does **not** raise the
+  banner — an expiring token is the widget working, and it refreshes itself. A missing
+  `NEXT_PUBLIC_TURNSTILE_SITE_KEY` also deliberately raises no banner: that is
+  development-only, where the server-side bypass keeps the form working, so there is
+  nothing to tell the resident. The banner carries its own `bg-danger-soft` /
+  `text-danger-soft-fg` pill rather than `InlineAlert`'s bare `text-danger`, because it
+  renders inside the **dark** newsletter card as well as the light forms. Error **110200**
+  is the code to recognise: the hostname is not on the site key's allow-list — what the
+  real key returns on `localhost` (confirmed in-browser, and why `.env.example` documents
+  the always-pass test keys), and equally what a key rotated without a rebuild looks like.
+  **`waitForLoadState("networkidle")` is unusable on any page carrying a form**: the
+  widget holds a `blob:` request open for the page's lifetime, so idle never arrives
+  (measured — ~700ms with `challenges.cloudflare.com` blocked, never otherwise). That had
+  silently killed `site.spec.ts`'s "the home page produces no CSP violations" test since
+  Turnstile shipped: it timed out at 30s on the wait and **never reached its assertion**.
+  It now waits for `window.turnstile` to be defined — the CSP-sensitive condition it
+  actually cares about, since that proves Cloudflare's cross-origin script was allowed to
+  load *and* execute — with the timeout caught so a keyless environment still runs the
+  assertion. Re-verified as a real guard by inducing a violation, per this repo's own "a
+  guard that has never been seen to fail is not a guard" rule. Neither new
+  `turnstile.spec.ts` test submits anything, so that spec spends **no** rate-limit budget
+  and is safe to re-run. **Fixed 2026-07-28:** all
   8 forms' `handleSubmit` originally wrapped the action call in `try { … } finally { … }` with no
   `catch`, so a throw (rather than a returned `{ error }`) fell through as an unhandled rejection
   to the nearest route `error.tsx` — a full-page crash that also lost whatever the resident had

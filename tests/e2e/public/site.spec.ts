@@ -71,7 +71,26 @@ test("the home page produces no CSP violations", async ({ page }) => {
     }
   });
   await page.goto("/");
-  await page.waitForLoadState("networkidle");
+
+  // NOT waitForLoadState("networkidle"): the Turnstile widget in the footer's
+  // newsletter form keeps a blob: request open for the lifetime of the page, so
+  // the home page never reaches network idle and this test timed out at 30s
+  // without ever reaching the assertion below — it had been passing on nothing
+  // since Turnstile shipped. (Measured: idle in ~700ms with
+  // challenges.cloudflare.com blocked, never otherwise.)
+  //
+  // Wait on the condition this test actually cares about instead — that
+  // Cloudflare's cross-origin script was allowed to load AND execute, which is
+  // the single most CSP-sensitive thing the home page does.
+  await page
+    .waitForFunction(() => typeof window.turnstile !== "undefined", null, { timeout: 15_000 })
+    .catch(() => {
+      // No NEXT_PUBLIC_TURNSTILE_SITE_KEY in this environment, so the widget
+      // never requests the script and there is nothing extra to wait for. If
+      // the script was instead blocked *by CSP*, the violation is already in
+      // `violations` and the assertion below still catches it.
+    });
+
   expect(violations).toEqual([]);
 });
 
