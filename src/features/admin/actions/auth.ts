@@ -18,10 +18,25 @@ import {
   activityCookieOptions,
   forwardedProtoIsHttps,
 } from "@/lib/session-activity";
-import { isOverLoginLimit, LOGIN_WINDOW_MS } from "@/features/admin/lib/login-challenge";
+import {
+  isOverLoginLimit,
+  LOGIN_WINDOW_MS,
+  needsChallenge,
+} from "@/features/admin/lib/login-challenge";
 
 export interface AuthFormState {
   error: string | null;
+}
+
+export interface SignInFormState extends AuthFormState {
+  /**
+   * UI hint only — tells `LoginForm` to mount the Turnstile widget. NEVER a
+   * security boundary: `signIn` recomputes the same condition server-side on
+   * every call (Task 4), so a client that ignores this flag is refused just
+   * the same. A Server Action is a public HTTP endpoint; what the previous
+   * response told the client does not constrain the next POST.
+   */
+  challengeRequired: boolean;
 }
 
 const credentialsSchema = z.object({
@@ -30,15 +45,15 @@ const credentialsSchema = z.object({
 });
 
 export async function signIn(
-  _prev: AuthFormState,
+  _prev: SignInFormState,
   formData: FormData,
-): Promise<AuthFormState> {
+): Promise<SignInFormState> {
   const parsed = credentialsSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
   });
   if (!parsed.success) {
-    return { error: "Enter your email and password." };
+    return { error: "Enter your email and password.", challengeRequired: false };
   }
 
   // Two keys: IP stops one source hammering many accounts, email stops a
@@ -59,10 +74,11 @@ export async function signIn(
   const emailKey = `login:email:${normalizedEmail}`;
   const ipHits = await countRateLimitHits(ipKey, LOGIN_WINDOW_MS);
   const emailHits = await countRateLimitHits(emailKey, LOGIN_WINDOW_MS);
+  const challenge = needsChallenge(ipHits, emailHits);
   if (isOverLoginLimit(ipHits, emailHits)) {
     // Same copy as a real bad password — a distinct "too many attempts"
     // message would confirm to an attacker that their guesses were arriving.
-    return { error: "Incorrect email or password." };
+    return { error: "Incorrect email or password.", challengeRequired: challenge };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -72,7 +88,7 @@ export async function signIn(
     // record it on both keys before returning, mirroring the read above.
     await recordRateLimitHit(ipKey);
     await recordRateLimitHit(emailKey);
-    return { error: "Incorrect email or password." };
+    return { error: "Incorrect email or password.", challengeRequired: true };
   }
 
   const { data: profile } = await supabase
@@ -87,7 +103,7 @@ export async function signIn(
     await recordRateLimitHit(ipKey);
     await recordRateLimitHit(emailKey);
     await supabase.auth.signOut();
-    return { error: "This account is disabled. Contact the barangay administrator." };
+    return { error: "This account is disabled. Contact the barangay administrator.", challengeRequired: true };
   }
 
   // Success: record nothing on either key. Proceed to the idle-cookie/

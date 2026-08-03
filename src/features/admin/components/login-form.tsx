@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { PasswordInput } from "@/components/ui/password-input";
-import { signIn, type AuthFormState } from "@/features/admin/actions/auth";
+import { signIn, type SignInFormState } from "@/features/admin/actions/auth";
 
-const initialState: AuthFormState = { error: null };
+const initialState: SignInFormState = { error: null, challengeRequired: false };
 
 export function LoginForm() {
   // Both responsive trees in `admin/login/page.tsx` render `<LoginForm />`
@@ -25,7 +25,7 @@ export function LoginForm() {
   // manual dismiss is tracked by comparing object identity, not the message
   // text — a second failed attempt produces a new `state` even if the copy
   // reads the same, and that new state must still show.
-  const [dismissedState, setDismissedState] = useState<AuthFormState | null>(null);
+  const [dismissedState, setDismissedState] = useState<SignInFormState | null>(null);
   const visibleError = state.error && state !== dismissedState ? state.error : null;
 
   return (
