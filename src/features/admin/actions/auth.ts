@@ -75,6 +75,28 @@ export async function signIn(
   const ipHits = await countRateLimitHits(ipKey, LOGIN_WINDOW_MS);
   const emailHits = await countRateLimitHits(emailKey, LOGIN_WINDOW_MS);
   const challenge = needsChallenge(ipHits, emailHits);
+
+  // NOTE the ordering: the security-hardening spec (§5) has every public form
+  // verify Turnstile FIRST, before the rate limit and before Zod, so a failed
+  // challenge is the cheapest possible rejection. That rule cannot hold here —
+  // whether a challenge is required at all depends on state only the count
+  // reads above can reveal, so they must come first. Do not "fix" this back.
+  //
+  // A failed challenge records NO rate-limit hit. Hits are keyed partly on
+  // email, so if they counted, anyone who knows a staff address could lock
+  // that person out of their own account with five tokenless POSTs.
+  if (challenge) {
+    const tokenValue = formData.get("turnstileToken");
+    const verified = await verifyTurnstileToken(
+      typeof tokenValue === "string" ? tokenValue : null,
+      ip,
+    );
+    if (!verified) {
+      // Same copy as every other rejection — never reveal which check failed.
+      return { error: "Incorrect email or password.", challengeRequired: true };
+    }
+  }
+
   if (isOverLoginLimit(ipHits, emailHits)) {
     // Same copy as a real bad password — a distinct "too many attempts"
     // message would confirm to an attacker that their guesses were arriving.
