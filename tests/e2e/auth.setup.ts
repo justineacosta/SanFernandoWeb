@@ -35,7 +35,7 @@ setup("authenticate", async ({ page }) => {
   await page.getByRole("textbox", { name: "Password" }).fill(password!);
 
   // The login page challenges any attempt whose IP or email already carries a
-  // recorded failure in the last 15 minutes, and it server-renders that decision
+  // recorded failure in the last 5 minutes, and it server-renders that decision
   // (see the adaptive-challenge bullet in CLAUDE.md). `login:ip:*` is shared by
   // every failed login on this machine, so even though THIS sign-in uses the
   // correct password, a wrong-password test that ran earlier — `login.spec.ts`

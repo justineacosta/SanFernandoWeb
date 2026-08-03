@@ -57,7 +57,7 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
 ### Rate Limiting & Bot Protection
 - Durable, DB-backed rate limiting (survives restarts, works across serverless instances) —
   every public form is capped per hour (3–10 submissions depending on the form)
-- Admin login is rate-limited by **both** IP and normalized email (5 attempts / 15 min),
+- Admin login is rate-limited by **both** IP and normalized email (5 attempts / 5 min),
   and only failed attempts count against the budget — a successful login records nothing
 - Cloudflare Turnstile verified server-side before any other check on all 8 public,
   anonymous Server Actions — fails **closed** (rejects) on a missing token, a Cloudflare
@@ -326,8 +326,9 @@ rather than bugs:
 - Most images are still hotlinked from `lh3.googleusercontent.com` rather than owned
   Storage; new uploads go to Storage — only the original seed images haven't migrated
 - Two Playwright e2e specs are **not idempotent within their rate-limit window**
-  (`admin/login.spec.ts`, `public/feedback.spec.ts`) — a second run within ~15 minutes of
-  the first can fail on rate-limit collision, not a real regression
+  (`admin/login.spec.ts`, `public/feedback.spec.ts`) — a second run within the window
+  (~5 minutes for login, ~1 hour for feedback) can fail on rate-limit collision, not a
+  real regression
 
 See `CLAUDE.md` for the full architectural history and gotchas, and
 `docs/superpowers/specs/` / `docs/superpowers/plans/` for per-feature design history.

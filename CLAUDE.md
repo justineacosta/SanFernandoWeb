@@ -53,7 +53,7 @@ suites are not idempotent within their rate-limit window:** `tests/e2e/admin/log
 (its five deliberate wrong-password attempts record 5 hits on `login:email:<test-admin>` — a
 successful sign-in, like `tests/e2e/auth.setup.ts`'s, records nothing, so it's `login.spec.ts`
 itself that spends the budget; `playwright.config.ts` runs `setup` before every `admin`-project
-test, so a second run within `LOGIN_WINDOW_MS` = 15 min has `auth.setup.ts` blocked by the
+test, so a second run within `LOGIN_WINDOW_MS` = 5 min has `auth.setup.ts` blocked by the
 *previous* run's hits, failing the whole `admin` project, not just the login test) and
 `tests/e2e/public/feedback.spec.ts` (consumes all 3 of `SUBMIT_LIMIT` on `feedback:unknown` per
 run — a second `test:e2e:public` run within an hour can fail the pre-existing "a complete
@@ -71,7 +71,7 @@ deliberately NOT `test.use({ extraHTTPHeaders })`, which would also send the for
 to `challenges.cloudflare.com`, whose edge then refuses to serve the widget script), so
 runs no longer poison each other's IP key or `auth.setup.ts`. The **email** key still
 collides by design: the five-failure test spends 6 hits on `login:email:<test-admin>`
-against `LOGIN_LIMIT` = 5 per 15 min, so a second run inside that window still fails —
+against `LOGIN_LIMIT` = 5 per 5 min, so a second run inside that window still fails —
 unchanged, and still a collision rather than a regression. `auth.setup.ts` gained a
 token wait plus **one retry**, because the page cannot see the email key at render time:
 when the test account's own address is the flagged one, its first attempt renders no
@@ -516,9 +516,17 @@ the fixed one, for any new test that looks its own row up twice.
 - **Admin login is challenged adaptively, not always, 2026-08-03**
   (`docs/superpowers/specs/2026-08-03-admin-login-captcha-design.md`). `/admin/login`
   shows a Turnstile challenge **only after a failed attempt** on that IP or email —
-  the trigger is ≥ 1 hit on `login:ip:*`/`login:email:*` inside the unchanged
-  `LOGIN_WINDOW_MS`, read off the same `rate_limit_hits` rows (migration `0029`) that
-  already drive the 5-failure block. No new table, column, or key namespace.
+  the trigger is ≥ 1 hit on `login:ip:*`/`login:email:*` inside `LOGIN_WINDOW_MS`, read
+  off the same `rate_limit_hits` rows (migration `0029`) that already drive the
+  5-failure block. No new table, column, or key namespace. **`LOGIN_WINDOW_MS` was
+  shortened from 15 min to 5 min later the same day**, on explicit direction, and it is
+  the one knob that moves both thresholds at once: a blocked attacker now gets their 5
+  guesses back three times as often (60/hour per account, up from 20) and a failed
+  attempt keeps the challenge raised for a third as long. `LOGIN_LIMIT` is untouched, so
+  no single burst gets more guesses than before, and the shorter wait is what makes a
+  locked-out staff member tolerable without a break-glass bypass — which this design
+  deliberately still does not have. It also cuts the e2e rerun friction below from 15
+  minutes to 5.
   **Always-on was deliberately rejected**: `verifyTurnstileToken` fails closed and
   throws in production on a missing key, so an unconditional widget would put a hard
   Cloudflare dependency in front of the only door into the portal — an outage, a
@@ -900,7 +908,8 @@ the fixed one, for any new test that looks its own row up twice.
   replacing the old in-memory Map — fails open on a Supabase error, same reasoning as
   `src/lib/rate-limit.ts`'s own top-of-file comment), and admin login is now rate-limited by
   both IP and normalized email (`src/features/admin/actions/auth.ts`, `LOGIN_LIMIT = 5` /
-  `LOGIN_WINDOW_MS = 15 min`). A final whole-branch review found the initial shape counted
+  `LOGIN_WINDOW_MS = 15 min`, shortened to **5 min** on 2026-08-03 — see the adaptive-login-
+  challenge bullet above for why). A final whole-branch review found the initial shape counted
   *every* login attempt, including successes, against that budget — fixed by splitting
   `checkRateLimit` (check-and-record-together, unchanged, still used by all 8 public-form call
   sites) from a new read-only `isRateLimited` + explicit `recordRateLimitHit` pair, so `signIn`

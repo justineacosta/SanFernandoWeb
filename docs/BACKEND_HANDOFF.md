@@ -1593,7 +1593,7 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
       Auth even in the narrow window where the limiter could be raced.
     - Email-keyed login rate limiting (`login:email:<address>`) is a deliberate trade-off, not
       a defect: an attacker who knows an admin's email can lock that admin out of their own
-      login by intentionally tripping the limit with 5 wrong passwords every 15 minutes. This
+      login by intentionally tripping the limit with 5 wrong passwords every 5 minutes. This
       hardening pass chose to prioritize stopping credential stuffing over guaranteeing
       availability.
     - `requestIp()` falls back to a shared `"unknown"` bucket whenever no reverse proxy sets

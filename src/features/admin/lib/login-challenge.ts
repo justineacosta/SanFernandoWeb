@@ -5,9 +5,20 @@
  * beside it instead of inside the users action file.
  */
 
-/** Tighter than the public forms' hour-long windows — credential-stuffing arrives fast. */
+/**
+ * Tighter than the public forms' hour-long windows — credential-stuffing arrives fast.
+ *
+ * The window was shortened from 15 minutes to 5 on 2026-08-03. That is a
+ * deliberate loosening on both thresholds, not a tightening: a blocked
+ * attacker gets back 5 guesses three times as often (60/hour per account
+ * rather than 20), and a failed attempt keeps the Turnstile challenge raised
+ * for a third as long. Both remain bounded — `LOGIN_LIMIT` is unchanged, so
+ * no single burst gets more guesses than before — and the shorter window is
+ * what makes a locked-out staff member's wait tolerable without a
+ * break-glass bypass, which this design deliberately does not have.
+ */
 export const LOGIN_LIMIT = 5;
-export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+export const LOGIN_WINDOW_MS = 5 * 60 * 1000;
 
 /**
  * True when this attempt should be refused outright.
