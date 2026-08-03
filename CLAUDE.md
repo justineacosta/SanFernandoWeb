@@ -569,6 +569,19 @@ the fixed one, for any new test that looks its own row up twice.
   state, keeping `login-form.tsx` clear of the standing "never wrap `signIn` in a catch"
   rule. `LoginForm` mounts twice (both responsive trees), so two widget instances exist
   once challenged; the hidden one may never solve and nothing depends on it.
+  **Open follow-up this feature raises the stakes on:** `requestIp()` prefers
+  `cf-connecting-ip` unconditionally (2026-07-29, pre-existing), and
+  `tests/e2e/admin/login.spec.ts` forging that header from a bare Playwright client is
+  direct proof any caller can — there is no Cloudflare hop in that path. Nothing in the
+  code, config or `.env.example` asserts that production actually sits behind Cloudflare.
+  Before this bullet, a forged value bought one unchallenged guess total; now, since
+  `login:ip:*` is both the CAPTCHA trigger and the sole input to
+  `initialChallengeRequired`, rotating it buys **one unchallenged guess per account** in a
+  spraying attack. Still bounded — the email key caps per-account brute force at one free
+  guess and blocks at five — so this is degradation, not a hole. The fix, when someone
+  picks it up, is to gate the preference behind an explicit deployment assertion (an env
+  flag, or validating the peer against Cloudflare's published ranges) and to document
+  which topology the app is deployed behind.
 - **Self-service "Forgot password?" flow, 2026-07-31**
   (`docs/superpowers/specs/2026-07-31-admin-forgot-password-design.md`). Closes the login
   page's honesty placeholder — "Forgot password?" used to just toast "Contact SuperAdmin"
