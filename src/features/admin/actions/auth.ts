@@ -6,7 +6,7 @@ import { cookies, headers } from "next/headers";
 import { getSessionUser, getSessionUserIgnoringIdle } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { checkRateLimit, isRateLimited, recordRateLimitHit, requestIp } from "@/lib/rate-limit";
+import { checkRateLimit, countRateLimitHits, recordRateLimitHit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { sendEmail } from "@/lib/email";
 import { EMAIL_SITE_URL } from "@/emails/site-url";
@@ -18,7 +18,7 @@ import {
   activityCookieOptions,
   forwardedProtoIsHttps,
 } from "@/lib/session-activity";
-import { LOGIN_LIMIT, LOGIN_WINDOW_MS } from "@/features/admin/lib/login-challenge";
+import { isOverLoginLimit, LOGIN_WINDOW_MS } from "@/features/admin/lib/login-challenge";
 
 export interface AuthFormState {
   error: string | null;
@@ -46,7 +46,7 @@ export async function signIn(
   // short-circuited) so both budgets are read regardless of which one an
   // attacker is closer to tripping.
   //
-  // This check is read-only (isRateLimited, not checkRateLimit): a hit is
+  // This check is read-only (countRateLimitHits, not checkRateLimit): a hit is
   // recorded below ONLY when signInWithPassword or the profile check
   // actually fails. Counting every attempt — including successful ones,
   // which is what the old checkRateLimit-before-signIn shape did — would
@@ -57,9 +57,9 @@ export async function signIn(
   const normalizedEmail = parsed.data.email.trim().toLowerCase();
   const ipKey = `login:ip:${ip}`;
   const emailKey = `login:email:${normalizedEmail}`;
-  const ipLimited = await isRateLimited(ipKey, LOGIN_LIMIT, LOGIN_WINDOW_MS);
-  const emailLimited = await isRateLimited(emailKey, LOGIN_LIMIT, LOGIN_WINDOW_MS);
-  if (ipLimited || emailLimited) {
+  const ipHits = await countRateLimitHits(ipKey, LOGIN_WINDOW_MS);
+  const emailHits = await countRateLimitHits(emailKey, LOGIN_WINDOW_MS);
+  if (isOverLoginLimit(ipHits, emailHits)) {
     // Same copy as a real bad password — a distinct "too many attempts"
     // message would confirm to an attacker that their guesses were arriving.
     return { error: "Incorrect email or password." };
@@ -196,7 +196,7 @@ export async function requestPasswordReset(
   // RESET_TIMING_FLOOR_MS below, applied at the single return point.
   const start = Date.now();
 
-  // Record-on-every-call (checkRateLimit), NOT signIn's isRateLimited/
+  // Record-on-every-call (checkRateLimit), NOT signIn's countRateLimitHits/
   // recordRateLimitHit split: every request must count identically whether
   // or not the email matches a real account, or differential counting
   // itself becomes an enumeration signal. Two keys, same IP+email shape as

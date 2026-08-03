@@ -28,7 +28,7 @@ async function opportunisticSweep(admin: ReturnType<typeof createSupabaseAdminCl
  *
  * This is the whole contract for every caller EXCEPT admin login, which
  * counts only failed attempts (a successful sign-in must not consume the
- * budget) — see `isRateLimited` / `recordRateLimitHit` below, used together
+ * budget) — see `countRateLimitHits` / `recordRateLimitHit` below, used together
  * by `signIn` in src/features/admin/actions/auth.ts instead of this function.
  */
 export async function checkRateLimit(key: string, limit: number, windowMs: number): Promise<boolean> {
@@ -58,17 +58,24 @@ export async function checkRateLimit(key: string, limit: number, windowMs: numbe
 }
 
 /**
- * Read-only budget check — does NOT record a hit. True when the key is
- * currently AT or OVER budget (i.e. the caller should be blocked).
+ * Read-only hit count for a key inside a window — does NOT record a hit.
+ * Returns `null` when the count could not be read (a Supabase error), so the
+ * caller decides what an unknown count means rather than having a fail-open
+ * default baked in here. Admin login needs opposite answers for its two
+ * thresholds: see `isOverLoginLimit` / `needsChallenge` in
+ * `src/features/admin/lib/login-challenge.ts`.
  *
- * Exists for admin login only: `checkRateLimit`'s check-and-record-together
+ * Exists for admin login only. `checkRateLimit`'s check-and-record-together
  * contract would count every successful sign-in against the same budget as a
  * failed one, which is wrong — the threat this limiter defends against is
- * repeated *failures* (credential stuffing), not usage volume. Fails open
- * (returns false, i.e. "not limited") on a Supabase error, same reasoning as
- * `checkRateLimit`.
+ * repeated *failures* (credential stuffing), not usage volume.
+ *
+ * Replaced the earlier boolean `isRateLimited(key, limit, windowMs)`: `signIn`
+ * reads two thresholds off each key (>= 1 to challenge, >= LOGIN_LIMIT to
+ * block), and a boolean helper meant running the same count query twice per
+ * key — four round trips per login attempt instead of two.
  */
-export async function isRateLimited(key: string, limit: number, windowMs: number): Promise<boolean> {
+export async function countRateLimitHits(key: string, windowMs: number): Promise<number | null> {
   const admin = createSupabaseAdminClient();
   const since = new Date(Date.now() - windowMs).toISOString();
 
@@ -79,16 +86,16 @@ export async function isRateLimited(key: string, limit: number, windowMs: number
     .gte("hit_at", since);
 
   if (error) {
-    console.error("isRateLimited count failed:", error.message);
-    return false;
+    console.error("countRateLimitHits count failed:", error.message);
+    return null;
   }
-  return (count ?? 0) >= limit;
+  return count ?? 0;
 }
 
 /**
  * Records a hit unconditionally — call only after deciding the attempt should
  * count (admin login: after a failed sign-in or a disabled-account rejection,
- * never after success). Pairs with `isRateLimited` above.
+ * never after success). Pairs with `countRateLimitHits` above.
  */
 export async function recordRateLimitHit(key: string): Promise<void> {
   const admin = createSupabaseAdminClient();
