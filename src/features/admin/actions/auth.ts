@@ -92,8 +92,23 @@ export async function signIn(
       ip,
     );
     if (!verified) {
-      // Same copy as every other rejection — never reveal which check failed.
-      return { error: "Incorrect email or password.", challengeRequired: true };
+      // The ONE rejection that does NOT share the generic "Incorrect email or
+      // password." copy, and deliberately so.
+      //
+      // The page can only server-render the challenge from the IP key — no
+      // email is known at render time, so `login:email:*` hits are invisible to
+      // it. A staff member whose own address carries a recent failure therefore
+      // lands on a page with no widget, submits the RIGHT password with no
+      // token, and arrives here. Telling them "Incorrect email or password."
+      // would be a lie about a correct credential, and would send them off to
+      // reset a password that works.
+      //
+      // This leaks nothing the UI does not already show: the widget appears on
+      // the very next render, so "a challenge is required for this attempt" is
+      // observable regardless. It still never distinguishes a real account from
+      // an unknown one, or a right password from a wrong one — those all keep
+      // the generic copy below.
+      return { error: TURNSTILE_FAILURE_MESSAGE, challengeRequired: true };
     }
   }
 
