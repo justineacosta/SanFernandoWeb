@@ -1,15 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  BellRing,
-  ChevronRight,
-  Clock,
-  ExternalLink,
-  Mail,
-  MapPin,
-  Phone,
-  Siren,
-} from "lucide-react";
+import { ChevronRight, Clock, ExternalLink, Mail, MapPin, Phone, Siren } from "lucide-react";
 import {
   EMERGENCY_HOTLINES,
   GOVERNMENT_LINKS,
@@ -20,7 +11,6 @@ import {
 } from "@/constants/site";
 import { toTelHref } from "@/lib/format";
 import { Container } from "@/components/ui/container";
-import { NewsletterForm } from "@/features/announcements";
 
 function FooterHeading({ children }: { children: React.ReactNode }) {
   return (
@@ -30,7 +20,7 @@ function FooterHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Dark site-wide footer: newsletter panel, link columns, contact + hotline, legal. */
+/** Dark site-wide footer: link columns, contact + hotline, legal. */
 export function SiteFooter() {
   const year = new Date().getFullYear();
   const hotline = EMERGENCY_HOTLINES[0];
@@ -41,31 +31,7 @@ export function SiteFooter() {
         aria-hidden="true"
         className="bg-radial-fade pointer-events-none absolute inset-x-0 top-0 h-72 opacity-60"
       />
-      <Container className="relative pt-16 md:pt-20">
-        <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-ink-900 via-ink-900 to-ink-800 p-8 sm:p-10 md:p-12">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-24 -top-24 size-72 rounded-full bg-brand-500/30 blur-3xl"
-          />
-          <div className="relative grid gap-8 lg:grid-cols-12 lg:items-center lg:gap-10">
-            <div className="lg:col-span-7">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-brand-300">
-                <BellRing className="size-3.5" aria-hidden="true" />
-                Stay Notified
-              </span>
-              <h3 className="mt-4 font-display text-2xl font-semibold leading-tight tracking-tight text-white sm:text-3xl">
-                Receive weekly news summaries and urgent alerts.
-              </h3>
-              <p className="mt-3 text-sm text-ink-300 sm:text-base">
-                Directly to your phone via SMS or Email. No spam, unsubscribe anytime.
-              </p>
-            </div>
-            <div className="lg:col-span-5">
-              <NewsletterForm variant="inline" />
-            </div>
-          </div>
-        </div>
-
+      <Container className="relative pt-6 md:pt-8">
         <div className="grid grid-cols-1 gap-12 py-14 md:grid-cols-2 lg:grid-cols-4">
           <div>
             <div className="mb-6 flex items-center gap-3">

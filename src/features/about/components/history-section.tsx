@@ -13,7 +13,7 @@ export async function HistorySection() {
     <Section tone="white" className="py-16 md:py-24">
       <SectionHeading
         align="center"
-        title="Our Rich History"
+        title="Barangay Timeline"
         description="From an eighteenth-century founding to a modern urban barangay at the heart of San Nicolas."
       />
       <div className="relative">

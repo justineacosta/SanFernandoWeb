@@ -41,9 +41,10 @@ const supabaseOrigin = supabaseHost ? `https://${supabaseHost}` : "";
 // https://challenges.cloudflare.com for the Turnstile CAPTCHA
 // (security-hardening spec §5): it loads a script from that origin, renders
 // its challenge in an iframe from that origin, and the widget makes its own
-// XHR calls back to it. NewsletterForm (one of the 8 CAPTCHA'd forms) is
-// mounted sitewide via SiteFooter, so this is exercised on every page, not
-// just the forms that look CAPTCHA-specific.
+// XHR calls back to it. This used to be exercised on every page, because
+// NewsletterForm (one of the 8 CAPTCHA'd forms) was mounted sitewide via
+// SiteFooter; the footer's newsletter panel was removed 2026-08-05, so it is
+// now only exercised on the pages that carry a form of their own.
 const csp = [
   "default-src 'self'",
   "base-uri 'self'",

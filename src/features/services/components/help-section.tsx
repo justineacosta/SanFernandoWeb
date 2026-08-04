@@ -16,9 +16,6 @@ export function HelpSection() {
           <Button href="/contact" size="lg">
             Message Help Desk
           </Button>
-          <Button variant="outline" size="lg">
-            Download All Forms
-          </Button>
         </div>
       </div>
     </Section>

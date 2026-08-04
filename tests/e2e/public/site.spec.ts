@@ -72,16 +72,35 @@ test("the home page produces no CSP violations", async ({ page }) => {
   });
   await page.goto("/");
 
-  // NOT waitForLoadState("networkidle"): the Turnstile widget in the footer's
-  // newsletter form keeps a blob: request open for the lifetime of the page, so
-  // the home page never reaches network idle and this test timed out at 30s
-  // without ever reaching the assertion below — it had been passing on nothing
-  // since Turnstile shipped. (Measured: idle in ~700ms with
-  // challenges.cloudflare.com blocked, never otherwise.)
-  //
-  // Wait on the condition this test actually cares about instead — that
-  // Cloudflare's cross-origin script was allowed to load AND execute, which is
-  // the single most CSP-sensitive thing the home page does.
+  // networkidle is usable here again as of 2026-08-05. It was unusable while
+  // the footer carried the newsletter form, because that form's Turnstile
+  // widget holds a blob: request open for the page's lifetime — this test spent
+  // that period timing out at 30s without ever reaching the assertion below.
+  // The footer panel is gone, so the home page mounts no widget at all and
+  // settles (measured at ~700ms back when the script was merely blocked).
+  await page.waitForLoadState("networkidle");
+
+  expect(violations).toEqual([]);
+});
+
+/**
+ * The home page above no longer loads anything from challenges.cloudflare.com,
+ * so it can no longer prove the CSP lets that script through — the single most
+ * CSP-sensitive thing any public page does. /contact still mounts a widget, so
+ * the check moved here rather than being dropped with the footer panel.
+ */
+test("the Turnstile script is allowed to load and execute under the CSP", async ({ page }) => {
+  const violations: string[] = [];
+  page.on("console", (msg) => {
+    if (msg.type() === "error" && msg.text().includes("Content Security Policy")) {
+      violations.push(msg.text());
+    }
+  });
+  await page.goto("/contact");
+
+  // NOT waitForLoadState("networkidle") on this page, for the blob: reason
+  // described above. Wait on the condition this test actually cares about:
+  // that Cloudflare's cross-origin script was allowed to load AND execute.
   await page
     .waitForFunction(() => typeof window.turnstile !== "undefined", null, { timeout: 15_000 })
     .catch(() => {

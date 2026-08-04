@@ -4,7 +4,8 @@ import { Container } from "@/components/ui/container";
 interface CtaBannerProps {
   title: React.ReactNode;
   description: string;
-  actions: React.ReactNode;
+  /** Optional action row; omitted entirely when the banner is copy-only. */
+  actions?: React.ReactNode;
   /** Extra content rendered beside the copy (e.g. an icon grid). */
   aside?: React.ReactNode;
   /** Optional photo rendered behind a dark ink overlay. */
@@ -48,17 +49,25 @@ export function CtaBanner({
               <h2 className="mb-4 font-display text-3xl font-semibold leading-tight tracking-tight md:text-4xl">
                 {title}
               </h2>
-              <p className={cn("mb-8 text-lg text-ink-300", aside ? "max-w-lg" : "mx-auto max-w-2xl")}>
-                {description}
-              </p>
-              <div
+              <p
                 className={cn(
-                  "flex flex-col justify-center gap-4 sm:flex-row",
-                  aside && "md:justify-start",
+                  "text-lg text-ink-300",
+                  actions && "mb-8",
+                  aside ? "max-w-lg" : "mx-auto max-w-2xl",
                 )}
               >
-                {actions}
-              </div>
+                {description}
+              </p>
+              {actions ? (
+                <div
+                  className={cn(
+                    "flex flex-col justify-center gap-4 sm:flex-row",
+                    aside && "md:justify-start",
+                  )}
+                >
+                  {actions}
+                </div>
+              ) : null}
             </div>
             {aside ? <div className="md:w-1/2">{aside}</div> : null}
           </div>

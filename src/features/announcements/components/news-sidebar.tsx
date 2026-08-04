@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import { toCalendarParts, toTelHref } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { NewsletterForm } from "@/features/announcements/components/newsletter-form";
 import { listPublishedAnnouncements } from "@/features/announcements/queries";
 import { EMERGENCY_HOTLINES } from "@/constants/site";
 import type { Announcement } from "@/types";
@@ -101,14 +100,13 @@ function HotlinesWidget() {
   );
 }
 
-/** Right rail: urgent announcements, hotlines, and newsletter signup. */
+/** Right rail: urgent announcements and hotlines. */
 export async function NewsSidebar() {
   const announcements = await listPublishedAnnouncements(3);
   return (
     <aside className="space-y-8">
       <AnnouncementsWidget announcements={announcements} />
       <HotlinesWidget />
-      <NewsletterForm />
     </aside>
   );
 }

@@ -76,10 +76,12 @@ test("a rejected site key surfaces as a retryable error, not an empty box", asyn
 
   await page.goto("/contact");
 
-  // /contact mounts two widgets — the inquiry form and the newsletter form —
-  // so every one of them must raise its own banner, not just the first.
+  // One widget, the inquiry form's. This was 2 until the footer's newsletter
+  // panel was removed (2026-08-05) and took the site-wide second widget with
+  // it; the delta assertion below is deliberately written so it does not need
+  // updating again if that count changes.
   const banner = page.getByRole("alert").filter({ hasText: unavailableBanner });
-  await expect(banner).toHaveCount(2);
+  await expect(banner).toHaveCount(1);
   await expect(banner.first()).toBeVisible();
 
   // The resident gets a way out that does not involve reloading the page and

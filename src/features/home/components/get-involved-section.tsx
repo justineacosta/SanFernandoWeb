@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import { CtaBanner } from "@/components/sections/cta-banner";
 import { SITE_MEDIA_BUCKET, mediaUrl } from "@/lib/storage";
 import { getSiteBlocks, listInvolvementItems } from "@/features/site-content/queries";
@@ -20,11 +19,6 @@ export async function GetInvolvedSection() {
         </>
       }
       description="Your participation today shapes our better tomorrow."
-      actions={
-        <Button href="/contact" variant="primary" size="lg">
-          Get Involved
-        </Button>
-      }
       aside={
         items.length > 0 ? (
           <div className="grid grid-cols-2 gap-6 md:grid-cols-4">

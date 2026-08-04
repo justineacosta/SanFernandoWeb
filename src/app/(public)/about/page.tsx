@@ -4,7 +4,6 @@ import { PageHero } from "@/components/sections/page-hero";
 import {
   CaptainMessageSection,
   HistorySection,
-  JoinCommunitySection,
   MilestonesSection,
   MissionVisionSection,
 } from "@/features/about";
@@ -37,7 +36,6 @@ export default function AboutPage() {
       <CaptainMessageSection />
       <HistorySection />
       <MilestonesSection />
-      <JoinCommunitySection />
     </>
   );
 }
