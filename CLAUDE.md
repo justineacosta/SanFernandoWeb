@@ -1315,6 +1315,15 @@ the fixed one, for any new test that looks its own row up twice.
   `turnstile.spec.ts`'s rejected-site-key test also counted **2** banners on `/contact` (the
   inquiry form's plus the footer's) and now expects **1**. `next.config.ts`'s CSP comment
   claiming the Cloudflare directives are exercised sitewide was corrected for the same reason.
+- **The site has no social links at all** (2026-08-05, on request). `SOCIAL_LINKS` in
+  `src/constants/site.ts` and the `SocialLink` interface in `src/types/index.ts` are
+  **deleted**, not emptied — an empty array would have left two render blocks silently
+  drawing nothing. Both consumers lost their markup too: `SiteFooter`'s icon row under the
+  seal/description column (the description `<p>` dropped its now-dangling `mb-6`) and
+  `ContactDetails`' entire "Follow Us" section including its `border-t` divider. The
+  barangay's real Facebook page is `https://www.facebook.com/brgy.onse.san.fernando` if a
+  link is ever wanted back; the other three entries (Twitter, YouTube, Messenger) were
+  always `href="#"` placeholders and have no real destination to restore.
 - `/announcements` is a 3-item News teaser (newest featured + 2 grid cards) with a sidebar
   (`NewsSidebar` shows Announcements + Emergency Hotlines; its newsletter signup was removed
   2026-08-05 — see the `NewsletterForm` bullet above). `/news`

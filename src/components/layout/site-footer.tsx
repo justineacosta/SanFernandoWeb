@@ -7,7 +7,6 @@ import {
   LEGAL_LINKS,
   NAV_ITEMS,
   SITE,
-  SOCIAL_LINKS,
 } from "@/constants/site";
 import { toTelHref } from "@/lib/format";
 import { Container } from "@/components/ui/container";
@@ -49,22 +48,10 @@ export function SiteFooter() {
                 <p className="text-xs text-ink-400">{SITE.locality}</p>
               </div>
             </div>
-            <p className="mb-6 text-sm leading-relaxed text-ink-300">
+            <p className="text-sm leading-relaxed text-ink-300">
               We are committed to transparency, accountability, and excellent public service for
               every resident.
             </p>
-            <div className="flex gap-3">
-              {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  aria-label={label}
-                  className="rounded-full border border-white/10 bg-white/5 p-2.5 text-ink-200 transition-colors hover:bg-white/15 hover:text-white"
-                >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                </a>
-              ))}
-            </div>
           </div>
 
           <nav aria-label="Quick links">

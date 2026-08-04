@@ -1,11 +1,5 @@
-import {
-  Facebook,
-  MessageCircle,
-  PhoneCall,
-  Twitter,
-  Youtube,
-} from "lucide-react";
-import type { Hotline, LinkItem, NavItem, SocialLink } from "@/types";
+import { PhoneCall } from "lucide-react";
+import type { Hotline, LinkItem, NavItem } from "@/types";
 import barangaySealLogo from "@/images/logo/BarangaySFLogo.png";
 
 export const SITE = {
@@ -42,13 +36,6 @@ export const EMERGENCY_HOTLINES: Hotline[] = [
   // { label: "Health Center", number: "(077) 987 6543", icon: PlusSquare },
   // { label: "Fire Department", number: "(077) 112 3456", icon: Flame },
   // { label: "PNP - San Nicolas", number: "(077) 321 7654", icon: MapPin },
-];
-
-export const SOCIAL_LINKS: SocialLink[] = [
-  { label: "Facebook", href: "#", icon: Facebook },
-  { label: "Twitter", href: "#", icon: Twitter },
-  { label: "YouTube", href: "#", icon: Youtube },
-  { label: "Messenger", href: "#", icon: MessageCircle },
 ];
 
 export const GOVERNMENT_LINKS: LinkItem[] = [

@@ -12,12 +12,6 @@ export interface LinkItem extends NavItem {
   external?: boolean;
 }
 
-export interface SocialLink {
-  label: string;
-  href: string;
-  icon: LucideIcon;
-}
-
 /** Sidebar section. Labels and render order live in `src/lib/admin-nav.ts`. */
 export type AdminNavGroup = "requests" | "content" | "system";
 
