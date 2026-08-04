@@ -113,6 +113,8 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
 - Browse the services catalog and submit applications
 - Four ticketing flows with status tracking: **applications**, **appointments**,
   **complaints**, **assistance requests**
+- Applications collect the applicant's middle name and date of birth (applications only —
+  the other three flows keep the shared identity block), and a stated purpose is optional
 - Look up any ticket's status by reference number + surname (`/track`), and read a
   **progressive timeline** of everything that has happened to it — rendered from an
   append-only log, not inferred from timestamps. Staff internal notes are filtered out in
@@ -122,7 +124,7 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
   "New reply" badge on the staff queue
 - Email receipts and outcome notices at every point that matters — submission, approval,
   rejection, confirmation, dismissal, resolution — plus a contact-form acknowledgment
-- Contact form (routed inquiries) + newsletter/alert subscription
+- Contact form (routed inquiries) — the channel for anything needing an answer
 - Anonymous site-feedback widget with optional screenshot upload — no name, email, or IP
   collected, so there's deliberately no reply path
 - News archive, a 3-item announcements teaser with sidebar, a full notices archive with
@@ -148,7 +150,9 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
 - Autosave draft recovery to `localStorage` (never to the database — editing a published
   record never silently pushes unreviewed text live)
 - Real-time-feeling notification bell + per-queue nav badges (60-second poll)
-- Global search across every content type and ticket queue
+- Global search across every content type and ticket queue, plus a search box in every
+  manager's table — both halves (the SQL `fuzzy_match()` and the in-browser `fuzzyFilter`)
+  implement one shared rule, so the same query returns the same rows in either surface
 - Home & About page content editor (hero, mission/vision, stats, history) — no code
   deploy needed to change page copy
 - Account self-service in Settings (profile, avatar with a crop/zoom/rotate dialog,
@@ -259,16 +263,15 @@ cp .env.example .env.local
 For a **fresh** Supabase project:
 ```bash
 # 1. Apply supabase/baseline/0000_baseline_2026-07-23.sql (Supabase SQL editor or CLI)
-#    — a squash of migrations 0001–0031 against an empty schema
-# 2. Apply supabase/migrations/0032_ticket_updates.sql on top; it is NOT folded
-#    into the baseline yet, and the ticket timeline fails at runtime without it
+#    — a single-transaction squash of migrations 0001–0034 against an empty schema.
+#    It is contiguous: there is no "and then run X on top" companion step.
 node scripts/upload-official-portraits.mjs
 node scripts/upload-site-images.mjs
 ```
 
 For an environment that already has some migrations applied, apply only the numbered
 migrations it's missing, in order — the baseline assumes an empty schema and fails against
-one that already has any of them. Migrations are numbered through `0032`.
+one that already has any of them. Migrations are numbered through `0034`.
 
 **4. Start the dev server**
 ```bash
@@ -377,21 +380,26 @@ The UI follows an **amber + ink** civic/municipal aesthetic:
    — nothing throws without them, so this one has to be checked rather than discovered
 6. Confirm `SUPABASE_SERVICE_ROLE_KEY` is set server-side only, never in a client bundle
 7. Migrations are applied **manually** — never assume one is live without confirming with
-   whoever owns that environment. `0032` in particular must land **before** the code that
-   reads it: the ticket lists select `replied_at` and the drawers write `ticket_updates`
+   whoever owns that environment. `0032` and `0033` in particular must land **before** the
+   code that reads them: the ticket lists select `replied_at`, the drawers write
+   `ticket_updates`, and the applications queue selects the new name/birth-date columns —
+   each is a runtime failure, not a build failure, so a skipped migration ships green
 
 ---
 
 ## Project Status
 
-Deployed to production 2026-07-28; the ticket-timeline, invite, password-reset and adaptive-
-login work has landed on `main` since. Known gaps, tracked as not-yet-done rather than bugs:
+Deployed to production 2026-07-28; the ticket-timeline, invite, password-reset, adaptive-
+login, application name-parts and search-parity work has landed on `main` since. Known gaps,
+tracked as not-yet-done rather than bugs:
 
 - **Email delivery monitoring isn't built** — transactional email itself is live (receipts,
   outcome notices, staff alerts, invites, password resets), but there's no `email_log` table
   and no Resend webhook, so a bounced or dropped message is invisible from inside the app
-- **Migration `0032` isn't folded into the baseline** — a fresh environment needs the
-  baseline *and* that file, contrary to the "baseline is the whole schema" convention
+- **The public site has no alert-signup entry point** — the footer and news-sidebar
+  newsletter panels were removed on request, so `alert_subscribers` stops gaining rows. The
+  form component and its Server Action are kept (still Turnstile-gated and rate-limited) in
+  case signup returns elsewhere; nothing dispatched to that table in the first place
 - `requestIp()` prefers `cf-connecting-ip` unconditionally, and nothing in the code or
   config asserts that production actually sits behind Cloudflare. Bounded rather than open
   (the email-keyed limiter still caps per-account brute force), but the fix is to gate that
