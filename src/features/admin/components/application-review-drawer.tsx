@@ -60,11 +60,10 @@ export function ApplicationReviewDrawer({
     onDismissError();
   };
 
+  // Remarks are optional on every decision, including a rejection — the server
+  // schema dropped the matching refine on 2026-08-05. A rejection sent with no
+  // remarks reaches the resident with no reason attached, by design.
   const submit = (status: ApplicationReviewValues["status"]) => {
-    if (status === "rejected" && !remarks.trim()) {
-      setLocalError("Remarks are required when rejecting an application.");
-      return;
-    }
     setLocalError(null);
     onReview(record.id, { status, remarks: remarks.trim() });
   };
@@ -77,12 +76,21 @@ export function ApplicationReviewDrawer({
           <StatusChip status={record.status} />
         </div>
         <dl className="space-y-4">
-          <DetailRow label="Applicant" value={`${record.firstName} ${record.lastName}`} />
+          {/* The middle name in FULL, unlike the queue table's initial: this is
+              where staff read the record before issuing a document carrying the
+              applicant's full legal name. */}
+          <DetailRow
+            label="Applicant"
+            value={[record.firstName, record.middleName, record.lastName]
+              .filter((part) => part && part.trim() !== "")
+              .join(" ")}
+          />
+          <DetailRow label="Date of Birth" value={record.birthDate ? formatDate(record.birthDate) : "—"} />
           <DetailRow label="Contact Number" value={record.contactNumber} />
           {record.email ? <DetailRow label="Email" value={record.email} /> : null}
           <DetailRow label="Address" value={record.address} />
           <DetailRow label="Document Type" value={record.serviceTitle} />
-          <DetailRow label="Purpose" value={record.purpose} />
+          <DetailRow label="Purpose" value={record.purpose ?? "—"} />
           <DetailRow label="Date Applied" value={formatDate(record.submittedAt)} />
           <DetailRow label="Filed" value={record.source === "walk-in" ? "Walk-in (encoded)" : "Online"} />
         </dl>
@@ -93,7 +101,7 @@ export function ApplicationReviewDrawer({
               rows={4}
               value={remarks}
               onChange={(event) => setRemarks(event.target.value)}
-              placeholder="Optional for approval; required when rejecting."
+              placeholder="Optional. A rejection with no remarks reaches the applicant with no reason."
               aria-invalid={Boolean(localError)}
             />
           </Field>

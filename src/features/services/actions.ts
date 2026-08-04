@@ -70,12 +70,15 @@ export async function submitApplication(
     .from("applications")
     .insert({
       first_name: parsed.data.firstName,
+      // Optional fields store null, never "" — the same convention `email` set.
+      middle_name: parsed.data.middleName || null,
       last_name: parsed.data.lastName,
+      birth_date: parsed.data.birthDate,
       address: parsed.data.address,
       contact_number: parsed.data.contactNumber,
       email: parsed.data.email || null,
       service_id: service.id,
-      purpose: parsed.data.purpose,
+      purpose: parsed.data.purpose || null,
       source: "online",
     })
     .select("ticket_no")
@@ -101,7 +104,7 @@ export async function submitApplication(
         firstName: parsed.data.firstName,
         ticketNo: data.ticket_no,
         serviceTitle: service.title,
-        purpose: parsed.data.purpose,
+        purpose: parsed.data.purpose || null,
       }),
     });
     if (entryId) await markTicketUpdateNotified(entryId);

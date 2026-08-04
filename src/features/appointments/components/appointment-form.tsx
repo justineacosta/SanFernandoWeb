@@ -175,14 +175,14 @@ export function AppointmentForm() {
             </Field>
           </div>
           <Field
-            label="Purok / street address"
+            label="Sitio / street address"
             htmlFor="appointment-address"
             error={v.errorFor("address")}
           >
             <Input
               id="appointment-address"
               name="address"
-              placeholder="Purok 1, Barangay San Fernando"
+              placeholder="Sitio 1, Barangay San Fernando"
               value={values.address}
               onChange={(event) => set("address", event.target.value)}
               autoComplete="street-address"

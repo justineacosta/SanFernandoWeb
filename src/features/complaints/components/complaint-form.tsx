@@ -178,14 +178,14 @@ export function ComplaintForm() {
             </Field>
           </div>
           <Field
-            label="Purok / street address"
+            label="Sitio / street address"
             htmlFor="complaint-address"
             error={v.errorFor("address")}
           >
             <Input
               id="complaint-address"
               name="address"
-              placeholder="Purok 1, Barangay San Fernando"
+              placeholder="Sitio 1, Barangay San Fernando"
               value={values.address}
               onChange={(event) => set("address", event.target.value)}
               autoComplete="street-address"
@@ -258,7 +258,7 @@ export function ComplaintForm() {
             <Input
               id="complaint-location"
               name="location"
-              placeholder="e.g. Purok 2 basketball court"
+              placeholder="e.g. Sitio 2 basketball court"
               value={values.location}
               onChange={(event) => set("location", event.target.value)}
               {...v.fieldProps("location", "complaint-location")}

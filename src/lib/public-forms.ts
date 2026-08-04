@@ -33,7 +33,7 @@ export const lastNameField = z
 export const addressField = z
   .string()
   .trim()
-  .min(4, "Enter your purok or street address.")
+  .min(4, "Enter your sitio or street address.")
   .max(200, "Address is too long.");
 
 export const contactNumberField = z

@@ -475,6 +475,83 @@ the fixed one, for any new test that looks its own row up twice.
   `canReply` false kills the reply form; dropping the `replied_at` write kills the pill), the
   same "a guard that has never been seen to fail is not a guard" discipline the decidability
   test got. See the Commands section for the rate-limit budget this now spends per run.
+- **Applications collect a middle name and a date of birth, and purpose/remarks went
+  optional, 2026-08-05** (migration `0033`,
+  `docs/superpowers/specs/2026-08-05-ticket-resident-name-parts-design.md`). **Applications
+  only** — appointments, complaints and assistance are untouched, which is why the two new
+  field schemas live in `src/features/services/schema.ts` and NOT in `residentFields`
+  (`src/lib/public-forms.ts`), whose contract is "the identity block every public ticket form
+  opens with". `middle_name` is optional and stores `null`, never `""`; `birth_date` is
+  **required** in Zod but **nullable in the DB**, because every pre-`0033` row has no value and
+  `not null` would fail the alter — the requirement lives in the public schema and the
+  duplicated `walkInSchema`, the same place every other bound on this table lives. `birthDate`
+  is modelled on `complaintSchema.incidentDate`: a `YYYY-MM-DD` regex plus two **lexicographic**
+  string comparisons (`<= manilaToday()`, `>= "1900-01-01"`), never a parsed `Date`.
+  `purpose` dropped its `.min(4)` and `alter column purpose drop not null`, keeping only the
+  500 cap — the cap is what `public-forms.ts` requires of any free-text field on an
+  unauthenticated endpoint; only the floor was a policy choice. **`remarks` on a rejection
+  went optional too, and that is a deliberate reversal** of "spec §3: every negative decision
+  must carry a reason the resident can read" — the `reviewSchema` refine and the matching
+  client guard in `application-review-drawer.tsx` are both gone, so a rejection email can now
+  arrive with **no Reason block** (`TicketNotice` already skips a falsy `remarks`) and its
+  `/track` timeline entry has an empty body. No fallback copy was invented to hide that;
+  don't add one. **The non-obvious part of this change is the Postgres null trap, and it is
+  the reason `0033` redefines `search_admin_global`:** that function builds each row's search
+  haystack by concatenating columns with `||`, and `text || null` is `NULL` in Postgres — the
+  moment `purpose` became nullable, every application without one produced a NULL haystack,
+  `fuzzy_match(NULL, q)` returned NULL, and the row vanished from admin global search
+  entirely. `coalesce(ap.purpose, '')` restores it, and `middle_name` joined the same haystack.
+  Only the applications branch changed; the other eleven are verbatim `0018`. The same
+  nullability bit `src/features/admin/queries/notifications.ts`, where `sublabel: row.purpose`
+  fed a non-nullable `NotificationItem.sublabel` — Supabase rows are untyped there, so
+  `npm run typecheck` could not have caught it; it is `?? ""` now. **`residentDisplayName`
+  (`src/lib/resident-name.ts`, unit-tested) renders `First M. Last` in the applications queue
+  table** — one function, not an inline template, because the middle name is absent in three
+  different ways (null on a pre-`0033` row, `""` when skipped, whitespace when fat-fingered)
+  and each would otherwise render `Juan  Cruz` or `Juan . Cruz`. A multi-word middle name
+  ("Dela Cruz") yields one initial. **The review drawer deliberately does NOT use it** — it
+  shows the middle name in full, because that is where staff read the record before issuing a
+  document carrying the applicant's full legal name; a queue table is a scanning surface. The
+  `applicant` sort key stays `last + first` (sorting by a middle initial is meaningless), and
+  the global-search dropdown's label and the notification bell's labels both stay `First
+  Last` — glance surfaces, not records. `tickets_view` is **not** extended: it carries only
+  the fields common to all four kinds so a type-specific column cannot leak to `/track`, and
+  a birthday is a stronger identifier than anything currently in it. **Deploy order, same
+  hazard class as `0031`/`0032`:** apply `0033` to staging, verify, then production, *before*
+  this code reaches either — `listApplications` selects the new columns and both inserts
+  write them, so a missing column fails at runtime, not at build.
+- **Fuzzy search is two engines and exactly one rule, and as of `0034` that is finally
+  true, 2026-08-05.** The JS half is `fuzzyFilter` (`src/lib/fuzzy.ts`, unit-tested), used
+  by every in-table search box in the admin portal; the SQL half is `public.fuzzy_match()`
+  (`0016`/`0017`, final form `0034`), used by `search_admin_global` (the top-bar global
+  search), `search_audit_log`, and the **public** `search_legislative_documents`. Both now
+  implement the same two routes — literal substring, plus per-word Levenshtein with a
+  budget of 1 for terms ≤ 4 characters and 2 for longer. **The SQL half carried a third
+  route until `0034`, `word_similarity(term, haystack) >= 0.45`, which the JS half never
+  had.** The 2026-07-22 fuzzy-search spec (§3.1) recorded that asymmetry as a *deliberate*
+  decision — nearly free in Postgres, and the other two routes "already cover every case in
+  §1" — so `0034` reverses a documented decision rather than fixing an oversight, and the
+  spec is left as the historical record it is. It was reversed because the route was
+  measurably wrong, not merely redundant: measured over every transparency record against
+  40 realistic queries (560 SQL-vs-JS pairs on identical haystacks), the two halves
+  disagreed 7 times, **always** SQL-matches-where-JS-does-not, and 6 of the 7 were nonsense
+  — `"tax"` → *Curfew Hours for Minors*, `"housing"`/`"meeting"`/`"election"` → *Solid Waste
+  Management*, `"renovation"` → *Streetlight Installation*. Only `"renovate"` → *Barangay
+  Hall Renovation* was worth having, and it is not worth the other six. **This is why
+  `/admin/transparency` looked broken while each of its three tabs behaved perfectly**: the
+  tab searches run the JS half and were always correct; the global search ran the SQL half
+  and was not. The route was **removed rather than re-tuned to a higher threshold**
+  deliberately — picking 0.6 or 0.7 requires reading the actual `word_similarity` scores of
+  the good and bad matches, and nothing here can: every path to the database in this project
+  is PostgREST, which invokes existing functions and cannot evaluate an arbitrary
+  expression, so a new constant would be as unmeasured as `0.45` was. Typo tolerance is
+  untouched (it rides Levenshtein), and all five of the spec's own acceptance cases were
+  re-verified against the post-`0034` rule. `pg_trgm` is still a required extension even
+  though no match route uses it — the `gin_trgm_ops` indexes are declared with it. **Don't
+  add a trigram route to `src/lib/fuzzy.ts` to "restore parity"** — parity holds now, in the
+  other direction. This class of bug (the two halves silently drifting) is invisible to
+  `npm run typecheck` and to every existing test, since Vitest covers only the JS half;
+  catching it needs the two engines run against the same haystack and diffed.
 - **`/admin/login` is a responsive split-screen at `md:` (768px)+, 2026-07-31** — a brand panel
   (currently `w-[55%]`, the form panel takes the rest) beside the form, with a **separate**
   centered-card layout below that breakpoint. `src/app/admin/login/page.tsx` renders both
@@ -797,8 +874,11 @@ the fixed one, for any new test that looks its own row up twice.
   deletion is direct and takes its storage object with it. Every action must call
   `revalidatePath("/")` **and** `revalidatePath("/about")`, or edits sit invisible for an hour.
   An empty block hides its section (the hero keeps its text and drops the carousel). Section
-  headings, the About `PageHero` and the Join-Community panel stay hardcoded — editable
-  everything is a page builder. `manage-site-content` is deliberately **not** in
+  headings and the About `PageHero` stay hardcoded — editable everything is a page builder.
+  (The Join-Community CTA panel used to be the third example here; it was **deleted**
+  2026-08-05 on request — `join-community-section.tsx` is gone, along with its barrel export
+  and its render in `app/(public)/about/page.tsx`. It was never DB-backed, so nothing in
+  `site_blocks`/`site_items` changed.) `manage-site-content` is deliberately **not** in
   `STATUS_PRESETS.editor`. `@dnd-kit` is confined to `src/components/ui/sortable-list.tsx`
   (pass a `useId()` as the `DndContext` id or several lists hydrate mismatched); every existing
   up/down list stays as it is. **Migration `0021` requires `node scripts/upload-site-images.mjs`
@@ -825,12 +905,14 @@ the fixed one, for any new test that looks its own row up twice.
   don't mix.** For a **new environment** (production, a fresh staging, a local dev database)
   standing up from nothing, apply `supabase/baseline/0000_baseline_2026-07-23.sql` instead of
   replaying the numbered migrations one by one — it is a single-transaction squash of `0001`–
-  `0031` (a prior version of this bullet said `0001`–`0029`; `0030` and `0031` were folded in
-  later, and the file's own header is authoritative). **`0032_ticket_updates.sql` is NOT folded
-  in** — `supabase/migrations/README.md` requires every new migration to land in the baseline in
-  the same commit, and the ticket-timeline work did not, so a fresh environment must apply the
-  baseline **and then `0032`** or every timeline read/write fails at runtime. Fold it in (and
-  drop this note) rather than adding a second "run X after" step for the next one. The baseline
+  `0033` (a prior version of this bullet said `0001`–`0029`, then `0001`–`0031`; the file's own
+  header is authoritative). **`0032` and `0033` were folded in on 2026-08-05**, closing the one
+  gap this rule ever had: the ticket-timeline work landed `0032` without touching the baseline,
+  so a fresh environment silently missed `ticket_updates`, `replied_at`, the four widened status
+  CHECKs and the `ticket-media` bucket. The baseline is contiguous again and needs no "run X
+  after" companion step — keep it that way for `0034`. `0032`'s timeline backfill is omitted
+  for the same reason `0014`'s backfills are: it rewrote rows a new database does not have.
+  The baseline
   assumes an empty `public` schema and deliberately ships **without** the demo seed
   content those early migrations insert (`0007_news_content.sql` and `0009_transparency.sql`
   seed placeholder news, announcements, events, and legislative/transparency documents), so a
@@ -1208,8 +1290,34 @@ the fixed one, for any new test that looks its own row up twice.
   (migration `0022` deleted its rows): six links to this site's own routes change when the
   routes change, which is a deploy, not an edit. Don't put them back.
   `src/features/about/data.ts` retains only the `CAPTAIN` name/role/photo fallback.
+- **`NewsletterForm` is no longer rendered anywhere, and that moved a Turnstile
+  assumption** (2026-08-05, both removals on request). `SiteFooter` used to open with a
+  rounded "Stay Notified" panel wrapping `<NewsletterForm variant="inline" />`, and
+  `NewsSidebar` closed with the `variant="card"` version of the same form (its own "Stay
+  Notified" heading); both are gone — the footer now starts at the four link columns, and the
+  `/announcements` rail ends at Emergency Hotlines. **The component, both its variants, and
+  `subscribeToAlerts` are all still in the repo, simply unreferenced**, deliberately kept
+  rather than deleted in case signup returns somewhere else; the practical effect is that
+  **the public site has no alert-signup entry point at all**, so `alert_subscribers` stops
+  gaining rows. Nothing dispatches to that table anyway (see the baseline's own §note), so
+  this costs a collection path, not a working notification feature. `subscribeToAlerts`
+  remains a live public Server Action with no UI in front of it — still Turnstile-gated and
+  rate-limited like the other seven, so it is an orphan, not a hole. **The consequence worth
+  knowing is in the tests, not the UI:** that footer instance was the reason a Turnstile
+  widget mounted on every public page, so `site.spec.ts`'s "the home page produces no CSP
+  violations" test could prove Cloudflare's cross-origin script was allowed to load *and*
+  execute. The home page now mounts no widget at all, which (a) makes
+  `waitForLoadState("networkidle")` usable there again — the blob: request that made it hang
+  forever is gone, so that test is back on the plain idle wait — and (b) would have quietly
+  reduced that test to proving nothing, the exact failure mode the previous fix existed to
+  correct. The Cloudflare-script check therefore moved to its own test against `/contact`
+  (verified to clear in ~3s, i.e. actually resolving, not falling through its 15s catch).
+  `turnstile.spec.ts`'s rejected-site-key test also counted **2** banners on `/contact` (the
+  inquiry form's plus the footer's) and now expects **1**. `next.config.ts`'s CSP comment
+  claiming the Cloudflare directives are exercised sitewide was corrected for the same reason.
 - `/announcements` is a 3-item News teaser (newest featured + 2 grid cards) with a sidebar
-  (`NewsSidebar` shows Announcements + Emergency Hotlines + newsletter signup). `/news`
+  (`NewsSidebar` shows Announcements + Emergency Hotlines; its newsletter signup was removed
+  2026-08-05 — see the `NewsletterForm` bullet above). `/news`
   is the full chronological archive, news-only content with no sidebar and no featured
   card — every article (including the newest) renders as a plain `NewsCard` in a 3-column
   grid, 6 per load, growing via client-side "Load More" (not URL-addressable pages). Both
@@ -1266,7 +1374,16 @@ the fixed one, for any new test that looks its own row up twice.
 - Placeholder reality: transparency documents now serve **real** Supabase-hosted PDFs/images,
   so the old `"#"` download stubs are gone; Contact's "Get Directions" now links to the
   barangay hall's real Google Earth location (the dead FOI Guide and More Statistics CTAs
-  were removed outright rather than wired). Remaining `"#"` hrefs are in-page anchors /
+  were removed outright rather than wired). The Services page's `HelpSection` had a third
+  such dead button — "Download All Forms", no `href` at all — deleted 2026-08-05 on the same
+  principle; "Message Help Desk" is now that strip's only action, and there is no
+  bulk-forms download anywhere on the site to restore it to. The home page's "Get Involved"
+  CTA went the same day, but for a different reason: it was a **working** `/contact` link,
+  removed on request, not for being dead. That left `CtaBanner`
+  (`src/components/sections/cta-banner.tsx`) with no actions at all — its `actions` prop is
+  now optional, and it drops both the action row's wrapper and the description's `mb-8` when
+  omitted, so a copy-only banner keeps no dangling gap. `GetInvolvedSection` is still its
+  only consumer. Remaining `"#"` hrefs are in-page anchors /
   not-yet-wired links (captain message, hero CTA). The
   barangay hotline is **real** (`(077) 600 1082` in `SITE.phone` / `EMERGENCY_HOTLINES[0]`)
   and the officials page's 24/7 Action Center dials it rather than 911; other phones, emails,
@@ -1298,6 +1415,23 @@ the fixed one, for any new test that looks its own row up twice.
   "Barangay Sampaguita" design placeholder) — any "Sampaguita" appearing in `src/` is a
   regression. San Nicolas is a **municipality** (write "Municipal …", not "City …"), and the
   Ilocos Norte area code is (077).
+- **The barangay's sub-divisions are Sitios, not Puroks** (renamed 2026-08-05) — any
+  "Purok"/"Puroks" appearing in `src/` or `tests/` is a regression. It was never a data
+  model, only user-facing copy: the four public ticket forms' and four walk-in forms'
+  address label/placeholder ("Sitio / street address", `placeholder="Sitio 1, Barangay San
+  Fernando"`), the complaint location placeholder, `addressField`'s Zod message in
+  `src/lib/public-forms.ts` plus the four admin actions' own address messages, and
+  `SITE_ICON_OPTIONS`' `layout-grid` label in `src/lib/icon-map.ts`. No column, enum or key
+  ever carried the word. **The applied migrations were deliberately not retro-edited** (they
+  are historical records, and rewriting them changes nothing in a database that already ran
+  them), so `0007`/`0009`/`0021` still read "Purok" — only
+  `supabase/baseline/0000_baseline_2026-07-23.sql` was updated, so a *fresh* environment
+  seeds `Sitios`/`Active Sitios`. **Existing environments keep the old label in the DB until
+  someone edits it**: the Home page's fourth glance stat is a `site_items` row
+  (`glance_stats`, sort 3), so it is fixed through Site Content in the admin portal, per the
+  "Home and About are database-backed content" rule — on staging *and* production, separately.
+  The `0007`/`0009` demo seeds (an announcement about "Puroks 4 and 5", two legislative
+  document summaries) are placeholder content on the same portal-edit footing.
 - The admin nav entry is **`Inquiries & Feedback`** at the unchanged `/admin/inquiries` route —
   two tabs, one `handle-inquiries` permission, since the same people work both queues. Its tab
   strip is `src/components/ui/tab-pills.tsx`; `transparency-manager.tsx` now consumes the same

@@ -959,9 +959,10 @@
 >    and `CaptainMessageSection` reads the officials table with the static import as a fallback.
 >    The get-involved banner is seeded as its existing `lh3` hotlink and is now replaceable, so
 >    the first edit removes one hotlink from the codebase.
-> 9. **Still hardcoded, by design:** section headings and standfirsts, the About `PageHero`, and
->    the Join-Community panel. Making every string editable is a page builder, not a CMS.
->    Individual headings can be promoted to fields on request.
+> 9. **Still hardcoded, by design:** section headings and standfirsts and the About `PageHero`.
+>    Making every string editable is a page builder, not a CMS. Individual headings can be
+>    promoted to fields on request. (The Join-Community panel was a third item here until it
+>    was deleted from `/about` on 2026-08-05.)
 
 > **Admin polish pass shipped 2026-07-22.** Spec:
 > `docs/superpowers/specs/2026-07-22-admin-polish-design.md`. **Migration `0022`.**
@@ -1065,7 +1066,7 @@
 | Route | Page | Composed from |
 | --- | --- | --- |
 | `/` | Home | `HomeHero`, `QuickServicesSection`, `CommunityPulseSection`, `GetInvolvedSection` |
-| `/about` | About Us | `MissionVisionSection`, `CaptainMessageSection`, `HistorySection`, `MilestonesSection`, `JoinCommunitySection` |
+| `/about` | About Us | `MissionVisionSection`, `CaptainMessageSection`, `HistorySection`, `MilestonesSection` |
 | `/officials` | Officials directory | `LeadershipDirectory`, `ActionCenterBanner` — DB-backed via `listPublishedOfficials()` since 2026-07-21 |
 | `/officials/[slug]` | Official detail | `getPublishedOfficialBySlug()` (`src/features/officials/queries.ts`); 404s for a non-existent, non-published, or portrait-less slug. Renders an `AchievementsTimeline` below the bio for any `is_visible` achievements with a non-empty title (empty on every official today — see the officials-achievements changelog entry) |
 | `/services` | Services directory | `ServicesGrid` (accordion requirements), `WasteScheduleSection`, `HelpSection` |
@@ -1437,8 +1438,11 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
 - **Fixed header clearance**: the header is `fixed`, not in-flow — every page's first
   section must provide generous top padding (`pt-32 md:pt-44` for text-first heroes;
   the home hero panel uses `pt-28 md:pt-36`). New pages/heroes must follow this.
-- `NewsletterForm` takes `variant?: "card" | "inline"` — the footer uses `inline`, the news
-  sidebar uses the default `card`. Both instances hit the same (future) subscribe endpoint.
+- `NewsletterForm` takes `variant?: "card" | "inline"` — the footer used `inline`, the news
+  sidebar the default `card`. **Both call sites were removed on 2026-08-05 on request**, so
+  the component and both variants are still in the repo but rendered nowhere, and the public
+  site has no alert-signup entry point. `subscribeToAlerts` and `alert_subscribers` are
+  untouched; the action is simply unreachable from the UI now.
 - Path alias `@/*` → `src/*`. Shared shapes go in `src/types`, shared values in `src/constants`.
 - Design tokens only — no raw hex values in components; extend `@theme` in `globals.css`.
 - Dates: store/transport ISO strings; format with `lib/format.ts` helpers.

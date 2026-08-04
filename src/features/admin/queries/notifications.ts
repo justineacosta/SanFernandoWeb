@@ -53,7 +53,9 @@ async function recentApplications(admin: SupabaseAdmin): Promise<NotificationIte
     queue: "applications" as const,
     id: row.id,
     label: `${row.ticket_no} — ${row.first_name} ${row.last_name}`,
-    sublabel: row.purpose,
+    // purpose is nullable since migration 0033, and NotificationItem.sublabel is
+    // not. Supabase rows are untyped here, so nothing would have caught this.
+    sublabel: row.purpose ?? "",
     createdAt: row.created_at,
     href: def.buildHref(row.id),
   }));

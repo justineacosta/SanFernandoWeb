@@ -104,7 +104,7 @@ export const SITE_ICON_OPTIONS: { value: string; label: string }[] = [
   { value: "users", label: "People" },
   { value: "home", label: "Households / Home" },
   { value: "map", label: "Land / Map" },
-  { value: "layout-grid", label: "Puroks / Grid" },
+  { value: "layout-grid", label: "Sitios / Grid" },
   { value: "heart", label: "Heart" },
   { value: "hand-heart", label: "Volunteering" },
   { value: "heart-handshake", label: "Service / Handshake" },

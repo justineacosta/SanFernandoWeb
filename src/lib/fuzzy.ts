@@ -2,8 +2,8 @@
  * Forgiving text matching for datasets that are already in memory.
  *
  * This is the JavaScript half of the search contract; the SQL half is
- * `public.fuzzy_match()` (migration 0016). Both implement the same rule, so a
- * user cannot tell which one answered:
+ * `public.fuzzy_match()` (migrations 0016/0017, final form 0034). Both
+ * implement the same rule, so a user cannot tell which one answered:
  *
  *   Split the query on whitespace. A record matches only if EVERY term matches
  *   it. A term matches if the record's haystack contains it as a substring, or
@@ -13,6 +13,14 @@
  * carries misspellings and transpositions ("offcal" -> official, "sanots" ->
  * Santos). AND-across-terms makes "juan dela" narrow rather than widen, and
  * makes "juan banana" correctly return nothing.
+ *
+ * The SQL half carried a third route until 0034 — `word_similarity(term,
+ * haystack) >= 0.45` — which this file never had. That asymmetry was recorded
+ * as deliberate but turned out to be the whole reason global search returned
+ * results no in-table search did (it answered "Curfew Hours for Minors" to
+ * "tax"). It is gone; the two halves now genuinely agree. Do not add a trigram
+ * route here to "restore parity" — parity already holds, in the other
+ * direction.
  *
  * Matching per WORD rather than against the whole haystack is the load-bearing
  * detail. Scoring a short term against a long concatenated string is far too

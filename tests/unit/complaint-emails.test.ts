@@ -12,11 +12,11 @@ describe("ComplaintSubmittedEmail", () => {
         firstName: "Maria",
         ticketNo: "CMP-2026-00001",
         incidentDate: "2026-07-20",
-        location: "Purok 3",
+        location: "Sitio 3",
       }),
     );
 
-    expect(html).toContain("Purok 3");
+    expect(html).toContain("Sitio 3");
     expect(html).toContain("CMP-2026-00001");
   });
 });

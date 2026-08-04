@@ -67,7 +67,7 @@ export function AppointmentForm({
         <Field label="Address" htmlFor="appointment-walkin-address">
           <Input
             id="appointment-walkin-address"
-            placeholder="Purok 1, Barangay San Fernando"
+            placeholder="Sitio 1, Barangay San Fernando"
             value={values.address}
             onChange={(event) => set("address", event.target.value)}
           />

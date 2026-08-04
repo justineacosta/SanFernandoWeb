@@ -33,7 +33,7 @@ const EMPTY_VALUES: OfficialValues = {
   badge: null,
   photoPath: null,
   photoAlt: "",
-  term: "2023-2026",
+  term: "",
   email: null,
   phone: null,
   bio: "",

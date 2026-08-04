@@ -58,7 +58,7 @@ const walkInSchema = z.object({
   address: z
     .string()
     .trim()
-    .min(4, "Enter the complainant's purok or address.")
+    .min(4, "Enter the complainant's sitio or address.")
     .max(200, "Address is too long."),
   contactNumber: z
     .string()

@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { ApplicationReviewValues, WalkInApplicationValues } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
+import { manilaToday } from "@/lib/format";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   TICKET_INTAKE_STATUS,
@@ -23,12 +24,16 @@ export interface ActionResult {
 const reviewSchema = z
   .object({
     status: z.enum(["approved", "rejected"]),
+    // Always optional as of 2026-08-05. This previously carried a .refine
+    // requiring remarks on a rejection ("every negative decision must carry a
+    // reason the resident can read"); that rule was deliberately reversed. The
+    // consequence is accepted and not papered over: TicketNotice already skips
+    // a falsy `remarks`, so a rejection email can arrive with no Reason block,
+    // and the ticket_updates entry gets an empty body on /track. No fallback
+    // copy is invented — inventing a reason the reviewer did not give would be
+    // worse than showing none. See §2b of
+    // docs/superpowers/specs/2026-08-05-ticket-resident-name-parts-design.md.
     remarks: z.string().trim(),
-  })
-  // Spec §3: every negative decision must carry a reason the resident can read.
-  .refine((value) => value.status !== "rejected" || value.remarks.length > 0, {
-    error: "Remarks are required when rejecting an application.",
-    path: ["remarks"],
   });
 
 // Same field bounds as the public schema in `src/features/services/actions.ts` —
@@ -39,15 +44,21 @@ const walkInSchema = z.object({
     .trim()
     .min(2, "Enter the applicant's first name.")
     .max(80, "First name is too long."),
+  middleName: z.string().trim().max(80, "Middle name is too long."),
   lastName: z
     .string()
     .trim()
     .min(2, "Enter the applicant's last name.")
     .max(80, "Last name is too long."),
+  birthDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Enter the applicant's date of birth.")
+    .refine((value) => value <= manilaToday(), "The date of birth cannot be in the future.")
+    .refine((value) => value >= "1900-01-01", "Enter the applicant's date of birth."),
   address: z
     .string()
     .trim()
-    .min(4, "Enter the applicant's purok or address.")
+    .min(4, "Enter the applicant's sitio or address.")
     .max(200, "Address is too long."),
   contactNumber: z
     .string()
@@ -63,7 +74,8 @@ const walkInSchema = z.object({
       z.string().email("Enter a valid email address.").max(254, "Email address is too long."),
     ]),
   ),
-  purpose: z.string().trim().min(4, "Enter the purpose.").max(500, "Please keep the purpose short."),
+  // Optional since 0033, matching the public schema. Cap kept, floor dropped.
+  purpose: z.string().trim().max(500, "Please keep the purpose short."),
   serviceId: z.string().trim().min(1, "Pick a document type."),
   consent: z.boolean().refine((value) => value === true, "Confirm the applicant gave consent."),
 });
@@ -215,12 +227,15 @@ export async function createWalkInApplication(
     .from("applications")
     .insert({
       first_name: parsed.data.firstName,
+      // Optional fields store null, never "" — the same convention `email` set.
+      middle_name: parsed.data.middleName || null,
       last_name: parsed.data.lastName,
+      birth_date: parsed.data.birthDate,
       address: parsed.data.address,
       contact_number: parsed.data.contactNumber,
       email: parsed.data.email || null,
       service_id: service.id,
-      purpose: parsed.data.purpose,
+      purpose: parsed.data.purpose || null,
       source: "walk-in",
     })
     .select("ticket_no")
@@ -247,7 +262,7 @@ export async function createWalkInApplication(
         firstName: parsed.data.firstName,
         ticketNo: data.ticket_no,
         serviceTitle: service.title,
-        purpose: parsed.data.purpose,
+        purpose: parsed.data.purpose || null,
       }),
     });
     if (entryId) await markTicketUpdateNotified(entryId);

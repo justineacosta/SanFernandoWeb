@@ -37,7 +37,7 @@ test("an internal note never reaches the public /track timeline", async ({ page 
   const drawer = page.getByRole("dialog", { name: "New Report" });
   await drawer.getByLabel("First Name").fill("Testa");
   await drawer.getByLabel("Last Name").fill("Reyes");
-  await drawer.getByLabel("Address").fill("Purok 1, San Fernando");
+  await drawer.getByLabel("Address").fill("Sitio 1, San Fernando");
   await drawer.getByLabel("Contact Number").fill("0917 000 0000");
   await drawer.getByLabel("Where It Happened").fill("Barangay road");
   await drawer.getByLabel("Date of Incident").fill("2026-08-01");
@@ -116,7 +116,7 @@ test("a ticket parked on awaiting-info can still be decided", async ({ page }) =
   const drawer = page.getByRole("dialog", { name: "New Report" });
   await drawer.getByLabel("First Name").fill("Testb");
   await drawer.getByLabel("Last Name").fill("Bautista");
-  await drawer.getByLabel("Address").fill("Purok 2, San Fernando");
+  await drawer.getByLabel("Address").fill("Sitio 2, San Fernando");
   await drawer.getByLabel("Contact Number").fill("0917 000 0001");
   await drawer.getByLabel("Where It Happened").fill("Barangay hall");
   await drawer.getByLabel("Date of Incident").fill("2026-08-01");
@@ -184,7 +184,7 @@ test("a resident's reply reaches the admin timeline", async ({ page }) => {
   const drawer = page.getByRole("dialog", { name: "New Report" });
   await drawer.getByLabel("First Name").fill("Testc");
   await drawer.getByLabel("Last Name").fill(REPLY_SURNAME);
-  await drawer.getByLabel("Address").fill("Purok 3, San Fernando");
+  await drawer.getByLabel("Address").fill("Sitio 3, San Fernando");
   await drawer.getByLabel("Contact Number").fill("0917 000 0002");
   await drawer.getByLabel("Where It Happened").fill("Barangay plaza");
   await drawer.getByLabel("Date of Incident").fill("2026-08-01");

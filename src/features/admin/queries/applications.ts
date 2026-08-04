@@ -12,7 +12,7 @@ export async function listApplications(): Promise<ApplicationRow[]> {
   const { data, error } = await admin
     .from("applications")
     .select(
-      "id, ticket_no, first_name, last_name, address, contact_number, email, service_id, purpose, status, remarks, reviewed_by_name, reviewed_at, released_by_name, released_at, source, replied_at, created_at, services (title)",
+      "id, ticket_no, first_name, middle_name, last_name, birth_date, address, contact_number, email, service_id, purpose, status, remarks, reviewed_by_name, reviewed_at, released_by_name, released_at, source, replied_at, created_at, services (title)",
     )
     .order("created_at", { ascending: false });
   if (error || !data) {
@@ -26,7 +26,11 @@ export async function listApplications(): Promise<ApplicationRow[]> {
       id: row.id,
       ticketNo: row.ticket_no,
       firstName: row.first_name,
+      middleName: row.middle_name,
       lastName: row.last_name,
+      // Already a plain YYYY-MM-DD `date` column — no timezone conversion, and
+      // toManilaDate() would be wrong here since there is no instant to shift.
+      birthDate: row.birth_date,
       address: row.address,
       contactNumber: row.contact_number,
       email: row.email,

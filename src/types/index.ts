@@ -763,10 +763,19 @@ export interface ChangePasswordValues {
 
 /* ── Applications flow (backend plan 2B) ─────────────────────────────── */
 
-/** The public apply form's body. `email` is optional — "" means not given. */
+/**
+ * The public apply form's body. `email`, `middleName` and `purpose` are all
+ * optional — "" means not given, and each is stored as null rather than "".
+ *
+ * `middleName` and `birthDate` are applications-only (migration 0033); the other
+ * three flows' `PublicTicketValues` deliberately has neither.
+ */
 export interface PublicApplicationValues {
   firstName: string;
+  middleName: string;
   lastName: string;
+  /** Required. Manila calendar date (YYYY-MM-DD) from a native date input. */
+  birthDate: string;
   address: string;
   contactNumber: string;
   email: string;
@@ -791,13 +800,18 @@ export interface ApplicationRow {
   id: string;
   ticketNo: string;
   firstName: string;
+  /** Null on rows predating migration 0033, and whenever it was left blank. */
+  middleName: string | null;
   lastName: string;
+  /** Manila calendar date (YYYY-MM-DD). Null only on rows predating 0033. */
+  birthDate: string | null;
   address: string;
   contactNumber: string;
   email: string | null;
   serviceId: string;
   serviceTitle: string;
-  purpose: string;
+  /** Optional since 0033. */
+  purpose: string | null;
   status: ApplicationStatus;
   remarks: string | null;
   reviewedByName: string | null;

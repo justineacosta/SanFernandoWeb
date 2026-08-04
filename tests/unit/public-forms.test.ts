@@ -15,7 +15,7 @@ import { complaintSchema } from "@/features/complaints/schema";
 const resident = {
   firstName: "Juan",
   lastName: "Dela Cruz",
-  address: "Purok 3, San Fernando",
+  address: "Sitio 3, San Fernando",
   contactNumber: "0917 555 0101",
   email: "",
 };
@@ -23,7 +23,15 @@ const resident = {
 /** Far enough out to be valid today and for the next several years. */
 const FUTURE_DATE = `${new Date().getFullYear() + 1}-06-15`;
 
-const validApplication = { ...resident, purpose: "Barangay clearance for work", consent: true };
+// Applications alone carry middleName/birthDate (migration 0033); they are not
+// part of the shared `resident` block the other three flows spread.
+const validApplication = {
+  ...resident,
+  middleName: "Dizon",
+  birthDate: "1990-05-04",
+  purpose: "Barangay clearance for work",
+  consent: true,
+};
 const validAppointment = {
   ...resident,
   purpose: "Discuss a permit",
@@ -41,7 +49,7 @@ const validComplaint = {
   ...resident,
   respondent: "",
   incidentDate: "2026-07-01",
-  location: "Corner of Purok 3",
+  location: "Corner of Sitio 3",
   narrative: "Loud videoke past midnight on three separate nights this week.",
   consent: true,
 };

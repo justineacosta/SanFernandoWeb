@@ -13,6 +13,7 @@ import { FormSectionLabel } from "@/components/ui/form-section-label";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { useFieldValidation } from "@/hooks/use-field-validation";
+import { manilaToday } from "@/lib/format";
 import { submitApplication } from "@/features/services/actions";
 import { applicationSchema } from "@/features/services/schema";
 import { SwapReveal } from "@/components/ui/swap-reveal";
@@ -25,7 +26,9 @@ interface ApplyFormProps {
 
 const EMPTY: PublicApplicationValues = {
   firstName: "",
+  middleName: "",
   lastName: "",
+  birthDate: "",
   address: "",
   contactNumber: "",
   email: "",
@@ -164,7 +167,7 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
         ) : null}
 
         <Card className="space-y-5 rounded-3xl p-8">
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-3">
             <Field label="First name" htmlFor="apply-first-name" error={v.errorFor("firstName")}>
               <Input
                 id="apply-first-name"
@@ -173,6 +176,20 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
                 onChange={(event) => set("firstName", event.target.value)}
                 autoComplete="given-name"
                 {...v.fieldProps("firstName", "apply-first-name")}
+              />
+            </Field>
+            <Field
+              label="Middle name (optional)"
+              htmlFor="apply-middle-name"
+              error={v.errorFor("middleName")}
+            >
+              <Input
+                id="apply-middle-name"
+                name="middleName"
+                value={values.middleName}
+                onChange={(event) => set("middleName", event.target.value)}
+                autoComplete="additional-name"
+                {...v.fieldProps("middleName", "apply-middle-name")}
               />
             </Field>
             <Field label="Last name" htmlFor="apply-last-name" error={v.errorFor("lastName")}>
@@ -186,22 +203,23 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
               />
             </Field>
           </div>
-          <Field
-            label="Purok / street address"
-            htmlFor="apply-address"
-            error={v.errorFor("address")}
-          >
-            <Input
-              id="apply-address"
-              name="address"
-              placeholder="Purok 1, Barangay San Fernando"
-              value={values.address}
-              onChange={(event) => set("address", event.target.value)}
-              autoComplete="street-address"
-              {...v.fieldProps("address", "apply-address")}
-            />
-          </Field>
           <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              label="Date of birth"
+              htmlFor="apply-birth-date"
+              error={v.errorFor("birthDate")}
+            >
+              <Input
+                id="apply-birth-date"
+                name="birthDate"
+                type="date"
+                max={manilaToday()}
+                value={values.birthDate}
+                onChange={(event) => set("birthDate", event.target.value)}
+                autoComplete="bday"
+                {...v.fieldProps("birthDate", "apply-birth-date")}
+              />
+            </Field>
             <Field
               label="Contact number"
               htmlFor="apply-contact"
@@ -218,20 +236,35 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
                 {...v.fieldProps("contactNumber", "apply-contact")}
               />
             </Field>
-            <Field label="Email (optional)" htmlFor="apply-email" error={v.errorFor("email")}>
-              <Input
-                id="apply-email"
-                name="email"
-                type="email"
-                value={values.email}
-                onChange={(event) => set("email", event.target.value)}
-                autoComplete="email"
-                {...v.fieldProps("email", "apply-email")}
-              />
-            </Field>
           </div>
+          <Field
+            label="Sitio / street address"
+            htmlFor="apply-address"
+            error={v.errorFor("address")}
+          >
+            <Input
+              id="apply-address"
+              name="address"
+              placeholder="Sitio 1, Barangay San Fernando"
+              value={values.address}
+              onChange={(event) => set("address", event.target.value)}
+              autoComplete="street-address"
+              {...v.fieldProps("address", "apply-address")}
+            />
+          </Field>
+          <Field label="Email (optional)" htmlFor="apply-email" error={v.errorFor("email")}>
+            <Input
+              id="apply-email"
+              name="email"
+              type="email"
+              value={values.email}
+              onChange={(event) => set("email", event.target.value)}
+              autoComplete="email"
+              {...v.fieldProps("email", "apply-email")}
+            />
+          </Field>
           <FormSectionLabel>Your request</FormSectionLabel>
-          <Field label="Purpose" htmlFor="apply-purpose" error={v.errorFor("purpose")}>
+          <Field label="Purpose (optional)" htmlFor="apply-purpose" error={v.errorFor("purpose")}>
             <Textarea
               id="apply-purpose"
               name="purpose"

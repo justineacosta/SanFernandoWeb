@@ -5,6 +5,7 @@ import type { WalkInApplicationValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { manilaToday } from "@/lib/format";
 
 interface ApplicationFormProps {
   services: { id: string; title: string }[];
@@ -26,7 +27,9 @@ export function ApplicationForm({
 }: ApplicationFormProps) {
   const [values, setValues] = useState<WalkInApplicationValues>({
     firstName: "",
+    middleName: "",
     lastName: "",
+    birthDate: "",
     address: "",
     contactNumber: "",
     email: "",
@@ -56,11 +59,29 @@ export function ApplicationForm({
               onChange={(event) => set("firstName", event.target.value)}
             />
           </Field>
+          <Field label="Middle Name (optional)" htmlFor="application-middle-name">
+            <Input
+              id="application-middle-name"
+              value={values.middleName}
+              onChange={(event) => set("middleName", event.target.value)}
+            />
+          </Field>
+        </div>
+        <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Last Name" htmlFor="application-last-name">
             <Input
               id="application-last-name"
               value={values.lastName}
               onChange={(event) => set("lastName", event.target.value)}
+            />
+          </Field>
+          <Field label="Date of Birth" htmlFor="application-birth-date">
+            <Input
+              id="application-birth-date"
+              type="date"
+              max={manilaToday()}
+              value={values.birthDate}
+              onChange={(event) => set("birthDate", event.target.value)}
             />
           </Field>
         </div>
@@ -86,7 +107,7 @@ export function ApplicationForm({
         <Field label="Address" htmlFor="application-address">
           <Input
             id="application-address"
-            placeholder="Purok 1, Barangay San Fernando"
+            placeholder="Sitio 1, Barangay San Fernando"
             value={values.address}
             onChange={(event) => set("address", event.target.value)}
           />
@@ -104,7 +125,7 @@ export function ApplicationForm({
             ))}
           </Select>
         </Field>
-        <Field label="Purpose" htmlFor="application-purpose">
+        <Field label="Purpose (optional)" htmlFor="application-purpose">
           <Textarea
             id="application-purpose"
             rows={4}

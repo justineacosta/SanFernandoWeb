@@ -68,7 +68,7 @@ export function ComplaintForm({
         <Field label="Address" htmlFor="complaint-walkin-address">
           <Input
             id="complaint-walkin-address"
-            placeholder="Purok 1, Barangay San Fernando"
+            placeholder="Sitio 1, Barangay San Fernando"
             value={values.address}
             onChange={(event) => set("address", event.target.value)}
           />
@@ -112,7 +112,7 @@ export function ComplaintForm({
         <Field label="Where It Happened" htmlFor="complaint-walkin-location">
           <Input
             id="complaint-walkin-location"
-            placeholder="e.g. Purok 2 basketball court"
+            placeholder="e.g. Sitio 2 basketball court"
             value={values.location}
             onChange={(event) => set("location", event.target.value)}
           />

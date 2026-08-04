@@ -167,14 +167,14 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
             </Field>
           </div>
           <Field
-            label="Purok / street address"
+            label="Sitio / street address"
             htmlFor="assistance-address"
             error={v.errorFor("address")}
           >
             <Input
               id="assistance-address"
               name="address"
-              placeholder="Purok 1, Barangay San Fernando"
+              placeholder="Sitio 1, Barangay San Fernando"
               value={values.address}
               onChange={(event) => set("address", event.target.value)}
               autoComplete="street-address"

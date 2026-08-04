@@ -18,6 +18,7 @@ import { useEditDeepLink } from "@/hooks/use-edit-deep-link";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/format";
 import { fuzzyFilter, haystack } from "@/lib/fuzzy";
+import { residentDisplayName } from "@/lib/resident-name";
 import {
   createWalkInApplication,
   releaseApplication,
@@ -88,6 +89,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
     return fuzzyFilter(narrowed, search, (record) =>
       haystack(
         record.firstName,
+        record.middleName,
         record.lastName,
         record.ticketNo,
         record.contactNumber,
@@ -302,7 +304,7 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
                     <tr key={record.id} className="border-b border-ink-200/40 last:border-b-0">
                       <td className="px-6 py-4">
                         <p className="font-semibold text-ink-900">
-                          {record.firstName} {record.lastName}
+                          {residentDisplayName(record.firstName, record.middleName, record.lastName)}
                         </p>
                         <p className="text-xs text-ink-500">
                           {record.ticketNo}

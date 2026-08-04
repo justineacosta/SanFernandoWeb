@@ -141,7 +141,7 @@ export function TransparencyCategoriesPanel({ categories }: TransparencyCategori
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <h3 className="font-display text-lg font-semibold tracking-tight text-ink-900">
-              Transparency Categories
+              Documents Categories
             </h3>
             <p className="mt-1 text-sm text-ink-600">
               The list staff pick from when uploading a public document. Retiring a category hides

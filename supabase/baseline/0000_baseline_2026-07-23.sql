@@ -1,12 +1,12 @@
 -- ============================================================================
 -- Barangay San Fernando — CONSOLIDATED BASELINE SCHEMA
--- Squash of migrations 0001–0031, as of 2026-07-23 (0031 folded in after the fact —
--- see supabase/migrations/README.md).
+-- Squash of migrations 0001–0034, as of 2026-07-23 (0031, 0032, 0033 and 0034
+-- folded in after the fact — see supabase/migrations/README.md).
 -- ============================================================================
 --
 -- WHAT THIS IS
 -- ------------
--- One file that builds the *final state* of migrations 0001 through 0030 on an
+-- One file that builds the *final state* of migrations 0001 through 0034 on an
 -- empty database, in a single transaction. It is not a replay: columns that a
 -- later migration dropped are never created, columns that a later migration
 -- relaxed are declared relaxed, and functions appear once in their final form.
@@ -15,7 +15,7 @@
 -- --------------
 --   • Standing up a NEW environment (production, a fresh staging, a local dev
 --     database) from nothing.
---   • NOT for an environment that already has any of 0001–0031 applied. This
+--   • NOT for an environment that already has any of 0001–0034 applied. This
 --     file assumes an empty `public` schema and will fail loudly on a database
 --     that already has these objects — which is the intended behaviour. To
 --     bring an existing environment forward, apply the individual numbered
@@ -29,9 +29,9 @@
 -- scripts the officials directory and the home/About pages render broken
 -- images. Original migrations 0012 and 0021 carry the same warning.
 --
--- HOW IT DIFFERS FROM RUNNING 0001–0031 IN SEQUENCE
+-- HOW IT DIFFERS FROM RUNNING 0001–0034 IN SEQUENCE
 -- --------------------------------------------------
--- The end state is identical. Three mechanical differences, all deliberate:
+-- The end state is identical. Four mechanical differences, all deliberate:
 --
 --   a. `public.official_group` is created with all four labels including
 --      'members'. Migration 0022 had to add that label with ALTER TYPE, which
@@ -50,6 +50,12 @@
 --      baselined database does not carry 0014's cosmetic wart where historical
 --      rows repeat their label in `detail`, nor the permanent "Migration
 --      Verification" row from the immutability test.
+--   d. 0032's ticket_updates backfill (§5 of that file) is omitted, for the
+--      same reason as (c): it synthesised timeline rows for tickets that
+--      already existed, and a new database has none. The four status CHECKs
+--      are declared with the widened value lists directly rather than being
+--      dropped and re-added, and replied_at is a column on each table rather
+--      than a later ALTER.
 --
 -- ARCHITECTURAL POSTURE (unchanged from the source migrations)
 -- ------------------------------------------------------------
@@ -84,10 +90,12 @@
 begin;
 
 -- ════════════════════════════════════════════════════════════════════════════
--- 1. EXTENSIONS                                                    [0015, 0016]
+-- 1. EXTENSIONS                                              [0015, 0016, 0034]
 -- ════════════════════════════════════════════════════════════════════════════
--- pg_trgm powers word_similarity(); fuzzystrmatch powers levenshtein(). Both
--- are routes inside public.fuzzy_match (§12).
+-- fuzzystrmatch powers levenshtein(), the edit-distance route inside
+-- public.fuzzy_match (§12). pg_trgm no longer backs a match route — 0034
+-- removed the word_similarity() one — but it is still required: the gin_trgm_ops
+-- indexes below are declared with it, so dropping the extension would fail.
 
 create extension if not exists pg_trgm;
 create extension if not exists fuzzystrmatch;
@@ -282,7 +290,7 @@ create index audit_log_search_trgm_idx
 alter table public.audit_log enable row level security;
 
 -- ════════════════════════════════════════════════════════════════════════════
--- 5. TICKETING                                                [0004, 0005, 0006]
+-- 5. TICKETING                              [0004, 0005, 0006, 0032, 0033]
 -- ════════════════════════════════════════════════════════════════════════════
 -- Ticket numbers are per-prefix, per-year, sequential: APP-2026-00001. The
 -- counter row is locked by INSERT .. ON CONFLICT DO UPDATE, so concurrent
@@ -365,10 +373,16 @@ create table public.applications (
   address text not null,
   contact_number text not null,
   email text,
+  -- middle_name/birth_date added by 0033. birth_date is REQUIRED on new rows but
+  -- nullable here: the requirement is enforced in Zod (public + walk-in schemas),
+  -- and rows predating 0033 have no value. purpose became nullable in the same
+  -- migration.
+  middle_name text,
+  birth_date date,
   service_id text not null references public.services (id),
-  purpose text not null,
+  purpose text,
   status text not null default 'pending'
-    check (status in ('pending', 'approved', 'released', 'rejected')),
+    check (status in ('pending', 'under-review', 'awaiting-info', 'approved', 'released', 'rejected')),
   remarks text,
   reviewed_by uuid references auth.users (id) on delete set null,
   reviewed_by_name text,
@@ -376,6 +390,7 @@ create table public.applications (
   released_by uuid references auth.users (id) on delete set null,
   released_by_name text,
   released_at timestamptz,
+  replied_at timestamptz,
   source text not null default 'online' check (source in ('online', 'walk-in')),
   -- Data Privacy Act consent, persisted. Walk-ins consent in person.
   consent_at timestamptz not null default now(),
@@ -389,6 +404,14 @@ create table public.applications (
 -- ticket number into a privacy leak), so no index covers it.
 create index applications_created_at_idx on public.applications (created_at desc);
 create index applications_status_idx on public.applications (status);
+create index applications_replied_at_idx on public.applications (replied_at) where replied_at is not null;
+
+comment on column public.applications.middle_name is
+  'Optional middle name. NULL when not given — never an empty string.';
+comment on column public.applications.birth_date is
+  'Required on new rows (enforced in Zod); NULL only on rows predating 0033.';
+comment on column public.applications.purpose is
+  'Optional since 0033. NULL when not given — never an empty string.';
 
 alter table public.applications enable row level security;
 
@@ -440,7 +463,7 @@ create table public.appointments (
   confirmed_date date,
   confirmed_period text check (confirmed_period in ('am', 'pm')),
   status text not null default 'pending'
-    check (status in ('pending', 'confirmed', 'completed', 'declined')),
+    check (status in ('pending', 'under-review', 'awaiting-info', 'confirmed', 'completed', 'declined')),
   remarks text,
   reviewed_by uuid references auth.users (id) on delete set null,
   reviewed_by_name text,
@@ -448,6 +471,7 @@ create table public.appointments (
   completed_by uuid references auth.users (id) on delete set null,
   completed_by_name text,
   completed_at timestamptz,
+  replied_at timestamptz,
   source text not null default 'online' check (source in ('online', 'walk-in')),
   consent_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
@@ -456,6 +480,7 @@ create table public.appointments (
 
 create index appointments_created_at_idx on public.appointments (created_at desc);
 create index appointments_status_idx on public.appointments (status);
+create index appointments_replied_at_idx on public.appointments (replied_at) where replied_at is not null;
 
 alter table public.appointments enable row level security;
 
@@ -483,7 +508,7 @@ create table public.complaints (
   location text not null,
   narrative text not null,
   status text not null default 'received'
-    check (status in ('received', 'under-review', 'resolved', 'dismissed')),
+    check (status in ('received', 'under-review', 'awaiting-info', 'resolved', 'dismissed')),
   remarks text,
   reviewed_by uuid references auth.users (id) on delete set null,
   reviewed_by_name text,
@@ -491,6 +516,7 @@ create table public.complaints (
   closed_by uuid references auth.users (id) on delete set null,
   closed_by_name text,
   closed_at timestamptz,
+  replied_at timestamptz,
   source text not null default 'online' check (source in ('online', 'walk-in')),
   consent_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
@@ -499,6 +525,7 @@ create table public.complaints (
 
 create index complaints_created_at_idx on public.complaints (created_at desc);
 create index complaints_status_idx on public.complaints (status);
+create index complaints_replied_at_idx on public.complaints (replied_at) where replied_at is not null;
 
 alter table public.complaints enable row level security;
 
@@ -519,7 +546,7 @@ create table public.assistance_requests (
   category_id text not null references public.assistance_categories (id),
   details text not null,
   status text not null default 'pending'
-    check (status in ('pending', 'under-review', 'granted', 'declined')),
+    check (status in ('pending', 'under-review', 'awaiting-info', 'granted', 'declined')),
   remarks text,
   reviewed_by uuid references auth.users (id) on delete set null,
   reviewed_by_name text,
@@ -527,6 +554,7 @@ create table public.assistance_requests (
   decided_by uuid references auth.users (id) on delete set null,
   decided_by_name text,
   decided_at timestamptz,
+  replied_at timestamptz,
   source text not null default 'online' check (source in ('online', 'walk-in')),
   consent_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
@@ -536,12 +564,55 @@ create table public.assistance_requests (
 create index assistance_requests_created_at_idx
   on public.assistance_requests (created_at desc);
 create index assistance_requests_status_idx on public.assistance_requests (status);
+create index assistance_requests_replied_at_idx
+  on public.assistance_requests (replied_at) where replied_at is not null;
 
 alter table public.assistance_requests enable row level security;
 
 create trigger assistance_requests_updated_at
   before update on public.assistance_requests
   for each row execute function public.set_updated_at();
+
+-- ── ticket_updates ──────────────────────────────────────────────────────────
+-- The append-only resident-facing timeline for all four flows [0032].
+--
+-- Linked by ticket_no, not a uuid FK: there is no Postgres FK to a four-table
+-- union, and ticket_no is already globally unique by construction
+-- (next_ticket_number counts per (prefix, year); APP/APT/CMP/AST never collide).
+-- lookupTicket already depends on this via tickets_view.
+--
+-- RLS enabled with NO policies, like every ticket table. Neither anon nor
+-- authenticated may touch it; the service-role client after an explicit code
+-- check is the entire gate.
+
+create table public.ticket_updates (
+  id            uuid primary key default gen_random_uuid(),
+  ticket_no     text not null,
+  ticket_kind   text not null check (ticket_kind in
+                  ('application','appointment','complaint','assistance')),
+  entry_type    text not null check (entry_type in
+                  ('status','staff-note','info-request','resident-reply')),
+  -- Set only on entry_type = 'status'; the status the ticket moved TO.
+  status        text,
+  body          text not null default '',
+  -- The ENTIRE privacy gate for internal notes. Filtered in the query layer.
+  visibility    text not null check (visibility in ('public','internal')),
+  author_kind   text not null check (author_kind in ('staff','resident','system')),
+  author_id     uuid references auth.users (id) on delete set null,
+  author_name   text,
+  -- [{path,name,mime,sizeBytes}] — resident replies only.
+  attachments   jsonb not null default '[]',
+  -- When a resident email was attempted for this entry.
+  notified_at   timestamptz,
+  created_at    timestamptz not null default now()
+);
+
+create index ticket_updates_ticket_idx
+  on public.ticket_updates (ticket_no, created_at);
+create index ticket_updates_public_idx
+  on public.ticket_updates (ticket_no, created_at) where visibility = 'public';
+
+alter table public.ticket_updates enable row level security;
 
 -- ── tickets_view ────────────────────────────────────────────────────────────
 -- Common fields across all four kinds, backing /track. Type-specific columns
@@ -1147,7 +1218,7 @@ create trigger site_items_updated_at
   for each row execute function public.set_updated_at();
 
 -- ════════════════════════════════════════════════════════════════════════════
--- 11. STORAGE BUCKETS                          [0007, 0009, 0023, 0028, 0030]
+-- 11. STORAGE BUCKETS                    [0007, 0009, 0023, 0028, 0030, 0032]
 -- ════════════════════════════════════════════════════════════════════════════
 -- One public/private bucket pair per status-aware content type, plus two
 -- always-public buckets for content with no draft state and one private
@@ -1170,6 +1241,7 @@ create trigger site_items_updated_at
 --   site-media                                 Home/About imagery
 --   avatars-media                              staff avatars
 --   feedback-media                             PRIVATE. Screenshots attached to anonymous site feedback.
+--   ticket-media                               PRIVATE. Files a resident attaches to a ticket reply.
 --
 -- storage.objects is the ONLY storage table in this schema that gets an RLS
 -- policy (see "ARCHITECTURAL POSTURE" above for the other three
@@ -1222,6 +1294,15 @@ insert into storage.buckets (id, name, public)
   values ('feedback-media', 'feedback-media', false)
   on conflict (id) do nothing;
 
+-- PRIVATE, and no read policy at all [0032]. An attachment here is typically a
+-- photo of the resident's own ID; Storage's list() rides the same RLS select
+-- policy as an individual get(), so a public bucket would make every resident's
+-- ID anonymously enumerable. Second private bucket, after feedback-media, for
+-- exactly the same reason.
+insert into storage.buckets (id, name, public)
+  values ('ticket-media', 'ticket-media', false)
+  on conflict (id) do nothing;
+
 drop policy if exists "public read news-media" on storage.objects;
 create policy "public read news-media" on storage.objects
   for select to public using (bucket_id = 'news-media');
@@ -1248,7 +1329,7 @@ create policy "public read avatars-media" on storage.objects
   for select to public using (bucket_id = 'avatars-media');
 
 -- ════════════════════════════════════════════════════════════════════════════
--- 12. SEARCH FUNCTIONS                  [0015, 0016, 0017, 0018, 0023, 0024]
+-- 12. SEARCH FUNCTIONS      [0015, 0016, 0017, 0018, 0023, 0024, 0033, 0034]
 -- ════════════════════════════════════════════════════════════════════════════
 
 /**
@@ -1256,12 +1337,16 @@ create policy "public read avatars-media" on storage.objects
  * An empty or null query matches everything.
  *
  * One matching contract, stated once — the JavaScript half is fuzzyFilter() in
- * src/lib/fuzzy.ts and must stay in step. Each term matches by any of three
- * routes, because no single one covers all the required cases:
+ * src/lib/fuzzy.ts and must stay in step. Each term matches by either of two
+ * routes, because neither one covers all the required cases:
  *
  *   1. substring        "cert"   -> "certificate"        (prefixes/partials)
  *   2. levenshtein      "offcal" -> "official"           (typos, transpositions)
- *   3. word_similarity  general trigram recall for the rest
+ *
+ * A third route, `word_similarity(term, haystack) >= 0.45`, existed until 0034
+ * and is deliberately gone. It was the one place the two halves disagreed, and
+ * it answered "Curfew Hours for Minors" to a search for "tax". See 0034 for the
+ * measurement and for why the route was removed rather than re-tuned.
  *
  * Levenshtein carries the misspelling case: "offcal" and "official" share only
  * one trigram ("off"), so trigram similarity alone scores them too low. Edit
@@ -1301,7 +1386,6 @@ as $$
       where t <> ''
         and not (
              strpos(lower(coalesce(p_haystack, '')), t) > 0
-          or word_similarity(t, lower(coalesce(p_haystack, ''))) >= 0.45
           or exists (
                select 1
                from regexp_split_to_table(lower(coalesce(p_haystack, '')), '\s+') as w
@@ -1536,9 +1620,14 @@ as $$
            (ap.first_name || ' ' || ap.last_name), ap.status
     from public.applications ap
     where 'applications' = any (p_modules)
+      -- purpose is coalesced because it is nullable since 0033, and `text ||
+      -- null` is NULL in Postgres — an uncoalesced purpose would drop every
+      -- application without one out of this search entirely.
       and public.fuzzy_match(
-            ap.ticket_no || ' ' || ap.first_name || ' ' || ap.last_name || ' ' ||
-            ap.contact_number || ' ' || coalesce(ap.email, '') || ' ' || ap.purpose,
+            ap.ticket_no || ' ' || ap.first_name || ' ' ||
+            coalesce(ap.middle_name, '') || ' ' || ap.last_name || ' ' ||
+            ap.contact_number || ' ' || coalesce(ap.email, '') || ' ' ||
+            coalesce(ap.purpose, ''),
             p_q)
     order by ap.created_at desc
     limit greatest(p_limit, 1) )
@@ -1757,7 +1846,7 @@ insert into public.site_items (block, sort_order, icon_name, label, value, body)
   -- 8.95 ha is correct. The source PDF's own "(0.895 sq. km)" parenthetical is
   -- a decimal error and must not be reintroduced.
   ('glance_stats', 2, 'map', 'Total Land Area', '8.95 ha', null),
-  ('glance_stats', 3, 'layout-grid', 'Puroks', '7', 'Active Puroks');
+  ('glance_stats', 3, 'layout-grid', 'Sitios', '7', 'Active Sitios');
 
 insert into public.site_items (block, sort_order, icon_name, label, body) values
   ('involvement_items', 0, 'users', 'Participate', 'Join barangay activities and programs.'),
