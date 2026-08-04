@@ -111,8 +111,26 @@ the fixed one, for any new test that looks its own row up twice.
   mock constant in `features/admin/data.ts`) was deleted in a cleanup pass along with its
   `TeamRole`/`AdminTeamMember` types — nothing had rendered it since `TeamManager` shipped.
   User management is its own SuperAdmin-only module at `/admin/users` (`TeamManager`, an
-  Active|Archived table like the other managers); **Settings keeps only profile, security
-  and preferences** — it no longer holds the team card.
+  Active|Archived table like the other managers); **Settings keeps only profile and
+  security** — it no longer holds the team card, and the Preferences card (language select +
+  three notification toggles) was **deleted 2026-08-05 on request**. That card was pure local
+  `useState` wired to nothing — no column, no action, no persistence — so its removal is a
+  UI-only change with no schema or behaviour consequence; `ToggleSwitch` stays, its four
+  category/achievement-panel consumers untouched. `SettingsPanel` dropped `"use client"` in
+  the same pass (both remaining cards are their own client components). **The two cards sit
+  side by side at `xl`, not `lg`** — with the sidebar and page padding removed, a half track
+  at `lg` is ~276px inside the card, too narrow for the profile card's avatar-beside-fields
+  row; measured in-browser, `xl` gives ~404px and 1440px gives ~484px. Two inner layouts
+  undo themselves at that same `xl` to pay for the narrower track: the profile row restacks
+  the avatar above the form (`xl:flex-col xl:items-stretch`, handing the fields the card's
+  full width) and the security form's new/confirm password pair goes one-column
+  (`xl:grid-cols-1`, since "New Password (min 10 characters)" wraps to two lines at ~195px
+  and drops its input out of line with Confirm's). **Container queries would be the natural
+  tool here and are unusable:** `container-type: inline-size` makes the card a containing
+  block for `position: fixed` descendants — the same trap as `backdrop-filter` — and both
+  `Toast` and `AvatarPicker`'s `ImageCropperDialog` render `fixed` **in place** rather than
+  portaling to `document.body`, so an `@container` on either card would reposition the
+  cropper overlay and the toast against the card instead of the viewport.
 - **The nav gate is one module, not a predicate copied four times.** `src/lib/admin-nav.ts`
   holds pure helpers over `ADMIN_NAV_ITEMS` — `canSeeNavItem` / `visibleNavItems` /
   `groupNavItems` / `firstPermittedPath` / `adminPageTitle` — consumed by the sidebar, the

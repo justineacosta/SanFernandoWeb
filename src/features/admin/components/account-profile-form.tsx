@@ -45,8 +45,15 @@ export function AccountProfileForm({ currentUser }: { currentUser: SessionUser }
 
   return (
     <>
-      <div className="flex flex-col items-center gap-6 border-t border-ink-200/70 pt-6 sm:flex-row sm:items-start">
-        <div className="flex w-full shrink-0 justify-center sm:w-56 sm:pt-1">
+      {/*
+        The xl:* classes undo the sm:* row, on purpose: at xl the Settings page
+        puts this card in a half-width column, where a 224px avatar rail beside
+        the fields leaves the fields too narrow to read. Stacking the picker back
+        on top there hands the form the card's full inner width. items-stretch
+        rather than the base items-center so the form still fills that width.
+      */}
+      <div className="flex flex-col items-center gap-6 border-t border-ink-200/70 pt-6 sm:flex-row sm:items-start xl:flex-col xl:items-stretch">
+        <div className="flex w-full shrink-0 justify-center sm:w-56 sm:pt-1 xl:w-full xl:pt-0">
           <AvatarPicker
             existingSrc={currentUser.avatarSrc}
             file={avatarFile}

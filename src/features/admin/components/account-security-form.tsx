@@ -54,7 +54,12 @@ export function AccountSecurityForm() {
             onChange={(event) => setCurrent(event.target.value)}
           />
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
+        {/*
+          Back to one column at xl, where Settings puts this card in a half-width
+          track: two-up there wraps the "New Password (min 10 characters)" label
+          onto a second line and drops its input out of line with Confirm's.
+        */}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
           <Field label="New Password (min 10 characters)" htmlFor="account-new-password">
             <PasswordInput
               id="account-new-password"
