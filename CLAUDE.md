@@ -825,7 +825,13 @@ the fixed one, for any new test that looks its own row up twice.
   don't mix.** For a **new environment** (production, a fresh staging, a local dev database)
   standing up from nothing, apply `supabase/baseline/0000_baseline_2026-07-23.sql` instead of
   replaying the numbered migrations one by one — it is a single-transaction squash of `0001`–
-  `0029` that assumes an empty `public` schema and deliberately ships **without** the demo seed
+  `0031` (a prior version of this bullet said `0001`–`0029`; `0030` and `0031` were folded in
+  later, and the file's own header is authoritative). **`0032_ticket_updates.sql` is NOT folded
+  in** — `supabase/migrations/README.md` requires every new migration to land in the baseline in
+  the same commit, and the ticket-timeline work did not, so a fresh environment must apply the
+  baseline **and then `0032`** or every timeline read/write fails at runtime. Fold it in (and
+  drop this note) rather than adding a second "run X after" step for the next one. The baseline
+  assumes an empty `public` schema and deliberately ships **without** the demo seed
   content those early migrations insert (`0007_news_content.sql` and `0009_transparency.sql`
   seed placeholder news, announcements, events, and legislative/transparency documents), so a
   fresh production apply doesn't land mock content on the live public site. For an **existing

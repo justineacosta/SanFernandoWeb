@@ -16,9 +16,10 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
 | Language | TypeScript 5 (strict) |
 | Database | Supabase Postgres |
 | Auth | Supabase Auth (session cookies), permission-gated RBAC |
-| Storage | Supabase Storage — 14 status-split public/private buckets |
+| Storage | Supabase Storage — 16 buckets (6 status-split public/private pairs + 4 standalone, 2 of them private) |
+| Email | Resend + `react-email` JSX templates (`src/emails/`) |
 | Validation | Zod v4 (every Server Action re-validates server-side) |
-| Bot Protection | Cloudflare Turnstile (Managed widget) |
+| Bot Protection | Cloudflare Turnstile (Managed widget) — always on public forms, adaptive on admin login |
 | Rate Limiting | Durable, DB-backed (`rate_limit_hits` table) |
 
 ### Frontend
@@ -48,7 +49,14 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
 - Supabase Auth session cookies, no client-exposed service-role key
 - Role-Based Access Control — **SuperAdmin** (unrestricted) + granular per-user permissions
   (`process-applications`, `manage-news`, `handle-inquiries`, …)
-- No public admin sign-up — accounts are created by a SuperAdmin from `/admin/users`
+- No public admin sign-up, and **no password ever travels between staff** — a SuperAdmin
+  creates the account from `/admin/users` with an unguessable random password nobody knows,
+  and the new user sets their own via an emailed one-time invite link (resendable per row)
+- Self-service password reset (`/admin/forgot-password` → `/admin/reset-password`), which
+  answers identically for a real account, an unknown email, a disabled account, and a
+  rate-limited request — including a timing floor, so staff addresses can't be enumerated
+  by stopwatch either. The one-time token is redeemed only on submit, never on page render,
+  so corporate "safe link" scanners can't burn it before the recipient clicks
 - 30-minute idle timeout, enforced both client-side (`<IdleTimeout />`) and at the edge
   (`src/proxy.ts`), backed by a single non-`httpOnly` cookie (`sf-activity`) — its *absence*
   is the entire signal, no server-side clock comparison needed
@@ -56,21 +64,33 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
 
 ### Rate Limiting & Bot Protection
 - Durable, DB-backed rate limiting (survives restarts, works across serverless instances) —
-  every public form is capped per hour (3–10 submissions depending on the form)
+  every public form is capped per window (3–10 submissions depending on the form), and the
+  resident-reply path is capped on **two** keys, by IP and by ticket number
 - Admin login is rate-limited by **both** IP and normalized email (5 attempts / 5 min),
   and only failed attempts count against the budget — a successful login records nothing
-- Cloudflare Turnstile verified server-side before any other check on all 8 public,
+- Cloudflare Turnstile verified server-side before any other check on all 10 public,
   anonymous Server Actions — fails **closed** (rejects) on a missing token, a Cloudflare
   failure, or a network error, unlike the rate limiter's fail-open
+- **Admin login is challenged adaptively, not always** — the widget appears only once an
+  attempt on that IP or email has already failed inside the window, read off the same
+  rate-limit rows. Always-on was rejected deliberately: Turnstile fails closed, so an
+  unconditional widget would put a hard Cloudflare dependency in front of the only door
+  into the portal. The server recomputes the requirement on every call, so a client that
+  simply never mounts the widget is refused identically
+- The Turnstile widget reports its **own** failures (blocked script, error callback) as a
+  visible banner with a Try again button — an `interaction-only` widget that is dead looks
+  exactly like one that is healthy, so silence would leave a form permanently unsubmittable
 - IP resolution trusts the last `X-Forwarded-For` hop (or `cf-connecting-ip`), not the
   client-controlled first entry, so IP-based throttling can't be trivially spoofed
 
 ### Data & Access Control
 - **Row-Level Security on every table**, with (almost) zero policies — the service-role
   client behind an explicit `requirePermission()` check is the entire write-side auth gate
-- 14 Supabase Storage buckets split public/private per content type, so draft/archived
+- 16 Supabase Storage buckets, split public/private per content type, so draft/archived
   media (which shares `list()`'s RLS policy with `get()`) is never anonymously enumerable
-- Signed URLs (10-minute expiry) for any non-published media in the admin preview UI
+- Two buckets are private outright — `feedback-media` (an anonymous screenshot can contain
+  the sender's own account page) and `ticket-media` (residents attach scans of IDs)
+- Signed URLs (10-minute expiry) for any non-published or private media in the admin UI
 - A scoped Content-Security-Policy plus standard security headers (`X-Frame-Options`,
   `X-Content-Type-Options`, `Referrer-Policy`, HSTS, `Permissions-Policy`) in `next.config.ts`
 - Archive-before-delete on every content type — permanent deletion is SuperAdmin-only and
@@ -93,7 +113,15 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
 - Browse the services catalog and submit applications
 - Four ticketing flows with status tracking: **applications**, **appointments**,
   **complaints**, **assistance requests**
-- Look up any ticket's status by reference number (`/track`)
+- Look up any ticket's status by reference number + surname (`/track`), and read a
+  **progressive timeline** of everything that has happened to it — rendered from an
+  append-only log, not inferred from timestamps. Staff internal notes are filtered out in
+  the query layer, so they never reach the page at all
+- When staff mark a ticket **awaiting info**, the resident can reply directly from `/track`
+  (up to 3 attachments × 2 MB), which flips the ticket back to under review and raises a
+  "New reply" badge on the staff queue
+- Email receipts and outcome notices at every point that matters — submission, approval,
+  rejection, confirmation, dismissal, resolution — plus a contact-form acknowledgment
 - Contact form (routed inquiries) + newsletter/alert subscription
 - Anonymous site-feedback widget with optional screenshot upload — no name, email, or IP
   collected, so there's deliberately no reply path
@@ -102,7 +130,8 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
 - Transparency section — legislative documents, disclosure documents, monitored projects
   (real, Storage-hosted PDFs)
 - Officials directory with real names, portraits, and role descriptions
-- Account self-service (profile, avatar, security)
+- A staff **Login** entry in the site header (desktop button + mobile row), so staff don't
+  have to know the portal URL by hand
 
 ### For Admin Staff (Permission-Gated)
 - Draft → in-review → published → archived workflow for every content type, with
@@ -113,15 +142,21 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
   Legislative Documents, Transparency Documents & Projects
 - Five ticket queues (Applications, Appointments, Complaints, Assistance, Inquiries &
   Feedback) with review drawers and status transitions
+- A timeline panel in every review drawer — post a public update the resident sees on
+  `/track`, or an internal note only staff can read, and request more information without
+  blocking the ticket (`under-review` stays optional; a clerk can still decide in one click)
 - Autosave draft recovery to `localStorage` (never to the database — editing a published
   record never silently pushes unreviewed text live)
 - Real-time-feeling notification bell + per-queue nav badges (60-second poll)
 - Global search across every content type and ticket queue
 - Home & About page content editor (hero, mission/vision, stats, history) — no code
   deploy needed to change page copy
+- Account self-service in Settings (profile, avatar with a crop/zoom/rotate dialog,
+  password) — own photo only, nobody edits anyone else's
 
 ### For SuperAdmins
-- User management (`/admin/users`) — create/archive admin accounts, assign permissions
+- User management (`/admin/users`) — invite/archive admin accounts, assign permissions,
+  see who hasn't accepted their invite yet, and resend it
 - Full audit log viewer
 - Permanent deletion (only reachable from an already-archived record)
 - Services catalog enable/disable toggles
@@ -145,7 +180,7 @@ SanFernandoWeb/
 │   │   │   ├── applications/  appointments/  assistance/  complaints/
 │   │   │   └── privacy/  terms/
 │   │   ├── admin/                 # Admin portal — auth + permission gated, noindex
-│   │   │   ├── login/
+│   │   │   ├── login/  forgot-password/  reset-password/   # public, shared AuthLayout
 │   │   │   └── (portal)/          # sidebar chrome; each folder is a DB-backed manager
 │   │   │       ├── services/  officials/  news/  events/  transparency/
 │   │   │       ├── applications/  appointments/  assistance/  complaints/  inquiries/
@@ -164,8 +199,11 @@ SanFernandoWeb/
 │   │   ├── contact/  track/  applications/  appointments/  assistance/  complaints/
 │   │   ├── feedback/  legal/
 │   │   └── admin/                 # Managers, admin shell, Server Actions, queries
+│   ├── emails/                    # react-email templates, all inside <EmailLayout>
+│   │   └── shared/                # TicketNotice, text helpers
 │   ├── hooks/                     # useDisclosure, useFormDraft, useTableSort, …
-│   ├── lib/                       # supabase clients, auth, rate-limit, turnstile, storage, motion
+│   ├── lib/                       # supabase clients, auth, rate-limit, turnstile, storage,
+│   │                              #   email, notifications, media-lifecycle, motion
 │   ├── types/                     # Shared entity interfaces — the de-facto API contract
 │   ├── constants/                 # Site identity, navigation, hotlines (SITE object), permissions
 │   └── proxy.ts                   # Idle-timeout + auth gate for page GETs (Next 16 middleware)
@@ -220,14 +258,17 @@ cp .env.example .env.local
 
 For a **fresh** Supabase project:
 ```bash
-# Apply supabase/baseline/0000_baseline_2026-07-23.sql via the Supabase SQL editor or CLI
+# 1. Apply supabase/baseline/0000_baseline_2026-07-23.sql (Supabase SQL editor or CLI)
+#    — a squash of migrations 0001–0031 against an empty schema
+# 2. Apply supabase/migrations/0032_ticket_updates.sql on top; it is NOT folded
+#    into the baseline yet, and the ticket timeline fails at runtime without it
 node scripts/upload-official-portraits.mjs
 node scripts/upload-site-images.mjs
 ```
 
 For an environment that already has some migrations applied, apply only the numbered
 migrations it's missing, in order — the baseline assumes an empty schema and fails against
-one that already has any of them.
+one that already has any of them. Migrations are numbered through `0032`.
 
 **4. Start the dev server**
 ```bash
@@ -252,10 +293,20 @@ Ad-hoc verification recipe for one-off checks: `.claude/skills/verify/SKILL.md`.
 
 ## Admin Accounts
 
-There is no seed script — admin accounts don't exist until a SuperAdmin creates one from
-`/admin/users`. To bootstrap the **first** SuperAdmin on a new environment, insert a row into
-`profiles` directly (via the Supabase dashboard) with `is_superadmin = true` against a user
-created through Supabase Auth. There are no default or well-known credentials in this repo.
+There is no seed script — admin accounts don't exist until a SuperAdmin invites one from
+`/admin/users`. Account creation is **invite-based**: the SuperAdmin fills in the name,
+email, phone and permissions, and the account is created with a random password nobody
+(including the SuperAdmin) ever sees. The new staff member receives a one-time link and
+sets their own password through `/admin/reset-password`. Until they do, the roster shows
+them as *Invite pending* and the invite can be resent from the row.
+
+To bootstrap the **first** SuperAdmin on a new environment, insert a row into `profiles`
+directly (via the Supabase dashboard) with `is_superadmin = true` against a user created
+through Supabase Auth. There are no default or well-known credentials in this repo.
+
+> Invites and password resets both go out through Resend, so `RESEND_API_KEY` /
+> `RESEND_FROM_EMAIL` must be set before the first invite — the send is fail-open and will
+> otherwise be skipped silently, leaving an account nobody can sign into.
 
 ---
 
@@ -272,12 +323,27 @@ SUPABASE_SERVICE_ROLE_KEY=YOUR-SERVICE-ROLE-KEY   # server-only, never expose to
 # Cloudflare Turnstile — Dashboard → Turnstile → add a site (Managed widget)
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=YOUR-TURNSTILE-SITE-KEY   # inlined at BUILD time
 TURNSTILE_SECRET_KEY=YOUR-TURNSTILE-SECRET-KEY            # server-only
+
+# Resend — transactional email (receipts, outcome notices, invites, password resets)
+RESEND_API_KEY=YOUR-RESEND-API-KEY                        # server-only
+RESEND_FROM_EMAIL="Barangay San Fernando <notifications@yourdomain>"   # verified sender
+
+# Absolute base URL — email clients can't resolve relative paths, so every link
+# and image inside a template is built from this. Inlined at BUILD time.
+NEXT_PUBLIC_SITE_URL=https://yourdomain
 ```
 
 > ⚠️ Without `TURNSTILE_SECRET_KEY`, forms work in development (verification is skipped
 > with a console warning) but **every anonymous form throws in production** — deliberate
 > fail-closed behavior, not a bug. Rotating the site key needs a rebuild, not just a
-> redeploy, since it's inlined at build time.
+> redeploy, since it's inlined at build time. To run the admin e2e suite locally, use
+> Cloudflare's always-pass test keys (documented in `.env.example`) — the real key can't
+> solve on `localhost`.
+
+> ⚠️ Email is the opposite: `sendEmail()` **never throws**, in any environment. A missing
+> `RESEND_API_KEY` skips every send and logs it, because every trigger fires after its own
+> DB write already committed — an email failure must never turn into a failed resident
+> submission. The cost is that a misconfigured deploy is silent, so check the logs.
 
 ---
 
@@ -307,28 +373,38 @@ The UI follows an **amber + ink** civic/municipal aesthetic:
    every currently-published image and document on the live public site
 4. Set real `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` values — production
    throws on first submit without them, rather than silently passing
-5. Confirm `SUPABASE_SERVICE_ROLE_KEY` is set server-side only, never in a client bundle
-6. Migrations are applied **manually** — never assume one is live without confirming with
-   whoever owns that environment
+5. Set `RESEND_API_KEY` / `RESEND_FROM_EMAIL` (verified sender) and `NEXT_PUBLIC_SITE_URL`
+   — nothing throws without them, so this one has to be checked rather than discovered
+6. Confirm `SUPABASE_SERVICE_ROLE_KEY` is set server-side only, never in a client bundle
+7. Migrations are applied **manually** — never assume one is live without confirming with
+   whoever owns that environment. `0032` in particular must land **before** the code that
+   reads it: the ticket lists select `replied_at` and the drawers write `ticket_updates`
 
 ---
 
 ## Project Status
 
-Deployed and current in production as of 2026-07-28. Known gaps, tracked as not-yet-done
-rather than bugs:
+Deployed to production 2026-07-28; the ticket-timeline, invite, password-reset and adaptive-
+login work has landed on `main` since. Known gaps, tracked as not-yet-done rather than bugs:
 
-- **Transactional email (Resend) isn't wired up yet** — ticket/inquiry confirmations have
-  no email leg
+- **Email delivery monitoring isn't built** — transactional email itself is live (receipts,
+  outcome notices, staff alerts, invites, password resets), but there's no `email_log` table
+  and no Resend webhook, so a bounced or dropped message is invisible from inside the app
+- **Migration `0032` isn't folded into the baseline** — a fresh environment needs the
+  baseline *and* that file, contrary to the "baseline is the whole schema" convention
+- `requestIp()` prefers `cf-connecting-ip` unconditionally, and nothing in the code or
+  config asserts that production actually sits behind Cloudflare. Bounded rather than open
+  (the email-keyed limiter still caps per-account brute force), but the fix is to gate that
+  preference behind an explicit deployment assertion
 - Several content fields are real but still placeholder-shaped: the About page's captain's
   message, and most staff emails/phones/office hours (the barangay's own hotline and
   address are real)
 - Most images are still hotlinked from `lh3.googleusercontent.com` rather than owned
   Storage; new uploads go to Storage — only the original seed images haven't migrated
-- Two Playwright e2e specs are **not idempotent within their rate-limit window**
-  (`admin/login.spec.ts`, `public/feedback.spec.ts`) — a second run within the window
-  (~5 minutes for login, ~1 hour for feedback) can fail on rate-limit collision, not a
-  real regression
+- Three Playwright e2e specs are **not idempotent within their rate-limit window**
+  (`admin/login.spec.ts`, `admin/ticket-updates.spec.ts`, `public/feedback.spec.ts`) — a
+  second run within the window (~5 min for login, ~1 hour for the reply test and for
+  feedback) can fail on rate-limit collision, not a real regression
 
 See `CLAUDE.md` for the full architectural history and gotchas, and
 `docs/superpowers/specs/` / `docs/superpowers/plans/` for per-feature design history.
