@@ -155,8 +155,9 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
   implement one shared rule, so the same query returns the same rows in either surface
 - Home & About page content editor (hero, mission/vision, stats, history) — no code
   deploy needed to change page copy
-- Account self-service in Settings (profile, avatar with a crop/zoom/rotate dialog,
-  password) — own photo only, nobody edits anyone else's
+- Account self-service in Settings — two cards, profile (name, contact details, avatar with
+  a crop/zoom/rotate dialog) and security (password). Own photo only, nobody edits anyone
+  else's
 
 ### For SuperAdmins
 - User management (`/admin/users`) — invite/archive admin accounts, assign permissions,
@@ -400,6 +401,12 @@ tracked as not-yet-done rather than bugs:
   newsletter panels were removed on request, so `alert_subscribers` stops gaining rows. The
   form component and its Server Action are kept (still Turnstile-gated and rate-limited) in
   case signup returns elsewhere; nothing dispatched to that table in the first place
+- **Several surfaces are absent by decision, not broken** — the site carries no social
+  links at all (the barangay's real Facebook page exists but isn't linked; the other three
+  entries were always `#` placeholders), the Services help strip has no bulk
+  "Download All Forms" action, and the home page's Get Involved banner is copy-only with no
+  button. Settings likewise dropped its Preferences card — a language select and three
+  notification toggles that persisted nothing — rather than leave dead controls on screen
 - `requestIp()` prefers `cf-connecting-ip` unconditionally, and nothing in the code or
   config asserts that production actually sits behind Cloudflare. Bounded rather than open
   (the email-keyed limiter still caps per-account brute force), but the fix is to gate that

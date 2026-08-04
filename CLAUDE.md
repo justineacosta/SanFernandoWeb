@@ -923,12 +923,14 @@ the fixed one, for any new test that looks its own row up twice.
   don't mix.** For a **new environment** (production, a fresh staging, a local dev database)
   standing up from nothing, apply `supabase/baseline/0000_baseline_2026-07-23.sql` instead of
   replaying the numbered migrations one by one — it is a single-transaction squash of `0001`–
-  `0033` (a prior version of this bullet said `0001`–`0029`, then `0001`–`0031`; the file's own
-  header is authoritative). **`0032` and `0033` were folded in on 2026-08-05**, closing the one
+  `0034` (a prior version of this bullet said `0001`–`0029`, then `0001`–`0031`, then
+  `0001`–`0033`; the file's own header is authoritative). **`0032` and `0033` were folded in on
+  2026-08-05**, closing the one
   gap this rule ever had: the ticket-timeline work landed `0032` without touching the baseline,
   so a fresh environment silently missed `ticket_updates`, `replied_at`, the four widened status
-  CHECKs and the `ticket-media` bucket. The baseline is contiguous again and needs no "run X
-  after" companion step — keep it that way for `0034`. `0032`'s timeline backfill is omitted
+  CHECKs and the `ticket-media` bucket. **`0034` was then folded in as it landed, the same
+  day**, keeping the streak. The baseline is contiguous and needs no "run X after" companion
+  step — keep it that way for whatever lands next. `0032`'s timeline backfill is omitted
   for the same reason `0014`'s backfills are: it rewrote rows a new database does not have.
   The baseline
   assumes an empty `public` schema and deliberately ships **without** the demo seed
