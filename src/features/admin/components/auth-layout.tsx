@@ -49,19 +49,37 @@ interface AuthLayoutProps {
  */
 export function AuthLayout({ subtitle, banner, children }: AuthLayoutProps) {
   return (
-    <main className="min-h-screen md:overflow-hidden">
-      {/* Mobile (< md): centered-card layout. */}
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-ink-950 px-4 md:hidden">
+    <main className="relative min-h-screen md:overflow-hidden">
+      {/*
+        One background photo shared by both responsive trees, not one per tree.
+        Both trees are always mounted and hidden with `display:none` (see the
+        component doc above), so a copy inside each would leave a permanently
+        hidden <Image> on the page: a second download of the same photo, and a
+        false "not rendered at full viewport width" warning from next/image,
+        whose dev check measures the hidden copy at 0px wide. This layer spans
+        the viewport below md and the 55%-wide brand panel at md+, so `sizes`
+        describes it truthfully at every width — so its `md:w-[55%]` has to move
+        in lockstep with the brand panel's own `w-[55%]` below, and with `sizes`.
+        It carries the scrim and the flat fallback colour both containers used
+        to paint themselves.
+      */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 overflow-hidden bg-ink-950 md:w-[55%]"
+      >
         <Image
           src={trickOrTreatPhoto}
           alt=""
-          aria-hidden="true"
           fill
           priority
-          sizes="100vw"
+          sizes="(min-width: 768px) 55vw, 100vw"
           className="scale-105 object-cover blur-[2px]"
         />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-ink-950/70" />
+        <div className="absolute inset-0 bg-ink-950/70" />
+      </div>
+
+      {/* Mobile (< md): centered-card layout. */}
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 md:hidden">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-32 left-1/2 size-[36rem] -translate-x-1/2 rounded-full bg-brand-500/15 blur-3xl"
@@ -97,17 +115,7 @@ export function AuthLayout({ subtitle, banner, children }: AuthLayoutProps) {
 
       {/* Desktop (md+): split-screen layout. */}
       <div className="hidden md:flex md:min-h-screen">
-        <div className="relative flex w-[55%] shrink-0 flex-col justify-between overflow-hidden bg-ink-950 p-12">
-          <Image
-            src={trickOrTreatPhoto}
-            alt=""
-            aria-hidden="true"
-            fill
-            priority
-            sizes="(min-width: 768px) 55vw, 100vw"
-            className="scale-105 object-cover blur-[2px]"
-          />
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-ink-950/70" />
+        <div className="relative flex w-[55%] shrink-0 flex-col justify-between overflow-hidden p-12">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -top-24 -left-24 size-[36rem] rounded-full bg-brand-500/15 blur-3xl"

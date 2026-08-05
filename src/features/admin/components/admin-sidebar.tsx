@@ -175,17 +175,25 @@ export function AdminSidebar({
                 px-2.5 on the row puts it at 26px in both, dead-centre of the
                 72px rail), and the group headings hold a fixed height. Only the
                 labels appear. */}
-            <div className="relative mb-4 flex items-center gap-3 border-b border-white/10 px-4 pb-5">
+            {/* The whole brand block is the link home, seal included, so the
+                collapsed rail — where the seal is all that renders — keeps the
+                same target. Padding and gap are unchanged from the div it
+                replaced: a link here must not shift the row it sits in. */}
+            <Link
+              href="/"
+              aria-label={`${SITE.name} home page`}
+              className="group relative mb-4 flex items-center gap-3 border-b border-white/10 px-4 pb-5"
+            >
               <Image
                 src={SITE.sealImage}
-                alt={`${SITE.name} seal`}
+                alt=""
                 width={40}
                 height={40}
-                className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/20"
+                className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/20 transition-shadow duration-(--duration-quick) group-hover:ring-brand-400/60"
               />
               {expanded ? (
                 <div className="min-w-0 flex-1">
-                  <h2 className="truncate font-display text-base font-semibold leading-tight tracking-tight text-white">
+                  <h2 className="truncate font-display text-base font-semibold leading-tight tracking-tight text-white transition-colors duration-(--duration-quick) group-hover:text-brand-400">
                     Barangay Portal
                   </h2>
                   <p className="mt-0.5 truncate text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-brand-400">
@@ -193,7 +201,7 @@ export function AdminSidebar({
                   </p>
                 </div>
               ) : null}
-            </div>
+            </Link>
 
             <LayoutGroup id={layoutGroup}>
               <nav className="relative flex flex-1 flex-col gap-6 px-4 pt-1">

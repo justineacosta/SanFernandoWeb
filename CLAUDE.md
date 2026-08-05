@@ -149,7 +149,13 @@ the fixed one, for any new test that looks its own row up twice.
   shell over the form action + draft clear — no visual opinion of its own — rendered from a
   footer pinned below the scrolling nav in both `AdminSidebar` (still inside the peek
   trigger, so hovering it collapsed reveals the label like any other row) and
-  `AdminMobileNav`'s menu card. `AdminTopBar` no longer renders it.
+  `AdminMobileNav`'s menu card. `AdminTopBar` no longer renders it. **The rail's brand
+  header (seal + "Barangay Portal / San Fernando") is a `Link` to `/`** (2026-08-05, on
+  request) — the whole block, seal included, so the collapsed rail keeps the same target
+  when the seal is all that renders; its padding, gap and sizes are unchanged from the
+  `div` it replaced, since the "nothing in the rail may move between the two states" rule
+  applies to it like every row below it. The seal's `alt` is now `""`: the link carries
+  the accessible name, and an alt there would have appended a second one.
 - **Admin table standards** (sub-project 5, 2026-07-22) are shared primitives, not per-manager
   code: `RowActions` (the row kebab — Edit / Publish / Archive / Delete; portals to
   `document.body` because every admin table sits in `overflow-x-auto`), `ConfirmDialog`
@@ -583,11 +589,25 @@ the fixed one, for any new test that looks its own row up twice.
   overflowing side with no way to scroll back to it, while margin-auto degrades to
   top-aligned-and-scrollable; the outer `<main>` and the desktop split container use
   `min-h-screen`, not a hard `h-screen`, so a short viewport grows the page instead of clipping
-  the brand panel's feature list. **Both trees' backgrounds are the same photo**
+  the brand panel's feature list. **Both trees share ONE background photo**
   (`src/images/loginpageImage/TrickOrTreat.jpg`, a barangay community event), rendered
   `scale-105 object-cover blur-[2px]` under a flat `bg-ink-950/70` scrim for text legibility —
   the desktop brand panel keeps its dot-grid/blur-glow/watermark-seal decoration layered on
-  top of that scrim, unchanged from the plain-`bg-ink-950` version. **The mobile card is no
+  top of that scrim, unchanged from the plain-`bg-ink-950` version. **That photo is a single
+  `absolute inset-0 md:w-[55%]` layer in `<main>`, not one `<Image>` per tree** (changed
+  2026-08-05; it shipped as a copy inside each). Because both trees are always mounted and
+  hidden with `display:none`, a per-tree copy left a permanently hidden `<Image>` on every
+  render: a second download of the same photo, and — since `next/image`'s dev check measures
+  that hidden copy at 0px wide — a permanent false `has "fill" prop and "sizes" prop of
+  "100vw", but image is not rendered at full viewport width` console warning that no honest
+  `sizes` value on the mobile copy could remove (`1px` at md+ silences it but buys an unused
+  preload of a smaller variant instead). The layer's `md:w-[55%]`, the brand panel's own
+  `w-[55%]`, and the `sizes="(min-width: 768px) 55vw, 100vw"` are one measurement written
+  three times — move them together. Both containers dropped their own `bg-ink-950` and scrim,
+  which the layer now carries. One pre-existing dev warning is untouched and expected: Next's
+  preload picks a narrower variant (`w=828` at 1440px) than the browser's srcset pick
+  (`w=1920`), so Chrome reports that preload "not used" — present identically before this
+  change, at both widths. **The mobile card is no
   longer visually frozen** (a prior version of this bullet claimed it was) — it now carries the
   same photo/scrim treatment and its own "Home" link (top-left, in-flow, abbreviated — the
   desktop panel's equivalent reads "Back to home", bottom-left, absolutely positioned); both
