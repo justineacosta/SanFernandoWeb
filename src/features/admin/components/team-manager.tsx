@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Drawer } from "@/components/ui/drawer";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { PasswordInput } from "@/components/ui/password-input";
+import { PasswordStrength } from "@/components/ui/password-strength";
 import { RowActions, type RowAction } from "@/components/ui/row-actions";
 import { SortableTh } from "@/components/ui/sortable-th";
 import { Toast } from "@/components/ui/toast";
@@ -96,6 +98,8 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [statusLabel, setStatusLabel] = useState<StaffStatusLabel>("staff");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [permissions, setPermissions] = useState<Permission[]>(STATUS_PRESETS.staff);
@@ -108,6 +112,8 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
     setLastName("");
     setPhone("");
     setEmail("");
+    setPassword("");
+    setConfirmPassword("");
     setStatusLabel("staff");
     setIsSuperAdmin(false);
     setPermissions(STATUS_PRESETS.staff);
@@ -121,6 +127,8 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
     setLastName(user.lastName);
     setPhone(user.phone ?? "");
     setEmail(user.email);
+    setPassword("");
+    setConfirmPassword("");
     setStatusLabel(user.statusLabel);
     setIsSuperAdmin(user.isSuperAdmin);
     setPermissions(user.permissions);
@@ -143,6 +151,10 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
   }
 
   function submit() {
+    if (drawer?.mode !== "edit" && password !== confirmPassword) {
+      setFormError("Passwords do not match.");
+      return;
+    }
     startTransition(async () => {
       try {
         const editingOther = drawer?.mode === "edit" && drawer.user && drawer.user.id !== currentUser.id;
@@ -164,6 +176,7 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
                 lastName,
                 phone,
                 email,
+                password,
                 statusLabel,
                 permissions,
                 isSuperAdmin,
@@ -502,6 +515,33 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
                 </span>
               ) : null}
             </label>
+
+            {drawer?.mode === "create" ? (
+              <>
+                <label className="text-sm font-semibold text-ink-700">
+                  Password (min 10 characters)
+                  <PasswordInput
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                    className={`mt-1 ${inputClass}`}
+                  />
+                  <PasswordStrength value={password} />
+                  <span className="mt-1 block text-xs font-normal text-ink-500">
+                    Give this to the new staff member yourself — no email is sent.
+                  </span>
+                </label>
+                <label className="text-sm font-semibold text-ink-700">
+                  Confirm password
+                  <PasswordInput
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    autoComplete="new-password"
+                    className={`mt-1 ${inputClass}`}
+                  />
+                </label>
+              </>
+            ) : null}
 
             <fieldset>
               <legend className="text-sm font-semibold text-ink-700">Status label</legend>

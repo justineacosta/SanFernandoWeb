@@ -18,6 +18,8 @@ export interface TeamUserInput {
   lastName: string;
   phone: string;
   email: string;
+  /** Chosen by the SuperAdmin and handed over out of band — no invite email. */
+  password: string;
   statusLabel: StaffStatusLabel;
   permissions: Permission[];
   isSuperAdmin: boolean;
@@ -29,6 +31,7 @@ const teamUserSchema = z.object({
   lastName: z.string().trim().min(1, "Last name is required."),
   phone: z.string().trim().min(1, "Enter a mobile number.").max(30, "Phone number is too long."),
   email: z.string().email("Enter a valid email."),
+  password: z.string().min(10, "Password needs at least 10 characters."),
   statusLabel: z.enum(["staff", "editor"]),
   permissions: z.array(z.enum(PERMISSIONS)),
   isSuperAdmin: z.boolean(),
@@ -97,11 +100,13 @@ export async function createTeamUser(input: TeamUserInput): Promise<ActionResult
   const admin = createSupabaseAdminClient();
   const fullName = buildFullName(parsed.data.firstName, parsed.data.middleName, parsed.data.lastName);
 
-  // A random, never-surfaced password: the account exists but cannot sign in
-  // until the invite email's link is used to set a real one.
+  // The SuperAdmin's chosen password, handed to the new staff member out of
+  // band. `email_confirm: true` skips Supabase's own address-verification
+  // email, so account creation sends nothing at all; someone who loses this
+  // password recovers through /admin/forgot-password like anyone else.
   const { data, error } = await admin.auth.admin.createUser({
     email: parsed.data.email,
-    password: crypto.randomUUID(),
+    password: parsed.data.password,
     email_confirm: true,
   });
   if (error || !data.user) {
