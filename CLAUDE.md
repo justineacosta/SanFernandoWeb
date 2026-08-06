@@ -408,6 +408,43 @@ the fixed one, for any new test that looks its own row up twice.
   `requirements` through to `ApplicationApprovedEmail`. `closingNote` itself is unchanged
   (the "bring a valid ID" line is a blanket rule, not itself a per-service requirement — the
   seed data in `src/features/services/data.ts` doesn't uniformly list ID as a requirement).
+  **Reversed 2026-08-06 — every staff-directed email is gone; read the two paragraphs above
+  as history, not as current behaviour.** On the project owner's explicit request (design:
+  `docs/superpowers/specs/2026-08-06-superadmin-password-and-staff-email-removal-design.md`)
+  the three sends that notified *staff* rather than residents were deleted along with their
+  templates: `InquiryStaffNotifyEmail` (from `submitInquiry`, `src/features/contact/
+  actions.ts`), `FeedbackStaffNotifyEmail` (from `submitFeedback`, `src/features/feedback/
+  actions.ts`), and `TicketReplyStaffNotifyEmail` (from `submitTicketReply`,
+  `src/features/track/actions.ts`). **Four claims above are now false and are corrected
+  here rather than deleted:** (1) `staffEmailsFor()` — and its `staffQualifies()` helper —
+  no longer exist; `src/lib/notifications.ts` no longer imports
+  `createSupabaseAdminClient` and is now **pure functions over a static registry with no
+  database access at all**, which is worth knowing before adding anything to it. (2)
+  `submitInquiry` sends only the resident acknowledgment, so the `Promise.all` that ran the
+  ack and the recipient lookup concurrently collapsed back to a single `await
+  sendEmail(...)`, and the `replyTo: parsed.data.email` went with it — it was a field on the
+  *staff* notification, so there is no longer any email for "hit Reply to reach the
+  resident" to apply to. (3) `submitFeedback` now emails **nobody**; feedback's anonymity
+  meant it never had a resident-facing send, so that action's entire email path is gone.
+  (4) `tests/unit/notifications.test.ts` still exists and is still the file that stops
+  `NOTIFICATION_QUEUES` and `search-modules.ts` drifting apart — but it no longer covers
+  `staffEmailsFor`, so Plan 1's "already built and unit-tested it ahead of schedule" now
+  describes a test that was removed with the function. `REPLY_KINDS` in `track/actions.ts`
+  narrowed to `Record<TicketKind, { table: string }>` in the same pass: its `permission`,
+  `label` and `path` fields existed only to address and link that staff email.
+  **Everything resident-facing is untouched** — the four ticket submission receipts,
+  `InquiryAcknowledgedEmail`, the eight terminal-decision notices, `TicketUpdateEmail`, and
+  `PasswordResetEmail` all still send exactly as described above, and `src/lib/email.ts`'s
+  fail-open contract, `EmailLayout`, `TicketNotice` and `EMAIL_SITE_URL` are unchanged.
+  **The consequence is deliberate, not an oversight, and it is the thing to remember:**
+  staff now learn of a new inquiry, new feedback, or a resident reply **only** from the
+  in-portal bell and the sidebar count badges — the existing 60-second poll. Nobody is
+  emailed when work arrives. `NOTIFICATION_QUEUES` and the whole in-portal notification
+  system are unchanged and are now the single channel, so a regression in that poll is no
+  longer a degraded signal but the total loss of one. Don't "restore" a staff notification
+  email as a fix for a missed queue; it was removed on purpose. §2D's Plan 3 (delivery
+  monitoring — `email_log` + the Resend webhook) is still the only piece of the original
+  design open, and now has three fewer send paths to monitor.
 - **Progressive ticket timeline, `awaiting-info`, and resident replies, 2026-08-02**
   (`docs/superpowers/specs/2026-08-02-ticket-timeline-updates-design.md`, migration `0032`).
   All four ticketing flows (`applications`/`appointments`/`complaints`/`assistance_requests`)
@@ -437,10 +474,17 @@ the fixed one, for any new test that looks its own row up twice.
   naming the staff member who handled a complaint to the reporter invites pressure on that
   person. `replied_at` (one column added to all four ticket tables) exists because a
   resident's reply flips a ticket from `awaiting-info` back to `under-review` — correctly NOT
-  "untouched work" by the existing `NOTIFICATION_QUEUES` status match — so without it staff
-  would learn about a reply only from an email, the channel most likely to be missed; it
-  clears whenever staff next post an update and renders as a "New reply" pill beside the
-  status chip. **`notified_at` is the log's other stamp, and it is not automatic** — nothing
+  "untouched work" by the existing `NOTIFICATION_QUEUES` status match — so without it a reply
+  raises no in-portal signal at all; it clears whenever staff next post an update and renders
+  as a "New reply" pill beside the status chip. **Strengthened 2026-08-06:** this column
+  originally shipped with the weaker justification that staff would otherwise learn of a reply
+  "only from an email, the channel most likely to be missed". That email —
+  `TicketReplyStaffNotifyEmail`, sent from `submitTicketReply` — was **removed** on request
+  (see the Resend bullet's "Reversed 2026-08-06" paragraph), so there is no second channel to
+  be redundant with: `replied_at` and the pill it drives are now the **only** way staff find
+  out a resident answered. Treat it as load-bearing rather than as a convenience — dropping
+  the `replied_at` write, or filtering it out of the queue query, silently strands every
+  awaiting-info ticket whose resident already responded, with nothing anywhere to notice. **`notified_at` is the log's other stamp, and it is not automatic** — nothing
   in `recordTicketUpdate` writes it, so every caller that emails the resident must call
   `markTicketUpdateNotified(entryId)` itself, immediately after its own `sendEmail`, **inside
   the same `if (email)` guard**. It shipped 2026-08-02 with exactly one such call
@@ -452,8 +496,11 @@ the fixed one, for any new test that looks its own row up twice.
   them again by hand. Three deliberate non-callers, all for the same reason — no resident
   email was attempted: `releaseApplication` and `completeAppointment` (non-terminal
   transitions the email design excludes on purpose), and `submitTicketReply`'s own
-  resident-reply entry (that one emails **staff**; a chip there would read as the barangay
-  having already answered). Guard on the id (`if (entryId)`) at every call site —
+  resident-reply entry — which until 2026-08-06 emailed **staff** (a chip there would have
+  read as the barangay having already answered), and now **emails nobody at all**, so the
+  reason it skips `markTicketUpdateNotified` collapses into the same one the other two have:
+  no resident email is attempted, so there is nothing for an "Email attempted" chip to
+  record. Guard on the id (`if (entryId)`) at every call site —
   `recordTicketUpdate` is fire-and-forget and returns null on failure, and a log write must
   never turn a committed decision into a failed action. `postTicketUpdate`
   (`src/features/admin/actions/ticket-updates.ts`) **never
@@ -802,19 +849,40 @@ the fixed one, for any new test that looks its own row up twice.
   `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD` (both pages are public) — the full emailed-link round
   trip isn't automatable without a live inbox, same limitation the Resend integration design
   already documented.
-- **Admin account creation is invite-based, not password-based, 2026-08-01**
-  (`docs/superpowers/specs/2026-08-01-admin-account-invite-design.md`). `createTeamUser`
-  (`/admin/users`, SuperAdmin-only) no longer accepts a password — it creates the Supabase
-  Auth user with an unguessable `crypto.randomUUID()` password (so the account exists,
-  and the credential is valid, but nobody — including the SuperAdmin who created it —
-  knows it), inserts the `profiles` row, then reuses the forgot-password flow's exact
-  mechanism (see the bullet above) to email a "set your password" link:
-  `generateLink({type: "recovery"})` → this app's own
-  `/admin/reset-password?token_hash=...` URL → the unchanged `resetPassword` Server Action
-  redeems it via `verifyOtp`. The shared helper, `sendAccountInvite` (same file,
-  `src/features/admin/actions/users.ts`), is called both from `createTeamUser` and from the
-  new `resendTeamUserInvite` action — SuperAdmin-only, unrate-limited, the same trust level
-  as every other row action in `TeamManager`, not a public form. `profiles` gained
+- **Admin account creation is password-based: the SuperAdmin types the new staff member's
+  password, 2026-08-06** (`docs/superpowers/specs/2026-08-06-superadmin-password-and-staff-
+  email-removal-design.md`). **This reverses the invite-based design of 2026-08-01**
+  (`docs/superpowers/specs/2026-08-01-admin-account-invite-design.md`), on the project
+  owner's explicit request, and that spec is now a historical record like every other dated
+  file in `specs/` — don't implement from it. **What it used to do, so the reversal reads
+  clearly:** `createTeamUser` accepted no password, created the Supabase Auth user with an
+  unguessable `crypto.randomUUID()` credential nobody knew, and then emailed a "set your
+  password" link built from `generateLink({type: "recovery"})` → this app's own
+  `/admin/reset-password?token_hash=...` URL → `resetPassword`'s `verifyOtp` redemption; a
+  `sendAccountInvite` helper served both that call and a `resendTeamUserInvite` row action,
+  and an "Invite pending" badge (inferred from `auth.users.last_sign_in_at is null`) gated
+  the resend. **What it does now:** `createTeamUser` (`/admin/users`, SuperAdmin-only)
+  takes a `password` on `TeamUserInput`, validated `.min(10)` with the message `"Password
+  needs at least 10 characters."` — chosen to match the floor `resetPassword` and
+  `changeMyPassword` already enforce, so all three doors into a password agree rather than
+  each carrying its own number. The create drawer gained Password + Confirm password fields
+  (`PasswordInput` + `PasswordStrength`) in **create mode only**; edit mode still cannot set
+  another user's password, which is unchanged. The confirm field is a client-side typo guard
+  and nothing more — the server keeps only `.min(10)`, so don't go looking for a matching
+  server-side confirm check. `email_confirm: true` on the admin create call is unchanged and
+  is what suppresses Supabase's own address-verification mail, so **account creation now
+  sends no email whatsoever**; the credential travels out of band, SuperAdmin to staff
+  member. **Deleted with the reversal:** `sendAccountInvite`, `resendTeamUserInvite`, the
+  `AccountInviteEmail` template, the "Resend invite" row action, the "Invite pending" badge,
+  `TeamUser.invitePending`, and `invitePendingFlags()` — the last of which removes the N+1
+  `auth.admin.getUserById` per roster row that the 2026-08-01 bullet had explicitly accepted
+  as fine because rosters are small; `/admin/users` now renders from one query.
+  `tests/e2e/admin/users.spec.ts` was rewritten for this design (it had been written for the
+  invite one). **Recovery is unchanged and is the answer to "what if the password is lost or
+  mistyped":** `/admin/forgot-password`. The entire recovery-link mechanism —
+  `generateLink` → `/admin/reset-password?token_hash=…` → `verifyOtp`, with every subtlety
+  the self-service reset bullet above documents — **survives untouched**; only its
+  account-invite consumer went away, so nothing in that bullet needs re-reading. `profiles` gained
   `first_name`/`middle_name`/`last_name` (migration `0031`) alongside the unchanged
   `full_name`, which the new `buildFullName()` helper
   (`src/features/admin/lib/build-full-name.ts`) keeps in sync on every SuperAdmin-driven
@@ -823,10 +891,8 @@ the fixed one, for any new test that looks its own row up twice.
   split columns out of sync with it (accepted, see the spec's "Accepted drift" section).
   `profiles.phone` (already existed, migration `0003`) is now also captured at
   account-creation time and editable by a SuperAdmin for someone else's account, gated the
-  same "only when editing someone else" way the email field already was. "Invite pending" —
-  inferred from `auth.users.last_sign_in_at is null`, no new column, an N+1 `getUserById`
-  per row accepted because team rosters are small — shows as a badge in `TeamManager` and
-  gates the "Resend invite" row action. **Deploy order matters**: apply migration `0031`
+  same "only when editing someone else" way the email field already was. **Deploy order
+  matters**: apply migration `0031`
   before this code reaches an environment — `listTeamUsers`/`listArchivedTeamUsers` select
   the new name columns, and a missing-column error there is caught and logged, not thrown,
   so a skipped migration doesn't fail loud: `/admin/users` silently renders an empty roster
@@ -883,7 +949,11 @@ the fixed one, for any new test that looks its own row up twice.
   background tab hitting this branch after the real user already re-authenticated elsewhere
   would file a second, harmless "signed out for inactivity" row; not deduplicated, since two
   rows both being true costs less than the query needed to suppress one.
-- **Request notifications are two signals, not one.** The five `requests` nav rows (six queues —
+- **Request notifications are two signals, not one — and since 2026-08-06 they are the *only*
+  signal.** The three staff-directed notification emails were removed that day (see the Resend
+  bullet's "Reversed 2026-08-06" paragraph), so nothing outside this poll tells anyone that work
+  arrived. The mechanism below is unchanged; its stakes are not. The five `requests` nav rows
+  (six queues —
   Inquiries & Feedback sums two) get a count badge for unhandled work (rows still in their
   initial status — `pending`, `received`, or `new`, depending on the table) and the top bar's
   bell gets a dot for "something arrived since you last looked." The count only moves on a status
@@ -1420,6 +1490,42 @@ the fixed one, for any new test that looks its own row up twice.
   Calendar"/"View All Events" links now point at `/events`. `src/features/admin/actions/events.ts`'s
   shared `revalidate()` helper calls `revalidatePath("/events")` alongside `/admin/events`
   and `/` — every event action routes through it.
+- **The Home and Transparency heroes share one full-bleed photo-background treatment**
+  (2026-08-06, on request — transparency first, home matched to it in the same session).
+  `TransparencyHero` replaced an `lh3`-hotlinked stock image in a right-hand column with a
+  real barangay-office photo (staff reviewing records, bundled — see the "Placeholder
+  reality" bullet's static-import list) rendered `fill` in a `-z-10` layer spanning the whole
+  section, and its copy widened to a single `max-w-2xl` block. `HomeHero`'s `HeroCarousel`
+  already sat behind its copy but was scoped to a `Container`-width card with an all-edge
+  `mask-image`; it now renders as a direct child of the `<section>`, full-bleed, and the card
+  padding (`p-6 sm:p-10 lg:p-14`) came off the copy grid so the text starts at the Container
+  gutter like transparency's. **Both stay on the light theme** — `text-ink-900`/`text-ink-600`
+  type, `variant="soft"` badge, default amber button — because the photo carries a white wash
+  rather than the dark scrim `AuthLayout` uses. **That wash is one formula written in two
+  files and they are meant to stay identical:** a flat `bg-white/82` below `md`, a
+  left-weighted `from-white/88 (20%) → via-white/72 (55%) → to-white/20` gradient at `md`+ so
+  the copy sits under the heavy end while the photo reads through on the right, plus two 28px
+  `inset-x-0` top/bottom fades to solid white. Those numbers were lowered from
+  `/90` and `/95 → /88 → /45` on request the same day ("less white'ish") — the photos now
+  read clearly rather than sitting behind a veil, so **this is near the legibility floor for
+  `text-ink-600` body copy, not a starting point to keep cutting from**. The mobile veil is
+  deliberately ~10 points heavier than the desktop gradient's midpoint: below `md` there is
+  no gradient, so the entire copy block — body copy included — sits over whatever the photo
+  happens to be doing there, which is the worst case in the whole layout. Those fades are what a full-bleed hero needs
+  and a `PageHero` doesn't: there is no page background left showing at the boundaries, so
+  without them the floating header and the next section butt against a hard photo edge. Both
+  heroes dropped the `grid-bg` texture and `bg-radial-fade` glow every other page hero
+  layers — invisible under a photo, and only noise once washed. Three things not to undo:
+  (1) **`HeroCarousel` is not `-z-10`** (transparency's static layer is) — its dots and
+  hover-pause need pointer events, which is the standing reason `HomeHero`'s copy wrapper is
+  `pointer-events-none` with only its text column `pointer-events-auto`; (2) the dots moved
+  into their own `Container` with a `-ml-1.5` cancelling the buttons' padding, so they line
+  up with the copy's left edge instead of the viewport's, and the copy grid keeps its
+  `pb-20 sm:pb-24` purely as their clearance; (3) `sizes` went from
+  `(min-width: 1280px) 1200px, 100vw` to a plain `100vw`, since the 1200px was describing the
+  card width that no longer exists. Legibility depends on the gradient's stops matching the
+  copy column's width — move them together, and re-check at 1440px and 390px, the two widths
+  both heroes were measured at.
 - Placeholder reality: transparency documents now serve **real** Supabase-hosted PDFs/images,
   so the old `"#"` download stubs are gone; Contact's "Get Directions" now links to the
   barangay hall's real Google Earth location (the dead FOI Guide and More Statistics CTAs
@@ -1442,9 +1548,12 @@ the fixed one, for any new test that looks its own row up twice.
   the About history images moved to `public-media/site/` in sub-project 9 (`0021`); like
   `src/images/officials/`, the files in `src/images/carousel/` now stay in the repo only as the
   source for `scripts/upload-site-images.mjs`, not as an app dependency. The remaining bundled
-  static imports are the barangay seal (`src/images/logo/`, `SITE.sealImage`) and the barangay
-  map (`src/images/map/san-fernando-map.png`, `MAP_IMAGE` on the contact page) — the map is
-  bundled deliberately: one file, no admin surface, changes only when the boundary does.
+  static imports are the barangay seal (`src/images/logo/`, `SITE.sealImage`), the barangay
+  map (`src/images/map/san-fernando-map.png`, `MAP_IMAGE` on the contact page), the admin
+  login photo (`src/images/loginpageImage/TrickOrTreat.jpg`) and, since 2026-08-06, the
+  transparency hero photo (`src/images/transparencyimage/transparencyImage.png`) — all four
+  bundled deliberately, on the same reasoning: one file each, no admin surface, changing only
+  when the thing they depict does.
   The other 11 officials' portraits live in Supabase Storage (`public-media/officials/`,
   migration `0012`); `src/images/officials/` is likewise script source only. The **Punong
   Barangay's** portrait is still a bundled static import, but only as the *fallback* in the
