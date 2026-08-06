@@ -809,8 +809,10 @@
 > **Still open:** inquiries are not in the global admin search (`search_admin_global` is a
 > Postgres function — another migration). Email was open when this entry was written;
 > §2D's Plan 1 (2026-07-30) closed it for this queue specifically — `submitInquiry` now
-> sends the resident an acknowledgment and every `handle-inquiries` holder a staff
-> notification, `replyTo`-wired back to the resident. See item A below.
+> sends the resident an acknowledgment. ~~It also sent every `handle-inquiries` holder a
+> staff notification, `replyTo`-wired back to the resident.~~ **REMOVED 2026-08-06** — no
+> staff email is sent for an inquiry any more; the bell and count badge are the only signal.
+> See item A below.
 
 > **Sub-project 6 shipped 2026-07-22 — archive & restore.** Spec:
 > `docs/superpowers/specs/2026-07-22-archive-restore-design.md`. **Migration `0020`**
@@ -1206,13 +1208,20 @@ above and spec §8.
 
 **Still needed**: ~~the email half~~ **BUILT 2026-07-30** (§2D Plan 1,
 `docs/superpowers/specs/2026-07-30-resend-email-integration-design.md`). `submitInquiry`
-now sends the resident an acknowledgment (`InquiryAcknowledgedEmail`) and every
-`handle-inquiries` holder a staff notification (`InquiryStaffNotifyEmail`, `replyTo` set to
-the resident's own address so hitting Reply reaches them, not the notifications inbox) —
-this is what makes the form's "within 24-48 business hours" promise real. Both sends are
-best-effort: `sendEmail()`/`staffEmailsFor()` fail open by construction (`src/lib/email.ts`,
-`src/lib/notifications.ts`), so an email outage never turns into a failed submission. §2D's
-Plan 2 (feedback's staff alert, the four ticketing flows' own receipts and status notices —
+sends the resident an acknowledgment (`InquiryAcknowledgedEmail`) — this is what makes the
+form's "within 24-48 business hours" promise real. The send is best-effort: `sendEmail()`
+fails open by construction (`src/lib/email.ts`), so an email outage never turns into a failed
+submission. ~~It also emails every `handle-inquiries` holder a staff notification
+(`InquiryStaffNotifyEmail`, `replyTo` set to the resident's own address so hitting Reply
+reaches them, not the notifications inbox), resolved through
+`staffEmailsFor()` (`src/lib/notifications.ts`).~~ **REMOVED 2026-08-06** on the project
+owner's request (`docs/superpowers/specs/2026-08-06-superadmin-password-and-staff-email-
+removal-design.md`): that staff notification, its template, `replyTo`, and
+`staffEmailsFor()`/`staffQualifies()` are all deleted — `src/lib/notifications.ts` is now
+pure functions over a static registry with no database access at all. **Staff learn a new
+inquiry arrived only from the in-portal bell and the sidebar count badge** (the existing
+60-second poll over `NOTIFICATION_QUEUES`, unchanged); nothing emails them. §2D's
+Plan 2 (~~feedback's staff alert~~, the four ticketing flows' own receipts and status notices —
 `docs/superpowers/plans/2026-07-30-resend-email-remaining-triggers.md`) shipped 2026-07-30
 too. Only Plan 3 (delivery monitoring) remains open.
 
@@ -1244,11 +1253,14 @@ mints ten-minute signed URLs in one batch per page load. This is the only privat
 project, because a screenshot can contain the sender's own account page or ticket.
 
 **Still needed**:
-- ~~**Staff notification on arrival.**~~ **BUILT 2026-07-30** (§2D Plan 2,
-  `docs/superpowers/plans/2026-07-30-resend-email-remaining-triggers.md`). `submitFeedback`
-  now emails every `handle-inquiries` holder via `FeedbackStaffNotifyEmail`, reusing
-  `staffEmailsFor()` from item A above. Still no resident-facing email — feedback stays
-  anonymous by design.
+- **Staff notification on arrival — deliberately none.** ~~Built 2026-07-30 (§2D Plan 2):
+  `submitFeedback` emailed every `handle-inquiries` holder via `FeedbackStaffNotifyEmail`,
+  reusing `staffEmailsFor()` from item A above.~~ **REMOVED 2026-08-06** on the project
+  owner's request, with the same design doc as item A. `submitFeedback` now emails **nobody**
+  — it never had a resident-facing send (feedback stays anonymous by design), so its entire
+  email path is gone. Staff see new feedback only in the Feedback tab's count badge and the
+  bell. Treat this as settled, not as a gap to close: re-adding a staff alert here reverses an
+  explicit decision.
 - **Spam housekeeping.** The endpoint is anonymous and accepts images. `deleteFeedback` is
   SuperAdmin-only and reachable only from a `dismissed` row, and it removes the screenshot —
   but nothing prunes automatically, so a flood needs a human. `scripts/report-orphaned-media.mjs`
@@ -1345,8 +1357,16 @@ The admin **UI now exists in full** (`/admin` redirects to the first module the 
    see CLAUDE.md's "Progressive ticket timeline" bullet). Staff can post a resident-visible
    update or an information request to any of the four queues without it being a terminal
    decision; `postTicketUpdate` sends `TicketUpdateEmail` when the resident has an email and
-   the "Email the resident" toggle is on, and a resident's `/track` reply back emails every
-   holder of that queue's permission via `TicketReplyStaffNotifyEmail`. This was the one gap
+   the "Email the resident" toggle is on. ~~A resident's `/track` reply back emailed every
+   holder of that queue's permission via `TicketReplyStaffNotifyEmail`.~~ **REMOVED
+   2026-08-06** on the project owner's request (same design doc as item A above):
+   `submitTicketReply` now emails nobody, and `REPLY_KINDS` in
+   `src/features/track/actions.ts` narrowed to `Record<TicketKind, { table: string }>` because
+   its `permission`/`label`/`path` fields existed only to address and link that email. **Staff
+   learn a resident replied only from the `replied_at` column and the "New reply" pill it
+   drives in the queue table** — a reply flips the ticket to `under-review`, which the
+   notification registry correctly does not count as untouched work, so that pill is now the
+   only signal there is. Everything resident-facing above is untouched. This was the one gap
    Plan 2 left: it fired only on submission and the 8 terminal transitions, never on anything
    in between, because there was no mid-flow event in the data model to email about until this
    feature added `ticket_updates` and `awaiting-info`. The remaining open piece of the
@@ -1625,9 +1645,15 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
     a build already happened requires a rebuild, not just a redeploy/restart, or the server
     will enforce verification against a page that never rendered a challenge.
 18. **Migration `0031` (`first_name`/`middle_name`/`last_name` on `profiles`, added by the
-    2026-08-01 admin-account-invite feature) must be applied before this feature's code
-    deploys** — see CLAUDE.md's "Admin account creation is invite-based" bullet for the
-    silent-failure mode if it's skipped. Confirmed applied to the Supabase project this
+    2026-08-01 admin-account feature — then still invite-based) must be applied before this
+    feature's code deploys** — see CLAUDE.md's "Admin account creation is password-based: the
+    SuperAdmin types the new staff member's password" bullet for the silent-failure mode if
+    it's skipped. **This requirement is unchanged by the 2026-08-06 reversal**, which removed
+    the invite emails but not the split name columns: `listTeamUsers`/`listArchivedTeamUsers`
+    still select all three, and `createTeamUser`/`updateTeamUser` still write them via
+    `buildFullName()`, so a skipped `0031` still silently yields an empty roster (the query's
+    error is caught and `console.error`'d, not thrown) and a create that fails with "Could not
+    save the profile. The account was not created." Confirmed applied to the Supabase project this
     repo's `.env.local` points at as of 2026-08-02 (confirmed by Justine); status on any
     other environment (e.g. production, if different) has not been separately confirmed —
     verify before deploying this branch there, per this repo's standing "never assume a
