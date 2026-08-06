@@ -7,9 +7,6 @@ import { NOT_FOUND, checkSuperAdmin } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildFullName } from "@/features/admin/lib/build-full-name";
-import { sendEmail } from "@/lib/email";
-import { EMAIL_SITE_URL } from "@/emails/site-url";
-import { AccountInviteEmail } from "@/emails/AccountInviteEmail";
 
 export interface ActionResult {
   error: string | null;
@@ -89,34 +86,6 @@ async function wouldOrphanSuperAdmin(id: string): Promise<boolean> {
   return (await activeSuperAdminCount()) <= 1;
 }
 
-/**
- * Emails a "set your password" link using the exact mechanism
- * requestPasswordReset/resetPassword already built (src/features/admin/
- * actions/auth.ts): generateLink({type: "recovery"}) returns a hashed_token,
- * this app builds its own /admin/reset-password URL from it (never Supabase's
- * action_link), and the unchanged resetPassword action redeems it via
- * verifyOtp. Fails open, same as every sendEmail() call site in this app — an
- * email failure must never undo the account this is called after creating.
- */
-async function sendAccountInvite(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-  user: { email: string; fullName: string },
-): Promise<void> {
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "recovery",
-    email: user.email,
-  });
-  if (error || !data) return;
-  const setPasswordUrl = `${EMAIL_SITE_URL}/admin/reset-password?token_hash=${encodeURIComponent(
-    data.properties.hashed_token,
-  )}`;
-  await sendEmail({
-    to: user.email,
-    subject: "Welcome to the Barangay San Fernando admin portal",
-    template: AccountInviteEmail({ fullName: user.fullName, setPasswordUrl }),
-  });
-}
-
 export async function createTeamUser(input: TeamUserInput): Promise<ActionResult> {
   const actor = await checkSuperAdmin();
   if (!actor) return { error: NOT_FOUND };
@@ -156,41 +125,12 @@ export async function createTeamUser(input: TeamUserInput): Promise<ActionResult
     return { error: "Could not save the profile. The account was not created." };
   }
 
-  await sendAccountInvite(admin, { email: parsed.data.email, fullName });
-
   await recordActivity(actor, {
     type: "create",
     action: "created user",
     entityType: "team-user",
     entityId: data.user.id,
     entityLabel: fullName,
-  });
-  revalidatePath("/admin/users");
-  return { error: null };
-}
-
-/** SuperAdmin-only, unrate-limited: same trust level as every other row action in TeamManager. */
-export async function resendTeamUserInvite(id: string): Promise<ActionResult> {
-  const actor = await checkSuperAdmin();
-  if (!actor) return { error: NOT_FOUND };
-
-  const admin = createSupabaseAdminClient();
-  const { data: target } = await admin
-    .from("profiles")
-    .select("email, full_name, is_archived")
-    .eq("id", id)
-    .maybeSingle();
-  if (!target) return { error: "That account no longer exists." };
-  if (target.is_archived) return { error: "Restore this account before resending an invite." };
-
-  await sendAccountInvite(admin, { email: target.email, fullName: target.full_name });
-
-  await recordActivity(actor, {
-    type: "update",
-    action: "resent account invite",
-    entityType: "team-user",
-    entityId: id,
-    entityLabel: target.full_name,
   });
   revalidatePath("/admin/users");
   return { error: null };
