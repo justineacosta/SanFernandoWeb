@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Archive, RotateCcw, Trash2, Pencil, UserCheck, UserX, Mail } from "lucide-react";
+import { Plus, Archive, RotateCcw, Trash2, Pencil, UserCheck, UserX } from "lucide-react";
 import type { Permission, SessionUser, StaffStatusLabel, TeamUser } from "@/types";
 import { PERMISSION_GROUPS, PERMISSION_LABELS, STATUS_PRESETS } from "@/constants/permissions";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -22,7 +21,6 @@ import {
   archiveTeamUser,
   createTeamUser,
   deleteTeamUser,
-  resendTeamUserInvite,
   restoreTeamUser,
   setTeamUserActive,
   updateTeamUser,
@@ -243,10 +241,6 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
     );
   }
 
-  function resendInvite(user: TeamUser) {
-    runRowAction(() => resendTeamUserInvite(user.id), `Invite resent to ${user.fullName}.`);
-  }
-
   function actionsFor(member: TeamUser): RowAction[] {
     // Nobody may disable, archive, or delete their own account — that is the
     // one mistake with no way back into the portal.
@@ -272,16 +266,6 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
 
     return [
       { label: "Edit user", icon: Pencil, onSelect: () => openEdit(member) },
-      ...(member.invitePending
-        ? [
-            {
-              label: "Resend invite",
-              icon: Mail,
-              disabled: isPending,
-              onSelect: () => resendInvite(member),
-            },
-          ]
-        : []),
       {
         label: member.isActive ? "Disable sign-in" : "Enable sign-in",
         icon: member.isActive ? UserX : UserCheck,
@@ -424,11 +408,6 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
                               <span className="ml-2 text-xs font-medium text-brand-600">
                                 (you)
                               </span>
-                            ) : null}
-                            {member.invitePending ? (
-                              <Badge variant="soft" className="ml-2 align-middle">
-                                Invite pending
-                              </Badge>
                             ) : null}
                           </span>
                         </span>
