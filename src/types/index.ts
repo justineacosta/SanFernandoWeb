@@ -695,8 +695,6 @@ export interface TeamUser extends SessionUser {
   firstName: string;
   middleName: string | null;
   lastName: string;
-  /** True when the account has never signed in — the invite link is unredeemed. */
-  invitePending: boolean;
 }
 
 /**

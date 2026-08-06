@@ -21,7 +21,7 @@ interface ProfileRow {
   avatar_src: string | null;
 }
 
-function toTeamUser(row: ProfileRow, invitePending: boolean): TeamUser {
+function toTeamUser(row: ProfileRow): TeamUser {
   return {
     id: row.id,
     email: row.email,
@@ -37,27 +37,7 @@ function toTeamUser(row: ProfileRow, invitePending: boolean): TeamUser {
     createdAt: row.created_at,
     phone: row.phone,
     avatarSrc: row.avatar_src,
-    invitePending,
   };
-}
-
-/**
- * "Invite pending" is inferred from auth.users.last_sign_in_at being null — no
- * new column. One getUserById call per row (N+1), accepted because team
- * rosters in this app are small (single-digit to low tens of rows); see
- * the 2026-08-01 admin-account-invite design spec.
- */
-async function invitePendingFlags(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-  ids: string[],
-): Promise<Record<string, boolean>> {
-  const entries = await Promise.all(
-    ids.map(async (id) => {
-      const { data } = await admin.auth.admin.getUserById(id);
-      return [id, !data?.user?.last_sign_in_at] as const;
-    }),
-  );
-  return Object.fromEntries(entries);
 }
 
 /**
@@ -79,8 +59,7 @@ export async function listTeamUsers(): Promise<TeamUser[]> {
     if (error) console.error("listTeamUsers failed:", error.message);
     return [];
   }
-  const pending = await invitePendingFlags(admin, data.map((row) => row.id));
-  return data.map((row) => toTeamUser(row, pending[row.id] ?? false));
+  return data.map(toTeamUser);
 }
 
 /**
@@ -99,6 +78,5 @@ export async function listArchivedTeamUsers(): Promise<TeamUser[]> {
     if (error) console.error("listArchivedTeamUsers failed:", error.message);
     return [];
   }
-  const pending = await invitePendingFlags(admin, data.map((row) => row.id));
-  return data.map((row) => toTeamUser(row, pending[row.id] ?? false));
+  return data.map(toTeamUser);
 }
