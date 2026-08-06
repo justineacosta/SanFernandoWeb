@@ -518,19 +518,21 @@ export function TeamManager({ team, archived, currentUser }: TeamManagerProps) {
 
             {drawer?.mode === "create" ? (
               <>
-                <label className="text-sm font-semibold text-ink-700">
-                  Password (min 10 characters)
-                  <PasswordInput
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="new-password"
-                    className={`mt-1 ${inputClass}`}
-                  />
-                  <PasswordStrength value={password} />
+                <div>
+                  <label className="text-sm font-semibold text-ink-700">
+                    Password (min 10 characters)
+                    <PasswordInput
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="new-password"
+                      className={`mt-1 ${inputClass}`}
+                    />
+                    <PasswordStrength value={password} />
+                  </label>
                   <span className="mt-1 block text-xs font-normal text-ink-500">
                     Give this to the new staff member yourself — no email is sent.
                   </span>
-                </label>
+                </div>
                 <label className="text-sm font-semibold text-ink-700">
                   Confirm password
                   <PasswordInput
