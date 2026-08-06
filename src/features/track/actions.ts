@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 import type {
-  Permission,
   TicketAttachment,
   TicketKind,
   TicketLookupResult,
@@ -16,9 +15,6 @@ import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile
 import { canReply, recordTicketUpdate, REPLY_RETURN_STATUS } from "@/lib/ticket-updates";
 import { discardTicketAttachment, uploadTicketAttachment } from "@/lib/media";
 import { MAX_REPLY_FILES } from "@/lib/storage";
-import { sendEmail } from "@/lib/email";
-import { staffEmailsFor } from "@/lib/notifications";
-import { TicketReplyStaffNotifyEmail } from "@/emails/TicketReplyStaffNotifyEmail";
 
 export interface LookupResult {
   error: string | null;
@@ -251,35 +247,16 @@ export interface ReplyResult {
 const REPLY_LIMIT = 5;
 const REPLY_WINDOW_MS = 60 * 60 * 1000;
 
-/** Per-kind table, permission and admin deep link for the staff notification. */
-const REPLY_KINDS: Record<
-  TicketKind,
-  { table: string; permission: Permission; path: string; label: string }
-> = {
-  application: {
-    table: "applications",
-    permission: "process-applications",
-    path: "/admin/applications",
-    label: "certificate application",
-  },
-  appointment: {
-    table: "appointments",
-    permission: "process-appointments",
-    path: "/admin/appointments",
-    label: "appointment request",
-  },
-  complaint: {
-    table: "complaints",
-    permission: "handle-complaints",
-    path: "/admin/complaints",
-    label: "incident report",
-  },
-  assistance: {
-    table: "assistance_requests",
-    permission: "handle-assistance",
-    path: "/admin/assistance",
-    label: "assistance request",
-  },
+/**
+ * Which table each ticket kind's reply updates. `permission`, `label` and
+ * `path` used to live here too; all three existed only to address and link the
+ * staff notification email, removed 2026-08-06.
+ */
+const REPLY_KINDS: Record<TicketKind, { table: string }> = {
+  application: { table: "applications" },
+  appointment: { table: "appointments" },
+  complaint: { table: "complaints" },
+  assistance: { table: "assistance_requests" },
 };
 
 const replySchema = z.object({
@@ -400,32 +377,12 @@ export async function submitTicketReply(form: FormData): Promise<ReplyResult> {
   // Past this point nothing rolls the reply back: the row is the resident's
   // evidence that they answered, and losing it is worse than a status left at
   // awaiting-info that staff can move by hand.
-  const { data: row, error: statusError } = await admin
+  const { error: statusError } = await admin
     .from(def.table)
     .update({ status: REPLY_RETURN_STATUS, replied_at: new Date().toISOString() })
     .eq("ticket_no", view.ticket_no)
-    .eq("status", "awaiting-info")
-    .select("id")
-    .maybeSingle();
+    .eq("status", "awaiting-info");
   if (statusError) console.error("submitTicketReply status update failed:", statusError.message);
-
-  // Sent either way, even if the status update above matched no row (the
-  // ticket moved out of awaiting-info between the gate check and here) — the
-  // reply is the resident's evidence they answered and must not sit unseen.
-  // Fall back to the list page (no ?review=) when there's no row id to link.
-  const staffEmails = await staffEmailsFor(def.permission);
-  if (staffEmails.length > 0) {
-    await sendEmail({
-      to: staffEmails,
-      subject: `Resident reply — ${view.ticket_no}`,
-      template: TicketReplyStaffNotifyEmail({
-        ticketNo: view.ticket_no,
-        kindLabel: def.label,
-        attachmentCount: uploaded.length,
-        adminHref: row ? `${def.path}?review=${row.id}` : def.path,
-      }),
-    });
-  }
 
   // Rebuild the result AFTER the status update, so the resident sees the new
   // status (and the composer disappears, since it is no longer awaiting-info)

@@ -1,6 +1,5 @@
 import type { NavGate } from "@/lib/admin-nav";
 import type { Permission } from "@/types";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
  * The six public-inbox queues that earn a notification badge, and the one
@@ -179,45 +178,4 @@ export function formatRelativeTime(iso: string, now: Date = new Date()): string 
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
-}
-
-/**
- * Whether a staff member qualifies for a permission-gated email. SuperAdmins
- * always qualify, matching every other permission check in this codebase
- * (requirePermission, checkPermission, permittedQueues above).
- */
-export function staffQualifies(
-  profile: { isSuperAdmin: boolean; permissions: Permission[] },
-  permission: Permission,
-): boolean {
-  return profile.isSuperAdmin || profile.permissions.includes(permission);
-}
-
-/**
- * Emails of every active, non-archived staff member who qualifies for
- * `permission` — used by trigger points that email staff on arrival
- * (inquiries, and later feedback/ticketing). Returns an empty array, never
- * throws, if nobody currently holds the permission or the query fails; the
- * caller treats that as "nothing to send," the same "nothing to do" shape
- * as a resident who left their email blank.
- */
-export async function staffEmailsFor(permission: Permission): Promise<string[]> {
-  const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
-    .from("profiles")
-    .select("email, is_superadmin, permissions")
-    .eq("is_active", true)
-    .eq("is_archived", false);
-  if (error || !data) {
-    console.error("staffEmailsFor failed:", error?.message);
-    return [];
-  }
-  return data
-    .filter((row) =>
-      staffQualifies(
-        { isSuperAdmin: row.is_superadmin, permissions: row.permissions as Permission[] },
-        permission,
-      ),
-    )
-    .map((row) => row.email);
 }
