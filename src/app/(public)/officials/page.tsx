@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { BrandStroke } from "@/components/ui/brand-stroke";
-import { PageHero } from "@/components/sections/page-hero";
-import { ActionCenterBanner, LeadershipDirectory } from "@/features/officials";
+import { ActionCenterBanner, LeadershipDirectory, OfficialsHero } from "@/features/officials";
 
 export const metadata: Metadata = {
   title: "Barangay Officials",
@@ -12,11 +10,7 @@ export const metadata: Metadata = {
 export default function OfficialsPage() {
   return (
     <>
-      <PageHero
-        align="center"
-        title={<>Barangay <BrandStroke>Officials</BrandStroke></>}
-        description={`Meet the dedicated leaders of Barangay San Fernando serving the community with transparency, integrity, and excellence.`}
-      />
+      <OfficialsHero />
       <LeadershipDirectory />
       <ActionCenterBanner />
     </>

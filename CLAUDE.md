@@ -1490,8 +1490,9 @@ the fixed one, for any new test that looks its own row up twice.
   Calendar"/"View All Events" links now point at `/events`. `src/features/admin/actions/events.ts`'s
   shared `revalidate()` helper calls `revalidatePath("/events")` alongside `/admin/events`
   and `/` — every event action routes through it.
-- **The Home and Transparency heroes share one full-bleed photo-background treatment**
-  (2026-08-06, on request — transparency first, home matched to it in the same session).
+- **The Home, Transparency and Officials heroes share one full-bleed photo-background
+  treatment** (2026-08-06, on request — transparency first, home matched to it in the same
+  session; **officials joined 2026-08-08**, same request, same formula).
   `TransparencyHero` replaced an `lh3`-hotlinked stock image in a right-hand column with a
   real barangay-office photo (staff reviewing records, bundled — see the "Placeholder
   reality" bullet's static-import list) rendered `fill` in a `-z-10` layer spanning the whole
@@ -1525,7 +1526,24 @@ the fixed one, for any new test that looks its own row up twice.
   `(min-width: 1280px) 1200px, 100vw` to a plain `100vw`, since the 1200px was describing the
   card width that no longer exists. Legibility depends on the gradient's stops matching the
   copy column's width — move them together, and re-check at 1440px and 390px, the two widths
-  both heroes were measured at.
+  all three heroes were measured at.
+  **`/officials` is the third one, and it is the only page that left `PageHero` to get it**
+  (`src/features/officials/components/officials-hero.tsx`, 2026-08-08 — the shared `PageHero`
+  is untouched and every other inner page still uses it). Its photo is the council's group
+  portrait (`src/images/officialimagebg/officialgrouppicture.png`, bundled like the other
+  three static imports), and the four wash/fade layers are copied from `TransparencyHero`
+  verbatim — the same one formula, now written in three files. Two things differ from the
+  `PageHero` it replaced, both forced by the wash rather than chosen: the copy is
+  **left-aligned at `max-w-2xl`** instead of centered at `max-w-3xl` (a centered block runs
+  out past the gradient's 55% stop into the part of the photo that reads through, so the copy
+  column has to sit inside the heavy end), and the `grid-bg` texture plus radial glow are
+  dropped for the same reason the other two dropped them. The heading keeps its
+  `text-5xl`/`md:text-6xl` `BrandStroke` treatment and its original copy — nothing was
+  reworded. `object-position` is **`center 20%`, not the other two heroes' `object-center`**:
+  the section is ~3.8:1 while the source is 16:9, so `object-cover` crops vertically and
+  centering slices the group off at the shoulders (seen in-browser before the fix); 20% keeps
+  both rows' faces inside the visible band. Re-derive that number if the photo is ever
+  swapped — it is specific to where the faces sit in this one file.
 - Placeholder reality: transparency documents now serve **real** Supabase-hosted PDFs/images,
   so the old `"#"` download stubs are gone; Contact's "Get Directions" now links to the
   barangay hall's real Google Earth location (the dead FOI Guide and More Statistics CTAs
@@ -1550,8 +1568,9 @@ the fixed one, for any new test that looks its own row up twice.
   source for `scripts/upload-site-images.mjs`, not as an app dependency. The remaining bundled
   static imports are the barangay seal (`src/images/logo/`, `SITE.sealImage`), the barangay
   map (`src/images/map/san-fernando-map.png`, `MAP_IMAGE` on the contact page), the admin
-  login photo (`src/images/loginpageImage/TrickOrTreat.jpg`) and, since 2026-08-06, the
-  transparency hero photo (`src/images/transparencyimage/transparencyImage.png`) — all four
+  login photo (`src/images/loginpageImage/TrickOrTreat.jpg`), the transparency hero photo
+  (`src/images/transparencyimage/transparencyImage.png`, 2026-08-06) and the officials hero
+  photo (`src/images/officialimagebg/officialgrouppicture.png`, 2026-08-08) — all five
   bundled deliberately, on the same reasoning: one file each, no admin surface, changing only
   when the thing they depict does.
   The other 11 officials' portraits live in Supabase Storage (`public-media/officials/`,
