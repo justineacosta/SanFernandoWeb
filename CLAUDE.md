@@ -93,12 +93,21 @@ one, and — worse — `expect(row).toBeVisible()` resolves instantly against th
 list when a matching older row already exists, which had the test silently drive the previous
 run's ticket and then assert against the current run's. Copy the unique-surname pattern, not
 the fixed one, for any new test that looks its own row up twice. **`tests/e2e/public/
-assistance-form.spec.ts` spends one `assistance:<ip>` hit against `SUBMIT_LIMIT` = 5 per hour**
-— roughly 5 runs an hour before it fails on the limiter rather than on a regression, same
-collision-not-regression framing as the three suites above. It pins each run to its own bucket
-via a forged `cf-connecting-ip`, `page.route()`-scoped to the app's own origin exactly like
-`login.spec.ts`'s pattern above — not `test.use({ extraHTTPHeaders })`, which would leak the
-header to `challenges.cloudflare.com` and get the Turnstile widget refused.
+assistance-form.spec.ts` spends one `assistance:<ip>` hit against `SUBMIT_LIMIT` = 5 per hour,
+but — unlike the three suites above — read a failure here as a real failure first, not a
+collision.** `submitAssistance` rate-limits on a single IP-only key, with no email or ticket
+dimension the way `login.spec.ts`'s `login:email:*` or `ticket-updates.spec.ts`'s
+`reply:ticket:*` have, and this spec forges a fresh random IP every run
+(`page.route()`-scoped to the app's own origin, the same pattern `login.spec.ts` established —
+not `test.use({ extraHTTPHeaders })`, which would leak the header to
+`challenges.cloudflare.com` and get the Turnstile widget refused). So each run gets its own
+bucket and there is no shared budget left for a later run to collide with. The likelier real
+cause of a failure here is the fixed `page.waitForTimeout(3000)` before the submit click:
+`AssistanceForm` keeps its Turnstile token in plain `useState`, not a form-action hidden input
+the way `LoginForm` does, so the test has no DOM-observable "token ready" signal to poll and
+falls back to a sleep. Giving `AssistanceForm` the same hidden `turnstileToken` input
+`LoginForm` has would let this wait become deterministic instead of fixed — that is the
+follow-up worth doing, not a rate-limit fix.
 
 ## Architecture
 
