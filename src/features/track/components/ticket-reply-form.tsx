@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
-import { ALLOWED_DOC_FILE_TYPES, MAX_REPLY_FILE_BYTES, MAX_REPLY_FILES } from "@/lib/storage";
+import { ALLOWED_DOC_FILE_TYPES, MAX_TICKET_FILE_BYTES, MAX_TICKET_FILES } from "@/lib/storage";
 import { submitTicketReply } from "../actions";
 
 interface TicketReplyFormProps {
@@ -37,12 +37,12 @@ export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormP
   function handleFiles(event: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(event.target.files ?? []);
     if (picked.length === 0) return;
-    if (picked.length > MAX_REPLY_FILES) {
-      setError(`You can attach up to ${MAX_REPLY_FILES} files.`);
+    if (picked.length > MAX_TICKET_FILES) {
+      setError(`You can attach up to ${MAX_TICKET_FILES} files.`);
       event.target.value = "";
       return;
     }
-    const oversized = picked.some((file) => file.size > MAX_REPLY_FILE_BYTES);
+    const oversized = picked.some((file) => file.size > MAX_TICKET_FILE_BYTES);
     if (oversized) {
       setError("Each attachment must be 2 MB or smaller.");
       event.target.value = "";
@@ -62,8 +62,8 @@ export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormP
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (files.length > MAX_REPLY_FILES) {
-      setError(`You can attach up to ${MAX_REPLY_FILES} files.`);
+    if (files.length > MAX_TICKET_FILES) {
+      setError(`You can attach up to ${MAX_TICKET_FILES} files.`);
       return;
     }
     setError(null);
@@ -136,7 +136,7 @@ export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormP
             onChange={handleFiles}
           />
           <p className="mt-1 text-xs text-ink-500">
-            Up to {MAX_REPLY_FILES} files, 2 MB each. JPG, PNG, WebP, or PDF.
+            Up to {MAX_TICKET_FILES} files, 2 MB each. JPG, PNG, WebP, or PDF.
           </p>
         </div>
 

@@ -91,6 +91,7 @@ export const ICON_OPTIONS: { value: string; label: string }[] = [
   { value: "file-check", label: "Approval / File Check" },
   { value: "graduation-cap", label: "Scholarship / Graduation" },
   { value: "hand-heart", label: "Welfare / Hand Heart" },
+  { value: "calendar-days", label: "Appointment / Calendar" },
 ];
 
 /**

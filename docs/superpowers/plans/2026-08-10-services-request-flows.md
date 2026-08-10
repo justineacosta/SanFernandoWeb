@@ -147,8 +147,16 @@ Task 2 is pure TypeScript with no DB dependency and **may** proceed while waitin
 - Modify: `src/types/index.ts:61` (beside `ServiceTone`)
 
 **Interfaces:**
-- Produces: `type ServiceFlow = "apply" | "complaint" | "assistance" | "appointment"` (exported from `@/types`); `serviceHref(service: Pick<Service, "id" | "flow">): string` (exported from `@/features/services/flow`).
+- Produces: `type ServiceFlow = "apply" | "complaint" | "assistance" | "appointment"` (exported from `@/types`); `serviceHref(service: { id: string; flow: ServiceFlow }): string` (exported from `@/features/services/flow`).
 - Consumes: nothing.
+
+**This task deliberately does NOT add `flow` to `Service` or `AdminServiceRow`.** Those
+fields land in Task 3, in the same commit that teaches the query mappers to populate them.
+Adding the field here would break every mapper that constructs one of those objects, and
+this task's commit would ship a failing `npm run typecheck` — which the Global Constraints
+forbid. `serviceHref` therefore takes a structural `{ id, flow }` rather than
+`Pick<Service, …>`; a `ServiceRecord` satisfies it once Task 3 lands, and the pure helper
+stays decoupled from the entity interface either way.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -205,15 +213,15 @@ In `src/types/index.ts`, directly under `export type ServiceTone = "primary" | "
 export type ServiceFlow = "apply" | "complaint" | "assistance" | "appointment";
 ```
 
-Then add `flow: ServiceFlow;` to `interface Service` (after `tone`), and `flow: ServiceFlow;` to `interface AdminServiceRow` (after `tone`).
-
-Typecheck will now fail in several places. That is expected and Task 3 fixes it — do not chase the errors yet.
+That is the only change to `src/types/index.ts` in this task. Do **not** add `flow` to
+`Service` or `AdminServiceRow` — see the Interfaces note above. `npm run typecheck` must be
+clean when you commit this task.
 
 - [ ] **Step 4: Write the implementation**
 
 ```ts
 // src/features/services/flow.ts
-import type { Service } from "@/types";
+import type { ServiceFlow } from "@/types";
 
 /**
  * The public route a service card's CTA points at.
@@ -221,8 +229,12 @@ import type { Service } from "@/types";
  * The `switch` is exhaustive over `ServiceFlow` with no `default`, so adding a
  * fifth flow to the union without adding its route here is a compile error
  * rather than a silent fallthrough to the apply page.
+ *
+ * The parameter is structural rather than `Pick<Service, "id" | "flow">`: a
+ * `Pick` would make this module depend on `Service.flow`, which Task 3 adds.
+ * A `ServiceRecord` satisfies this shape once that lands.
  */
-export function serviceHref(service: Pick<Service, "id" | "flow">): string {
+export function serviceHref(service: { id: string; flow: ServiceFlow }): string {
   switch (service.flow) {
     case "complaint":
       return "/complaints/new";
@@ -261,8 +273,16 @@ git commit -m "feat: add ServiceFlow and serviceHref"
 - Modify: `src/features/services/data.ts` (delete `SERVICES`)
 
 **Interfaces:**
-- Consumes: `serviceHref` from Task 2; `services.flow` from Task 1.
-- Produces: `ServiceRecord.flow` and `AdminServiceRow.flow` populated from the DB.
+- Consumes: `serviceHref` and `ServiceFlow` from Task 2; `services.flow` from Task 1.
+- Produces: `Service.flow` / `AdminServiceRow.flow` on the interfaces, populated from the DB.
+
+- [ ] **Step 0: Add `flow` to the two entity interfaces**
+
+In `src/types/index.ts`, add `flow: ServiceFlow;` to `interface Service` (after `tone`) and
+to `interface AdminServiceRow` (after `tone`).
+
+This lands here, not in Task 2, so that the mappers in Step 1 populate the field in the
+same commit that declares it — `npm run typecheck` stays clean at every commit.
 
 - [ ] **Step 1: Select `flow` in all three queries**
 
@@ -577,16 +597,26 @@ describe("isClosedDay", () => {
     }
   });
 
-  it("reads the calendar day, not the viewer's local day", () => {
-    // "2026-08-16" parses as UTC midnight. In Manila (UTC+8) that is still
-    // Sunday, but getDay() in a UTC-5 test runner would report Saturday for
-    // 2026-08-17 and shift every answer by one. This asserts the UTC reading
-    // that makes the function timezone-independent.
-    expect(new Date("2026-08-16").getUTCDay()).toBe(0);
-    expect(isClosedDay("2026-08-17")).toBe(false); // Monday, everywhere
+  it("never consults the runner's local weekday", () => {
+    // The whole correctness of this function is getUTCDay() over getDay(), and
+    // that difference is INVISIBLE to a behavioural assertion on any runner at
+    // UTC+0 or east of it — which is both this project's CI and its entire
+    // audience (Manila, UTC+8). Asserting `isClosedDay("2026-08-17") === false`
+    // therefore passes just as happily with the bug present.
+    //
+    // So assert the mechanism instead of the output: getDay() must never be
+    // called. This holds in every timezone, which a date-based assertion cannot.
+    const localDay = vi.spyOn(Date.prototype, "getDay");
+    for (const iso of ["2026-08-14", "2026-08-15", "2026-08-16", "2026-08-17"]) {
+      isClosedDay(iso);
+    }
+    expect(localDay).not.toHaveBeenCalled();
+    localDay.mockRestore();
   });
 });
 ```
+
+The import line gains `vi`: `import { describe, expect, it, vi } from "vitest";`
 
 - [ ] **Step 2: Run it and watch it fail**
 
@@ -784,8 +814,17 @@ git commit -m "feat: add purpose quick-picks to the appointment form"
 - Modify: `src/features/appointments/components/appointment-form.tsx`
 
 **Interfaces:**
-- Produces: `type AppointmentDemand = Record<string, { am: number; pm: number }>`; `loadAppointmentDemand(): Promise<AppointmentDemand>`; `demandLabel(count: number): "Light" | "Moderate" | "Busy"`.
+- Produces: `type DemandLabel = "Light" | "Moderate" | "Busy"`; `type AppointmentDemand = Record<string, { am: DemandLabel; pm: DemandLabel }>`; `loadAppointmentDemand(): Promise<AppointmentDemand>`; `demandLabel(count: number): DemandLabel`.
 - `AppointmentForm` gains a required `demand: AppointmentDemand` prop.
+
+**The map carries labels, not counts — owner ruling, 2026-08-10.** It originally declared
+counts, and `demandLabel` ran in the browser. But `AppointmentDemand` is a prop to a client
+component, so the whole 60-day count map serialized into the RSC payload: exact per-day,
+per-half-day appointment volume readable in page source, which is precisely what
+`demand.ts`'s own comment says the coarse label exists to avoid. The label was protecting
+the rendered output while the payload published the thing anyway. `loadAppointmentDemand`
+now applies `demandLabel` server-side and only labels cross the wire. `demandLabel` stays
+pure and unit-tested — it just runs on the server.
 
 The shape here is deliberate. A client-side lookup that re-queries as the date changes would need a new public Server Action reading `appointments` — a table with zero public read paths today — plus its own rate-limit budget and a decision about Turnstile on a call that fires on every date keystroke. All of that is new attack surface for a hint. The page is already a Server Component, so it loads the counts once at render instead.
 

@@ -57,7 +57,7 @@ export async function listAssistanceCategories(): Promise<AssistanceCategoryRow[
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("assistance_categories")
-    .select("id, label, sort_order, is_active")
+    .select("id, label, description, requirements, sort_order, is_active")
     .order("sort_order", { ascending: true });
   if (error || !data) {
     if (error) console.error("listAssistanceCategories failed:", error.message);
@@ -67,6 +67,8 @@ export async function listAssistanceCategories(): Promise<AssistanceCategoryRow[
   return data.map((row) => ({
     id: row.id,
     label: row.label,
+    description: row.description,
+    requirements: row.requirements,
     sortOrder: row.sort_order,
     isActive: row.is_active,
   }));

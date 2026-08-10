@@ -12,6 +12,7 @@ import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { useFieldValidation } from "@/hooks/use-field-validation";
+import { MAX_TICKET_FILES, MAX_TICKET_FILE_BYTES } from "@/lib/storage";
 import { submitAssistance } from "@/features/assistance/actions";
 import { assistanceSchema } from "@/features/assistance/schema";
 import { SwapReveal } from "@/components/ui/swap-reveal";
@@ -28,8 +29,11 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
     details: "",
     consent: false,
   });
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ticketNo, setTicketNo] = useState<string | null>(null);
+  const [attachmentWarning, setAttachmentWarning] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -44,6 +48,7 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
     setValues((prev) => ({ ...prev, [key]: value }));
 
   const v = useFieldValidation(assistanceSchema, values);
+  const selected = categories.find((category) => category.id === values.categoryId);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -53,11 +58,12 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
     setError(null);
     startTransition(async () => {
       try {
-        const result = await submitAssistance(values, turnstileToken);
+        const result = await submitAssistance(values, files, turnstileToken);
         if (result.error || !result.ticketNo) {
           setError(result.error ?? "Something went wrong. Please try again.");
           return;
         }
+        setAttachmentWarning(result.attachmentWarning);
         setTicketNo(result.ticketNo);
       } catch {
         setError("Something went wrong. Please try again.");
@@ -112,6 +118,13 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
               <span aria-live="polite">{copied ? "Copied" : "Copy number"}</span>
             </button>
           </div>
+          {attachmentWarning ? (
+            <InlineAlert
+              message={attachmentWarning}
+              onDismiss={() => setAttachmentWarning(null)}
+              className="mb-6 text-left"
+            />
+          ) : null}
           <div className="mb-6 mt-6 rounded-2xl border border-ink-200 bg-ink-50 p-6 text-left">
             <p className="mb-2 text-sm font-semibold text-ink-900">What happens next</p>
             <ol className="list-decimal space-y-1 pl-5 text-sm text-ink-600">
@@ -139,6 +152,22 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
   return (
     <SwapReveal face="form">
       <form onSubmit={handleSubmit} noValidate className="space-y-8">
+        <Card className="rounded-3xl border-brand-200 bg-brand-100/50 p-6">
+          <p className="mb-3 font-semibold text-ink-900">Before you file</p>
+          <ul className="space-y-2 text-sm text-ink-600">
+            {[
+              "Every request is reviewed by the Barangay Social Welfare Desk.",
+              "A staff visit or follow-up call may follow.",
+              "This is a request for assessment, not cash released on the spot.",
+            ].map((line) => (
+              <li key={line} className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" aria-hidden="true" />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
         <Card className="space-y-5 rounded-3xl p-8">
           <div className="grid gap-5 sm:grid-cols-2">
             <Field
@@ -229,6 +258,25 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
               ))}
             </Select>
           </Field>
+          {selected && (selected.description || selected.requirements.length > 0) ? (
+            <Card className="rounded-3xl border-brand-200 bg-brand-100/50 p-6">
+              <p className="mb-3 font-semibold text-ink-900">What to prepare</p>
+              {selected.description ? (
+                <p className="mb-3 text-sm text-ink-600">{selected.description}</p>
+              ) : null}
+              <ul className="space-y-2 text-sm text-ink-600">
+                {selected.requirements.map((requirement, index) => (
+                  <li key={`${index}-${requirement}`} className="flex items-start gap-2">
+                    <CheckCircle2
+                      className="mt-0.5 h-4 w-4 shrink-0 text-brand-500"
+                      aria-hidden="true"
+                    />
+                    <span>{requirement}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
           <Field
             label="Tell us about your situation"
             htmlFor="assistance-details"
@@ -243,7 +291,63 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
               onChange={(event) => set("details", event.target.value)}
               {...v.fieldProps("details", "assistance-details")}
             />
+            <p className="text-right text-xs text-ink-500" aria-live="polite">
+              {values.details.trim().length < 20
+                ? `${values.details.trim().length} / 20 characters minimum`
+                : `${values.details.trim().length} / 2000`}
+            </p>
           </Field>
+          <div className="space-y-2">
+            <label htmlFor="assistance-files" className="text-sm font-semibold text-ink-800">
+              Supporting documents (optional)
+            </label>
+            <input
+              id="assistance-files"
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              onChange={(event) => {
+                const picked = Array.from(event.target.files ?? []);
+                if (picked.length > MAX_TICKET_FILES) {
+                  setFileError(`You can attach up to ${MAX_TICKET_FILES} files.`);
+                  // Clear the state too, not just the control: leaving an
+                  // earlier valid pick in `files` behind an input that now
+                  // reads "no file chosen" would submit files the resident
+                  // can no longer see.
+                  event.target.value = "";
+                  setFiles([]);
+                  return;
+                }
+                if (picked.some((file) => file.size > MAX_TICKET_FILE_BYTES)) {
+                  setFileError("Each attachment must be 2 MB or smaller.");
+                  // Clear the state too, not just the control: leaving an
+                  // earlier valid pick in `files` behind an input that now
+                  // reads "no file chosen" would submit files the resident
+                  // can no longer see.
+                  event.target.value = "";
+                  setFiles([]);
+                  return;
+                }
+                setFileError(null);
+                setFiles(picked);
+              }}
+              className="block w-full text-sm text-ink-600 file:mr-3 file:rounded-full file:border-0 file:bg-brand-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand-700"
+            />
+            <p className="text-xs text-ink-500">
+              Up to {MAX_TICKET_FILES} files, 2 MB each. JPG, PNG, WebP, or PDF.
+            </p>
+            {/*
+              Plain role="alert" text rather than an <InlineAlert>: this is
+              field-level validation that clears itself on the next valid pick,
+              so a close button would have nothing to dismiss to. Same split
+              feedback-panel.tsx's own fileError follows.
+            */}
+            {fileError ? (
+              <p role="alert" className="text-sm font-medium text-danger">
+                {fileError}
+              </p>
+            ) : null}
+          </div>
           <div className="space-y-2">
             <label className="flex items-start gap-3 text-sm text-ink-600">
               <Checkbox

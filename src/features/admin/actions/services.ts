@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { ServiceFormValues, ServiceTone } from "@/types";
+import type { ServiceFlow, ServiceFormValues } from "@/types";
 import { NOT_FOUND, checkSuperAdmin } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -24,13 +24,30 @@ const serviceSchema = z.object({
     .string()
     .refine((value) => ICON_OPTIONS.some((option) => option.value === value), "Pick a valid icon."),
   tone: z.enum(["primary", "danger"]),
+  flow: z.enum(["apply", "complaint", "assistance", "appointment"]),
 });
 
-/** The public card labels are derived from the service's tone. */
-function labelsForTone(tone: ServiceTone): { requirementsLabel: string; ctaLabel: string } {
-  return tone === "danger"
-    ? { requirementsLabel: "View Process", ctaLabel: "File Incident Report" }
-    : { requirementsLabel: "View Requirements", ctaLabel: "Apply Online" };
+/**
+ * The public card's two labels are derived, not stored edits — so they must be
+ * derived from the same thing that decides where the CTA goes. Deriving from
+ * `tone` (as this did before migration 0035) would reset the two request-flow
+ * rows to "View Requirements"/"Apply Online" on the first SuperAdmin save,
+ * days after anyone touched the seed data.
+ *
+ * These four pairs match 0035's seed values exactly, so saving an untouched
+ * row is a no-op.
+ */
+function labelsForFlow(flow: ServiceFlow): { requirementsLabel: string; ctaLabel: string } {
+  switch (flow) {
+    case "complaint":
+      return { requirementsLabel: "View Process", ctaLabel: "File Incident Report" };
+    case "assistance":
+      return { requirementsLabel: "What to prepare", ctaLabel: "Request Now" };
+    case "appointment":
+      return { requirementsLabel: "How it works", ctaLabel: "Book Now" };
+    case "apply":
+      return { requirementsLabel: "View Requirements", ctaLabel: "Apply Online" };
+  }
 }
 
 /** URL/slug-safe id derived from the service title. */
@@ -58,7 +75,7 @@ export async function updateService(id: string, input: ServiceFormValues): Promi
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
   }
 
-  const labels = labelsForTone(parsed.data.tone);
+  const labels = labelsForFlow(parsed.data.flow);
   const admin = createSupabaseAdminClient();
   const { error } = await admin
     .from("services")
@@ -69,6 +86,7 @@ export async function updateService(id: string, input: ServiceFormValues): Promi
       requirements: splitRequirements(parsed.data.requirements),
       icon_name: parsed.data.iconName,
       tone: parsed.data.tone,
+      flow: parsed.data.flow,
       requirements_label: labels.requirementsLabel,
       cta_label: labels.ctaLabel,
       is_available: parsed.data.status === "active",
@@ -112,7 +130,7 @@ export async function createService(input: ServiceFormValues): Promise<ActionRes
 
   const nextSortOrder =
     (rows ?? []).reduce((max, row) => Math.max(max, row.sort_order ?? 0), 0) + 1;
-  const labels = labelsForTone(parsed.data.tone);
+  const labels = labelsForFlow(parsed.data.flow);
 
   const { error } = await admin.from("services").insert({
     id,
@@ -120,6 +138,7 @@ export async function createService(input: ServiceFormValues): Promise<ActionRes
     description: parsed.data.description,
     icon_name: parsed.data.iconName,
     tone: parsed.data.tone,
+    flow: parsed.data.flow,
     requirements_label: labels.requirementsLabel,
     cta_label: labels.ctaLabel,
     requirements: splitRequirements(parsed.data.requirements),

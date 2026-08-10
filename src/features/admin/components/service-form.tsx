@@ -34,6 +34,7 @@ export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
     status: record?.status ?? "active",
     iconName: record?.iconName ?? ICON_OPTIONS[0].value,
     tone: record?.tone ?? "primary",
+    flow: record?.flow ?? "apply",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof ServiceFormValues, string>>>({});
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +90,7 @@ export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
           />
           {errors.description ? <p className="text-sm text-danger">{errors.description}</p> : null}
         </Field>
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-3">
           <Field label="Icon" htmlFor="service-icon">
             <Select
               id="service-icon"
@@ -109,8 +110,20 @@ export function ServiceForm({ record, onSaved, onCancel }: ServiceFormProps) {
               value={values.tone}
               onChange={(event) => set("tone", event.target.value as ServiceFormValues["tone"])}
             >
-              <option value="primary">Standard (Apply Online)</option>
-              <option value="danger">Urgent / Report (File Incident Report)</option>
+              <option value="primary">Standard</option>
+              <option value="danger">Urgent / Report</option>
+            </Select>
+          </Field>
+          <Field label="Destination" htmlFor="service-flow">
+            <Select
+              id="service-flow"
+              value={values.flow}
+              onChange={(event) => set("flow", event.target.value as ServiceFormValues["flow"])}
+            >
+              <option value="apply">Apply form</option>
+              <option value="complaint">Complaint form</option>
+              <option value="assistance">Assistance form</option>
+              <option value="appointment">Appointment form</option>
             </Select>
           </Field>
         </div>

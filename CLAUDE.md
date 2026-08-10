@@ -92,7 +92,22 @@ keys on `submittedAt`, a **date**, so every row a previous run left behind ties 
 one, and — worse — `expect(row).toBeVisible()` resolves instantly against the *stale* pre-insert
 list when a matching older row already exists, which had the test silently drive the previous
 run's ticket and then assert against the current run's. Copy the unique-surname pattern, not
-the fixed one, for any new test that looks its own row up twice.
+the fixed one, for any new test that looks its own row up twice. **`tests/e2e/public/
+assistance-form.spec.ts` spends one `assistance:<ip>` hit against `SUBMIT_LIMIT` = 5 per hour,
+but — unlike the three suites above — read a failure here as a real failure first, not a
+collision.** `submitAssistance` rate-limits on a single IP-only key, with no email or ticket
+dimension the way `login.spec.ts`'s `login:email:*` or `ticket-updates.spec.ts`'s
+`reply:ticket:*` have, and this spec forges a fresh random IP every run
+(`page.route()`-scoped to the app's own origin, the same pattern `login.spec.ts` established —
+not `test.use({ extraHTTPHeaders })`, which would leak the header to
+`challenges.cloudflare.com` and get the Turnstile widget refused). So each run gets its own
+bucket and there is no shared budget left for a later run to collide with. The likelier real
+cause of a failure here is the fixed `page.waitForTimeout(3000)` before the submit click:
+`AssistanceForm` keeps its Turnstile token in plain `useState`, not a form-action hidden input
+the way `LoginForm` does, so the test has no DOM-observable "token ready" signal to poll and
+falls back to a sleep. Giving `AssistanceForm` the same hidden `turnstileToken` input
+`LoginForm` has would let this wait become deterministic instead of fixed — that is the
+follow-up worth doing, not a rate-limit fix.
 
 ## Architecture
 
@@ -623,6 +638,111 @@ the fixed one, for any new test that looks its own row up twice.
   other direction. This class of bug (the two halves silently drifting) is invisible to
   `npm run typecheck` and to every existing test, since Vitest covers only the JS half;
   catching it needs the two engines run against the same haystack and diffed.
+- **`/appointments/new` shows a coarse demand hint, computed server-side once at render,
+  2026-08-10.** Split across two modules on purpose — `src/features/appointments/demand.ts`
+  exports the pure `demandLabel(count)` (`Light` < 3, `Moderate` < 6, `Busy` ≥ 6, named
+  constants) with no imports beyond types, because Vitest's unit tests run with no jsdom and
+  no React renderer, and a transitive import of the Supabase client would break that
+  environment; `src/features/appointments/queries.ts` holds `loadAppointmentDemand()`, the
+  DB half, kept out of `demand.ts` for the same reason. `AppointmentDemand` (`src/types/
+  index.ts`) is `Record<YYYY-MM-DD, {am, pm}>` of `DemandLabel`, tallied in JS over the next
+  60 days (`HORIZON_DAYS`) rather than an RPC — a small result set, no new SQL function to
+  maintain. **`loadAppointmentDemand` reduces every count to its `demandLabel` before
+  returning — only `Light`/`Moderate`/`Busy` ever crosses into `AppointmentDemand`, never a
+  number.** This isn't just about what renders: the map is a prop threaded into the client
+  component `AppointmentForm`, so it serializes whole into the RSC payload — a raw count there
+  would publish the barangay's exact 60-day volume in page source even though nothing ever
+  displays it, so the coarsening has to happen server-side before the map crosses the
+  server/client boundary, not merely before the UI renders it. **A date absent from the map
+  renders no hint at all, never "Light"** (`AppointmentForm`'s `slotLabel === undefined`
+  check) — absence of data and genuine quiet look identical in the map, and only one of them
+  is a claim worth making to a resident. **The route needs an explicit `export const dynamic =
+  "force-dynamic"` in `page.tsx`, and that line is load-bearing, not decoration.**
+  `loadAppointmentDemand` uses the service-role client (`createSupabaseAdminClient`), which
+  calls no Next.js Dynamic API (no `cookies()`, no `headers()`) — unlike the cookie-bound
+  client every other public query in this app uses, which forces dynamic rendering as a side
+  effect of reading the session cookie. Without the explicit export, `next build` prerenders
+  `/appointments/new` as a static route (confirmed via `npx next build`, which printed `○` for
+  it before the fix), freezing the demand map — and `manilaToday()` — at build time forever;
+  the hint would work in `npm run dev` (every request is rendered on demand there) and be
+  silently dead within a day of a production deploy. **`loadAppointmentDemand` uses the
+  service-role client, not the cookie-bound one, for a second reason** — found by verifying
+  the feature live rather than trusting the query in isolation: `appointments` has RLS
+  enabled with zero policies like every other write-bearing table, so the anon-key client
+  silently returns zero rows for every date (no error to catch) and the hint would never
+  appear for anyone. This is the same "deliberately-public action, gates in code instead"
+  carve-out `src/lib/supabase/admin.ts`'s own doc comment already grants `lookupTicket`; no
+  permission check guards this read because it only ever returns a coarse label, never a row
+  — matching how `announcements`/`transparency`/`officials`/`events` queries already read
+  their own non-exception tables for the public site (`services`, by contrast, is one of the
+  three RLS-exception tables with its own public-read policy, so its public query uses the
+  anon client — the counterexample to this pattern, not an instance of it). Declined and
+  completed requests are excluded from the tally; neither still occupies staff time on that
+  day. **The same page and the same day, the form also gained a weekend-date rule, a "Before
+  you book" card, and purpose quick-picks — unrelated to the hint mechanism above, sharing
+  this bullet only because they landed together.** A weekend date is refused from one
+  declaration, client and server both: `isClosedDay` (`src/lib/office-days.ts`) is wired in
+  as a `.refine()` on `appointmentSchema`, so `AppointmentForm`'s inline validation and
+  `submitAppointment`'s server-side check run the identical function rather than two copies
+  that can drift. It reads the weekday via `getUTCDay()`, never `getDay()` — a `YYYY-MM-DD`
+  string parses as UTC midnight, so the UTC weekday IS the calendar weekday everywhere, while
+  `getDay()` shifts by one for negative-offset viewers. Its unit test
+  (`tests/unit/office-days.test.ts`) asserts the *mechanism*, not a date outcome — it spies
+  that `Date.prototype.getDay` is never called — because a date-based assertion is identical
+  under both the correct and the buggy function on any runner at UTC+0 or east of it, which is
+  both this project's CI and its entire Manila audience; a behavioural assertion would pass
+  just as happily with the bug present. **The rule is deliberately NOT applied to the walk-in
+  path (`walkInSchema` in `src/features/admin/actions/appointments.ts`) or the review drawer's
+  `confirmedDate` field** — staff may legitimately schedule a weekend special session, so
+  don't "fix" that inconsistency. **Public holidays are out of scope** — there is no holiday
+  table, and building one is its own feature. The "Before you book" card mirrors
+  `apply-form.tsx`'s requirements card, with its office-hours line read from
+  `SITE.officeHours` rather than a second hardcoded copy; the purpose quick-pick chips
+  (`PURPOSE_PRESETS`) are each a bare `<button type="button">` — load-bearing, since a
+  `<button>` inside a `<form>` with no explicit `type` submits it — and `applyPreset` fills
+  the purpose field when empty, appending on a new line otherwise, so a chip tap never
+  destroys text a resident already typed.
+- **Assistance gained per-category guidance and attachments-at-filing, 2026-08-10**
+  (migration `0035`'s `assistance_categories.description`/`.requirements`, editable through the
+  existing categories panel at `/admin/services`). An empty category renders **nothing** — the
+  same "empty block hides its section" rule the Home/About CMS bullet already established —
+  which is what let this ship before any category had real guidance text written for it:
+  `AssistanceForm` renders the "What to prepare" card only when `selected.description ||
+  selected.requirements.length > 0`. The category action gained real work in the same pass and
+  was renamed for it: `renameAssistanceCategory` → `updateAssistanceCategory`, because it no
+  longer only renames a category's label — it now writes `description`/`requirements` too, and
+  the old name stopped describing what it does.
+  **Attachments at filing needed no new schema — four things already existed and none were
+  rebuilt:** `submitAssistance` already called `recordTicketUpdate` for its intake row;
+  `recordTicketUpdate` already accepted an `attachments` array; `uploadTicketAttachment`/
+  `discardTicketAttachment` (`src/lib/media.ts`) already wrote to the private `ticket-media`
+  bucket; and `discardTicketAttachment`'s path allow-list already covered the `AST-` prefix
+  alongside the other three ticket kinds — all built for the resident-reply half of the
+  2026-08-02 ticket-timeline feature; `scripts/report-orphaned-media.mjs` already read
+  `ticket_updates.attachments` too, so filing-time attachments are visible to it with no
+  change. Filing is simply a second caller of all of it. **The upload runs after the insert,
+  and that ordering is not negotiable:** the storage path is prefixed with the ticket number
+  (`<ticket_no>/<uuid>.<ext>`), which does not exist until the row is written. So every
+  resident-fixable rejection — file count, size, MIME — is checked **before** the insert and
+  returns a normal error with no ticket filed; a storage failure *after* the insert must never
+  fail the submission, because the ticket is already the resident's and failing here would have
+  them refile for a second number. A partial or failed upload is discarded
+  (`discardTicketAttachment` on whatever succeeded) and `SubmitAssistanceResult.
+  attachmentWarning` carries the explanation instead — so the warning path is reachable only by
+  a genuine storage failure, never by anything the resident did wrong.
+  `SubmitAssistanceResult extends SubmitTicketResult` rather than widening the shared type, for
+  the same reason `SignInFormState extends AuthFormState` does: the base type has **two** other
+  callers, `submitAppointment` and `submitComplaint` (applications use their own separate
+  `SubmitApplicationResult`), and neither should carry a field that's inert for them. A
+  `recordTicketUpdate` failure downgrades to the same warning and also discards any uploads —
+  without that, a resident's uploaded ID would sit in the private bucket referenced by no row at
+  all, which the report-only orphan script would list forever but never clean up; this is the
+  "a storage object exists only if a row references it" invariant applied to a second write
+  path. The cap stays **3 files × 2 MB**, sized to fit the existing `"8mb"` Server Action
+  `bodySizeLimit` rather than raised — raising it would widen the limit for every public form at
+  once, not just this one. `MAX_REPLY_FILES`/`MAX_REPLY_FILE_BYTES` were renamed to
+  `MAX_TICKET_FILES`/`MAX_TICKET_FILE_BYTES` (`src/lib/storage.ts`) in the same pass, since they
+  now cover any resident-supplied ticket attachment, not only a reply.
 - **`/admin/login` is a responsive split-screen at `md:` (768px)+, 2026-07-31** — a brand panel
   (currently `w-[55%]`, the form panel takes the rest) beside the form, with a **separate**
   centered-card layout below that breakpoint. `src/app/admin/login/page.tsx` renders both
@@ -897,6 +1017,68 @@ the fixed one, for any new test that looks its own row up twice.
   the new name columns, and a missing-column error there is caught and logged, not thrown,
   so a skipped migration doesn't fail loud: `/admin/users` silently renders an empty roster
   and `createTeamUser` fails with a generic "Could not save the profile."
+- **Service cards route by an explicit `flow` column, not by inferring it from `tone`,
+  2026-08-10** (migration `0035`, `docs/superpowers/sdd/2026-08-10-services-request-flows/`).
+  `services.flow` (`text not null default 'apply' check (flow in ('apply', 'complaint',
+  'assistance', 'appointment'))`) replaces the old inference where `tone === 'danger'` meant
+  the complaint form and anything else meant the document-application form — that scheme had
+  no room for a third destination. `ServiceFlow` (`@/types`) is the union; `serviceHref`
+  (`src/features/services/flow.ts`) is a pure function taking a structural `{id, flow}` and
+  switching **exhaustively, no `default`**, so a fifth flow added to the union without a route
+  added here is a compile error, not a silent fallthrough to the apply page. `Service` and
+  `AdminServiceRow` (`@/types`) both carry `flow`, populated by all three query mappers
+  (`src/features/services/queries.ts`'s `listServices`/`getApplyService`,
+  `src/features/admin/queries/services.ts`'s `listServiceCatalog`). Two new catalog rows exist
+  for the flows that previously had no service-directory entry at all: `social-services-
+  assistance` (flow `assistance`, routes to `/assistance/new`) and `set-an-appointment` (flow
+  `appointment`, routes to `/appointments/new`) — both are tone `primary` (they read as
+  ordinary cards, not danger-styled), which is exactly why `getApplyService`'s guard could not
+  stay tone-based: `data.tone !== "primary"` would have passed both straight through into a
+  full document-application form backed by no application table. **That guard is now `data.flow
+  !== "apply"`** — the security-relevant fix, not cosmetic — and it turned out to be one of
+  **three**, not one. `submitApplication` (`src/features/services/actions.ts`) — a **public**
+  Server Action a resident's browser can hit directly, independently of what any page links to
+  — and `createWalkInApplication` (`src/features/admin/actions/applications.ts`, where
+  `process-applications` gates *who* may call it but nothing gated *which* service row the
+  drawer submitted) carried the identical tone-based gap and were found and fixed after
+  `getApplyService`: before the fix, a `serviceId: "social-services-assistance"` request to
+  either returned a real ticket number for a document application that does not exist. The
+  lesson worth keeping: when routing moves off a field, the render path is the obvious call
+  site and the write paths are the ones that get missed. **All three guards read `flow` off a
+  `.select()` that must name the column explicitly** — drop it from any one of the three and
+  `service.flow` reads `undefined`, `undefined !== "apply"` evaluates `true`, and every
+  application on the site starts getting rejected, silently, with no line anywhere that looks
+  wrong in review. `tone` still decides the card's
+  visual variant (`isDanger ? "outline-danger" : "primary"` in `service-card.tsx`) and nothing
+  else — true now that all three guards read `flow`, not before; `serviceHref(service)` alone
+  decides the href. The card's two labels carry a matching trap on the write side:
+  `labelsForFlow` (`src/features/admin/actions/services.ts`, replacing the old
+  `labelsForTone`) recomputes `requirements_label`/`cta_label` on every create *and* update
+  rather than persisting an edit, so the first no-op SuperAdmin save on either new row would
+  have silently rewritten its card copy back to "View Requirements"/"Apply Online" — days after
+  anyone touched it, nowhere near the save that caused it — had its four label pairs not been
+  kept character-identical to `0035`'s seed values, which is why saving an untouched row is a
+  no-op rather than a rewrite. Covered by `tests/e2e/public/services-directory.spec.ts` (2
+  tests, `public` project, no login, submits nothing so it spends no rate-limit budget). The
+  pre-backend `SERVICES` mock array in
+  `src/features/services/data.ts` was deleted in the same change (dead — nothing imported it;
+  `WASTE_SCHEDULE` and its `Leaf`/`Recycle`/`WasteCollectionSlot` imports are untouched, that
+  half of the file is live). **A final whole-branch review found one more gap the same day,
+  blocking rather than cosmetic:** `0035` seeds `set-an-appointment` with `icon_name =
+  'calendar-days'`, but `ICON_OPTIONS` (`src/lib/icon-map.ts`) — the admin Services icon
+  `<Select>` — never had that entry (it existed only in the separate `SITE_ICON_OPTIONS` list
+  for the Home/About pickers, both resolving through the same shared `ICONS` map, which did
+  already have it). The Select rendered blank, and `serviceSchema.iconName`'s refine rejected
+  the empty value with "Pick a valid icon." on Save — a SuperAdmin could not save *any* edit
+  to that row, including a no-op save, without first swapping the icon away from a calendar.
+  Fixed by adding `{ value: "calendar-days", label: "Appointment / Calendar" }` to
+  `ICON_OPTIONS`; verified in-browser (edit drawer now shows it selected, a no-op save
+  succeeds, `/services` still renders the calendar icon). The same pass hoisted
+  `submitAssistance`'s two byte-identical attachment-failure strings
+  (`src/features/assistance/actions.ts`) into one `ATTACHMENT_WARNING` constant and corrected
+  the copy — it had told a resident to "add them by replying on the Track page," which is
+  false the instant it can show: `canReply()` (`src/lib/ticket-updates.ts`) only opens a reply
+  on `awaiting-info`, and a freshly-filed assistance request is `pending`.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
@@ -1560,7 +1742,11 @@ the fixed one, for any new test that looks its own row up twice.
   not-yet-wired links (captain message, hero CTA). The
   barangay hotline is **real** (`(077) 600 1082` in `SITE.phone` / `EMERGENCY_HOTLINES[0]`)
   and the officials page's 24/7 Action Center dials it rather than 911; other phones, emails,
-  and office hours are still placeholder-shaped (correct names, not real contact data). Most
+  and office hours are still placeholder-shaped (correct names, not real contact data). The two
+  service-directory rows added for the request-flow work (`social-services-assistance`,
+  `set-an-appointment`, migration `0035`) are on the same real-content footing as the hotline —
+  live catalog entries routing to working forms, not placeholders standing in for something
+  still to come. Most
   images are hotlinked from `lh3.googleusercontent.com` (allow-listed in `next.config.ts`)
   and must eventually move to owned Storage (`public-media` exists). The home hero carousel and
   the About history images moved to `public-media/site/` in sub-project 9 (`0021`); like

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { CheckCircle2, Copy } from "lucide-react";
-import type { PublicAppointmentValues } from "@/types";
+import type { AppointmentDemand, DemandLabel, PublicAppointmentValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { BrandStroke } from "@/components/ui/brand-stroke";
 import { Card } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitAppointment } from "@/features/appointments/actions";
 import { appointmentSchema } from "@/features/appointments/schema";
 import { SwapReveal } from "@/components/ui/swap-reveal";
+import { SITE } from "@/constants/site";
 
 const EMPTY: PublicAppointmentValues = {
   firstName: "",
@@ -29,8 +30,25 @@ const EMPTY: PublicAppointmentValues = {
   consent: false,
 };
 
+/**
+ * Starting points for the purpose field. Residents who freeze at a blank box
+ * get a first sentence to edit, and staff get more routable text than "meeting".
+ */
+const PURPOSE_PRESETS = [
+  "Consultation with an official",
+  "Document follow-up",
+  "Complaint mediation",
+  "Business inquiry",
+] as const;
+
+const DEMAND_BLURB: Record<DemandLabel, string> = {
+  Light: "Light — few requests for this slot so far.",
+  Moderate: "Moderate — a few requests already for this slot.",
+  Busy: "Busy — consider another day, or the other half of this one.",
+};
+
 /** Public appointment request form; swaps to a ticket receipt on success. */
-export function AppointmentForm() {
+export function AppointmentForm({ demand }: { demand: AppointmentDemand }) {
   const [values, setValues] = useState<PublicAppointmentValues>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [ticketNo, setTicketNo] = useState<string | null>(null);
@@ -47,7 +65,19 @@ export function AppointmentForm() {
   const set = <K extends keyof PublicAppointmentValues>(key: K, value: PublicAppointmentValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
+  function applyPreset(preset: string) {
+    // Fill when empty, append on a new line otherwise. Never destructive — a
+    // resident who has typed three sentences and taps a chip out of curiosity
+    // does not lose them — and never inert, which a fill-only-when-empty rule
+    // would make it once they had typed anything.
+    set("purpose", values.purpose.trim() ? `${values.purpose.trimEnd()}\n${preset}` : preset);
+  }
+
   const v = useFieldValidation(appointmentSchema, values);
+  // Already a coarse label by the time it reaches this component — the server
+  // reduces counts to Light/Moderate/Busy before the map ever serializes into
+  // the RSC payload, so no raw number can leak into page source.
+  const slotLabel = demand[values.preferredDate]?.[values.preferredPeriod];
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -147,6 +177,22 @@ export function AppointmentForm() {
   return (
     <SwapReveal face="form">
       <form onSubmit={handleSubmit} noValidate className="space-y-8">
+        <Card className="rounded-3xl border-brand-200 bg-brand-100/50 p-6">
+          <p className="mb-3 font-semibold text-ink-900">Before you book</p>
+          <ul className="space-y-2 text-sm text-ink-600">
+            {[
+              `Office hours are ${SITE.officeHours.replace("Mon - Fri:", "Monday to Friday,")}`,
+              "Bring a valid ID on the day of your visit.",
+              "The date you pick is a request — staff confirm your slot before you come.",
+            ].map((line) => (
+              <li key={line} className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" aria-hidden="true" />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
         <Card className="space-y-5 rounded-3xl p-8">
           <div className="grid gap-5 sm:grid-cols-2">
             <Field
@@ -223,6 +269,18 @@ export function AppointmentForm() {
             htmlFor="appointment-purpose"
             error={v.errorFor("purpose")}
           >
+            <div className="mb-2 flex flex-wrap gap-2">
+              {PURPOSE_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  className="rounded-full border border-ink-200 bg-white px-3 py-1 text-xs font-medium text-ink-600 transition-colors duration-(--duration-quick) hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
             <Textarea
               id="appointment-purpose"
               name="purpose"
@@ -267,6 +325,9 @@ export function AppointmentForm() {
                 <option value="pm">Afternoon (1:00 PM – 5:00 PM)</option>
               </Select>
             </Field>
+            {slotLabel === undefined ? null : (
+              <p className="text-xs text-ink-500 sm:col-span-2">{DEMAND_BLURB[slotLabel]}</p>
+            )}
           </div>
           <div className="space-y-2">
             <label className="flex items-start gap-3 text-sm text-ink-600">

@@ -4,6 +4,7 @@ import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { IconCircle } from "@/components/ui/icon-circle";
+import { serviceHref } from "@/features/services/flow";
 import type { ServiceRecord } from "@/types";
 
 interface ServiceCardProps {
@@ -47,19 +48,13 @@ export function ServiceCard({ service }: ServiceCardProps) {
           ))}
         </ul>
         {service.isAvailable ? (
-          isDanger ? (
-            <Button href="/complaints/new" variant="outline-danger" className="mt-6 w-full">
-              {service.ctaLabel}
-            </Button>
-          ) : (
-            <Button
-              href={`/services/apply/${service.id}`}
-              variant="primary"
-              className="mt-6 w-full"
-            >
-              {service.ctaLabel}
-            </Button>
-          )
+          <Button
+            href={serviceHref(service)}
+            variant={isDanger ? "outline-danger" : "primary"}
+            className="mt-6 w-full"
+          >
+            {service.ctaLabel}
+          </Button>
         ) : (
           <div className="mt-6">
             <Button

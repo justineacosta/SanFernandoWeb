@@ -60,12 +60,23 @@ export interface QuickService {
 
 export type ServiceTone = "primary" | "danger";
 
+/**
+ * Which form a service card sends a resident to. Separate from `ServiceTone`,
+ * which is purely visual: routing used to be inferred from tone ('danger' meant
+ * the complaint form), which had no room for a third destination.
+ *
+ * A flow *name*, not an href — see migration 0035's header for why the route
+ * itself stays in code.
+ */
+export type ServiceFlow = "apply" | "complaint" | "assistance" | "appointment";
+
 export interface Service {
   id: string;
   title: string;
   description: string;
   icon: LucideIcon;
   tone: ServiceTone;
+  flow: ServiceFlow;
   requirementsLabel: string;
   requirements: string[];
   ctaLabel: string;
@@ -540,6 +551,7 @@ export interface AdminServiceRow {
   description: string;
   iconName: string;
   tone: ServiceTone;
+  flow: ServiceFlow;
   requirementsLabel: string;
   ctaLabel: string;
   requirements: string[];
@@ -560,6 +572,7 @@ export interface ServiceFormValues {
   status: AdminServiceStatus;
   iconName: string;
   tone: ServiceTone;
+  flow: ServiceFlow;
 }
 
 /** The future review-action (PATCH) body. */
@@ -933,6 +946,21 @@ export interface PublicAppointmentValues extends PublicTicketValues {
 }
 export type WalkInAppointmentValues = PublicAppointmentValues;
 
+/** A coarse busyness label — see `demandLabel` in `src/features/appointments/demand.ts`. */
+export type DemandLabel = "Light" | "Moderate" | "Busy";
+
+/**
+ * How busy each date and half-day already is, keyed YYYY-MM-DD. A date absent
+ * from the map has no requests at all — the form renders no hint for it rather
+ * than "Light", since absence of data and genuine quiet look identical and
+ * only one of them is a claim worth making. Carries labels, never counts:
+ * this map is a prop threaded into a client component and serializes into the
+ * RSC payload, so a raw count here would publish the barangay's exact
+ * operational volume in page source — the coarsening has to happen before the
+ * map crosses the server/client boundary, not just before it renders.
+ */
+export type AppointmentDemand = Record<string, { am: DemandLabel; pm: DemandLabel }>;
+
 export interface PublicComplaintValues extends PublicTicketValues {
   /** Optional — a resident may report an incident without naming anyone. */
   respondent: string;
@@ -953,6 +981,23 @@ export interface SubmitTicketResult {
   error: string | null;
   /** e.g. "CMP-2026-00001" — present only on success. */
   ticketNo: string | null;
+}
+
+/**
+ * Assistance is the one public submission that also carries files. Its upload
+ * happens after the row insert (the storage path is prefixed with the ticket
+ * number, which does not exist until then), so a storage failure can leave a
+ * real ticket with no attachments — a case `SubmitTicketResult` cannot express,
+ * since a non-null `error` there means no ticket was filed.
+ *
+ * Extending rather than widening the shared type, for the reason
+ * `SignInFormState extends AuthFormState` does: the base must not carry a field
+ * that is inert for its two other callers, `submitAppointment` and
+ * `submitComplaint` (applications use their own separate `SubmitApplicationResult`).
+ */
+export interface SubmitAssistanceResult extends SubmitTicketResult {
+  /** Non-null only alongside a successful ticketNo: the ticket filed, the files did not. */
+  attachmentWarning: string | null;
 }
 
 /** Queue row for the appointments manager: flat and serializable. */
@@ -1064,12 +1109,26 @@ export interface AssistanceDecisionValues {
 export interface AssistanceCategoryRow {
   id: string;
   label: string;
+  /** Optional one-line explanation shown under the picker. "" means none. */
+  description: string;
+  /** "What to prepare" bullets. Empty means the guidance card is not rendered. */
+  requirements: string[];
   sortOrder: number;
   isActive: boolean;
 }
 export interface AssistanceCategoryValues {
   label: string;
+  description: string;
+  requirements: string[];
 }
+
+/**
+ * Creating a category takes a label only — the inline "New Category" row has no
+ * room for the other two, and they are filled in afterwards through the editor.
+ * A separate type rather than optional fields, so the editor's own call site
+ * cannot silently omit them and blank a category's guidance on save.
+ */
+export type AssistanceCategoryCreateValues = Pick<AssistanceCategoryValues, "label">;
 
 /* ── Contact inquiries & alert subscribers (migration 0019) ───────────── */
 

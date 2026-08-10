@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { AssistanceCategoryValues } from "@/types";
+import type { AssistanceCategoryCreateValues, AssistanceCategoryValues } from "@/types";
 import { NOT_FOUND, checkSuperAdmin } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -17,6 +17,8 @@ const categorySchema = z.object({
     .trim()
     .min(3, "Enter a category name.")
     .max(60, "Please keep the category name short."),
+  description: z.string().trim().max(300, "Please keep the description short."),
+  requirements: z.array(z.string().trim().min(1)).max(8, "Please list at most 8 items."),
 });
 
 /** URL/slug-safe id derived from the category label. Mirrors services.ts's slugify. */
@@ -36,11 +38,11 @@ function slugify(title: string): string {
  * helpful for this short, hand-curated list.
  */
 export async function createAssistanceCategory(
-  values: AssistanceCategoryValues,
+  values: AssistanceCategoryCreateValues,
 ): Promise<ActionResult> {
   const actor = await checkSuperAdmin();
   if (!actor) return { error: NOT_FOUND };
-  const parsed = categorySchema.safeParse(values);
+  const parsed = categorySchema.pick({ label: true }).safeParse(values);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
   }
@@ -80,8 +82,11 @@ export async function createAssistanceCategory(
   return { error: null };
 }
 
-/** Rename a category's label. The id (and existing requests' category_id) never changes. */
-export async function renameAssistanceCategory(
+/**
+ * Update a category's label, description and requirements. The id (and
+ * existing requests' category_id) never changes.
+ */
+export async function updateAssistanceCategory(
   id: string,
   values: AssistanceCategoryValues,
 ): Promise<ActionResult> {
@@ -95,13 +100,17 @@ export async function renameAssistanceCategory(
   const admin = createSupabaseAdminClient();
   const { error } = await admin
     .from("assistance_categories")
-    .update({ label: parsed.data.label })
+    .update({
+      label: parsed.data.label,
+      description: parsed.data.description,
+      requirements: parsed.data.requirements,
+    })
     .eq("id", id);
-  if (error) return { error: "Could not rename the category." };
+  if (error) return { error: "Could not update the category." };
 
   await recordActivity(actor, {
     type: "update",
-    action: "renamed assistance category",
+    action: "updated assistance category",
     entityType: "assistance category",
     entityId: id,
     entityLabel: parsed.data.label,

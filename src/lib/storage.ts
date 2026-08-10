@@ -185,10 +185,10 @@ export const TICKET_MEDIA_BUCKET = "ticket-media";
 
 /**
  * 3 files x 2 MB = 6 MB, deliberately under next.config.ts's
- * bodySizeLimit: "8mb". This is what lets reply bytes ride inside the Server
- * Action instead of needing a Route Handler — and the Plan 3 document handler
- * is authenticated, so a public twin of it would be the largest new attack
- * surface in this feature. Do NOT raise these to fit a 10 MB scan.
+ * bodySizeLimit: "8mb". This is what lets resident-supplied ticket attachments
+ * ride inside the Server Action instead of needing a Route Handler — and the
+ * Plan 3 document handler is authenticated, so a public twin of it would be the
+ * largest new attack surface in this feature. Do NOT raise these to fit a 10 MB scan.
  */
-export const MAX_REPLY_FILES = 3;
-export const MAX_REPLY_FILE_BYTES = 2 * 1024 * 1024; // 2 MB
+export const MAX_TICKET_FILES = 3;
+export const MAX_TICKET_FILE_BYTES = 2 * 1024 * 1024; // 2 MB
