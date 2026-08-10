@@ -572,6 +572,7 @@ export interface ServiceFormValues {
   status: AdminServiceStatus;
   iconName: string;
   tone: ServiceTone;
+  flow: ServiceFlow;
 }
 
 /** The future review-action (PATCH) body. */
