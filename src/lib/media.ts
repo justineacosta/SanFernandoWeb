@@ -8,7 +8,7 @@ import {
   AVATARS_MEDIA_BUCKET,
   FEEDBACK_MEDIA_BUCKET,
   MAX_IMAGE_BYTES,
-  MAX_REPLY_FILE_BYTES,
+  MAX_TICKET_FILE_BYTES,
   MAX_SCREENSHOT_BYTES,
   SITE_MEDIA_BUCKET,
   TICKET_MEDIA_BUCKET,
@@ -229,7 +229,7 @@ export async function uploadTicketAttachment(
   if (!ALLOWED_DOC_FILE_TYPES.includes(file.type as (typeof ALLOWED_DOC_FILE_TYPES)[number])) {
     return { error: "Attachments must be JPG, PNG, WebP, or PDF.", src: null, url: null };
   }
-  if (file.size > MAX_REPLY_FILE_BYTES) {
+  if (file.size > MAX_TICKET_FILE_BYTES) {
     return { error: "Each attachment must be 2 MB or smaller.", src: null, url: null };
   }
   // ticketNo is server-derived (matched against the DB), never client free text.

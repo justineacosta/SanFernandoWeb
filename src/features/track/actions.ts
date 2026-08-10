@@ -14,7 +14,7 @@ import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { canReply, recordTicketUpdate, REPLY_RETURN_STATUS } from "@/lib/ticket-updates";
 import { discardTicketAttachment, uploadTicketAttachment } from "@/lib/media";
-import { MAX_REPLY_FILES } from "@/lib/storage";
+import { MAX_TICKET_FILES } from "@/lib/storage";
 
 export interface LookupResult {
   error: string | null;
@@ -312,8 +312,8 @@ export async function submitTicketReply(form: FormData): Promise<ReplyResult> {
   }
 
   const files = form.getAll("files").filter((item): item is File => item instanceof File && item.size > 0);
-  if (files.length > MAX_REPLY_FILES) {
-    return { error: `You can attach up to ${MAX_REPLY_FILES} files.`, ticket: null };
+  if (files.length > MAX_TICKET_FILES) {
+    return { error: `You can attach up to ${MAX_TICKET_FILES} files.`, ticket: null };
   }
 
   const admin = createSupabaseAdminClient();
