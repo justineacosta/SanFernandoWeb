@@ -30,6 +30,17 @@ const EMPTY: PublicAppointmentValues = {
   consent: false,
 };
 
+/**
+ * Starting points for the purpose field. Residents who freeze at a blank box
+ * get a first sentence to edit, and staff get more routable text than "meeting".
+ */
+const PURPOSE_PRESETS = [
+  "Consultation with an official",
+  "Document follow-up",
+  "Complaint mediation",
+  "Business inquiry",
+] as const;
+
 /** Public appointment request form; swaps to a ticket receipt on success. */
 export function AppointmentForm() {
   const [values, setValues] = useState<PublicAppointmentValues>(EMPTY);
@@ -47,6 +58,14 @@ export function AppointmentForm() {
 
   const set = <K extends keyof PublicAppointmentValues>(key: K, value: PublicAppointmentValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
+
+  function applyPreset(preset: string) {
+    // Fill when empty, append on a new line otherwise. Never destructive — a
+    // resident who has typed three sentences and taps a chip out of curiosity
+    // does not lose them — and never inert, which a fill-only-when-empty rule
+    // would make it once they had typed anything.
+    set("purpose", values.purpose.trim() ? `${values.purpose.trimEnd()}\n${preset}` : preset);
+  }
 
   const v = useFieldValidation(appointmentSchema, values);
 
@@ -240,6 +259,18 @@ export function AppointmentForm() {
             htmlFor="appointment-purpose"
             error={v.errorFor("purpose")}
           >
+            <div className="mb-2 flex flex-wrap gap-2">
+              {PURPOSE_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  className="rounded-full border border-ink-200 bg-white px-3 py-1 text-xs font-medium text-ink-600 transition-colors duration-(--duration-quick) hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
             <Textarea
               id="appointment-purpose"
               name="purpose"
