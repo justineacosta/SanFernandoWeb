@@ -133,6 +133,27 @@ existing check would pass them.
   "Urgent / Report".
 - `createService` / `updateService` validate `flow` against the same four values.
 
+**`labelsForTone` becomes `labelsForFlow`.** `requirements_label` and `cta_label` are not
+editable fields — `services.ts:30-34` *derives* them from `tone` on every create and
+update. Left alone, the §4.6 seed rows' labels ("What to prepare" / "Request Now", "How it
+works" / "Book Now") would be silently reset to "View Requirements" / "Apply Online" the
+first time a SuperAdmin saved any edit to those rows — a bug that would surface days later,
+far from its cause, and look like the seed data was wrong.
+
+Deriving from `flow` instead of `tone` is also simply more correct now: the CTA names the
+destination, and `flow` is what the destination *is*.
+
+| flow | requirements_label | cta_label |
+| --- | --- | --- |
+| `apply` | View Requirements | Apply Online |
+| `complaint` | View Process | File Incident Report |
+| `assistance` | What to prepare | Request Now |
+| `appointment` | How it works | Book Now |
+
+The seed values in §4.6 are exactly this table's rows, so a save is a no-op rather than a
+rewrite. `tone` no longer feeds label derivation at all — it is purely visual, as §4.1
+intends.
+
 ### 4.5 Dead code removed
 
 `src/features/services/data.ts` exports `SERVICES`, a static mock of the four seeded rows
