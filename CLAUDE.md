@@ -28,6 +28,13 @@ sub-project 9 (`0021`). `docs/BACKEND_HANDOFF.md` is the living integration brie
 `docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan history. Remaining
 work: 2D email (Resend) and migrating `lh3`-hotlinked images to owned Storage — the
 security-hardening pass (all 3 plans, see the Architecture section's bullet) is finished.
+**`docs/HARDENING_BACKLOG.md` (opened 2026-08-10) is the live list of deferred security
+and polish items** — five security entries (led by `requestIp()`'s unconditional trust of
+`cf-connecting-ip`, which every IP-keyed rate limit on the site depends on) plus six
+functional follow-ups from the `services-request-flows` reviews. It exists as a tracked
+file specifically because the SDD ledgers under `.superpowers/sdd/` are git-ignored and
+never reach GitHub, so findings recorded only there are lost to anyone on another machine.
+Delete entries as they ship rather than letting it accumulate.
 
 ## Commands
 
