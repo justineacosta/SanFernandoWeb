@@ -3,6 +3,7 @@ import { BrandStroke } from "@/components/ui/brand-stroke";
 import { PageHero } from "@/components/sections/page-hero";
 import { Section } from "@/components/ui/section";
 import { AppointmentForm } from "@/features/appointments";
+import { loadAppointmentDemand } from "@/features/appointments/queries";
 
 export const metadata: Metadata = {
   title: "Set an Appointment",
@@ -10,7 +11,8 @@ export const metadata: Metadata = {
     "Request an appointment with the officials and staff of Barangay San Fernando, San Nicolas, Ilocos Norte.",
 };
 
-export default function NewAppointmentPage() {
+export default async function NewAppointmentPage() {
+  const demand = await loadAppointmentDemand();
   return (
     <>
       <PageHero
@@ -19,7 +21,7 @@ export default function NewAppointmentPage() {
       />
       <Section>
         <div className="mx-auto max-w-3xl">
-          <AppointmentForm />
+          <AppointmentForm demand={demand} />
         </div>
       </Section>
     </>

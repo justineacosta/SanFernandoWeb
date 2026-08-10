@@ -943,6 +943,14 @@ export interface PublicAppointmentValues extends PublicTicketValues {
 }
 export type WalkInAppointmentValues = PublicAppointmentValues;
 
+/**
+ * How many appointment requests already exist per date and half-day, keyed
+ * YYYY-MM-DD. A date absent from the map has none — the form renders no hint
+ * at all for it rather than "Light", since absence of data and genuine quiet
+ * look identical and only one of them is a claim worth making.
+ */
+export type AppointmentDemand = Record<string, { am: number; pm: number }>;
+
 export interface PublicComplaintValues extends PublicTicketValues {
   /** Optional — a resident may report an incident without naming anyone. */
   respondent: string;

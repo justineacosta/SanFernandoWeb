@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { CheckCircle2, Copy } from "lucide-react";
-import type { PublicAppointmentValues } from "@/types";
+import type { AppointmentDemand, PublicAppointmentValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { BrandStroke } from "@/components/ui/brand-stroke";
 import { Card } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { manilaToday } from "@/lib/format";
 import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitAppointment } from "@/features/appointments/actions";
 import { appointmentSchema } from "@/features/appointments/schema";
+import { demandLabel } from "@/features/appointments/demand";
 import { SwapReveal } from "@/components/ui/swap-reveal";
 import { SITE } from "@/constants/site";
 
@@ -41,8 +42,14 @@ const PURPOSE_PRESETS = [
   "Business inquiry",
 ] as const;
 
+const DEMAND_BLURB: Record<ReturnType<typeof demandLabel>, string> = {
+  Light: "Light — few requests for this slot so far.",
+  Moderate: "Moderate — a few requests already for this slot.",
+  Busy: "Busy — consider another day, or the other half of this one.",
+};
+
 /** Public appointment request form; swaps to a ticket receipt on success. */
-export function AppointmentForm() {
+export function AppointmentForm({ demand }: { demand: AppointmentDemand }) {
   const [values, setValues] = useState<PublicAppointmentValues>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [ticketNo, setTicketNo] = useState<string | null>(null);
@@ -68,6 +75,7 @@ export function AppointmentForm() {
   }
 
   const v = useFieldValidation(appointmentSchema, values);
+  const slotCount = demand[values.preferredDate]?.[values.preferredPeriod];
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -315,6 +323,11 @@ export function AppointmentForm() {
                 <option value="pm">Afternoon (1:00 PM – 5:00 PM)</option>
               </Select>
             </Field>
+            {slotCount === undefined ? null : (
+              <p className="text-xs text-ink-500 sm:col-span-2">
+                {DEMAND_BLURB[demandLabel(slotCount)]}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <label className="flex items-start gap-3 text-sm text-ink-600">
