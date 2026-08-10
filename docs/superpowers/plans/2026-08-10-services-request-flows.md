@@ -221,7 +221,7 @@ clean when you commit this task.
 
 ```ts
 // src/features/services/flow.ts
-import type { Service } from "@/types";
+import type { ServiceFlow } from "@/types";
 
 /**
  * The public route a service card's CTA points at.
@@ -229,8 +229,12 @@ import type { Service } from "@/types";
  * The `switch` is exhaustive over `ServiceFlow` with no `default`, so adding a
  * fifth flow to the union without adding its route here is a compile error
  * rather than a silent fallthrough to the apply page.
+ *
+ * The parameter is structural rather than `Pick<Service, "id" | "flow">`: a
+ * `Pick` would make this module depend on `Service.flow`, which Task 3 adds.
+ * A `ServiceRecord` satisfies this shape once that lands.
  */
-export function serviceHref(service: Pick<Service, "id" | "flow">): string {
+export function serviceHref(service: { id: string; flow: ServiceFlow }): string {
   switch (service.flow) {
     case "complaint":
       return "/complaints/new";
