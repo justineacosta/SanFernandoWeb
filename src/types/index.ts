@@ -992,7 +992,8 @@ export interface SubmitTicketResult {
  *
  * Extending rather than widening the shared type, for the reason
  * `SignInFormState extends AuthFormState` does: the base must not carry a field
- * that is inert for its four other callers.
+ * that is inert for its two other callers, `submitAppointment` and
+ * `submitComplaint` (applications use their own separate `SubmitApplicationResult`).
  */
 export interface SubmitAssistanceResult extends SubmitTicketResult {
   /** Non-null only alongside a successful ticketNo: the ticket filed, the files did not. */

@@ -92,7 +92,13 @@ keys on `submittedAt`, a **date**, so every row a previous run left behind ties 
 one, and — worse — `expect(row).toBeVisible()` resolves instantly against the *stale* pre-insert
 list when a matching older row already exists, which had the test silently drive the previous
 run's ticket and then assert against the current run's. Copy the unique-surname pattern, not
-the fixed one, for any new test that looks its own row up twice.
+the fixed one, for any new test that looks its own row up twice. **`tests/e2e/public/
+assistance-form.spec.ts` spends one `assistance:<ip>` hit against `SUBMIT_LIMIT` = 5 per hour**
+— roughly 5 runs an hour before it fails on the limiter rather than on a regression, same
+collision-not-regression framing as the three suites above. It pins each run to its own bucket
+via a forged `cf-connecting-ip`, `page.route()`-scoped to the app's own origin exactly like
+`login.spec.ts`'s pattern above — not `test.use({ extraHTTPHeaders })`, which would leak the
+header to `challenges.cloudflare.com` and get the Turnstile widget refused.
 
 ## Architecture
 
@@ -687,6 +693,47 @@ the fixed one, for any new test that looks its own row up twice.
   `<button>` inside a `<form>` with no explicit `type` submits it — and `applyPreset` fills
   the purpose field when empty, appending on a new line otherwise, so a chip tap never
   destroys text a resident already typed.
+- **Assistance gained per-category guidance and attachments-at-filing, 2026-08-10**
+  (migration `0035`'s `assistance_categories.description`/`.requirements`, editable through the
+  existing categories panel at `/admin/services`). An empty category renders **nothing** — the
+  same "empty block hides its section" rule the Home/About CMS bullet already established —
+  which is what let this ship before any category had real guidance text written for it:
+  `AssistanceForm` renders the "What to prepare" card only when `selected.description ||
+  selected.requirements.length > 0`. The category action gained real work in the same pass and
+  was renamed for it: `renameAssistanceCategory` → `updateAssistanceCategory`, because it no
+  longer only renames a category's label — it now writes `description`/`requirements` too, and
+  the old name stopped describing what it does.
+  **Attachments at filing needed no new schema — four things already existed and none were
+  rebuilt:** `submitAssistance` already called `recordTicketUpdate` for its intake row;
+  `recordTicketUpdate` already accepted an `attachments` array; `uploadTicketAttachment`/
+  `discardTicketAttachment` (`src/lib/media.ts`) already wrote to the private `ticket-media`
+  bucket; and `discardTicketAttachment`'s path allow-list already covered the `AST-` prefix
+  alongside the other three ticket kinds — all built for the resident-reply half of the
+  2026-08-02 ticket-timeline feature; `scripts/report-orphaned-media.mjs` already read
+  `ticket_updates.attachments` too, so filing-time attachments are visible to it with no
+  change. Filing is simply a second caller of all of it. **The upload runs after the insert,
+  and that ordering is not negotiable:** the storage path is prefixed with the ticket number
+  (`<ticket_no>/<uuid>.<ext>`), which does not exist until the row is written. So every
+  resident-fixable rejection — file count, size, MIME — is checked **before** the insert and
+  returns a normal error with no ticket filed; a storage failure *after* the insert must never
+  fail the submission, because the ticket is already the resident's and failing here would have
+  them refile for a second number. A partial or failed upload is discarded
+  (`discardTicketAttachment` on whatever succeeded) and `SubmitAssistanceResult.
+  attachmentWarning` carries the explanation instead — so the warning path is reachable only by
+  a genuine storage failure, never by anything the resident did wrong.
+  `SubmitAssistanceResult extends SubmitTicketResult` rather than widening the shared type, for
+  the same reason `SignInFormState extends AuthFormState` does: the base type has **two** other
+  callers, `submitAppointment` and `submitComplaint` (applications use their own separate
+  `SubmitApplicationResult`), and neither should carry a field that's inert for them. A
+  `recordTicketUpdate` failure downgrades to the same warning and also discards any uploads —
+  without that, a resident's uploaded ID would sit in the private bucket referenced by no row at
+  all, which the report-only orphan script would list forever but never clean up; this is the
+  "a storage object exists only if a row references it" invariant applied to a second write
+  path. The cap stays **3 files × 2 MB**, sized to fit the existing `"8mb"` Server Action
+  `bodySizeLimit` rather than raised — raising it would widen the limit for every public form at
+  once, not just this one. `MAX_REPLY_FILES`/`MAX_REPLY_FILE_BYTES` were renamed to
+  `MAX_TICKET_FILES`/`MAX_TICKET_FILE_BYTES` (`src/lib/storage.ts`) in the same pass, since they
+  now cover any resident-supplied ticket attachment, not only a reply.
 - **`/admin/login` is a responsive split-screen at `md:` (768px)+, 2026-07-31** — a brand panel
   (currently `w-[55%]`, the form panel takes the rest) beside the form, with a **separate**
   centered-card layout below that breakpoint. `src/app/admin/login/page.tsx` renders both
