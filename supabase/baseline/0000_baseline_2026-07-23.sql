@@ -334,8 +334,10 @@ end $$;
 -- ── Services catalog ────────────────────────────────────────────────────────
 -- id doubles as the URL slug and is the FK target for applications. icon_name
 -- is resolved to a component on the frontend — never store components.
--- tone drives routing: 'primary' services route to /services/apply/[slug];
--- 'danger' (blotter-complaints) routes to /complaints/new instead.
+-- flow drives routing (src/features/services/flow.ts's serviceHref): 'apply'
+-- routes to /services/apply/[slug], 'complaint' to /complaints/new,
+-- 'assistance' to /assistance/new, 'appointment' to /appointments/new.
+-- tone is purely visual (card styling) and plays no part in routing.
 
 create table public.services (
   id text primary key,

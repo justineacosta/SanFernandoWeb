@@ -76,6 +76,7 @@ export interface Service {
   description: string;
   icon: LucideIcon;
   tone: ServiceTone;
+  flow: ServiceFlow;
   requirementsLabel: string;
   requirements: string[];
   ctaLabel: string;
@@ -550,6 +551,7 @@ export interface AdminServiceRow {
   description: string;
   iconName: string;
   tone: ServiceTone;
+  flow: ServiceFlow;
   requirementsLabel: string;
   ctaLabel: string;
   requirements: string[];
