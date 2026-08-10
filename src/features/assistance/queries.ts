@@ -13,7 +13,7 @@ export const listActiveAssistanceCategories = cache(async (): Promise<Assistance
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("assistance_categories")
-    .select("id, label, sort_order, is_active")
+    .select("id, label, description, requirements, sort_order, is_active")
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
   if (error || !data) {
@@ -23,6 +23,8 @@ export const listActiveAssistanceCategories = cache(async (): Promise<Assistance
   return data.map((row) => ({
     id: row.id,
     label: row.label,
+    description: row.description,
+    requirements: row.requirements,
     sortOrder: row.sort_order,
     isActive: row.is_active,
   }));

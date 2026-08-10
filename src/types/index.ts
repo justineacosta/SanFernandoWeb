@@ -1092,12 +1092,26 @@ export interface AssistanceDecisionValues {
 export interface AssistanceCategoryRow {
   id: string;
   label: string;
+  /** Optional one-line explanation shown under the picker. "" means none. */
+  description: string;
+  /** "What to prepare" bullets. Empty means the guidance card is not rendered. */
+  requirements: string[];
   sortOrder: number;
   isActive: boolean;
 }
 export interface AssistanceCategoryValues {
   label: string;
+  description: string;
+  requirements: string[];
 }
+
+/**
+ * Creating a category takes a label only — the inline "New Category" row has no
+ * room for the other two, and they are filled in afterwards through the editor.
+ * A separate type rather than optional fields, so the editor's own call site
+ * cannot silently omit them and blank a category's guidance on save.
+ */
+export type AssistanceCategoryCreateValues = Pick<AssistanceCategoryValues, "label">;
 
 /* ── Contact inquiries & alert subscribers (migration 0019) ───────────── */
 
