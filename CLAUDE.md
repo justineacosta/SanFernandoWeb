@@ -924,6 +924,30 @@ the fixed one, for any new test that looks its own row up twice.
   the new name columns, and a missing-column error there is caught and logged, not thrown,
   so a skipped migration doesn't fail loud: `/admin/users` silently renders an empty roster
   and `createTeamUser` fails with a generic "Could not save the profile."
+- **Service cards route by an explicit `flow` column, not by inferring it from `tone`,
+  2026-08-10** (migration `0035`, `docs/superpowers/sdd/2026-08-10-services-request-flows/`).
+  `services.flow` (`text not null default 'apply' check (flow in ('apply', 'complaint',
+  'assistance', 'appointment'))`) replaces the old inference where `tone === 'danger'` meant
+  the complaint form and anything else meant the document-application form — that scheme had
+  no room for a third destination. `ServiceFlow` (`@/types`) is the union; `serviceHref`
+  (`src/features/services/flow.ts`) is a pure function taking a structural `{id, flow}` and
+  switching **exhaustively, no `default`**, so a fifth flow added to the union without a route
+  added here is a compile error, not a silent fallthrough to the apply page. `Service` and
+  `AdminServiceRow` (`@/types`) both carry `flow`, populated by all three query mappers
+  (`src/features/services/queries.ts`'s `listServices`/`getApplyService`,
+  `src/features/admin/queries/services.ts`'s `listServiceCatalog`). Two new catalog rows exist
+  for the flows that previously had no service-directory entry at all: `social-services-
+  assistance` (flow `assistance`, routes to `/assistance/new`) and `set-an-appointment` (flow
+  `appointment`, routes to `/appointments/new`) — both are tone `primary` (they read as
+  ordinary cards, not danger-styled), which is exactly why `getApplyService`'s guard could not
+  stay tone-based: `data.tone !== "primary"` would have passed both straight through into a
+  full document-application form backed by no application table. **That guard is now `data.flow
+  !== "apply"`** — the security-relevant fix, not cosmetic. `tone` still decides the card's
+  visual variant (`isDanger ? "outline-danger" : "primary"` in `service-card.tsx`) and nothing
+  else; `serviceHref(service)` alone decides the href. The pre-backend `SERVICES` mock array in
+  `src/features/services/data.ts` was deleted in the same change (dead — nothing imported it;
+  `WASTE_SCHEDULE` and its `Leaf`/`Recycle`/`WasteCollectionSlot` imports are untouched, that
+  half of the file is live).
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
