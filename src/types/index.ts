@@ -60,6 +60,16 @@ export interface QuickService {
 
 export type ServiceTone = "primary" | "danger";
 
+/**
+ * Which form a service card sends a resident to. Separate from `ServiceTone`,
+ * which is purely visual: routing used to be inferred from tone ('danger' meant
+ * the complaint form), which had no room for a third destination.
+ *
+ * A flow *name*, not an href — see migration 0035's header for why the route
+ * itself stays in code.
+ */
+export type ServiceFlow = "apply" | "complaint" | "assistance" | "appointment";
+
 export interface Service {
   id: string;
   title: string;
