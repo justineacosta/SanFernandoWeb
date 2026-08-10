@@ -44,6 +44,7 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
     setValues((prev) => ({ ...prev, [key]: value }));
 
   const v = useFieldValidation(assistanceSchema, values);
+  const selected = categories.find((category) => category.id === values.categoryId);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -139,6 +140,22 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
   return (
     <SwapReveal face="form">
       <form onSubmit={handleSubmit} noValidate className="space-y-8">
+        <Card className="rounded-3xl border-brand-200 bg-brand-100/50 p-6">
+          <p className="mb-3 font-semibold text-ink-900">Before you file</p>
+          <ul className="space-y-2 text-sm text-ink-600">
+            {[
+              "Every request is reviewed by the Barangay Social Welfare Desk.",
+              "A staff visit or follow-up call may follow.",
+              "This is a request for assessment, not cash released on the spot.",
+            ].map((line) => (
+              <li key={line} className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" aria-hidden="true" />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
         <Card className="space-y-5 rounded-3xl p-8">
           <div className="grid gap-5 sm:grid-cols-2">
             <Field
@@ -229,6 +246,25 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
               ))}
             </Select>
           </Field>
+          {selected && (selected.description || selected.requirements.length > 0) ? (
+            <Card className="rounded-3xl border-brand-200 bg-brand-100/50 p-6">
+              <p className="mb-3 font-semibold text-ink-900">What to prepare</p>
+              {selected.description ? (
+                <p className="mb-3 text-sm text-ink-600">{selected.description}</p>
+              ) : null}
+              <ul className="space-y-2 text-sm text-ink-600">
+                {selected.requirements.map((requirement, index) => (
+                  <li key={`${index}-${requirement}`} className="flex items-start gap-2">
+                    <CheckCircle2
+                      className="mt-0.5 h-4 w-4 shrink-0 text-brand-500"
+                      aria-hidden="true"
+                    />
+                    <span>{requirement}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
           <Field
             label="Tell us about your situation"
             htmlFor="assistance-details"
@@ -243,6 +279,11 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
               onChange={(event) => set("details", event.target.value)}
               {...v.fieldProps("details", "assistance-details")}
             />
+            <p className="text-right text-xs text-ink-500" aria-live="polite">
+              {values.details.trim().length < 20
+                ? `${values.details.trim().length} / 20 characters minimum`
+                : `${values.details.trim().length} / 2000`}
+            </p>
           </Field>
           <div className="space-y-2">
             <label className="flex items-start gap-3 text-sm text-ink-600">
