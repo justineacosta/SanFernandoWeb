@@ -48,7 +48,10 @@ export function AssistanceCategoriesPanel({ categories }: AssistanceCategoriesPa
     setEditValues({
       label: category.label,
       description: category.description,
-      requirements: category.requirements,
+      // Never read back out — saveEdit derives requirements from
+      // requirementsBuffer instead, so this exists only to satisfy
+      // AssistanceCategoryValues' shape.
+      requirements: [],
     });
     setRequirementsBuffer(category.requirements.join("\n"));
   }
@@ -246,7 +249,7 @@ export function AssistanceCategoriesPanel({ categories }: AssistanceCategoriesPa
                     </button>
                     <button
                       type="button"
-                      aria-label={`Rename ${category.label}`}
+                      aria-label={`Edit ${category.label}`}
                       disabled={isPending}
                       onClick={() => startEdit(category)}
                       className="rounded-full p-2 text-ink-500 transition-colors hover:bg-ink-50 hover:text-ink-900 disabled:opacity-40"

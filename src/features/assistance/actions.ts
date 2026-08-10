@@ -23,6 +23,13 @@ import { assistanceSchema } from "./schema";
 const SUBMIT_LIMIT = 5;
 const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
 
+// A freshly-filed request is `pending`, and `canReply` (src/lib/ticket-updates.ts)
+// only allows a reply once staff move it to `awaiting-info` — so "reply on the
+// Track page" would be false the moment this shows. Point the resident at
+// something they can actually do right now instead.
+const ATTACHMENT_WARNING =
+  "We could not attach your files. Your request is filed — bring them to the barangay hall, or send them through /track once staff ask for more information.";
+
 /**
  * A resident's public assistance request. No auth — the service-role client is
  * used because `assistance_requests` has no RLS policies at all; this action IS
@@ -143,8 +150,7 @@ export async function submitAssistance(
         await discardTicketAttachment(done.path, "submitAssistance upload failed");
       }
       uploaded.length = 0;
-      attachmentWarning =
-        "We could not attach your files. Your request is filed — you can add them by replying on the Track page.";
+      attachmentWarning = ATTACHMENT_WARNING;
       break;
     }
     uploaded.push({ path: result.src, name: file.name, mime: file.type, sizeBytes: file.size });
@@ -168,8 +174,7 @@ export async function submitAssistance(
     for (const done of uploaded) {
       await discardTicketAttachment(done.path, "submitAssistance timeline insert failed");
     }
-    attachmentWarning =
-      "We could not attach your files. Your request is filed — you can add them by replying on the Track page.";
+    attachmentWarning = ATTACHMENT_WARNING;
   }
   if (parsed.data.email) {
     await sendEmail({

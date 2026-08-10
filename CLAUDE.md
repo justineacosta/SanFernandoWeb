@@ -1063,7 +1063,22 @@ follow-up worth doing, not a rate-limit fix.
   pre-backend `SERVICES` mock array in
   `src/features/services/data.ts` was deleted in the same change (dead — nothing imported it;
   `WASTE_SCHEDULE` and its `Leaf`/`Recycle`/`WasteCollectionSlot` imports are untouched, that
-  half of the file is live).
+  half of the file is live). **A final whole-branch review found one more gap the same day,
+  blocking rather than cosmetic:** `0035` seeds `set-an-appointment` with `icon_name =
+  'calendar-days'`, but `ICON_OPTIONS` (`src/lib/icon-map.ts`) — the admin Services icon
+  `<Select>` — never had that entry (it existed only in the separate `SITE_ICON_OPTIONS` list
+  for the Home/About pickers, both resolving through the same shared `ICONS` map, which did
+  already have it). The Select rendered blank, and `serviceSchema.iconName`'s refine rejected
+  the empty value with "Pick a valid icon." on Save — a SuperAdmin could not save *any* edit
+  to that row, including a no-op save, without first swapping the icon away from a calendar.
+  Fixed by adding `{ value: "calendar-days", label: "Appointment / Calendar" }` to
+  `ICON_OPTIONS`; verified in-browser (edit drawer now shows it selected, a no-op save
+  succeeds, `/services` still renders the calendar icon). The same pass hoisted
+  `submitAssistance`'s two byte-identical attachment-failure strings
+  (`src/features/assistance/actions.ts`) into one `ATTACHMENT_WARNING` constant and corrected
+  the copy — it had told a resident to "add them by replying on the Track page," which is
+  false the instant it can show: `canReply()` (`src/lib/ticket-updates.ts`) only opens a reply
+  on `awaiting-info`, and a freshly-filed assistance request is `pending`.
 - **Autosave is a local recovery copy, never a database write** (sub-project 8, 2026-07-22).
   The seven draft-capable drawers call `useFormDraft(userId, scope, recordId, values)`
   (`src/hooks/use-form-draft.ts`; pure helpers in `src/lib/form-draft.ts`), which debounces a
