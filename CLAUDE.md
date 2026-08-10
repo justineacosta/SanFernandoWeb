@@ -623,6 +623,33 @@ the fixed one, for any new test that looks its own row up twice.
   other direction. This class of bug (the two halves silently drifting) is invisible to
   `npm run typecheck` and to every existing test, since Vitest covers only the JS half;
   catching it needs the two engines run against the same haystack and diffed.
+- **`/appointments/new` shows a coarse demand hint, computed server-side once at render,
+  2026-08-10.** Split across two modules on purpose — `src/features/appointments/demand.ts`
+  exports the pure `demandLabel(count)` (`Light` < 3, `Moderate` < 6, `Busy` ≥ 6, named
+  constants) with no imports beyond types, because Vitest's unit tests run with no jsdom and
+  no React renderer, and a transitive import of the Supabase client would break that
+  environment; `src/features/appointments/queries.ts` holds `loadAppointmentDemand()`, the
+  DB half, kept out of `demand.ts` for the same reason. `AppointmentDemand` (`src/types/
+  index.ts`) is `Record<YYYY-MM-DD, {am, pm}>`, tallied in JS over the next 60 days
+  (`HORIZON_DAYS`) rather than an RPC — a small result set, no new SQL function to maintain.
+  The page (`src/app/(public)/appointments/new/page.tsx`) is now `async` and awaits the
+  query, which makes the route dynamic (a DB read at render) — expected, matching
+  `/assistance/new`. **A date absent from the map renders no hint at all, never "Light"**
+  (`AppointmentForm`'s `slotCount === undefined` check) — absence of data and genuine quiet
+  look identical in the map, and only one of them is a claim worth making to a resident; the
+  label is deliberately coarse for the same reason a raw count is never rendered — it would
+  invite reading a number as a capacity limit that doesn't exist, and would publish the
+  barangay's operational volume. **`loadAppointmentDemand` uses the service-role client
+  (`createSupabaseAdminClient`), not the cookie-bound one** — found by verifying the feature
+  live rather than trusting the query in isolation: `appointments` has RLS enabled with zero
+  policies like every other write-bearing table, so the anon-key client silently returns zero
+  rows for every date (no error to catch) and the hint would never appear for anyone. This is
+  the same "deliberately-public action, gates in code instead" carve-out
+  `src/lib/supabase/admin.ts`'s own doc comment already grants `lookupTicket`; no permission
+  check guards this read because it only ever returns an aggregate count, never a row —
+  matching how `announcements`/`transparency`/`officials`/`events`/`services` queries already
+  read their own non-exception tables for the public site. Declined and completed requests
+  are excluded from the tally; neither still occupies staff time on that day.
 - **`/admin/login` is a responsive split-screen at `md:` (768px)+, 2026-07-31** — a brand panel
   (currently `w-[55%]`, the form panel takes the rest) beside the form, with a **separate**
   centered-card layout below that breakpoint. `src/app/admin/login/page.tsx` renders both
