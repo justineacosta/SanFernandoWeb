@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { isClosedDay } from "@/lib/office-days";
 
 describe("isClosedDay", () => {
@@ -17,12 +17,20 @@ describe("isClosedDay", () => {
     }
   });
 
-  it("reads the calendar day, not the viewer's local day", () => {
-    // "2026-08-16" parses as UTC midnight. In Manila (UTC+8) that is still
-    // Sunday, but getDay() in a UTC-5 test runner would report Saturday for
-    // 2026-08-17 and shift every answer by one. This asserts the UTC reading
-    // that makes the function timezone-independent.
-    expect(new Date("2026-08-16").getUTCDay()).toBe(0);
-    expect(isClosedDay("2026-08-17")).toBe(false); // Monday, everywhere
+  it("never consults the runner's local weekday", () => {
+    // The whole correctness of this function is getUTCDay() over getDay(), and
+    // that difference is INVISIBLE to a behavioural assertion on any runner at
+    // UTC+0 or east of it — which is both this project's CI and its entire
+    // audience (Manila, UTC+8). Asserting `isClosedDay("2026-08-17") === false`
+    // therefore passes just as happily with the bug present.
+    //
+    // So assert the mechanism instead of the output: getDay() must never be
+    // called. This holds in every timezone, which a date-based assertion cannot.
+    const localDay = vi.spyOn(Date.prototype, "getDay");
+    for (const iso of ["2026-08-14", "2026-08-15", "2026-08-16", "2026-08-17"]) {
+      isClosedDay(iso);
+    }
+    expect(localDay).not.toHaveBeenCalled();
+    localDay.mockRestore();
   });
 });
