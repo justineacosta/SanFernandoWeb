@@ -147,8 +147,16 @@ Task 2 is pure TypeScript with no DB dependency and **may** proceed while waitin
 - Modify: `src/types/index.ts:61` (beside `ServiceTone`)
 
 **Interfaces:**
-- Produces: `type ServiceFlow = "apply" | "complaint" | "assistance" | "appointment"` (exported from `@/types`); `serviceHref(service: Pick<Service, "id" | "flow">): string` (exported from `@/features/services/flow`).
+- Produces: `type ServiceFlow = "apply" | "complaint" | "assistance" | "appointment"` (exported from `@/types`); `serviceHref(service: { id: string; flow: ServiceFlow }): string` (exported from `@/features/services/flow`).
 - Consumes: nothing.
+
+**This task deliberately does NOT add `flow` to `Service` or `AdminServiceRow`.** Those
+fields land in Task 3, in the same commit that teaches the query mappers to populate them.
+Adding the field here would break every mapper that constructs one of those objects, and
+this task's commit would ship a failing `npm run typecheck` — which the Global Constraints
+forbid. `serviceHref` therefore takes a structural `{ id, flow }` rather than
+`Pick<Service, …>`; a `ServiceRecord` satisfies it once Task 3 lands, and the pure helper
+stays decoupled from the entity interface either way.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -205,9 +213,9 @@ In `src/types/index.ts`, directly under `export type ServiceTone = "primary" | "
 export type ServiceFlow = "apply" | "complaint" | "assistance" | "appointment";
 ```
 
-Then add `flow: ServiceFlow;` to `interface Service` (after `tone`), and `flow: ServiceFlow;` to `interface AdminServiceRow` (after `tone`).
-
-Typecheck will now fail in several places. That is expected and Task 3 fixes it — do not chase the errors yet.
+That is the only change to `src/types/index.ts` in this task. Do **not** add `flow` to
+`Service` or `AdminServiceRow` — see the Interfaces note above. `npm run typecheck` must be
+clean when you commit this task.
 
 - [ ] **Step 4: Write the implementation**
 
@@ -261,8 +269,16 @@ git commit -m "feat: add ServiceFlow and serviceHref"
 - Modify: `src/features/services/data.ts` (delete `SERVICES`)
 
 **Interfaces:**
-- Consumes: `serviceHref` from Task 2; `services.flow` from Task 1.
-- Produces: `ServiceRecord.flow` and `AdminServiceRow.flow` populated from the DB.
+- Consumes: `serviceHref` and `ServiceFlow` from Task 2; `services.flow` from Task 1.
+- Produces: `Service.flow` / `AdminServiceRow.flow` on the interfaces, populated from the DB.
+
+- [ ] **Step 0: Add `flow` to the two entity interfaces**
+
+In `src/types/index.ts`, add `flow: ServiceFlow;` to `interface Service` (after `tone`) and
+to `interface AdminServiceRow` (after `tone`).
+
+This lands here, not in Task 2, so that the mappers in Step 1 populate the field in the
+same commit that declares it — `npm run typecheck` stays clean at every commit.
 
 - [ ] **Step 1: Select `flow` in all three queries**
 
