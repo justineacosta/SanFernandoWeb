@@ -16,6 +16,7 @@ import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitAppointment } from "@/features/appointments/actions";
 import { appointmentSchema } from "@/features/appointments/schema";
 import { SwapReveal } from "@/components/ui/swap-reveal";
+import { SITE } from "@/constants/site";
 
 const EMPTY: PublicAppointmentValues = {
   firstName: "",
@@ -147,6 +148,22 @@ export function AppointmentForm() {
   return (
     <SwapReveal face="form">
       <form onSubmit={handleSubmit} noValidate className="space-y-8">
+        <Card className="rounded-3xl border-brand-200 bg-brand-100/50 p-6">
+          <p className="mb-3 font-semibold text-ink-900">Before you book</p>
+          <ul className="space-y-2 text-sm text-ink-600">
+            {[
+              `Office hours are ${SITE.officeHours.replace("Mon - Fri:", "Monday to Friday,")}`,
+              "Bring a valid ID on the day of your visit.",
+              "The date you pick is a request — staff confirm your slot before you come.",
+            ].map((line) => (
+              <li key={line} className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" aria-hidden="true" />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
         <Card className="space-y-5 rounded-3xl p-8">
           <div className="grid gap-5 sm:grid-cols-2">
             <Field
