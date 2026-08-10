@@ -261,10 +261,10 @@
 > `AnnouncementValues` (admin) in §2. The old mock `NewsArticle` type in
 > `src/types/index.ts` is now dead code — nothing imports it — since the public feed
 > renders `NewsArticleListItem`/`NewsArticleDetail` instead; it wasn't removed this
-> plan and is worth deleting in a follow-up sweep. **Still remaining**: the seeded
+> plan and is worth deleting in a follow-up sweep. ~~**Still remaining**: the seeded
 > demo images are still hotlinked from `lh3.googleusercontent.com` — migrating them
 > to owned `public-media` storage is future work, same as every other still-hotlinked
-> image on the site (§3D, §6).
+> image on the site (§3D, §6).~~ **DROPPED 2026-08-10** — they stay hotlinked; see §3D.
 
 > **Updated 2026-07-20 (transparency documents):** every content block on
 > `/transparency` — ordinances & resolutions, budget/financial documents, and project
@@ -806,8 +806,13 @@
 >    different DPA reading would cost (one column).
 > 6. **17 new unit tests** (45 total) pin the inquiry schema and the mobile normaliser.
 >
-> **Still open:** inquiries are not in the global admin search (`search_admin_global` is a
-> Postgres function — another migration). Email was open when this entry was written;
+> ~~**Still open:** inquiries are not in the global admin search (`search_admin_global` is a
+> Postgres function — another migration).~~ **DROPPED 2026-08-10** — inquiries stay out of
+> the global search. The inbox has its own fuzzy search over name, email and message body,
+> which is where staff work the queue; adding a branch to `search_admin_global` means
+> another migration and a 13th haystack to keep in step with `src/lib/fuzzy.ts` (see
+> CLAUDE.md's two-engines bullet for what drift there costs). Email was open when this
+> entry was written;
 > §2D's Plan 1 (2026-07-30) closed it for this queue specifically — `submitInquiry` now
 > sends the resident an acknowledgment. ~~It also sent every `handle-inquiries` holder a
 > staff notification, `replyTo`-wired back to the resident.~~ **REMOVED 2026-08-06** — no
@@ -1229,9 +1234,14 @@ too.
 `subscribeToAlerts` in `src/features/announcements/actions.ts` writes to
 `alert_subscribers`, normalising the mobile number so the unique index de-duplicates.
 
-**Still needed**: the dispatch pipeline. Numbers are collected; nothing sends to them yet,
-and there is no unsubscribe path other than a direct DB edit (`is_active`,
-`unsubscribed_at` are there for it). Both are prerequisites before the list is used.
+**Dispatch pipeline and unsubscribe path: dropped 2026-08-10, not deferred.** Nothing sends
+to `alert_subscribers` and nothing will until someone reopens the decision; the only
+unsubscribe is a direct DB edit (`is_active`, `unsubscribed_at` exist for it). Both were
+prerequisites before the list could be used, and the list is not being used — the public
+site lost its last signup entry point on 2026-08-05 when both `NewsletterForm` call sites
+were removed, so the table stopped gaining rows anyway. `subscribeToAlerts` stays live,
+Turnstile-gated and rate-limited, reachable from no UI. Broadcasting to residents is a new
+feature to design (and an SMS provider decision), not a gap to close here.
 
 ### B2. ~~Site feedback widget~~ — **BUILT 2026-07-23** (migration `0023`)
 A floating button on every public page (mounted once in `PublicShell`) opens an anonymous
@@ -1252,7 +1262,7 @@ Screenshots live in a **private** `feedback-media` bucket with no read policy; t
 mints ten-minute signed URLs in one batch per page load. This is the only private bucket in the
 project, because a screenshot can contain the sender's own account page or ticket.
 
-**Still needed**:
+**Nothing is still needed here — both items below are settled decisions, not gaps**:
 - **Staff notification on arrival — deliberately none.** ~~Built 2026-07-30 (§2D Plan 2):
   `submitFeedback` emailed every `handle-inquiries` holder via `FeedbackStaffNotifyEmail`,
   reusing `staffEmailsFor()` from item A above.~~ **REMOVED 2026-08-06** on the project
@@ -1261,10 +1271,14 @@ project, because a screenshot can contain the sender's own account page or ticke
   email path is gone. Staff see new feedback only in the Feedback tab's count badge and the
   bell. Treat this as settled, not as a gap to close: re-adding a staff alert here reverses an
   explicit decision.
-- **Spam housekeeping.** The endpoint is anonymous and accepts images. `deleteFeedback` is
-  SuperAdmin-only and reachable only from a `dismissed` row, and it removes the screenshot —
-  but nothing prunes automatically, so a flood needs a human. `scripts/report-orphaned-media.mjs`
-  does not cover `feedback-media`.
+- **Spam housekeeping — dropped 2026-08-10, manual by design.** The endpoint is anonymous
+  and accepts images, so a flood needs a human: `deleteFeedback` is SuperAdmin-only and
+  reachable only from a `dismissed` row, and it removes the screenshot with the row.
+  Automatic pruning is not planned — nothing may delete a resident's report on its own
+  judgement, the same reasoning that rejected a storage sweeper in the transactional-uploads
+  spec (§2.8 / umbrella §3.3). The rate limit (3/hour/IP) is the actual flood control, and
+  `scripts/report-orphaned-media.mjs` **does** cover `feedback-media` now — it gained that
+  case in the 2026-07-29 rewrite, so the note that it doesn't is stale as well as closed.
 
 ### C. Content management (read APIs or CMS)
 Replace the `data.ts` constants, roughly in order of how often the content changes:
@@ -1299,13 +1313,15 @@ Most site images are still hotlinked Google URLs from the design tool — they c
 A public Supabase Storage bucket, **`public-media`**, now exists (added by Plan 3,
 `supabase/migrations/0007_news_content.sql`) and is live for news/announcement/event
 photo uploads (2MB cap, JPEG/PNG/WebP, validated client- and server-side) — the "move to
-owned storage" destination this item asked for is built, but only the *seed* news/
-announcement images were migrated onto it; every other still-hotlinked `lh3` image on the
-site (hero-adjacent CTA image, transparency uploads, etc.) remains to be moved. `photoUrl()`
-in `src/lib/storage.ts` already handles both a full remote URL and a bare `public-media`
-object path, so migrating a field is a data change, not a code change.
-`next.config.ts` `images.remotePatterns` already allow-lists both `lh3.googleusercontent.com`
-and the Supabase storage host. ~~Transparency PDFs still need upload + download endpoints —
+owned storage" destination this item asked for is built, and every *new* upload has gone
+there since. **Migrating the remaining hotlinked `lh3` seed images was dropped as tracked
+work on 2026-08-10** — the hotlinks stay. They render, and the resolvers pass a full
+`http(s)` URL straight through rather than treating it as a storage path, so nothing
+depends on the migration happening. `next.config.ts` `images.remotePatterns` and the CSP's
+`img-src` both allow-list `lh3.googleusercontent.com` alongside the Supabase storage host,
+and both must keep doing so. Note the bucket names below are pre-`0028`: `public-media` and
+`public-documents` were replaced by the per-content-type pairs and deleted (see item 11 of
+§6). ~~Transparency PDFs still need upload + download endpoints —
 `public-media` is images-only today (the upload actions reject anything outside
 `image/jpeg|png|webp`).~~ **BUILT 2026-07-20** — a second bucket, **`public-documents`**,
 now handles PDF upload + download (10MB cap), separate from `public-media` precisely
@@ -1477,7 +1493,12 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
    **Deleted 2026-07-20** along with the rest of the transparency mock cleanup — see the
    transparency-documents changelog entry above.
 2. Icon-as-component in data types (see §2 caveat).
-3. Most images are still Google-hosted and can break at any time (§3D). Plan 3 stood up
+3. ~~Most images are still Google-hosted and can break at any time~~ (§3D). **Dropped as
+   tracked work 2026-08-10** — the hotlinks are accepted as they are, not queued for
+   migration. The inventory below is kept because it is still an accurate map of what is
+   hotlinked (minus the admin mock avatar, deleted with `ADMIN_USER`), and because the two
+   allow-lists it depends on — `images.remotePatterns` and the CSP's `img-src` — must both
+   keep the host. Plan 3 stood up
    owned storage (`public-media`) and news/announcement photo uploads now write there;
    transparency documents got their own bucket (`public-documents`) in the 2026-07-20 plan;
    the 12 official portraits moved off bundled static imports onto `public-media/officials/`

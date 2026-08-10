@@ -25,10 +25,14 @@ the home page's six Quick Services cards, and (since the security-hardening pass
 `/privacy` and `/terms` placeholder content in `src/features/legal/data.ts`. The Home and
 About pages became DB-backed in
 sub-project 9 (`0021`). `docs/BACKEND_HANDOFF.md` is the living integration brief;
-`docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan history. Remaining
-work: migrating `lh3`-hotlinked images to owned Storage — the
+`docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan history. The
 security-hardening pass (all 3 plans, see the Architecture section's bullet) and the
-Resend email integration are finished.
+Resend email integration are finished, and the long-standing "migrate the `lh3`-hotlinked
+images to owned Storage" item was **dropped 2026-08-10** — the hotlinks stay as they are
+(see the Placeholder reality bullet). That leaves `docs/HARDENING_BACKLOG.md` as the one
+list of deferred *engineering* work; what remains open elsewhere is content the barangay
+still owes (officials' bios, the empty achievements timelines, real PDFs for the seeded
+transparency rows — `docs/BACKEND_HANDOFF.md` §6 items 8-10), not code.
 **`docs/HARDENING_BACKLOG.md` (opened 2026-08-10) is the live list of deferred security
 and polish items** — five security entries (led by `requestIp()`'s unconditional trust of
 `cf-connecting-ip`, which every IP-keyed rate limit on the site depends on) plus six
@@ -1748,8 +1752,14 @@ follow-up worth doing, not a rate-limit fix.
   `set-an-appointment`, migration `0035`) are on the same real-content footing as the hotline —
   live catalog entries routing to working forms, not placeholders standing in for something
   still to come. Most
-  images are hotlinked from `lh3.googleusercontent.com` (allow-listed in `next.config.ts`)
-  and must eventually move to owned Storage (`public-media` exists). The home hero carousel and
+  images are hotlinked from `lh3.googleusercontent.com` (allow-listed in `next.config.ts`'s
+  `images.remotePatterns` **and** the CSP's `img-src` — both, or they break).
+  **Migrating them to owned Storage was dropped 2026-08-10**: treat it as settled, not as a
+  gap to close. They render, every resolver passes a full `http(s)` URL through untouched
+  rather than treating it as a storage path, and the `public-media` bucket this item once
+  named as the destination no longer exists (deleted in the 2026-07-28 bucket-split
+  cleanup), so the work would now mean picking new per-type buckets as well. New uploads
+  are unaffected — they have always gone to owned Storage. The home hero carousel and
   the About history images moved to `public-media/site/` in sub-project 9 (`0021`); like
   `src/images/officials/`, the files in `src/images/carousel/` now stay in the repo only as the
   source for `scripts/upload-site-images.mjs`, not as an app dependency. The remaining bundled

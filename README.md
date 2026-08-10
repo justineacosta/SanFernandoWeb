@@ -412,7 +412,9 @@ tracked as not-yet-done rather than bugs:
   message, and most staff emails/phones/office hours (the barangay's own hotline and
   address are real)
 - Most images are still hotlinked from `lh3.googleusercontent.com` rather than owned
-  Storage; new uploads go to Storage — only the original seed images haven't migrated
+  Storage; new uploads go to Storage — only the original seed images haven't migrated, and
+  migrating them was **dropped as tracked work on 2026-08-10**, so this is a description of
+  how the site is, not a to-do
 - Three Playwright e2e specs are **not idempotent within their rate-limit window**
   (`admin/login.spec.ts`, `admin/ticket-updates.spec.ts`, `public/feedback.spec.ts`) — a
   second run within the window (~5 min for login, ~1 hour for the reply test and for
