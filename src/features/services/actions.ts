@@ -46,17 +46,20 @@ export async function submitApplication(
   const admin = createSupabaseAdminClient();
 
   // Never trust the serviceId from the client: it must exist, be available, and
-  // belong to the applications flow (primary tone — danger is the 2C complaint flow).
+  // belong to the applications flow. Gated on `flow`, not `tone` — the
+  // assistance/appointment rows are tone 'primary' too and would otherwise clear
+  // this check, letting a crafted request insert an `applications` row for a
+  // service with no application form behind it and hand back a real ticket_no.
   const { data: service, error: serviceError } = await admin
     .from("services")
-    .select("id, is_available, tone, title")
+    .select("id, is_available, flow, title")
     .eq("id", serviceId)
     .maybeSingle();
   if (serviceError) {
     console.error("submitApplication service lookup failed:", serviceError.message);
     return { error: "Something went wrong. Please try again.", ticketNo: null };
   }
-  if (!service || service.tone !== "primary") {
+  if (!service || service.flow !== "apply") {
     return { error: "That service is not accepting online applications.", ticketNo: null };
   }
   if (!service.is_available) {

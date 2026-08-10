@@ -215,11 +215,14 @@ export async function createWalkInApplication(
   const admin = createSupabaseAdminClient();
   const { data: service, error: serviceError } = await admin
     .from("services")
-    .select("id, tone, title")
+    .select("id, flow, title")
     .eq("id", parsed.data.serviceId)
     .maybeSingle();
   if (serviceError) return { error: "Could not encode the application." };
-  if (!service || service.tone !== "primary") return { error: "Pick a valid document type." };
+  // Gated on `flow`, not `tone` — the assistance/appointment rows are tone
+  // 'primary' too and would otherwise clear this check, letting the drawer
+  // encode a walk-in "application" against a service with no application form.
+  if (!service || service.flow !== "apply") return { error: "Pick a valid document type." };
 
   // Availability is NOT checked: a service toggled off online must still be
   // encodable at the counter — that is the point of the toggle.
