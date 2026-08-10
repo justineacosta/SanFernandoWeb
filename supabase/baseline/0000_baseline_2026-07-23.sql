@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Barangay San Fernando — CONSOLIDATED BASELINE SCHEMA
--- Squash of migrations 0001–0034, as of 2026-07-23 (0031, 0032, 0033 and 0034
--- folded in after the fact — see supabase/migrations/README.md).
+-- Squash of migrations 0001–0035, as of 2026-07-23 (0031, 0032, 0033, 0034 and
+-- 0035 folded in after the fact — see supabase/migrations/README.md).
 -- ============================================================================
 --
 -- WHAT THIS IS
@@ -343,6 +343,7 @@ create table public.services (
   description text not null,
   icon_name text not null,
   tone text not null default 'primary' check (tone in ('primary', 'danger')),
+  flow text not null default 'apply' check (flow in ('apply', 'complaint', 'assistance', 'appointment')),
   requirements_label text not null,
   cta_label text not null,
   requirements text[] not null default '{}',
@@ -427,6 +428,8 @@ create trigger applications_updated_at
 create table public.assistance_categories (
   id text primary key,
   label text not null,
+  description text not null default '',
+  requirements text[] not null default '{}',
   sort_order int not null default 0,
   is_active boolean not null default true,
   updated_at timestamptz not null default now()
@@ -1705,28 +1708,43 @@ revoke execute on function public.search_admin_global(text, text[], int)
 
 -- ── Services catalog ────────────────────────────────────────────────────────
 insert into public.services
-  (id, title, description, icon_name, tone, requirements_label, cta_label, requirements, department, sort_order)
+  (id, title, description, icon_name, tone, requirements_label, cta_label, requirements, department, sort_order, flow)
 values
   ('barangay-clearance', 'Barangay Clearance',
    'An official document required for various transactions such as employment, business permits, and legal identification.',
    'shield-check', 'primary', 'View Requirements', 'Apply Online',
    array['Latest Community Tax Certificate (Cedula)', 'Recent 2x2 colored ID picture (white background)', 'Application fee: ₱50.00'],
-   'Office of the Barangay Secretary', 1),
+   'Office of the Barangay Secretary', 1, 'apply'),
   ('business-permit', 'Business Permit Recommendation',
    'Necessary for local entrepreneurs to operate legally within the barangay jurisdiction, ensuring compliance with local zoning.',
    'store', 'primary', 'View Requirements', 'Apply Online',
    array['DTI / SEC Registration Papers', 'Contract of Lease or Land Title', 'Locational Clearance'],
-   'Office of the Barangay Treasurer', 2),
+   'Office of the Barangay Treasurer', 2, 'apply'),
   ('certificate-of-indigency', 'Certificate of Indigency',
    'Provided to residents needing social welfare assistance, medical aid, or scholarship applications.',
    'heart-handshake', 'primary', 'View Requirements', 'Apply Online',
    array['Voter''s ID or Certification', 'Affidavit of Low Income', 'Referral from DSWD (if applicable)'],
-   'Barangay Social Welfare Desk', 3),
+   'Barangay Social Welfare Desk', 3, 'apply'),
   ('blotter-complaints', 'Blotter & Complaints',
    'For reporting neighborhood disputes, peace and order issues, or filing formal grievances for mediation.',
    'gavel', 'danger', 'View Process', 'File Incident Report',
    array['Personal appearance of the complainant', 'Valid Government ID', 'Incident narrative and supporting evidence'],
-   'Lupong Tagapamayapa', 4);
+   'Lupong Tagapamayapa', 4, 'complaint'),
+  ('social-services-assistance', 'Social Services Assistance',
+   'Medical, burial, financial and calamity aid for residents in need. The Barangay Social Welfare Desk reviews every request.',
+   'hand-heart', 'primary', 'What to prepare', 'Request Now',
+   array['Valid ID of the person needing help',
+         'Barangay Certificate of Indigency, if you already have one',
+         'Documents supporting your case (medical abstract, death certificate, damage photos)'],
+   'Barangay Social Welfare Desk', 5, 'assistance'),
+  ('set-an-appointment', 'Set an Appointment',
+   'Reserve a time to meet an official or follow up on a transaction, so you are not waiting at the hall.',
+   'calendar-days', 'primary', 'How it works', 'Book Now',
+   array['Pick a weekday — the hall is closed on weekends',
+         'Tell us what the visit is about',
+         'Staff confirm your slot before you come',
+         'Bring a valid ID on the day'],
+   'Office of the Barangay Secretary', 6, 'appointment');
 
 -- ── Category pickers ────────────────────────────────────────────────────────
 insert into public.assistance_categories (id, label, sort_order) values
