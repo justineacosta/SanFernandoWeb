@@ -6,7 +6,7 @@
 --
 -- WHAT THIS IS
 -- ------------
--- One file that builds the *final state* of migrations 0001 through 0034 on an
+-- One file that builds the *final state* of migrations 0001 through 0035 on an
 -- empty database, in a single transaction. It is not a replay: columns that a
 -- later migration dropped are never created, columns that a later migration
 -- relaxed are declared relaxed, and functions appear once in their final form.
@@ -15,7 +15,7 @@
 -- --------------
 --   • Standing up a NEW environment (production, a fresh staging, a local dev
 --     database) from nothing.
---   • NOT for an environment that already has any of 0001–0034 applied. This
+--   • NOT for an environment that already has any of 0001–0035 applied. This
 --     file assumes an empty `public` schema and will fail loudly on a database
 --     that already has these objects — which is the intended behaviour. To
 --     bring an existing environment forward, apply the individual numbered
@@ -29,7 +29,7 @@
 -- scripts the officials directory and the home/About pages render broken
 -- images. Original migrations 0012 and 0021 carry the same warning.
 --
--- HOW IT DIFFERS FROM RUNNING 0001–0034 IN SEQUENCE
+-- HOW IT DIFFERS FROM RUNNING 0001–0035 IN SEQUENCE
 -- --------------------------------------------------
 -- The end state is identical. Four mechanical differences, all deliberate:
 --
