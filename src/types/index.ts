@@ -983,6 +983,22 @@ export interface SubmitTicketResult {
   ticketNo: string | null;
 }
 
+/**
+ * Assistance is the one public submission that also carries files. Its upload
+ * happens after the row insert (the storage path is prefixed with the ticket
+ * number, which does not exist until then), so a storage failure can leave a
+ * real ticket with no attachments — a case `SubmitTicketResult` cannot express,
+ * since a non-null `error` there means no ticket was filed.
+ *
+ * Extending rather than widening the shared type, for the reason
+ * `SignInFormState extends AuthFormState` does: the base must not carry a field
+ * that is inert for its four other callers.
+ */
+export interface SubmitAssistanceResult extends SubmitTicketResult {
+  /** Non-null only alongside a successful ticketNo: the ticket filed, the files did not. */
+  attachmentWarning: string | null;
+}
+
 /** Queue row for the appointments manager: flat and serializable. */
 export interface AppointmentRow {
   id: string;
