@@ -1223,7 +1223,7 @@ inquiry arrived only from the in-portal bell and the sidebar count badge** (the 
 60-second poll over `NOTIFICATION_QUEUES`, unchanged); nothing emails them. §2D's
 Plan 2 (~~feedback's staff alert~~, the four ticketing flows' own receipts and status notices —
 `docs/superpowers/plans/2026-07-30-resend-email-remaining-triggers.md`) shipped 2026-07-30
-too. Only Plan 3 (delivery monitoring) remains open.
+too.
 
 ### B. ~~Newsletter / SMS alerts signup~~ — **BUILT 2026-07-22** (migration `0019`)
 `subscribeToAlerts` in `src/features/announcements/actions.ts` writes to
@@ -1369,9 +1369,7 @@ The admin **UI now exists in full** (`/admin` redirects to the first module the 
    only signal there is. Everything resident-facing above is untouched. This was the one gap
    Plan 2 left: it fired only on submission and the 8 terminal transitions, never on anything
    in between, because there was no mid-flow event in the data model to email about until this
-   feature added `ticket_updates` and `awaiting-info`. The remaining open piece of the
-   original Resend design is still Plan 3 (delivery monitoring via `email_log` + the Resend
-   webhook), unchanged by this work.
+   feature added `ticket_updates` and `awaiting-info`.
 
 Citizen accounts are **not** required by any current UI.
 

@@ -26,8 +26,9 @@ the home page's six Quick Services cards, and (since the security-hardening pass
 About pages became DB-backed in
 sub-project 9 (`0021`). `docs/BACKEND_HANDOFF.md` is the living integration brief;
 `docs/superpowers/specs/` and `docs/superpowers/plans/` hold the per-plan history. Remaining
-work: 2D email (Resend) and migrating `lh3`-hotlinked images to owned Storage — the
-security-hardening pass (all 3 plans, see the Architecture section's bullet) is finished.
+work: migrating `lh3`-hotlinked images to owned Storage — the
+security-hardening pass (all 3 plans, see the Architecture section's bullet) and the
+Resend email integration are finished.
 **`docs/HARDENING_BACKLOG.md` (opened 2026-08-10) is the live list of deferred security
 and polish items** — five security entries (led by `requestIp()`'s unconditional trust of
 `cf-connecting-ip`, which every IP-keyed rate limit on the site depends on) plus six
@@ -338,7 +339,7 @@ follow-up worth doing, not a rate-limit fix.
   `uploadSingleImage` had the identical disguised bug in its returned (uncalled) `url` field —
   built via `mediaUrl(bucket, path)` where `bucket` can be a private `-drafts` bucket — fixed to
   `resolveMediaUrl` the same way `documents.ts`'s `uploadDocumentPdf` already was.
-- **Transactional email (Resend), Plan 1 of 3: foundation, 2026-07-30**
+- **Transactional email (Resend), Plan 1: foundation, 2026-07-30**
   (`docs/superpowers/specs/2026-07-30-resend-email-integration-design.md`).
   Closes `docs/BACKEND_HANDOFF.md`'s previously-undesigned §2D. `src/lib/email.ts`'s
   `sendEmail()` wraps the `resend` SDK and is **fail-open by construction, in
@@ -362,10 +363,7 @@ follow-up worth doing, not a rate-limit fix.
   as of this plan, only wired trigger**: an acknowledgment to the resident
   plus a staff notification to every `handle-inquiries` holder. Plan 2
   (feedback's staff alert, all four ticketing flows' submission receipts and
-  status-change notices) and Plan 3 (delivery monitoring via a dedicated
-  `email_log` table + Resend webhook — deliberately not `audit_log`, which
-  is built for human staff actions, not automated system events) are not
-  yet built. **A final whole-branch review (2026-07-30) found and fixed 5
+  status-change notices) is not yet built. **A final whole-branch review (2026-07-30) found and fixed 5
   cross-cutting gaps.** `EMAIL_SITE_URL` now logs via `console.error` when
   `NEXT_PUBLIC_SITE_URL` is unset in production, the same silent-prod-
   misconfiguration treatment `sendEmail()` already gave a missing
@@ -383,9 +381,8 @@ follow-up worth doing, not a rate-limit fix.
   several "nothing emails anyone yet, blocked on §2D" claims (the ticket-flow
   ones, the sub-project 5 inquiries changelog entry, item A's "still needed",
   and the feedback section) are now annotated: closed for the contact-inquiry
-  case specifically, still open for feedback/ticketing (Plan 2) and delivery
-  monitoring (Plan 3).
-  **Plan 2 of 3: remaining triggers, 2026-07-30**
+  case specifically, still open for feedback/ticketing (Plan 2).
+  **Plan 2: remaining triggers, 2026-07-30**
   (`docs/superpowers/plans/2026-07-30-resend-email-remaining-triggers.md`). Wires every
   trigger the design scoped to Plan 2: `submitFeedback` now emails every `handle-inquiries`
   holder via `FeedbackStaffNotifyEmail` (feedback stays anonymous — no resident-facing
@@ -417,8 +414,7 @@ follow-up worth doing, not a rate-limit fix.
   Every new send follows Plan 1's established shape exactly: `await`ed (never
   fire-and-forget), the resident's `email` column checked for null/`""` before sending (the
   same nullable handling the row insert itself already applies), and the caller never
-  inspects `sendEmail()`'s return value. §2D's Plan 3 (delivery monitoring — `email_log` +
-  the Resend webhook) is the only piece of the original design still open.
+  inspects `sendEmail()`'s return value.
   **Fixed 2026-07-31:** `ApplicationApprovedEmail`'s `closingNote` was a hardcoded
   `"Bring a valid ID when you claim it."` with no mention of the document's actual
   requirements. `TicketNotice` (`src/emails/shared/TicketNotice.tsx`) gained an optional
@@ -464,9 +460,7 @@ follow-up worth doing, not a rate-limit fix.
   emailed when work arrives. `NOTIFICATION_QUEUES` and the whole in-portal notification
   system are unchanged and are now the single channel, so a regression in that poll is no
   longer a degraded signal but the total loss of one. Don't "restore" a staff notification
-  email as a fix for a missed queue; it was removed on purpose. §2D's Plan 3 (delivery
-  monitoring — `email_log` + the Resend webhook) is still the only piece of the original
-  design open, and now has three fewer send paths to monitor.
+  email as a fix for a missed queue; it was removed on purpose.
 - **Progressive ticket timeline, `awaiting-info`, and resident replies, 2026-08-02**
   (`docs/superpowers/specs/2026-08-02-ticket-timeline-updates-design.md`, migration `0032`).
   All four ticketing flows (`applications`/`appointments`/`complaints`/`assistance_requests`)

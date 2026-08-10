@@ -394,9 +394,6 @@ Deployed to production 2026-07-28; the ticket-timeline, invite, password-reset, 
 login, application name-parts and search-parity work has landed on `main` since. Known gaps,
 tracked as not-yet-done rather than bugs:
 
-- **Email delivery monitoring isn't built** — transactional email itself is live (receipts,
-  outcome notices, staff alerts, invites, password resets), but there's no `email_log` table
-  and no Resend webhook, so a bounced or dropped message is invisible from inside the app
 - **The public site has no alert-signup entry point** — the footer and news-sidebar
   newsletter panels were removed on request, so `alert_subscribers` stops gaining rows. The
   form component and its Server Action are kept (still Turnstile-gated and rate-limited) in

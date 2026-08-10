@@ -122,7 +122,7 @@ export function TicketTimelinePanel({
               ) : null}
               {/* "attempted", not "notified": sendEmail is fail-open by design and
                   never reports a delivery failure back, so the stamp only proves we
-                  tried. Delivery monitoring is Resend Plan 3, still unbuilt. */}
+                  tried. */}
               {entry.notified ? <span>Email attempted</span> : null}
             </div>
             {entry.body ? <p className="mt-1 text-ink-900">{entry.body}</p> : null}
