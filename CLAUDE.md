@@ -956,9 +956,32 @@ the fixed one, for any new test that looks its own row up twice.
   ordinary cards, not danger-styled), which is exactly why `getApplyService`'s guard could not
   stay tone-based: `data.tone !== "primary"` would have passed both straight through into a
   full document-application form backed by no application table. **That guard is now `data.flow
-  !== "apply"`** — the security-relevant fix, not cosmetic. `tone` still decides the card's
+  !== "apply"`** — the security-relevant fix, not cosmetic — and it turned out to be one of
+  **three**, not one. `submitApplication` (`src/features/services/actions.ts`) — a **public**
+  Server Action a resident's browser can hit directly, independently of what any page links to
+  — and `createWalkInApplication` (`src/features/admin/actions/applications.ts`, where
+  `process-applications` gates *who* may call it but nothing gated *which* service row the
+  drawer submitted) carried the identical tone-based gap and were found and fixed after
+  `getApplyService`: before the fix, a `serviceId: "social-services-assistance"` request to
+  either returned a real ticket number for a document application that does not exist. The
+  lesson worth keeping: when routing moves off a field, the render path is the obvious call
+  site and the write paths are the ones that get missed. **All three guards read `flow` off a
+  `.select()` that must name the column explicitly** — drop it from any one of the three and
+  `service.flow` reads `undefined`, `undefined !== "apply"` evaluates `true`, and every
+  application on the site starts getting rejected, silently, with no line anywhere that looks
+  wrong in review. `tone` still decides the card's
   visual variant (`isDanger ? "outline-danger" : "primary"` in `service-card.tsx`) and nothing
-  else; `serviceHref(service)` alone decides the href. The pre-backend `SERVICES` mock array in
+  else — true now that all three guards read `flow`, not before; `serviceHref(service)` alone
+  decides the href. The card's two labels carry a matching trap on the write side:
+  `labelsForFlow` (`src/features/admin/actions/services.ts`, replacing the old
+  `labelsForTone`) recomputes `requirements_label`/`cta_label` on every create *and* update
+  rather than persisting an edit, so the first no-op SuperAdmin save on either new row would
+  have silently rewritten its card copy back to "View Requirements"/"Apply Online" — days after
+  anyone touched it, nowhere near the save that caused it — had its four label pairs not been
+  kept character-identical to `0035`'s seed values, which is why saving an untouched row is a
+  no-op rather than a rewrite. Covered by `tests/e2e/public/services-directory.spec.ts` (2
+  tests, `public` project, no login, submits nothing so it spends no rate-limit budget). The
+  pre-backend `SERVICES` mock array in
   `src/features/services/data.ts` was deleted in the same change (dead — nothing imported it;
   `WASTE_SCHEDULE` and its `Leaf`/`Recycle`/`WasteCollectionSlot` imports are untouched, that
   half of the file is live).
@@ -1625,7 +1648,11 @@ the fixed one, for any new test that looks its own row up twice.
   not-yet-wired links (captain message, hero CTA). The
   barangay hotline is **real** (`(077) 600 1082` in `SITE.phone` / `EMERGENCY_HOTLINES[0]`)
   and the officials page's 24/7 Action Center dials it rather than 911; other phones, emails,
-  and office hours are still placeholder-shaped (correct names, not real contact data). Most
+  and office hours are still placeholder-shaped (correct names, not real contact data). The two
+  service-directory rows added for the request-flow work (`social-services-assistance`,
+  `set-an-appointment`, migration `0035`) are on the same real-content footing as the hotline —
+  live catalog entries routing to working forms, not placeholders standing in for something
+  still to come. Most
   images are hotlinked from `lh3.googleusercontent.com` (allow-listed in `next.config.ts`)
   and must eventually move to owned Storage (`public-media` exists). The home hero carousel and
   the About history images moved to `public-media/site/` in sub-project 9 (`0021`); like
