@@ -663,7 +663,30 @@ the fixed one, for any new test that looks its own row up twice.
   three RLS-exception tables with its own public-read policy, so its public query uses the
   anon client — the counterexample to this pattern, not an instance of it). Declined and
   completed requests are excluded from the tally; neither still occupies staff time on that
-  day.
+  day. **The same page and the same day, the form also gained a weekend-date rule, a "Before
+  you book" card, and purpose quick-picks — unrelated to the hint mechanism above, sharing
+  this bullet only because they landed together.** A weekend date is refused from one
+  declaration, client and server both: `isClosedDay` (`src/lib/office-days.ts`) is wired in
+  as a `.refine()` on `appointmentSchema`, so `AppointmentForm`'s inline validation and
+  `submitAppointment`'s server-side check run the identical function rather than two copies
+  that can drift. It reads the weekday via `getUTCDay()`, never `getDay()` — a `YYYY-MM-DD`
+  string parses as UTC midnight, so the UTC weekday IS the calendar weekday everywhere, while
+  `getDay()` shifts by one for negative-offset viewers. Its unit test
+  (`tests/unit/office-days.test.ts`) asserts the *mechanism*, not a date outcome — it spies
+  that `Date.prototype.getDay` is never called — because a date-based assertion is identical
+  under both the correct and the buggy function on any runner at UTC+0 or east of it, which is
+  both this project's CI and its entire Manila audience; a behavioural assertion would pass
+  just as happily with the bug present. **The rule is deliberately NOT applied to the walk-in
+  path (`walkInSchema` in `src/features/admin/actions/appointments.ts`) or the review drawer's
+  `confirmedDate` field** — staff may legitimately schedule a weekend special session, so
+  don't "fix" that inconsistency. **Public holidays are out of scope** — there is no holiday
+  table, and building one is its own feature. The "Before you book" card mirrors
+  `apply-form.tsx`'s requirements card, with its office-hours line read from
+  `SITE.officeHours` rather than a second hardcoded copy; the purpose quick-pick chips
+  (`PURPOSE_PRESETS`) are each a bare `<button type="button">` — load-bearing, since a
+  `<button>` inside a `<form>` with no explicit `type` submits it — and `applyPreset` fills
+  the purpose field when empty, appending on a new line otherwise, so a chip tap never
+  destroys text a resident already typed.
 - **`/admin/login` is a responsive split-screen at `md:` (768px)+, 2026-07-31** — a brand panel
   (currently `w-[55%]`, the form panel takes the rest) beside the form, with a **separate**
   centered-card layout below that breakpoint. `src/app/admin/login/page.tsx` renders both
