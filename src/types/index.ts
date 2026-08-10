@@ -946,13 +946,20 @@ export interface PublicAppointmentValues extends PublicTicketValues {
 }
 export type WalkInAppointmentValues = PublicAppointmentValues;
 
+/** A coarse busyness label — see `demandLabel` in `src/features/appointments/demand.ts`. */
+export type DemandLabel = "Light" | "Moderate" | "Busy";
+
 /**
- * How many appointment requests already exist per date and half-day, keyed
- * YYYY-MM-DD. A date absent from the map has none — the form renders no hint
- * at all for it rather than "Light", since absence of data and genuine quiet
- * look identical and only one of them is a claim worth making.
+ * How busy each date and half-day already is, keyed YYYY-MM-DD. A date absent
+ * from the map has no requests at all — the form renders no hint for it rather
+ * than "Light", since absence of data and genuine quiet look identical and
+ * only one of them is a claim worth making. Carries labels, never counts:
+ * this map is a prop threaded into a client component and serializes into the
+ * RSC payload, so a raw count here would publish the barangay's exact
+ * operational volume in page source — the coarsening has to happen before the
+ * map crosses the server/client boundary, not just before it renders.
  */
-export type AppointmentDemand = Record<string, { am: number; pm: number }>;
+export type AppointmentDemand = Record<string, { am: DemandLabel; pm: DemandLabel }>;
 
 export interface PublicComplaintValues extends PublicTicketValues {
   /** Optional — a resident may report an incident without naming anyone. */

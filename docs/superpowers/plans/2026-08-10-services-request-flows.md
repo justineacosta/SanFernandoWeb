@@ -814,8 +814,17 @@ git commit -m "feat: add purpose quick-picks to the appointment form"
 - Modify: `src/features/appointments/components/appointment-form.tsx`
 
 **Interfaces:**
-- Produces: `type AppointmentDemand = Record<string, { am: number; pm: number }>`; `loadAppointmentDemand(): Promise<AppointmentDemand>`; `demandLabel(count: number): "Light" | "Moderate" | "Busy"`.
+- Produces: `type DemandLabel = "Light" | "Moderate" | "Busy"`; `type AppointmentDemand = Record<string, { am: DemandLabel; pm: DemandLabel }>`; `loadAppointmentDemand(): Promise<AppointmentDemand>`; `demandLabel(count: number): DemandLabel`.
 - `AppointmentForm` gains a required `demand: AppointmentDemand` prop.
+
+**The map carries labels, not counts — owner ruling, 2026-08-10.** It originally declared
+counts, and `demandLabel` ran in the browser. But `AppointmentDemand` is a prop to a client
+component, so the whole 60-day count map serialized into the RSC payload: exact per-day,
+per-half-day appointment volume readable in page source, which is precisely what
+`demand.ts`'s own comment says the coarse label exists to avoid. The label was protecting
+the rendered output while the payload published the thing anyway. `loadAppointmentDemand`
+now applies `demandLabel` server-side and only labels cross the wire. `demandLabel` stays
+pure and unit-tested — it just runs on the server.
 
 The shape here is deliberate. A client-side lookup that re-queries as the date changes would need a new public Server Action reading `appointments` — a table with zero public read paths today — plus its own rate-limit budget and a decision about Turnstile on a call that fires on every date keystroke. All of that is new attack surface for a hint. The page is already a Server Component, so it loads the counts once at render instead.
 

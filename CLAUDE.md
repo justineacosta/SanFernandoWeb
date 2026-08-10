@@ -630,26 +630,40 @@ the fixed one, for any new test that looks its own row up twice.
   no React renderer, and a transitive import of the Supabase client would break that
   environment; `src/features/appointments/queries.ts` holds `loadAppointmentDemand()`, the
   DB half, kept out of `demand.ts` for the same reason. `AppointmentDemand` (`src/types/
-  index.ts`) is `Record<YYYY-MM-DD, {am, pm}>`, tallied in JS over the next 60 days
-  (`HORIZON_DAYS`) rather than an RPC — a small result set, no new SQL function to maintain.
-  The page (`src/app/(public)/appointments/new/page.tsx`) is now `async` and awaits the
-  query, which makes the route dynamic (a DB read at render) — expected, matching
-  `/assistance/new`. **A date absent from the map renders no hint at all, never "Light"**
-  (`AppointmentForm`'s `slotCount === undefined` check) — absence of data and genuine quiet
-  look identical in the map, and only one of them is a claim worth making to a resident; the
-  label is deliberately coarse for the same reason a raw count is never rendered — it would
-  invite reading a number as a capacity limit that doesn't exist, and would publish the
-  barangay's operational volume. **`loadAppointmentDemand` uses the service-role client
-  (`createSupabaseAdminClient`), not the cookie-bound one** — found by verifying the feature
-  live rather than trusting the query in isolation: `appointments` has RLS enabled with zero
-  policies like every other write-bearing table, so the anon-key client silently returns zero
-  rows for every date (no error to catch) and the hint would never appear for anyone. This is
-  the same "deliberately-public action, gates in code instead" carve-out
-  `src/lib/supabase/admin.ts`'s own doc comment already grants `lookupTicket`; no permission
-  check guards this read because it only ever returns an aggregate count, never a row —
-  matching how `announcements`/`transparency`/`officials`/`events`/`services` queries already
-  read their own non-exception tables for the public site. Declined and completed requests
-  are excluded from the tally; neither still occupies staff time on that day.
+  index.ts`) is `Record<YYYY-MM-DD, {am, pm}>` of `DemandLabel`, tallied in JS over the next
+  60 days (`HORIZON_DAYS`) rather than an RPC — a small result set, no new SQL function to
+  maintain. **`loadAppointmentDemand` reduces every count to its `demandLabel` before
+  returning — only `Light`/`Moderate`/`Busy` ever crosses into `AppointmentDemand`, never a
+  number.** This isn't just about what renders: the map is a prop threaded into the client
+  component `AppointmentForm`, so it serializes whole into the RSC payload — a raw count there
+  would publish the barangay's exact 60-day volume in page source even though nothing ever
+  displays it, so the coarsening has to happen server-side before the map crosses the
+  server/client boundary, not merely before the UI renders it. **A date absent from the map
+  renders no hint at all, never "Light"** (`AppointmentForm`'s `slotLabel === undefined`
+  check) — absence of data and genuine quiet look identical in the map, and only one of them
+  is a claim worth making to a resident. **The route needs an explicit `export const dynamic =
+  "force-dynamic"` in `page.tsx`, and that line is load-bearing, not decoration.**
+  `loadAppointmentDemand` uses the service-role client (`createSupabaseAdminClient`), which
+  calls no Next.js Dynamic API (no `cookies()`, no `headers()`) — unlike the cookie-bound
+  client every other public query in this app uses, which forces dynamic rendering as a side
+  effect of reading the session cookie. Without the explicit export, `next build` prerenders
+  `/appointments/new` as a static route (confirmed via `npx next build`, which printed `○` for
+  it before the fix), freezing the demand map — and `manilaToday()` — at build time forever;
+  the hint would work in `npm run dev` (every request is rendered on demand there) and be
+  silently dead within a day of a production deploy. **`loadAppointmentDemand` uses the
+  service-role client, not the cookie-bound one, for a second reason** — found by verifying
+  the feature live rather than trusting the query in isolation: `appointments` has RLS
+  enabled with zero policies like every other write-bearing table, so the anon-key client
+  silently returns zero rows for every date (no error to catch) and the hint would never
+  appear for anyone. This is the same "deliberately-public action, gates in code instead"
+  carve-out `src/lib/supabase/admin.ts`'s own doc comment already grants `lookupTicket`; no
+  permission check guards this read because it only ever returns a coarse label, never a row
+  — matching how `announcements`/`transparency`/`officials`/`events` queries already read
+  their own non-exception tables for the public site (`services`, by contrast, is one of the
+  three RLS-exception tables with its own public-read policy, so its public query uses the
+  anon client — the counterexample to this pattern, not an instance of it). Declined and
+  completed requests are excluded from the tally; neither still occupies staff time on that
+  day.
 - **`/admin/login` is a responsive split-screen at `md:` (768px)+, 2026-07-31** — a brand panel
   (currently `w-[55%]`, the form panel takes the rest) beside the form, with a **separate**
   centered-card layout below that breakpoint. `src/app/admin/login/page.tsx` renders both

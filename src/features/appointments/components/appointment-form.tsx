@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { CheckCircle2, Copy } from "lucide-react";
-import type { AppointmentDemand, PublicAppointmentValues } from "@/types";
+import type { AppointmentDemand, DemandLabel, PublicAppointmentValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { BrandStroke } from "@/components/ui/brand-stroke";
 import { Card } from "@/components/ui/card";
@@ -15,7 +15,6 @@ import { manilaToday } from "@/lib/format";
 import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitAppointment } from "@/features/appointments/actions";
 import { appointmentSchema } from "@/features/appointments/schema";
-import { demandLabel } from "@/features/appointments/demand";
 import { SwapReveal } from "@/components/ui/swap-reveal";
 import { SITE } from "@/constants/site";
 
@@ -42,7 +41,7 @@ const PURPOSE_PRESETS = [
   "Business inquiry",
 ] as const;
 
-const DEMAND_BLURB: Record<ReturnType<typeof demandLabel>, string> = {
+const DEMAND_BLURB: Record<DemandLabel, string> = {
   Light: "Light — few requests for this slot so far.",
   Moderate: "Moderate — a few requests already for this slot.",
   Busy: "Busy — consider another day, or the other half of this one.",
@@ -75,7 +74,10 @@ export function AppointmentForm({ demand }: { demand: AppointmentDemand }) {
   }
 
   const v = useFieldValidation(appointmentSchema, values);
-  const slotCount = demand[values.preferredDate]?.[values.preferredPeriod];
+  // Already a coarse label by the time it reaches this component — the server
+  // reduces counts to Light/Moderate/Busy before the map ever serializes into
+  // the RSC payload, so no raw number can leak into page source.
+  const slotLabel = demand[values.preferredDate]?.[values.preferredPeriod];
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -323,10 +325,8 @@ export function AppointmentForm({ demand }: { demand: AppointmentDemand }) {
                 <option value="pm">Afternoon (1:00 PM – 5:00 PM)</option>
               </Select>
             </Field>
-            {slotCount === undefined ? null : (
-              <p className="text-xs text-ink-500 sm:col-span-2">
-                {DEMAND_BLURB[demandLabel(slotCount)]}
-              </p>
+            {slotLabel === undefined ? null : (
+              <p className="text-xs text-ink-500 sm:col-span-2">{DEMAND_BLURB[slotLabel]}</p>
             )}
           </div>
           <div className="space-y-2">
