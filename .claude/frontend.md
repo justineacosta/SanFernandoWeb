@@ -49,11 +49,11 @@ overrides, so no variant prop is needed). `<Toast>` closes on click as well as o
   cleared from state, so the result wasn't corrupted data — it was a ticket/reply filed with
   the attachment silently absent and no indication it never made it. Both now disable Submit
   while `fileError` is set; there is no dismiss to route around it, only picking a valid file
-  or removing the bad one. **`FeedbackPanel`'s Submit is not gated this way** — its
-  screenshot was always optional and `clearScreenshot()` already empties the picker's visible
-  state on rejection, so nothing is silently lost the way it was on the other two. Follow the
-  gating pattern for any new file picker attached to a field that isn't purely optional
-  window-dressing.
+  or removing the bad one. **`FeedbackPanel` gets the same gate for parity**, even though its
+  screenshot was always optional and `clearScreenshot()` already emptied the picker's visible
+  state on rejection — nothing was silently lost there the way it was on the other two, so
+  this one is consistency rather than a distinct bug fix. Follow the gating pattern for any
+  new file picker, regardless of whether the field is optional.
 - The four review drawers render `localError ?? error`, so dismissing has to clear both
   halves — hence their `onDismissError` prop.
 - **`login-form.tsx` is the true special case:** `useActionState` gives no setter to null out

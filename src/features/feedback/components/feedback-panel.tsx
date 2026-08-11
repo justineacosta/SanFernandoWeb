@@ -435,7 +435,12 @@ export function FeedbackPanel({ open, onClose }: FeedbackPanelProps) {
                     <Button type="button" variant="ghost" onClick={handleClose} disabled={pending}>
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={pending}>
+                    {/* The screenshot is optional and already cleared from state on
+                        rejection, so this isn't preventing data loss the way the
+                        same gate does on AssistanceForm/TicketReplyForm — kept for
+                        parity with that convention (.claude/frontend.md) rather
+                        than a distinct failure mode of its own. */}
+                    <Button type="submit" disabled={pending || fileError !== null}>
                       {pending ? (
                         "Sending…"
                       ) : (
