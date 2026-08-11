@@ -30,6 +30,10 @@ Every bucket carries a `file_size_limit` equal to what app code already enforces
 `legislative-*`/`transparency-*`, 2 MB everywhere else), so the app cap and the bucket cap
 cannot drift into disagreement without someone editing both.
 
+The two seed scripts (`upload-official-portraits.mjs`, `upload-site-images.mjs`) write
+directly to Storage with no app-side size check of their own — a future asset over the cap
+would fail with a raw Storage error, not a validation message.
+
 **`allowed_mime_types` is set on `ticket-media` and `feedback-media` only.** Not an
 oversight: `promoteMedia` re-uploads with `contentType: file.type || undefined`, so a
 status-aware bucket with a MIME allow-list would reject a promoted copy whose downloaded

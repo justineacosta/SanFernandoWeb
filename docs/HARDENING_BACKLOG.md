@@ -65,7 +65,9 @@ Re-running e2e suites is not free. See CLAUDE.md's Commands section for the full
 picture; the short version:
 
 - `assistance-form.spec.ts` — 1 hit on `assistance:<ip>`, `SUBMIT_LIMIT` = 5/hour.
-  Forges a fresh IP per run, so it does not collide with itself. **A failure here
+  Forges a fresh IP per run, so it does not collide with itself. Also spends 1 hit
+  on `assistance:contact:<digits>`, same reasoning: the contact-number field is
+  filled with a per-run-unique, `Date.now()`-suffixed value. **A failure here
   is a real failure first, not a collision.**
 - `login.spec.ts` — spends 6 hits on `login:email:<test-admin>` against a limit
   of 5 per 5 min. Still collides by design; a second run inside the window fails.

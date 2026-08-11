@@ -51,7 +51,7 @@ collision first, a regression second** — except where noted.
 | `admin/login.spec.ts` | 6 hits on `login:email:<test-admin>` (`LOGIN_LIMIT` = 5 / 5 min) | 1 per 5 min — and it fails the **whole** `admin` project, since `playwright.config.ts` runs `setup` before every admin test and `auth.setup.ts` is blocked by the previous run's hits |
 | `public/feedback.spec.ts` | all 3 of `SUBMIT_LIMIT` on `feedback:unknown` | 1 per hour |
 | `admin/ticket-updates.spec.ts` | 2 `track:*` lookups (`LOOKUP_LIMIT` = 10 / 10 min) + 1 `reply:ip:*` (`REPLY_LIMIT` = 5 / **hour**, the binding one). Its `reply:ticket:*` budget is keyed on a ticket the test just created, so it can never collide | ~5 per hour |
-| `public/assistance-form.spec.ts` | 1 `assistance:<ip>` — but it forges a fresh random IP per run, so **no shared budget exists to collide with** | unlimited; **read a failure here as real** |
+| `public/assistance-form.spec.ts` | 1 `assistance:<ip>` — but it forges a fresh random IP per run, so **no shared budget exists to collide with**. Also spends 1 `assistance:contact:<digits>`, same reasoning: the contact-number field is filled with a per-run-unique, `Date.now()`-suffixed value | unlimited; **read a failure here as real** |
 
 `public/services-directory.spec.ts` submits nothing, so it spends no budget either.
 

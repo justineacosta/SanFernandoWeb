@@ -99,5 +99,10 @@ export async function cropFromImage(
     out.toBlob(resolve, "image/webp", 0.9);
   });
   if (!blob) return null;
-  return new File([blob], "avatar.webp", { type: "image/webp" });
+  // toBlob(callback, "image/webp", quality) silently falls back to image/png
+  // on a browser that can't encode WebP (e.g. pre-16.4 Safari) — take the type
+  // from what the blob actually is, not what we asked for, so the upload-time
+  // sniffMimeType check downstream doesn't reject a valid PNG fallback as a
+  // mismatch.
+  return new File([blob], "avatar.webp", { type: blob.type || "image/webp" });
 }

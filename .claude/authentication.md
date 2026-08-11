@@ -117,11 +117,12 @@ new table, column or key namespace. Spec:
   `state` **identity** (a second failure yields a new object with identical copy). That
   effect fires only on failures — a successful sign-in throws `NEXT_REDIRECT` and never
   returns a new state.
-- **This raises the stakes on the `requestIp()` follow-up** (`docs/HARDENING_BACKLOG.md`):
-  `login:ip:*` is both the CAPTCHA trigger and the sole input to
-  `initialChallengeRequired`, so a caller rotating a forged `cf-connecting-ip` buys one
-  unchallenged guess *per account* in a spraying attack. Still bounded by the email key, so
-  degradation rather than a hole.
+- **`login:ip:*` is both the CAPTCHA trigger and the sole input to
+  `initialChallengeRequired`, but the forged-header spraying vector this used to warn about
+  is closed:** `requestIp()` buckets on the trustworthy last-entry `X-Forwarded-For` value
+  (Vercel-controlled, not client-forgeable) unless `TRUSTED_IP_HEADER` explicitly names a
+  header to trust instead — and it doesn't on this deployment. One knob, two effects still
+  holds: `LOGIN_WINDOW_MS` drives both the rate limit and the CAPTCHA threshold together.
 - A rejected sign-in is **deliberately not** written to the audit log: the row would be
   unbounded and attacker-triggerable at will.
 

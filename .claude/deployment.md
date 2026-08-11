@@ -80,6 +80,11 @@ spent one-time tools from the `0028`/`0030` bucket split.
 | `NEXT_PUBLIC_SITE_URL` | falls back to `localhost:3000` | `console.error`, same fallback — emails then carry broken links |
 | `TRUSTED_IP_HEADER` | unset — `requestIp()` never reads `cf-connecting-ip` | unset is correct here too: production is bare Vercel with no proxy in front, so leaving it unset is the safe default, not a gap |
 
+- **`TRUSTED_IP_HEADER` is resolved once at module load, not per-request.** Changing it in
+  production needs a new server instance (a redeploy) — an env-var edit plus a soft restart
+  is not enough. Same shape as the Turnstile site key below: the value is effectively baked
+  in until the next deploy.
+
 - **The Turnstile *site* key is inlined at build time.** A key rotation needs a **rebuild**,
   not just an env change and a redeploy. Error 110200 in the browser is the symptom.
 - **Never expose `SUPABASE_SERVICE_ROLE_KEY` to the client.**

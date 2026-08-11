@@ -16,6 +16,7 @@ import {
   ALLOWED_DOC_FILE_TYPES,
   MAX_TICKET_FILES,
   MAX_TICKET_FILE_BYTES,
+  sniffMimeType,
 } from "@/lib/storage";
 import { assistanceSchema } from "./schema";
 
@@ -43,6 +44,11 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
  */
 const CONTACT_LIMIT = 5;
 const CONTACT_WINDOW_MS = 60 * 60 * 1000;
+
+/** Shared verbatim by both the IP and contact-number rate-limit rejections
+ *  below, so a prober cannot learn which budget they hit by comparing text. */
+const RATE_LIMITED_MESSAGE =
+  "Too many requests from this connection. Please try again later or visit the barangay hall.";
 
 /** Digits only, so "(077) 600-1082" and "0776001082" are one bucket. NOT
  *  normaliseMobile(): that returns null for landlines, which would reintroduce
@@ -79,8 +85,7 @@ export async function submitAssistance(
   }
   if (!(await checkRateLimit(`assistance:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
-      error:
-        "Too many requests from this connection. Please try again later or visit the barangay hall.",
+      error: RATE_LIMITED_MESSAGE,
       ticketNo: null,
       attachmentWarning: null,
     };
@@ -101,8 +106,7 @@ export async function submitAssistance(
   // of reason (see .claude/security.md).
   if (!(await checkRateLimit(contactKey(parsed.data.contactNumber), CONTACT_LIMIT, CONTACT_WINDOW_MS))) {
     return {
-      error:
-        "Too many requests from this connection. Please try again later or visit the barangay hall.",
+      error: RATE_LIMITED_MESSAGE,
       ticketNo: null,
       attachmentWarning: null,
     };
@@ -129,6 +133,18 @@ export async function submitAssistance(
     if (file.size > MAX_TICKET_FILE_BYTES) {
       return {
         error: "Each attachment must be 2 MB or smaller.",
+        ticketNo: null,
+        attachmentWarning: null,
+      };
+    }
+    // Bytes, not just the declared type, must match — checked here (not only
+    // inside uploadTicketAttachment) because a mismatch is resident-fixable
+    // and belongs in this pre-insert gate, not the post-insert warning path
+    // reserved for genuine storage failures the resident had no part in.
+    const buffer = Buffer.from(await file.arrayBuffer());
+    if (sniffMimeType(buffer) !== file.type) {
+      return {
+        error: "Attachments must be JPG, PNG, WebP, or PDF.",
         ticketNo: null,
         attachmentWarning: null,
       };

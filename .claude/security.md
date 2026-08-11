@@ -57,7 +57,8 @@ Verified against source; the constants live beside their action, not in `rate-li
 | `reset-submit:ip:<ip>` | 10 / 15 min | same |
 
 `LOGIN_WINDOW_MS` also drives the adaptive CAPTCHA threshold — one knob, two effects
-(`.claude/authentication.md`). Anything IP-keyed inherits `requestIp()`'s open follow-up.
+(`.claude/authentication.md`). Anything IP-keyed inherits `requestIp()`'s topology
+assumption — see the bullet above.
 
 - **Order matters when a limit is keyed on something guessable.** The reply path checks
   `reply:ticket:<ticket_no>` only *after* the surname gate passes: ticket numbers are
