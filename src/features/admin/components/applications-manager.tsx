@@ -169,18 +169,20 @@ export function ApplicationsManager({ applications, services }: ApplicationsMana
     });
   };
 
-  const handleCreate = (values: WalkInApplicationValues) => {
+  const handleCreate = (values: WalkInApplicationValues, files: File[]) => {
     setFormError(null);
     startTransition(async () => {
       try {
-        const result = await createWalkInApplication(values);
+        const result = await createWalkInApplication(values, files);
         if (result.error) {
           setFormError(result.error);
           return;
         }
         setCreateOpen(false);
         setPage(1);
-        showToast("Walk-in application encoded.");
+        // The ticket is encoded either way; the toast says which happened
+        // rather than failing an encode that actually succeeded.
+        showToast(result.attachmentWarning ?? "Walk-in application encoded.");
       } catch {
         setFormError("Something went wrong. Please try again.");
       }

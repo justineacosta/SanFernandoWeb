@@ -5,11 +5,12 @@ import type { WalkInApplicationValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { TicketFileField } from "@/components/shared/ticket-file-field";
 import { manilaToday } from "@/lib/format";
 
 interface ApplicationFormProps {
   services: { id: string; title: string }[];
-  onSubmit: (values: WalkInApplicationValues) => void;
+  onSubmit: (values: WalkInApplicationValues, files: File[]) => void;
   onCancel: () => void;
   saving: boolean;
   error: string | null;
@@ -37,6 +38,9 @@ export function ApplicationForm({
     serviceId: services[0]?.id ?? "",
     consent: false,
   });
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [filePreparing, setFilePreparing] = useState(false);
 
   const set = <K extends keyof WalkInApplicationValues>(
     key: K,
@@ -45,7 +49,7 @@ export function ApplicationForm({
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    onSubmit(values);
+    onSubmit(values, files);
   };
 
   return (
@@ -133,6 +137,16 @@ export function ApplicationForm({
             onChange={(event) => set("purpose", event.target.value)}
           />
         </Field>
+        <TicketFileField
+          files={files}
+          onFilesChange={setFiles}
+          error={fileError}
+          onErrorChange={setFileError}
+          preparing={filePreparing}
+          onPreparingChange={setFilePreparing}
+          idPrefix="walkin-application"
+          label="Documents handed over (optional)"
+        />
         <label className="flex items-start gap-3 text-sm text-ink-600">
           <Checkbox
             checked={values.consent}
@@ -150,7 +164,7 @@ export function ApplicationForm({
         <Button variant="ghost" type="button" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving || filePreparing || fileError !== null}>
           {saving ? "Saving…" : "Encode application"}
         </Button>
       </div>

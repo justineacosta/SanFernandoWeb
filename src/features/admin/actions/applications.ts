@@ -2,16 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { ApplicationReviewValues, WalkInApplicationValues } from "@/types";
+import type { ApplicationReviewValues, WalkInApplicationValues, WalkInTicketResult } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { manilaToday } from "@/lib/format";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import {
-  TICKET_INTAKE_STATUS,
-  markTicketUpdateNotified,
-  recordTicketUpdate,
-} from "@/lib/ticket-updates";
+import { markTicketUpdateNotified, recordTicketUpdate } from "@/lib/ticket-updates";
+import { recordIntakeWithAttachments, validateTicketFiles } from "@/lib/ticket-attachments";
 import { sendEmail } from "@/lib/email";
 import { ApplicationSubmittedEmail } from "@/emails/ApplicationSubmittedEmail";
 import { ApplicationApprovedEmail } from "@/emails/ApplicationApprovedEmail";
@@ -204,12 +201,13 @@ export async function releaseApplication(id: string): Promise<ActionResult> {
 /** Encode a walk-in applicant into the same queue (spec §3: one queue, online + office). */
 export async function createWalkInApplication(
   values: WalkInApplicationValues,
-): Promise<ActionResult> {
+  files: File[],
+): Promise<WalkInTicketResult> {
   const actor = await checkPermission("process-applications");
-  if (!actor) return { error: NOT_FOUND };
+  if (!actor) return { error: NOT_FOUND, attachmentWarning: null };
   const parsed = walkInSchema.safeParse(values);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
+    return { error: parsed.error.issues[0]?.message ?? "Invalid form values.", attachmentWarning: null };
   }
 
   const admin = createSupabaseAdminClient();
@@ -218,11 +216,19 @@ export async function createWalkInApplication(
     .select("id, flow, title")
     .eq("id", parsed.data.serviceId)
     .maybeSingle();
-  if (serviceError) return { error: "Could not encode the application." };
+  if (serviceError) return { error: "Could not encode the application.", attachmentWarning: null };
   // Gated on `flow`, not `tone` — the assistance/appointment rows are tone
   // 'primary' too and would otherwise clear this check, letting the drawer
   // encode a walk-in "application" against a service with no application form.
-  if (!service || service.flow !== "apply") return { error: "Pick a valid document type." };
+  if (!service || service.flow !== "apply") {
+    return { error: "Pick a valid document type.", attachmentWarning: null };
+  }
+
+  // Staff-fixable rejections happen before any row exists, exactly as on the
+  // public path — a bad scan must not cost the resident at the counter a
+  // ticket number.
+  const fileError = await validateTicketFiles(files);
+  if (fileError) return { error: fileError, attachmentWarning: null };
 
   // Availability is NOT checked: a service toggled off online must still be
   // encodable at the counter — that is the point of the toggle.
@@ -245,17 +251,15 @@ export async function createWalkInApplication(
     .single();
   if (error || !data) {
     console.error("createWalkInApplication failed:", error?.message);
-    return { error: "Could not encode the application." };
+    return { error: "Could not encode the application.", attachmentWarning: null };
   }
 
-  const entryId = await recordTicketUpdate({
+  const { entryId, attachmentWarning } = await recordIntakeWithAttachments({
     ticketNo: data.ticket_no,
     kind: "application",
-    entryType: "status",
-    status: TICKET_INTAKE_STATUS.application,
-    visibility: "public",
-    authorKind: "system",
+    files,
     authorName: actor.fullName,
+    context: "createWalkInApplication",
   });
   if (parsed.data.email) {
     await sendEmail({
@@ -277,5 +281,5 @@ export async function createWalkInApplication(
     entityId: data.ticket_no,
   });
   revalidatePath("/admin/applications");
-  return { error: null };
+  return { error: null, attachmentWarning };
 }
