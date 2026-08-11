@@ -10,77 +10,10 @@ reaches GitHub. Everything below was found during that branch's per-task and
 whole-branch reviews and deliberately **deferred** — none of it blocked the
 merge. Delete an entry when it ships; don't let the file rot into a wish list.
 
-The next planned session is a hardening pass over section A. Section B is
-ordinary polish and can be picked off in any order.
-
----
-
-## A. Security
-
-**A1 is the one to scope first** — it is the widest in blast radius and it
-changes what A2–A4 are worth.
-
-### A1. `requestIp()` trusts `cf-connecting-ip` unconditionally
-
-*Pre-existing (2026-07-29), not introduced by the services branch. Already noted
-in CLAUDE.md's adaptive-login-challenge bullet as an open follow-up.*
-
-`requestIp()` prefers the `cf-connecting-ip` header whenever it is present.
-Nothing in the code, the config, or `.env.example` asserts that production
-actually sits behind Cloudflare, and there is no Cloudflare hop in the path a
-direct request takes. `tests/e2e/admin/login.spec.ts` and
-`tests/e2e/public/assistance-form.spec.ts` both forge that header successfully
-from a bare Playwright client — direct proof any caller can.
-
-Every IP-keyed rate limit on the site derives from this one helper: all 8 public
-forms, admin login's `login:ip:*`, the reply and lookup budgets, and
-`assistance:<ip>`. It is also the sole input to `/admin/login`'s
-`initialChallengeRequired`, so rotating the header buys one unchallenged guess
-per account in a spraying attack.
-
-Still bounded — the email-keyed limiter caps per-account brute force at five —
-so this is degradation, not a hole. But it undermines the controls A2–A4 would
-otherwise lean on, which is why it goes first.
-
-**Fix shape:** gate the preference behind an explicit deployment assertion (an
-env flag, or validating the peer against Cloudflare's published ranges), and
-document which topology the app is deployed behind.
-
-### A2. Upload MIME types are browser-supplied and never content-verified
-
-Applies to the assistance filing path (new) **and** the resident-reply path
-(pre-existing, 2026-08-02). Scope any fix to both — they share
-`uploadTicketAttachment` and the `ticket-media` bucket.
-
-Currently bounded by: the bucket is private, `contentType` is set from the
-declared type, HTML/SVG are not in the allow-list, and the stored extension is
-derived from the MIME rather than the filename. Residual risk is a malformed
-PDF or image aimed at a staff viewer's parser.
-
-**Fix shape:** magic-byte sniffing on the first bytes of each upload, checked
-against the declared type. This is the thorough answer and is its own change.
-
-### A3. No bucket-level `file_size_limit` / `allowed_mime_types`
-
-The 3 files × 2 MB cap is enforced only in app code (`MAX_TICKET_FILES` /
-`MAX_TICKET_FILE_BYTES` in `src/lib/storage.ts`). Supabase Storage can enforce
-both at the bucket level. Check `ticket-media` and `feedback-media`.
-
-Cheapest real win here: a proportionate second layer that costs nothing and
-needs no application change.
-
-### A4. No malware scanning
-
-On files that reach staff machines. Listed for completeness — likely
-out of proportion for a barangay deployment, but it should be a decision on
-record rather than an omission.
-
-### A5. Assistance rate limiting is IP-only
-
-`submitAssistance` keys on `assistance:<ip>` alone — no email or ticket
-dimension, unlike `login:email:*` or `reply:ticket:*`. 5 per hour, so
-distributed abuse is not bounded per person. Each submission is capped at ~6 MB.
-Depends on A1 to mean anything.
+Section A shipped 2026-08-11 — see
+`docs/superpowers/specs/2026-08-11-hardening-a1-a5-design.md` for the design and
+`.superpowers/sdd/2026-08-11-hardening-a1-a5/` for the per-task history. Section B
+is ordinary polish and can be picked off in any order.
 
 ---
 
@@ -116,6 +49,13 @@ From the same reviews. Ordered by leverage, not severity.
    ignores the red text files a ticket with no attachments); a missing
    `label`/`htmlFor` pair in `assistance-categories-panel.tsx`; and a clarifying
    comment on `services-directory.spec.ts`'s collapsed-accordion assertion.
+
+7. **`allowed_mime_types` on the six status-aware bucket pairs.** Migration `0036` set it on
+   `ticket-media`/`feedback-media` only. `promoteMedia` re-uploads with
+   `contentType: file.type || undefined`, and it fails closed, so a restrictive allow-list on
+   a bucket it promotes into would break publishing. Give `promoteMedia` an explicit
+   `contentType` first, then widen. Low priority — `file_size_limit` is already set on all
+   of them.
 
 ---
 

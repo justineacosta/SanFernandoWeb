@@ -178,3 +178,21 @@ dependency (one is inside `next`'s build tooling, the other an optional runtime 
 `next/image`), so the override patches their CVEs without waiting for `next` to bump them.
 One `npm audit` finding (`brace-expansion`, via ESLint 9's own chain, dev-time only) is
 deliberately unfixed — `docs/BACKEND_HANDOFF.md` §6 item 12.
+
+## Malware scanning — declined, with reasons (2026-08-11)
+
+An explicit decision, not an omission. Resident uploads are **not** scanned, because:
+
+- Both resident buckets (`ticket-media`, `feedback-media`) are **private**, with no read
+  policy and no public serving path — a stored file is reachable only through a service-role
+  signed URL.
+- Ingest is capped at 3 files x 2 MB, and `sniffMimeType` requires the bytes to match a
+  declared PDF or image signature, which blocks the cheap disguised-executable case.
+- Staff are a handful of named accounts, not an open enterprise attack surface.
+- Every scanner option adds a network dependency to ticket filing, a recurring cost, a
+  fail-open/fail-closed decision, and ships photographs of residents' IDs to a third party —
+  a privacy boundary this codebase does not cross and has repeatedly declined to (feedback
+  screenshots, complaint narratives).
+
+**Revisit if** uploads are ever served directly to a browser, or staff begin opening
+attachments outside the portal.

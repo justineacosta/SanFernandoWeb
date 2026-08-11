@@ -80,8 +80,10 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
 - The Turnstile widget reports its **own** failures (blocked script, error callback) as a
   visible banner with a Try again button — an `interaction-only` widget that is dead looks
   exactly like one that is healthy, so silence would leave a form permanently unsubmittable
-- IP resolution trusts the last `X-Forwarded-For` hop (or `cf-connecting-ip`), not the
-  client-controlled first entry, so IP-based throttling can't be trivially spoofed
+- IP resolution trusts the last `X-Forwarded-For` hop, not the client-controlled first
+  entry, so IP-based throttling can't be trivially spoofed — `cf-connecting-ip` is read only
+  when `TRUSTED_IP_HEADER` names it (unset, and therefore untrusted, by default; production
+  is bare Vercel with no proxy in front)
 
 ### Data & Access Control
 - **Row-Level Security on every table**, with (almost) zero policies — the service-role
@@ -404,10 +406,6 @@ tracked as not-yet-done rather than bugs:
   "Download All Forms" action, and the home page's Get Involved banner is copy-only with no
   button. Settings likewise dropped its Preferences card — a language select and three
   notification toggles that persisted nothing — rather than leave dead controls on screen
-- `requestIp()` prefers `cf-connecting-ip` unconditionally, and nothing in the code or
-  config asserts that production actually sits behind Cloudflare. Bounded rather than open
-  (the email-keyed limiter still caps per-account brute force), but the fix is to gate that
-  preference behind an explicit deployment assertion
 - Several content fields are real but still placeholder-shaped: the About page's captain's
   message, and most staff emails/phones/office hours (the barangay's own hotline and
   address are real)
