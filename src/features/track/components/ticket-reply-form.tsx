@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
-import { ALLOWED_DOC_FILE_TYPES, MAX_TICKET_FILE_BYTES, MAX_TICKET_FILES } from "@/lib/storage";
+import { TicketFileField } from "@/components/shared/ticket-file-field";
 import { submitTicketReply } from "../actions";
 
 interface TicketReplyFormProps {
@@ -21,10 +21,9 @@ interface TicketReplyFormProps {
  * ticket is `awaiting-info` — /track is not a general-purpose inbox, and
  * /contact stays the channel for anything else.
  *
- * The file picker is pure: no network call until submit, matching every other
- * uploader in this codebase. File type/size are checked here too, with the
- * same wording the server uses, so an oversized or wrong-type file fails
- * instantly instead of burning an upload round trip.
+ * The file picker is `TicketFileField`, shared with every other resident
+ * attachment surface: pure, no network call until submit, and it downscales an
+ * oversized photo rather than rejecting it.
  */
 export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormProps) {
   const [body, setBody] = useState("");
@@ -35,39 +34,11 @@ export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormP
   // past a banner: without that, Send stayed clickable and a resident who
   // ignored the message got a filed reply with the attachment silently gone.
   const [fileError, setFileError] = useState<string | null>(null);
+  const [filePreparing, setFilePreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
-
-  function handleFiles(event: React.ChangeEvent<HTMLInputElement>) {
-    const picked = Array.from(event.target.files ?? []);
-    if (picked.length === 0) return;
-    if (picked.length > MAX_TICKET_FILES) {
-      setFiles([]);
-      setFileError(`You can attach up to ${MAX_TICKET_FILES} files.`);
-      event.target.value = "";
-      return;
-    }
-    const oversized = picked.some((file) => file.size > MAX_TICKET_FILE_BYTES);
-    if (oversized) {
-      setFiles([]);
-      setFileError("Each attachment must be 2 MB or smaller.");
-      event.target.value = "";
-      return;
-    }
-    const wrongType = picked.some(
-      (file) => !ALLOWED_DOC_FILE_TYPES.includes(file.type as (typeof ALLOWED_DOC_FILE_TYPES)[number]),
-    );
-    if (wrongType) {
-      setFiles([]);
-      setFileError("Attachments must be JPG, PNG, WebP, or PDF.");
-      event.target.value = "";
-      return;
-    }
-    setFileError(null);
-    setFiles(picked);
-  }
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -128,33 +99,22 @@ export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormP
           />
         </Field>
 
-        <div>
-          <label htmlFor="ticket-reply-files" className="text-sm font-semibold text-ink-800">
-            Attach files (optional)
-          </label>
-          <input
-            id="ticket-reply-files"
-            type="file"
-            multiple
-            accept="image/jpeg,image/png,image/webp,application/pdf"
-            className="mt-1 block w-full text-sm"
-            onChange={handleFiles}
-          />
-          <p className="mt-1 text-xs text-ink-500">
-            Up to {MAX_TICKET_FILES} files, 2 MB each. JPG, PNG, WebP, or PDF.
-          </p>
-          {fileError ? (
-            <p role="alert" className="mt-1 text-sm font-medium text-danger">
-              {fileError}
-            </p>
-          ) : null}
-        </div>
+        <TicketFileField
+          files={files}
+          onFilesChange={setFiles}
+          error={fileError}
+          onErrorChange={setFileError}
+          preparing={filePreparing}
+          onPreparingChange={setFilePreparing}
+          idPrefix="ticket-reply"
+          label="Attach files (optional)"
+        />
 
         <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
 
         {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
 
-        <Button type="submit" variant="primary" disabled={isPending || fileError !== null}>
+        <Button type="submit" variant="primary" disabled={isPending || filePreparing || fileError !== null}>
           {isPending ? "Sending…" : "Send reply"}
         </Button>
       </div>

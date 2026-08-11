@@ -12,7 +12,7 @@ import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { useFieldValidation } from "@/hooks/use-field-validation";
-import { MAX_TICKET_FILES, MAX_TICKET_FILE_BYTES } from "@/lib/storage";
+import { TicketFileField } from "@/components/shared/ticket-file-field";
 import { submitAssistance } from "@/features/assistance/actions";
 import { assistanceSchema } from "@/features/assistance/schema";
 import { SwapReveal } from "@/components/ui/swap-reveal";
@@ -31,6 +31,7 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
   });
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [filePreparing, setFilePreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ticketNo, setTicketNo] = useState<string | null>(null);
   const [attachmentWarning, setAttachmentWarning] = useState<string | null>(null);
@@ -297,57 +298,15 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
                 : `${values.details.trim().length} / 2000`}
             </p>
           </Field>
-          <div className="space-y-2">
-            <label htmlFor="assistance-files" className="text-sm font-semibold text-ink-800">
-              Supporting documents (optional)
-            </label>
-            <input
-              id="assistance-files"
-              type="file"
-              multiple
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={(event) => {
-                const picked = Array.from(event.target.files ?? []);
-                if (picked.length > MAX_TICKET_FILES) {
-                  setFileError(`You can attach up to ${MAX_TICKET_FILES} files.`);
-                  // Clear the state too, not just the control: leaving an
-                  // earlier valid pick in `files` behind an input that now
-                  // reads "no file chosen" would submit files the resident
-                  // can no longer see.
-                  event.target.value = "";
-                  setFiles([]);
-                  return;
-                }
-                if (picked.some((file) => file.size > MAX_TICKET_FILE_BYTES)) {
-                  setFileError("Each attachment must be 2 MB or smaller.");
-                  // Clear the state too, not just the control: leaving an
-                  // earlier valid pick in `files` behind an input that now
-                  // reads "no file chosen" would submit files the resident
-                  // can no longer see.
-                  event.target.value = "";
-                  setFiles([]);
-                  return;
-                }
-                setFileError(null);
-                setFiles(picked);
-              }}
-              className="block w-full text-sm text-ink-600 file:mr-3 file:rounded-full file:border-0 file:bg-brand-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand-700"
-            />
-            <p className="text-xs text-ink-500">
-              Up to {MAX_TICKET_FILES} files, 2 MB each. JPG, PNG, WebP, or PDF.
-            </p>
-            {/*
-              Plain role="alert" text rather than an <InlineAlert>: this is
-              field-level validation that clears itself on the next valid pick,
-              so a close button would have nothing to dismiss to. Same split
-              feedback-panel.tsx's own fileError follows.
-            */}
-            {fileError ? (
-              <p role="alert" className="text-sm font-medium text-danger">
-                {fileError}
-              </p>
-            ) : null}
-          </div>
+          <TicketFileField
+            files={files}
+            onFilesChange={setFiles}
+            error={fileError}
+            onErrorChange={setFileError}
+            preparing={filePreparing}
+            onPreparingChange={setFilePreparing}
+            idPrefix="assistance"
+          />
           <div className="space-y-2">
             <label className="flex items-start gap-3 text-sm text-ink-600">
               <Checkbox
@@ -385,7 +344,7 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
             type="submit"
             variant="primary"
             className="w-full"
-            disabled={isPending || fileError !== null}
+            disabled={isPending || filePreparing || fileError !== null}
           >
             {isPending ? "Filing…" : "Submit request"}
           </Button>
