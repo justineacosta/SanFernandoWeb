@@ -54,10 +54,17 @@ would reject, and `promoteMedia` fails closed — breaking publishing in product
 2026-08-11 against real objects both directions (publish and archive) for one image kind
 (news) and one document kind (legislative): `storage.objects.metadata->>'mimetype'` came
 back `image/png` and `application/pdf` respectively in every case, never a generic default.
-`0037` (hardening backlog Task 8) was written the same day against that verified fix, folded
-into the baseline alongside it — **but as of this writing has not been applied to any
-environment**; it is manual, staging first, like every migration since `0012`
-(`.claude/deployment.md`).
+`0037` (hardening backlog Task 8) was written 2026-08-11 against that verified fix, folded
+into the baseline alongside it, and applied to staging then production on 2026-08-12 —
+manual, staging first, like every migration since `0012` (`.claude/deployment.md`). Confirmed
+byte-for-byte with a direct `storage.buckets` read (service-role `listBuckets()`): all
+fourteen non-null buckets carried exactly the array `0037`/`0036` specify, `site-media` and
+`avatars-media` still `null`. Then re-ran the Task 7 round trip with the allow-list actually
+enforcing, one image kind (news) and the PDF kind (legislative): publish and archive both
+succeeded, `storage.objects.metadata->>'mimetype'` still read `image/png` and
+`application/pdf` (never rejected, never a generic default), and the public page/PDF download
+served the correct `content-type` in both cases. Test records deleted afterward; all four
+buckets touched returned to their exact pre-test object counts.
 
 ### Publish is three steps in this order
 
