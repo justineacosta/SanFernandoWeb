@@ -186,6 +186,36 @@ export function sniffMimeType(bytes: Uint8Array): string | null {
   return null;
 }
 
+/**
+ * Content type from a stored object's path extension.
+ *
+ * The fallback for `copyObjects` when a Storage download hands back a blob
+ * with no type of its own: every upload path in this codebase builds the name
+ * as `<uuid>.<ext>` from a type it already validated, so the extension is
+ * trustworthy here in a way it would not be for a file straight off a form.
+ *
+ * Pure and dependency-free for the same reason as `sniffMimeType` — this
+ * module has to stay importable by Vitest.
+ */
+export function mimeFromExtension(path: string): string | null {
+  const dot = path.lastIndexOf(".");
+  const slash = path.lastIndexOf("/");
+  if (dot === -1 || dot < slash || dot === path.length - 1) return null;
+  switch (path.slice(dot + 1).toLowerCase()) {
+    case "png":
+      return "image/png";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "pdf":
+      return "application/pdf";
+    default:
+      return null;
+  }
+}
+
 /** Human-readable file size for download affordances, e.g. "2.4 MB". */
 export function formatFileSize(bytes: number | null): string {
   if (!bytes || bytes <= 0) return "";

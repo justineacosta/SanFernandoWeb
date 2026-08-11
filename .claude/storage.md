@@ -35,11 +35,19 @@ directly to Storage with no app-side size check of their own — a future asset 
 would fail with a raw Storage error, not a validation message.
 
 **`allowed_mime_types` is set on `ticket-media` and `feedback-media` only.** Not an
-oversight: `promoteMedia` re-uploads with `contentType: file.type || undefined`, so a
-status-aware bucket with a MIME allow-list would reject a promoted copy whose downloaded
-type came back empty — and `promoteMedia` fails closed, so publishing breaks. Those two
-buckets are pure ingest with no lifecycle, so they are safe. Restricting the other twelve
-requires giving `promoteMedia` an explicit `contentType` first.
+oversight: those two buckets are pure ingest with no lifecycle. The other twelve go through
+`copyObjects` (promote/demote), which as of hardening backlog Task 7 (2026-08-11) resolves
+an explicit content type — **sniffed bytes → path extension (`mimeFromExtension`,
+`storage.ts`) → the downloaded blob's own type** — before every re-upload, and only falls
+through to `undefined` if all three come back empty. Before this fix `copyObjects` uploaded
+with `contentType: file.type || undefined`, and a Storage download's blob routinely comes
+back with no type of its own; Supabase would then substitute a default that a bucket-level
+`allowed_mime_types` would reject, and `promoteMedia` fails closed — breaking publishing in
+production. Verified 2026-08-11 against real objects both directions (publish and archive)
+for one image kind (news) and one document kind (legislative): `storage.objects.metadata->>
+'mimetype'` came back `image/png` and `application/pdf` respectively in every case, never a
+generic default. This is the precondition Task 8's `allowed_mime_types` migration on the
+twelve status-aware buckets depends on.
 
 ### Publish is three steps in this order
 
@@ -111,8 +119,10 @@ Server-Action payload under the `"8mb"` limit.
   not route through `uploadSingleImage`** — they upload directly, which is why patching the
   shared helper alone was never enough for those two. Each rejection reuses that call site's
   existing declared-type string so a prober cannot tell the two checks apart.
-  `media-lifecycle.ts`'s promote/demote copy is deliberately exempt: it re-uploads
-  already-validated bytes.
+  `media-lifecycle.ts`'s promote/demote copy is deliberately exempt from this reject-on-
+  mismatch pattern: it re-uploads already-validated bytes, so there is nothing to reject.
+  It does still call `sniffMimeType` (paired with `mimeFromExtension`) — not to validate,
+  but to resolve the `contentType` the re-upload sends; see `copyObjects` above.
 
 ## Document PDFs upload through a Route Handler, not a Server Action
 

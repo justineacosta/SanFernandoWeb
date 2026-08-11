@@ -6,7 +6,9 @@ import {
   bucketForStatus,
   draftBucketFor,
   mediaUrl,
+  mimeFromExtension,
   publicBucketFor,
+  sniffMimeType,
 } from "@/lib/storage";
 import type { ContentStatus } from "@/types";
 
@@ -32,9 +34,15 @@ async function copyObjects(
       };
     }
     const buffer = Buffer.from(await file.arrayBuffer());
+    // Sniffed bytes first, the path extension second, the blob's own type
+    // last. Never `undefined`: Supabase then substitutes a default type that a
+    // bucket-level allowed_mime_types rejects, and promoteMedia fails closed —
+    // which is precisely why migration 0036 could not put an allow-list on the
+    // twelve status-aware buckets. Resolving the type here is what unblocks it.
+    const contentType = sniffMimeType(buffer) ?? mimeFromExtension(path) ?? file.type;
     const { error: uploadErr } = await admin.storage
       .from(destBucket)
-      .upload(path, buffer, { contentType: file.type || undefined, upsert: true });
+      .upload(path, buffer, { contentType: contentType || undefined, upsert: true });
     if (uploadErr) {
       return { error: `Could not write ${path} to ${destBucket}: ${uploadErr.message}` };
     }

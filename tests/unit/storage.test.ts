@@ -5,6 +5,7 @@ import {
   bucketForStatus,
   draftBucketFor,
   mediaUrl,
+  mimeFromExtension,
   publicBucketFor,
   sniffMimeType,
   uploadRulesFor,
@@ -124,5 +125,32 @@ describe("sniffMimeType", () => {
     // sniffer returning the WRONG non-null type would silently pass nothing.
     expect(sniffMimeType(jpeg)).not.toBe("application/pdf");
     expect(sniffMimeType(jpeg)).not.toBe("image/png");
+  });
+});
+
+describe("mimeFromExtension", () => {
+  it("maps the four types this project stores", () => {
+    expect(mimeFromExtension("news/abc/photo.png")).toBe("image/png");
+    expect(mimeFromExtension("news/abc/photo.jpg")).toBe("image/jpeg");
+    expect(mimeFromExtension("news/abc/photo.jpeg")).toBe("image/jpeg");
+    expect(mimeFromExtension("news/abc/photo.webp")).toBe("image/webp");
+    expect(mimeFromExtension("legislative/abc/ordinance.pdf")).toBe("application/pdf");
+  });
+
+  it("is case-insensitive", () => {
+    expect(mimeFromExtension("officials/a/PORTRAIT.JPG")).toBe("image/jpeg");
+    expect(mimeFromExtension("transparency/a/Report.PDF")).toBe("application/pdf");
+  });
+
+  it("returns null for anything else", () => {
+    expect(mimeFromExtension("news/abc/notes.txt")).toBeNull();
+    expect(mimeFromExtension("news/abc/noextension")).toBeNull();
+    expect(mimeFromExtension("news/abc/trailing.")).toBeNull();
+    expect(mimeFromExtension("")).toBeNull();
+  });
+
+  it("reads the extension, not a dot in a folder name", () => {
+    expect(mimeFromExtension("news/v1.2/photo.png")).toBe("image/png");
+    expect(mimeFromExtension("news/v1.2/photo")).toBeNull();
   });
 });
