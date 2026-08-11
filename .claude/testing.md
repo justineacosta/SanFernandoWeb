@@ -31,8 +31,11 @@ CSP test sat green for weeks while never reaching its assertion.
 
 `tests/e2e/public/`: `site.spec.ts`, `turnstile.spec.ts`, `feedback.spec.ts`,
 `news.spec.ts`, `notices.spec.ts`, `events.spec.ts`, `appointment-form.spec.ts`,
-`assistance-form.spec.ts`, `apply-form.spec.ts` (files a document application with a
-supporting PDF attached, end to end through `ticket-media` and `ticket_updates`),
+`assistance-form.spec.ts`, `assistance-guidance.spec.ts` (asserts the per-category "What to
+prepare" card is never rendered empty, across every category the live picker offers — an
+invariant rather than a named category, since a SuperAdmin can fill any category's guidance
+in at any time through `/admin/services`), `apply-form.spec.ts` (files a document application
+with a supporting PDF attached, end to end through `ticket-media` and `ticket_updates`),
 `services-directory.spec.ts`, `forgot-password.spec.ts` (needs no admin credentials — both
 reset pages are public; the full emailed-link round trip isn't automatable without a live
 inbox). **Complaints deliberately has no submitting spec** — see the rate-limit table below.
@@ -56,7 +59,8 @@ collision first, a regression second** — except where noted.
 | `public/assistance-form.spec.ts` | 1 `assistance:<ip>` — but it forges a fresh random IP per run, so **no shared budget exists to collide with**. Also spends 1 `assistance:contact:<digits>`, same reasoning: the contact-number field is filled with a per-run-unique, `Date.now()`-suffixed value | unlimited; **read a failure here as real** |
 | `public/apply-form.spec.ts` | 1 `apply:<ip>` against `SUBMIT_LIMIT` = 10/hour (`src/features/services/actions.ts`) — same forged-fresh-IP-per-run pattern as `assistance-form.spec.ts`, copied from it, so again **no shared budget exists to collide with** | unlimited; **read a failure here as real** |
 
-`public/services-directory.spec.ts` submits nothing, so it spends no budget either.
+`public/services-directory.spec.ts` and `public/assistance-guidance.spec.ts` submit nothing,
+so they spend no budget either.
 
 **Complaints has no submitting e2e spec, on purpose.** The shared picker and upload sequence
 (`TicketFileField` / `recordIntakeWithAttachments` in `src/lib/ticket-attachments.ts`) are
