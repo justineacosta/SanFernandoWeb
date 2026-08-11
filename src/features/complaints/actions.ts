@@ -1,14 +1,11 @@
 "use server";
 
-import type { PublicComplaintValues, SubmitTicketResult } from "@/types";
+import type { PublicComplaintValues, SubmitTicketWithFilesResult } from "@/types";
 import { ComplaintSubmittedEmail } from "@/emails/ComplaintSubmittedEmail";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
-import {
-  TICKET_INTAKE_STATUS,
-  markTicketUpdateNotified,
-  recordTicketUpdate,
-} from "@/lib/ticket-updates";
+import { markTicketUpdateNotified } from "@/lib/ticket-updates";
+import { recordIntakeWithAttachments, validateTicketFiles } from "@/lib/ticket-attachments";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { COMPLAINT_SERVICE_ID } from "./queries";
@@ -26,17 +23,19 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
  */
 export async function submitComplaint(
   values: PublicComplaintValues,
+  files: File[],
   turnstileToken: string | null,
-): Promise<SubmitTicketResult> {
+): Promise<SubmitTicketWithFilesResult> {
   const ip = await requestIp();
   if (!(await verifyTurnstileToken(turnstileToken, ip))) {
-    return { error: TURNSTILE_FAILURE_MESSAGE, ticketNo: null };
+    return { error: TURNSTILE_FAILURE_MESSAGE, ticketNo: null, attachmentWarning: null };
   }
   if (!(await checkRateLimit(`complaint:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error:
         "Too many reports from this connection. Please try again later or visit the barangay hall.",
       ticketNo: null,
+      attachmentWarning: null,
     };
   }
 
@@ -45,6 +44,7 @@ export async function submitComplaint(
     return {
       error: parsed.error.issues[0]?.message ?? "Please check the form and try again.",
       ticketNo: null,
+      attachmentWarning: null,
     };
   }
 
@@ -59,13 +59,22 @@ export async function submitComplaint(
     .maybeSingle();
   if (serviceError) {
     console.error("submitComplaint service lookup failed:", serviceError.message);
-    return { error: "Something went wrong. Please try again.", ticketNo: null };
+    return { error: "Something went wrong. Please try again.", ticketNo: null, attachmentWarning: null };
   }
   if (!service?.is_available) {
     return {
       error: "Online incident reports are temporarily unavailable. Please visit the barangay hall.",
       ticketNo: null,
+      attachmentWarning: null,
     };
+  }
+
+  // Everything the resident can fix is rejected here, before any row exists —
+  // so the attachmentWarning path below is reserved for genuine storage
+  // failures they had no part in.
+  const fileError = await validateTicketFiles(files);
+  if (fileError) {
+    return { error: fileError, ticketNo: null, attachmentWarning: null };
   }
 
   const { data, error } = await admin
@@ -86,16 +95,15 @@ export async function submitComplaint(
     .single();
   if (error || !data) {
     console.error("submitComplaint failed:", error?.message);
-    return { error: "We could not file your report. Please try again.", ticketNo: null };
+    return { error: "We could not file your report. Please try again.", ticketNo: null, attachmentWarning: null };
   }
 
-  const entryId = await recordTicketUpdate({
+  // data.ticket_no, never a client string — it becomes a storage path prefix.
+  const { entryId, attachmentWarning } = await recordIntakeWithAttachments({
     ticketNo: data.ticket_no,
     kind: "complaint",
-    entryType: "status",
-    status: TICKET_INTAKE_STATUS.complaint,
-    visibility: "public",
-    authorKind: "system",
+    files,
+    context: "submitComplaint",
   });
   if (parsed.data.email) {
     await sendEmail({
@@ -111,5 +119,5 @@ export async function submitComplaint(
     if (entryId) await markTicketUpdateNotified(entryId);
   }
 
-  return { error: null, ticketNo: data.ticket_no };
+  return { error: null, ticketNo: data.ticket_no, attachmentWarning };
 }

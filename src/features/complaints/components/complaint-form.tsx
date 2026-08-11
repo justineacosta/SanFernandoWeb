@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { TicketFileField } from "@/components/shared/ticket-file-field";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { manilaToday } from "@/lib/format";
 import { useFieldValidation } from "@/hooks/use-field-validation";
@@ -37,6 +38,10 @@ export function ComplaintForm() {
   const [ticketNo, setTicketNo] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [filePreparing, setFilePreparing] = useState(false);
+  const [attachmentWarning, setAttachmentWarning] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   // `isPending` only flips once React commits, so the disabled button alone
   // cannot stop two clicks landing in the same tick — that would file the
@@ -60,11 +65,12 @@ export function ComplaintForm() {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await submitComplaint(values, turnstileToken);
+        const result = await submitComplaint(values, files, turnstileToken);
         if (result.error || !result.ticketNo) {
           setError(result.error ?? "Something went wrong. Please try again.");
           return;
         }
+        setAttachmentWarning(result.attachmentWarning);
         setTicketNo(result.ticketNo);
       } catch {
         setError("Something went wrong. Please try again.");
@@ -119,6 +125,13 @@ export function ComplaintForm() {
               <span aria-live="polite">{copied ? "Copied" : "Copy number"}</span>
             </button>
           </div>
+          {attachmentWarning ? (
+            <InlineAlert
+              message={attachmentWarning}
+              onDismiss={() => setAttachmentWarning(null)}
+              className="mb-6 text-left"
+            />
+          ) : null}
           <p className="mt-4 text-sm text-ink-600">
             Keep this number safe. Tracking a report shows its status only — never the
             details you wrote here.
@@ -279,6 +292,16 @@ export function ComplaintForm() {
               {...v.fieldProps("narrative", "complaint-narrative")}
             />
           </Field>
+          <TicketFileField
+            files={files}
+            onFilesChange={setFiles}
+            error={fileError}
+            onErrorChange={setFileError}
+            preparing={filePreparing}
+            onPreparingChange={setFilePreparing}
+            idPrefix="complaint"
+            label="Photos or documents (optional)"
+          />
           <div className="space-y-2">
             <label className="flex items-start gap-3 text-sm text-ink-600">
               <Checkbox
@@ -303,7 +326,7 @@ export function ComplaintForm() {
           </div>
           {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
           <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
-          <Button type="submit" variant="primary" className="w-full" disabled={isPending}>
+          <Button type="submit" variant="primary" className="w-full" disabled={isPending || filePreparing || fileError !== null}>
             {isPending ? "Filing…" : "Submit report"}
           </Button>
         </Card>
