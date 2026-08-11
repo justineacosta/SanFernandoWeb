@@ -75,7 +75,7 @@ export async function submitAppointment(
     entryType: "status",
     status: TICKET_INTAKE_STATUS.appointment,
     visibility: "public",
-    authorKind: "system",
+    authorKind: "resident",
   });
   if (parsed.data.email) {
     await sendEmail({

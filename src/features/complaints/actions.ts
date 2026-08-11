@@ -103,6 +103,7 @@ export async function submitComplaint(
     ticketNo: data.ticket_no,
     kind: "complaint",
     files,
+    authorKind: "resident",
     context: "submitComplaint",
   });
   if (parsed.data.email) {

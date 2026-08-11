@@ -295,6 +295,7 @@ export async function createWalkInAssistance(
     ticketNo: data.ticket_no,
     kind: "assistance",
     files,
+    authorKind: "staff",
     authorName: actor.fullName,
     context: "createWalkInAssistance",
   });

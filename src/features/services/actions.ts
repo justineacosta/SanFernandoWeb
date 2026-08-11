@@ -116,6 +116,7 @@ export async function submitApplication(
     ticketNo: data.ticket_no,
     kind: "application",
     files,
+    authorKind: "resident",
     context: "submitApplication",
   });
   if (parsed.data.email) {

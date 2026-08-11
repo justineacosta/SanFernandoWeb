@@ -177,15 +177,18 @@ for every ticket ingest point except resident replies:
   byte-sniff cross-check, all resident/staff-fixable, all run before any row exists.
 - `recordIntakeWithAttachments` runs **after** the insert: it uploads each file, writes the
   intake `ticket_updates` entry that references them (`TICKET_INTAKE_STATUS[kind]`,
-  `visibility: "public"`, `authorKind: "system"`), and on a storage or timeline failure
-  discards whatever it already uploaded and returns `TICKET_ATTACHMENT_WARNING` instead of
-  failing the caller.
+  `visibility: "public"`), and on a storage or timeline failure discards whatever it already
+  uploaded and returns `TICKET_ATTACHMENT_WARNING` instead of failing the caller.
+- **`authorKind` on `IntakeAttachmentsInput` is required, not defaulted** — every caller
+  states explicitly whether the intake entry is `"resident"` or `"staff"` (2026-08-11; a
+  hardcoded `"system"` here used to make a resident's own uploaded ID read as "Barangay
+  staff" in the admin drawer, see `.claude/resident-portal.md`).
 - **All six ingest points call it**: the three public Server Actions (`submitApplication`,
   `submitComplaint`, `submitAssistance`, `src/features/services/actions.ts` /
-  `complaints/actions.ts` / `assistance/actions.ts`) and the three staff walk-in encode
-  actions (`createWalkInApplication`, `createWalkInComplaint`, `createWalkInAssistance`,
-  `.claude/admin-cms.md`). Walk-in callers pass `authorName: actor.fullName`; public callers
-  leave it undefined.
+  `complaints/actions.ts` / `assistance/actions.ts`) pass `authorKind: "resident"`, and the
+  three staff walk-in encode actions (`createWalkInApplication`, `createWalkInComplaint`,
+  `createWalkInAssistance`, `.claude/admin-cms.md`) pass `authorKind: "staff"` plus
+  `authorName: actor.fullName`.
 - **`submitTicketReply` keeps its own path**, not this module — it writes a `reply` entry,
   not an intake one, so the timeline write has a different shape even though the upload and
   discard mechanics are identical.

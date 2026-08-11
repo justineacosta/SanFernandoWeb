@@ -287,6 +287,7 @@ export async function createWalkInComplaint(
     ticketNo: data.ticket_no,
     kind: "complaint",
     files,
+    authorKind: "staff",
     authorName: actor.fullName,
     context: "createWalkInComplaint",
   });

@@ -57,7 +57,14 @@ export interface IntakeAttachmentsInput {
   ticketNo: string;
   kind: TicketKind;
   files: File[];
-  /** Set for walk-in encoding; absent for a resident's own submission. */
+  /**
+   * Who filed this. Required rather than defaulted: the intake entry carries
+   * the submitter's own attachments, and defaulting it to "system" is exactly
+   * how a resident's uploaded ID came to read as "Barangay staff" in the admin
+   * drawer. "resident" for a public submission, "staff" for walk-in encoding.
+   */
+  authorKind: "resident" | "staff";
+  /** The encoding staff member's name. Set for walk-ins; absent for a resident's own submission. */
   authorName?: string;
   /** Identifies the caller in orphan logs, e.g. "submitApplication". */
   context: string;
@@ -79,6 +86,7 @@ export async function recordIntakeWithAttachments({
   ticketNo,
   kind,
   files,
+  authorKind,
   authorName,
   context,
 }: IntakeAttachmentsInput): Promise<{ entryId: string | null; attachmentWarning: string | null }> {
@@ -104,7 +112,7 @@ export async function recordIntakeWithAttachments({
     entryType: "status",
     status: TICKET_INTAKE_STATUS[kind],
     visibility: "public",
-    authorKind: "system",
+    authorKind,
     authorName,
     attachments: uploaded,
   });

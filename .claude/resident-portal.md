@@ -50,6 +50,16 @@ appointments deliberately do not.** All three share one picker, `TicketFileField
 and guessable, which is the entire reason the gate exists. The timeline it renders comes
 from `ticket_updates` filtered `.eq("visibility","public")` in the query layer.
 
+**The intake entry's `authorKind` is `"resident"` for all four public filing flows
+(`apply`, `complaint`, `assistance`, `appointment`) and `"staff"` (plus the encoder's name)
+for the three walk-in equivalents** (`src/lib/ticket-attachments.ts`,
+`src/features/appointments/actions.ts`; 2026-08-11). `"system"` is reserved for genuinely
+machine-written status transitions with no human author — the review/status-change entries
+in `src/features/admin/actions/{applications,complaints,assistance,appointments}.ts` and
+`ticket-updates.ts`'s own writes. `src/features/track/components/ticket-timeline.tsx`
+branches only on `entryType`, never on `authorKind`, so this never reaches a resident-facing
+label — the admin drawer (`.claude/admin-cms.md`) is the only surface that renders it.
+
 Resident replies flip a ticket from `awaiting-info` back to `under-review`. `canReply()`
 (`src/lib/ticket-updates.ts`) **only opens a reply on `awaiting-info`** — copy anywhere else
 must not tell a resident to "reply on the Track page" unless the ticket is in that status.

@@ -151,6 +151,7 @@ export async function submitAssistance(
     ticketNo: data.ticket_no,
     kind: "assistance",
     files,
+    authorKind: "resident",
     context: "submitAssistance",
   });
   if (parsed.data.email) {

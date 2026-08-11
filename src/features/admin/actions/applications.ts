@@ -258,6 +258,7 @@ export async function createWalkInApplication(
     ticketNo: data.ticket_no,
     kind: "application",
     files,
+    authorKind: "staff",
     authorName: actor.fullName,
     context: "createWalkInApplication",
   });
