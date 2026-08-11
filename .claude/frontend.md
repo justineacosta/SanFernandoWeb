@@ -41,6 +41,19 @@ overrides, so no variant prop is needed). `<Toast>` closes on click as well as o
 - **One category stays non-dismissible on purpose: field-level validation**, which clears
   itself once the field is valid — a close button on "this field is required" has nothing to
   dismiss *to*.
+- **A file-picker's field-level error must also disable Submit, not only stay
+  non-dismissible.** `AssistanceForm` and `TicketReplyForm` both had this gap until
+  2026-08-11: a resident could pick a file the client rejects (declared type mismatches —
+  Storage's byte-signature check catches everything else), see the message, and still click
+  Submit, because nothing gated the button on `fileError`. The rejected file was already
+  cleared from state, so the result wasn't corrupted data — it was a ticket/reply filed with
+  the attachment silently absent and no indication it never made it. Both now disable Submit
+  while `fileError` is set; there is no dismiss to route around it, only picking a valid file
+  or removing the bad one. **`FeedbackPanel`'s Submit is not gated this way** — its
+  screenshot was always optional and `clearScreenshot()` already empties the picker's visible
+  state on rejection, so nothing is silently lost the way it was on the other two. Follow the
+  gating pattern for any new file picker attached to a field that isn't purely optional
+  window-dressing.
 - The four review drawers render `localError ?? error`, so dismissing has to clear both
   halves — hence their `onDismissError` prop.
 - **`login-form.tsx` is the true special case:** `useActionState` gives no setter to null out

@@ -57,7 +57,9 @@ must not tell a resident to "reply on the Track page" unless the ticket is in th
 the lookup: `track-lookup.tsx` nulls its Turnstile token the instant a lookup succeeds, so a
 second round trip would show a CAPTCHA error right after the reply worked.
 
-Attachments: private `ticket-media`, 3 files × 2 MB — see `.claude/storage.md`.
+Attachments: private `ticket-media`, 3 files × 2 MB — see `.claude/storage.md`. `TicketReplyForm`'s
+Send button is disabled while a picked file is rejected client-side — `.claude/frontend.md`'s
+error-banner section, not this file, owns that convention.
 
 ### `/appointments/new`
 
