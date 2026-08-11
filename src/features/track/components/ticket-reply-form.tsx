@@ -29,6 +29,12 @@ interface TicketReplyFormProps {
 export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormProps) {
   const [body, setBody] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  // Field-level validation, deliberately separate from `error` below and with
+  // no dismiss button — same split feedback-panel.tsx's own fileError follows.
+  // The only way past a rejected file is to fix the file input, not to click
+  // past a banner: without that, Send stayed clickable and a resident who
+  // ignored the message got a filed reply with the attachment silently gone.
+  const [fileError, setFileError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -38,13 +44,15 @@ export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormP
     const picked = Array.from(event.target.files ?? []);
     if (picked.length === 0) return;
     if (picked.length > MAX_TICKET_FILES) {
-      setError(`You can attach up to ${MAX_TICKET_FILES} files.`);
+      setFiles([]);
+      setFileError(`You can attach up to ${MAX_TICKET_FILES} files.`);
       event.target.value = "";
       return;
     }
     const oversized = picked.some((file) => file.size > MAX_TICKET_FILE_BYTES);
     if (oversized) {
-      setError("Each attachment must be 2 MB or smaller.");
+      setFiles([]);
+      setFileError("Each attachment must be 2 MB or smaller.");
       event.target.value = "";
       return;
     }
@@ -52,20 +60,17 @@ export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormP
       (file) => !ALLOWED_DOC_FILE_TYPES.includes(file.type as (typeof ALLOWED_DOC_FILE_TYPES)[number]),
     );
     if (wrongType) {
-      setError("Attachments must be JPG, PNG, WebP, or PDF.");
+      setFiles([]);
+      setFileError("Attachments must be JPG, PNG, WebP, or PDF.");
       event.target.value = "";
       return;
     }
-    setError(null);
+    setFileError(null);
     setFiles(picked);
   }
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (files.length > MAX_TICKET_FILES) {
-      setError(`You can attach up to ${MAX_TICKET_FILES} files.`);
-      return;
-    }
     setError(null);
     startTransition(async () => {
       try {
@@ -138,18 +143,18 @@ export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormP
           <p className="mt-1 text-xs text-ink-500">
             Up to {MAX_TICKET_FILES} files, 2 MB each. JPG, PNG, WebP, or PDF.
           </p>
+          {fileError ? (
+            <p role="alert" className="mt-1 text-sm font-medium text-danger">
+              {fileError}
+            </p>
+          ) : null}
         </div>
 
         <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
 
         {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
 
-        {/* A rejected file leaves `error` set but never clears `files`' rejection
-            from view — without this, Send stays clickable and silently files a
-            text-only reply with no indication the attachment never made it. The
-            banner's own dismiss button is still the way past this: clearing it
-            re-enables a deliberate text-only send. */}
-        <Button type="submit" variant="primary" disabled={isPending || error !== null}>
+        <Button type="submit" variant="primary" disabled={isPending || fileError !== null}>
           {isPending ? "Sending…" : "Send reply"}
         </Button>
       </div>
