@@ -376,7 +376,17 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
           </div>
           {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
           <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
-          <Button type="submit" variant="primary" className="w-full" disabled={isPending}>
+          {/* fileError clears itself on the next valid pick, so unlike `error`
+              there's no dismiss button to route around it — the only way past
+              a rejected file is to fix the file input, exactly what the field-
+              level comment above intends. Without this, Submit stayed
+              clickable and silently filed a ticket with no attachments. */}
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full"
+            disabled={isPending || fileError !== null}
+          >
             {isPending ? "Filing…" : "Submit request"}
           </Button>
         </Card>

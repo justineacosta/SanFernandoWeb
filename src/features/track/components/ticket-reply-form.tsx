@@ -144,7 +144,12 @@ export function TicketReplyForm({ ticketNo, lastName, onSent }: TicketReplyFormP
 
         {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
 
-        <Button type="submit" variant="primary" disabled={isPending}>
+        {/* A rejected file leaves `error` set but never clears `files`' rejection
+            from view — without this, Send stays clickable and silently files a
+            text-only reply with no indication the attachment never made it. The
+            banner's own dismiss button is still the way past this: clearing it
+            re-enables a deliberate text-only send. */}
+        <Button type="submit" variant="primary" disabled={isPending || error !== null}>
           {isPending ? "Sending…" : "Send reply"}
         </Button>
       </div>

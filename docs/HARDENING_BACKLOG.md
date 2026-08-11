@@ -45,8 +45,7 @@ From the same reviews. Ordered by leverage, not severity.
    Playwright bullet from design §7. Verified manually only. Submits nothing, so
    it costs no rate-limit budget to add.
 
-6. **Three small ones:** `fileError` does not disable submit (a resident who
-   ignores the red text files a ticket with no attachments); a missing
+6. **Two small ones:** a missing
    `label`/`htmlFor` pair in `assistance-categories-panel.tsx`; and a clarifying
    comment on `services-directory.spec.ts`'s collapsed-accordion assertion.
 
