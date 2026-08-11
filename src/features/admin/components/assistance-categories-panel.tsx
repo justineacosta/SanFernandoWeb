@@ -199,10 +199,14 @@ export function AssistanceCategoriesPanel({ categories }: AssistanceCategoriesPa
                     aria-label="Category description"
                   />
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-ink-700">
+                    <label
+                      htmlFor={`category-requirements-${category.id}`}
+                      className="text-sm font-medium text-ink-700"
+                    >
                       What to prepare (one per line)
                     </label>
                     <Textarea
+                      id={`category-requirements-${category.id}`}
                       value={requirementsBuffer}
                       onChange={(event) => setRequirementsBuffer(event.target.value)}
                       rows={4}

@@ -27,6 +27,11 @@ test.describe("services directory", () => {
     // behind it. Verified to fail with the guard reverted to `tone`.
     await page.goto("/services/apply/social-services-assistance");
 
+    // toHaveCount(0), not toBeHidden(): getApplyService returns null for a
+    // non-'apply' flow and the page renders <ApplyUnavailable> INSTEAD of the
+    // form, so the field is absent from the DOM rather than collapsed. A
+    // visibility assertion would pass just as well against a form that merely
+    // started collapsed, which is not what this guards.
     await expect(page.getByLabel("First name")).toHaveCount(0);
   });
 });
