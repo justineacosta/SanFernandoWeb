@@ -1270,24 +1270,24 @@ create trigger site_items_updated_at
 -- row write fails — so "a storage object exists only if a row references it"
 -- holds by construction.
 
-insert into storage.buckets (id, name, public) values
-  ('news-media', 'news-media', true),
-  ('officials-media', 'officials-media', true),
-  ('events-media', 'events-media', true),
-  ('announcements-media', 'announcements-media', true),
-  ('legislative-media', 'legislative-media', true),
-  ('transparency-media', 'transparency-media', true),
-  ('site-media', 'site-media', true),
-  ('avatars-media', 'avatars-media', true)
+insert into storage.buckets (id, name, public, file_size_limit) values
+  ('news-media', 'news-media', true, 2097152),
+  ('officials-media', 'officials-media', true, 2097152),
+  ('events-media', 'events-media', true, 2097152),
+  ('announcements-media', 'announcements-media', true, 2097152),
+  ('legislative-media', 'legislative-media', true, 10485760),
+  ('transparency-media', 'transparency-media', true, 10485760),
+  ('site-media', 'site-media', true, 2097152),
+  ('avatars-media', 'avatars-media', true, 2097152)
   on conflict (id) do nothing;
 
-insert into storage.buckets (id, name, public) values
-  ('news-drafts', 'news-drafts', false),
-  ('officials-drafts', 'officials-drafts', false),
-  ('events-drafts', 'events-drafts', false),
-  ('announcements-drafts', 'announcements-drafts', false),
-  ('legislative-drafts', 'legislative-drafts', false),
-  ('transparency-drafts', 'transparency-drafts', false)
+insert into storage.buckets (id, name, public, file_size_limit) values
+  ('news-drafts', 'news-drafts', false, 2097152),
+  ('officials-drafts', 'officials-drafts', false, 2097152),
+  ('events-drafts', 'events-drafts', false, 2097152),
+  ('announcements-drafts', 'announcements-drafts', false, 2097152),
+  ('legislative-drafts', 'legislative-drafts', false, 10485760),
+  ('transparency-drafts', 'transparency-drafts', false, 10485760)
   on conflict (id) do nothing;
 
 -- PRIVATE. A screenshot of the page a resident was looking at can contain
@@ -1295,8 +1295,13 @@ insert into storage.buckets (id, name, public) values
 -- leave that readable by anyone holding the URL, forever. There is
 -- deliberately NO read policy below: the service-role client is the only
 -- reader and it mints a short-lived signed URL per page load.
-insert into storage.buckets (id, name, public)
-  values ('feedback-media', 'feedback-media', false)
+-- allowed_mime_types is set HERE and on ticket-media only, never on the six
+-- status-aware pairs above: promoteMedia re-uploads with a possibly-undefined
+-- contentType, which a restrictive allow-list would reject, and it fails closed
+-- — publishing would break. These two buckets have no lifecycle. [0036]
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('feedback-media', 'feedback-media', false, 2097152,
+          array['image/png', 'image/jpeg', 'image/webp'])
   on conflict (id) do nothing;
 
 -- PRIVATE, and no read policy at all [0032]. An attachment here is typically a
@@ -1304,8 +1309,9 @@ insert into storage.buckets (id, name, public)
 -- policy as an individual get(), so a public bucket would make every resident's
 -- ID anonymously enumerable. Second private bucket, after feedback-media, for
 -- exactly the same reason.
-insert into storage.buckets (id, name, public)
-  values ('ticket-media', 'ticket-media', false)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('ticket-media', 'ticket-media', false, 2097152,
+          array['application/pdf', 'image/png', 'image/jpeg', 'image/webp'])
   on conflict (id) do nothing;
 
 drop policy if exists "public read news-media" on storage.objects;

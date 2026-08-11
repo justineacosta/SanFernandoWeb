@@ -50,6 +50,7 @@ build**, and several of these fail quietly:
 | `0032` (ticket timeline) | no `ticket_updates`, no `replied_at`, unwidened status CHECKs, no `ticket-media` bucket |
 | `0033` (application name parts) | `listApplications` selects columns that don't exist; both inserts write them |
 | `0035` (service flow) | `services.flow` reads `undefined`, every application is rejected silently |
+| `0036` (bucket ceilings) | **no deploy-order hazard in either direction** — ceilings equal what code already enforces, so it may be applied before or after the code |
 
 ## Per-environment setup scripts
 
