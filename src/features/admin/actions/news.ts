@@ -14,6 +14,7 @@ import {
   draftBucketFor,
   extForType,
   newsPhotoPath,
+  sniffMimeType,
 } from "@/lib/storage";
 import { cleanupPromotedMedia, demoteMedia, promoteMedia, resolveMediaUrls } from "@/lib/media-lifecycle";
 import { getNewsArticleForEdit } from "@/features/admin/queries/news";
@@ -148,6 +149,12 @@ async function attachPendingPhotos(
     const file = files[i];
     const path = newsPhotoPath(articleId, extForType(file.type));
     const buffer = Buffer.from(await file.arrayBuffer());
+    // rollback(), not a bare return: earlier photos in this loop are already
+    // uploaded and rowed, and this function's invariant is all-or-nothing.
+    // The string matches the declared-type rejection at line 111.
+    if (sniffMimeType(buffer) !== file.type) {
+      return rollback("Photos must be JPG, PNG, or WebP.");
+    }
     const { error: upErr } = await admin.storage
       .from(bucket)
       .upload(path, buffer, { contentType: file.type, upsert: false });

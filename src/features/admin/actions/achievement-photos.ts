@@ -12,6 +12,7 @@ import {
   achievementPhotoPath,
   bucketForStatus,
   extForType,
+  sniffMimeType,
 } from "@/lib/storage";
 import { resolveMediaUrls } from "@/lib/media-lifecycle";
 
@@ -114,6 +115,9 @@ export async function uploadAchievementPhotos(
   for (const file of files) {
     const path = achievementPhotoPath(achievementId, extForType(file.type));
     const buffer = Buffer.from(await file.arrayBuffer());
+    if (sniffMimeType(buffer) !== file.type) {
+      return { error: "Photos must be JPG, PNG, or WebP.", photos: [] };
+    }
     const { error: upErr } = await admin.storage
       .from(bucketForStatus("officials", officialStatus))
       .upload(path, buffer, { contentType: file.type, upsert: false });

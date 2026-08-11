@@ -98,6 +98,9 @@ export async function uploadSingleImage(
   const bucket = bucketForUpload(folder, status);
   const path = `${folder}/${crypto.randomUUID()}.${extForType(file.type)}`;
   const buffer = Buffer.from(await file.arrayBuffer());
+  if (sniffMimeType(buffer) !== file.type) {
+    return { error: "Images must be JPG, PNG, or WebP.", src: null, url: null };
+  }
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage
     .from(bucket)

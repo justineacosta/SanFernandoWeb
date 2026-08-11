@@ -94,6 +94,15 @@ Server-Action payload under the `"8mb"` limit.
   photos), never the Storage objects. Delete the files explicitly in the same action.
 - **One deliberate exception:** `AchievementPhotoUploader` stays eager, because its editor
   has no Save button to defer to. Read the sub-project 7 spec §2.4 before "fixing" it.
+- **Every ingest point verifies bytes against the declared type.** `sniffMimeType`
+  (`src/lib/storage.ts`, unit-tested) reads the first 12 bytes of the buffer the uploader
+  already holds and the caller rejects on `!== file.type`. Six call sites:
+  `uploadTicketAttachment`, `uploadFeedbackScreenshot`, `uploadSingleImage`, the document
+  Route Handler, `attachPendingPhotos` (news) and `uploadAchievementPhotos`. **The last two
+  do not route through `uploadSingleImage`** — they upload directly, which is why patching
+  the shared helper alone was not enough. Each rejection reuses that call site's existing
+  declared-type string so a prober cannot tell the two checks apart. `media-lifecycle.ts`'s
+  promote/demote copy is deliberately exempt: it re-uploads already-validated bytes.
 
 ## Document PDFs upload through a Route Handler, not a Server Action
 

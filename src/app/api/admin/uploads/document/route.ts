@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { ContentStatus } from "@/types";
 import { NOT_FOUND, checkPermission } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { bucketForStatus, extForDocType, uploadRulesFor, type DocUploadKind } from "@/lib/storage";
+import { bucketForStatus, extForDocType, sniffMimeType, uploadRulesFor, type DocUploadKind } from "@/lib/storage";
 
 export interface UploadedDocumentFile {
   path: string;
@@ -119,6 +119,12 @@ export async function POST(request: Request): Promise<NextResponse<UploadDocumen
 
     const path = `${kind}/${crypto.randomUUID()}.${extForDocType(file.type)}`;
     const buffer = Buffer.from(await file.arrayBuffer());
+    if (sniffMimeType(buffer) !== file.type) {
+      // cleanupUploaded() before returning, exactly as the two checks above do:
+      // earlier files in this same loop may already be in the bucket.
+      await cleanupUploaded();
+      return fail(kind === "legislative" ? "The document must be a PDF." : "Files must be a PDF or image.", 400);
+    }
     const { error } = await admin.storage.from(bucket).upload(path, buffer, {
       contentType: file.type,
       upsert: false,

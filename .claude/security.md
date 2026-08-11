@@ -16,6 +16,9 @@ Access control is `.claude/authorization.md`; auth flows are `.claude/authentica
    `src/lib/public-forms.ts` requires of them. A floor is a policy choice; the cap is not.
 4. **`docs/HARDENING_BACKLOG.md` is the live list of deferred security work.** Read it
    before adding anything IP-keyed. Delete entries as they ship.
+5. **A declared MIME type is a claim, not evidence.** Every upload path verifies the leading
+   bytes with `sniffMimeType` before the object reaches Storage — including the two anonymous
+   public paths (ticket attachments, feedback screenshots).
 
 ## Rate limiting — durable, fails **open**
 
