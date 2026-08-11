@@ -16,6 +16,7 @@ import {
   extForType,
   feedbackScreenshotPath,
   mediaUrl,
+  sniffMimeType,
 } from "@/lib/storage";
 import { resolveMediaUrl } from "@/lib/media-lifecycle";
 
@@ -176,6 +177,11 @@ export async function uploadFeedbackScreenshot(file: File): Promise<UploadResult
 
   const path = feedbackScreenshotPath(extForType(file.type));
   const buffer = Buffer.from(await file.arrayBuffer());
+  // Second anonymous upload path on the site, and it carries the same weakness
+  // the ticket path did — the backlog named only the ticket one.
+  if (sniffMimeType(buffer) !== file.type) {
+    return { error: "Screenshots must be JPG, PNG, or WebP.", src: null, url: null };
+  }
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage
     .from(FEEDBACK_MEDIA_BUCKET)
@@ -235,6 +241,12 @@ export async function uploadTicketAttachment(
   // ticketNo is server-derived (matched against the DB), never client free text.
   const path = `${ticketNo}/${crypto.randomUUID()}.${extForType(file.type)}`;
   const buffer = Buffer.from(await file.arrayBuffer());
+  // file.type got us this far, but it is the caller's own claim. The bytes have
+  // to agree with it. Same rejection string as the declared-type check above,
+  // deliberately: a prober must not learn which of the two it tripped.
+  if (sniffMimeType(buffer) !== file.type) {
+    return { error: "Attachments must be JPG, PNG, WebP, or PDF.", src: null, url: null };
+  }
   const admin = createSupabaseAdminClient();
   const { error } = await admin.storage
     .from(TICKET_MEDIA_BUCKET)
