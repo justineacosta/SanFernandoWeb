@@ -12,6 +12,7 @@ import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { manilaToday } from "@/lib/format";
+import { nextOpenDay } from "@/lib/office-days";
 import { useFieldValidation } from "@/hooks/use-field-validation";
 import { submitAppointment } from "@/features/appointments/actions";
 import { appointmentSchema } from "@/features/appointments/schema";
@@ -25,7 +26,10 @@ const EMPTY: PublicAppointmentValues = {
   contactNumber: "",
   email: "",
   purpose: "",
-  preferredDate: manilaToday(),
+  // Not manilaToday(): on a Saturday or Sunday that pre-fills a date
+  // appointmentSchema's own isClosedDay refine then rejects, so the resident
+  // meets a validation error they did not cause.
+  preferredDate: nextOpenDay(manilaToday()),
   preferredPeriod: "am",
   consent: false,
 };

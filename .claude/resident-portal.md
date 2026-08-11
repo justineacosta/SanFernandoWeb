@@ -115,6 +115,10 @@ function rather than two copies that can drift.
   because a date-based assertion behaves identically under the correct and the buggy
   function on any runner at UTC+0 or east of it — which is both this project's CI and its
   entire Manila audience.
+- **The appointment date defaults to `nextOpenDay(manilaToday())`, not today.** The field's
+  `min` is still today — only the pre-filled value skips the weekend, since
+  `appointmentSchema`'s `isClosedDay` refine would otherwise reject the form's own default
+  every Saturday and Sunday.
 - **Deliberately NOT applied to the walk-in path or the review drawer's `confirmedDate`** —
   staff may legitimately schedule a weekend special session.
 - **Public holidays are out of scope**: there is no holiday table and building one is its
