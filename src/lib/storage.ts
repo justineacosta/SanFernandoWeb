@@ -151,6 +151,41 @@ export function extForDocType(mime: string): string {
   return "jpg"; // image/jpeg
 }
 
+/**
+ * The MIME type the first bytes actually claim, or null when they match none
+ * of the four types this site accepts.
+ *
+ * `file.type` is supplied by whatever posted the request and is not evidence
+ * of anything — and every uploader here then hands that same unverified string
+ * to Storage as `contentType`. This reads the bytes instead. Callers reject on
+ * `sniffMimeType(buffer) !== file.type`, which makes an unrecognised file a
+ * rejection without needing a separate branch for it.
+ *
+ * Deliberately pure and dependency-free: this module must stay importable by
+ * Vitest, which cannot load anything that transitively pulls in a Supabase
+ * client — and a byte-signature check is exactly the kind of logic the browser
+ * suite cannot reach.
+ */
+export function sniffMimeType(bytes: Uint8Array): string | null {
+  const startsWith = (offset: number, signature: readonly number[]): boolean =>
+    bytes.length >= offset + signature.length &&
+    signature.every((byte, i) => bytes[offset + i] === byte);
+
+  // 0x89 P N G CR LF SUB LF — the longest of the four, and self-verifying.
+  if (startsWith(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
+  // SOI plus the first marker byte; the marker's own second byte varies by encoder.
+  if (startsWith(0, [0xff, 0xd8, 0xff])) return "image/jpeg";
+  // "RIFF" <4-byte size> "WEBP" — the offset-8 tag is what separates a WebP
+  // from every other RIFF container (AVI, WAV), so both halves are required.
+  if (startsWith(0, [0x52, 0x49, 0x46, 0x46]) && startsWith(8, [0x57, 0x45, 0x42, 0x50])) {
+    return "image/webp";
+  }
+  // "%PDF-"
+  if (startsWith(0, [0x25, 0x50, 0x44, 0x46, 0x2d])) return "application/pdf";
+
+  return null;
+}
+
 /** Human-readable file size for download affordances, e.g. "2.4 MB". */
 export function formatFileSize(bytes: number | null): string {
   if (!bytes || bytes <= 0) return "";
