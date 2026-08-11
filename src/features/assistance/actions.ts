@@ -23,6 +23,34 @@ import { assistanceSchema } from "./schema";
 const SUBMIT_LIMIT = 5;
 const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
 
+/**
+ * Second rate-limit dimension, so distributed abuse is bounded per person and
+ * not only per connection — the shape `login:email:*` and `reply:ticket:*`
+ * already use.
+ *
+ * Keyed on contactNumber, NOT email: `residentFields.email` is
+ * `optionalEmailField`, so blank is valid and common. Keying on it would drop
+ * every resident without an email into one shared `assistance:email:` bucket
+ * and let the first five per hour lock out all the rest — the same shared-bucket
+ * flaw as requestIp()'s "unknown" fallback, aimed squarely at the residents
+ * least likely to have email and most likely to be filing for assistance.
+ * contactNumber is required (>= 7 digits), so it has no empty case.
+ *
+ * Accepted trade-off: someone who knows a resident's number can deliberately
+ * burn that number's hourly budget. Identical to what `login:email:*` already
+ * allows for a known account, it costs a Turnstile solve per attempt, it
+ * expires in an hour, and the barangay hall counter is unaffected.
+ */
+const CONTACT_LIMIT = 5;
+const CONTACT_WINDOW_MS = 60 * 60 * 1000;
+
+/** Digits only, so "(077) 600-1082" and "0776001082" are one bucket. NOT
+ *  normaliseMobile(): that returns null for landlines, which would reintroduce
+ *  the empty-bucket problem for exactly the residents who call from one. */
+function contactKey(contactNumber: string): string {
+  return `assistance:contact:${contactNumber.replace(/\D/g, "")}`;
+}
+
 // A freshly-filed request is `pending`, and `canReply` (src/lib/ticket-updates.ts)
 // only allows a reply once staff move it to `awaiting-info` — so "reply on the
 // Track page" would be false the moment this shows. Point the resident at
@@ -62,6 +90,19 @@ export async function submitAssistance(
   if (!parsed.success) {
     return {
       error: parsed.error.issues[0]?.message ?? "Please check the form and try again.",
+      ticketNo: null,
+      attachmentWarning: null,
+    };
+  }
+
+  // AFTER Zod, deliberately: a malformed or absent number must not be able to
+  // spend anyone's budget. The IP key above stays FIRST as the cheapest
+  // rejection — same ordering rule `reply:ticket:*` follows for the same class
+  // of reason (see .claude/security.md).
+  if (!(await checkRateLimit(contactKey(parsed.data.contactNumber), CONTACT_LIMIT, CONTACT_WINDOW_MS))) {
+    return {
+      error:
+        "We have already received several requests for this contact number. Please try again later or visit the barangay hall.",
       ticketNo: null,
       attachmentWarning: null,
     };

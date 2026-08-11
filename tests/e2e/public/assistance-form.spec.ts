@@ -37,7 +37,10 @@ test("a request with a supporting document is filed and returns a ticket", async
   // pattern consistent for whoever copies this file next.
   await page.getByLabel("Last name").fill(`Aquino${Date.now()}`);
   await page.getByLabel("Sitio / street address").fill("Sitio 1, Barangay San Fernando");
-  await page.getByLabel("Contact number").fill("(077) 600-0000");
+  // Unique per run, for the same reason the surname above is: `submitAssistance`
+  // now also rate-limits on `assistance:contact:<digits>` at 5/hour, so a fixed
+  // number would make this suite collide with itself after five runs.
+  await page.getByLabel("Contact number").fill(`(077) 600-${String(Date.now()).slice(-4)}`);
   await page
     .getByLabel("Tell us about your situation")
     .fill("We need help with hospital bills after an accident last week.");

@@ -47,6 +47,7 @@ Verified against source; the constants live beside their action, not in `rate-li
 |---|---|---|
 | `apply:<ip>` | 10 / hour | `features/services/actions.ts` |
 | `appointment:<ip>`, `complaint:<ip>`, `assistance:<ip>`, `inquiry:<ip>`, `subscribe:<ip>` | 5 / hour | each feature's `actions.ts` |
+| `assistance:contact:<digits>` | `CONTACT_LIMIT` 5 / hour | `features/assistance/actions.ts` |
 | `feedback:<ip>` | 3 / hour | `features/feedback/actions.ts` |
 | `track:<ip>` | `LOOKUP_LIMIT` 10 / 10 min | `features/track/actions.ts` |
 | `reply:ip:<ip>` | `REPLY_LIMIT` 5 / hour | `features/track/actions.ts` |
@@ -63,6 +64,11 @@ Verified against source; the constants live beside their action, not in `rate-li
   sequential and guessable — the entire reason the surname gate exists — so checking that
   budget first would let anyone enumerate ticket numbers and burn every resident's reply
   budget without knowing a single surname.
+  `submitAssistance` follows the same rule from the other direction: its IP key is checked
+  before Zod as the cheapest rejection, and its **contact** key only after, so a malformed
+  or absent number cannot spend budget. It keys on `contactNumber` rather than the resident's
+  email because `residentFields.email` is optional — keying on a blank-able field would put
+  every resident without an email into one shared bucket.
 
 ## Turnstile — fails **closed**, the opposite of the rate limiter
 
