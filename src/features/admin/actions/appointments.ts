@@ -256,7 +256,7 @@ export async function createWalkInAppointment(
     entryType: "status",
     status: TICKET_INTAKE_STATUS.appointment,
     visibility: "public",
-    authorKind: "system",
+    authorKind: "staff",
     authorName: actor.fullName,
   });
   if (parsed.data.email) {

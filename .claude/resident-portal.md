@@ -51,14 +51,20 @@ and guessable, which is the entire reason the gate exists. The timeline it rende
 from `ticket_updates` filtered `.eq("visibility","public")` in the query layer.
 
 **The intake entry's `authorKind` is `"resident"` for all four public filing flows
-(`apply`, `complaint`, `assistance`, `appointment`) and `"staff"` (plus the encoder's name)
-for the three walk-in equivalents** (`src/lib/ticket-attachments.ts`,
-`src/features/appointments/actions.ts`; 2026-08-11). `"system"` is reserved for genuinely
-machine-written status transitions with no human author — the review/status-change entries
-in `src/features/admin/actions/{applications,complaints,assistance,appointments}.ts` and
-`ticket-updates.ts`'s own writes. `src/features/track/components/ticket-timeline.tsx`
-branches only on `entryType`, never on `authorKind`, so this never reaches a resident-facing
-label — the admin drawer (`.claude/admin-cms.md`) is the only surface that renders it.
+(`apply`, `complaint`, `assistance` via `src/lib/ticket-attachments.ts`; `appointment` via
+`src/features/appointments/actions.ts`, direct since appointments accept no attachments) and
+`"staff"` (plus the encoder's name) for all four walk-in equivalents** — `applications.ts`,
+`complaints.ts` and `assistance.ts` in `src/features/admin/actions/` via the same shared
+module, and `createWalkInAppointment` in `src/features/admin/actions/appointments.ts` writing
+directly, same as its public counterpart (2026-08-11). `"system"` is reserved for genuinely
+machine-written status transitions with no human author — the review/status-change entries in
+`src/features/admin/actions/{applications,complaints,assistance,appointments}.ts` and
+`ticket-updates.ts`'s own writes. This applies even within `appointments.ts` itself: its other
+two `recordTicketUpdate` calls (review take-up, completion) are genuine status transitions and
+correctly stay `"system"` — only its walk-in *intake* entry is human-authored and carries
+`"staff"`. `src/features/track/components/ticket-timeline.tsx` branches only on `entryType`,
+never on `authorKind`, so this never reaches a resident-facing label — the admin drawer
+(`.claude/admin-cms.md`) is the only surface that renders it.
 
 Resident replies flip a ticket from `awaiting-info` back to `under-review`. `canReply()`
 (`src/lib/ticket-updates.ts`) **only opens a reply on `awaiting-info`** — copy anywhere else
