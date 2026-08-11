@@ -6,8 +6,6 @@ import {
   activityCookieOptions,
   hasActivityCookie,
 } from "@/lib/session-activity";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { recordActivity } from "@/lib/audit";
 
 /**
  * Next prefetches admin links on hover and on viewport entry. Those GETs must
@@ -97,16 +95,6 @@ export async function proxy(request: NextRequest) {
    * session, and returns to /admin/login — where `user` is now null and the
    * page simply renders.
    *
-   * This is also this Proxy's only audit hook: <IdleTimeout /> logs the
-   * open-tab case itself via signOutIdle, but a tab that was closed has no
-   * client running to call it. This branch is where that idle sign-out is
-   * *discovered*, on whatever request the user (or a stale background tab)
-   * next makes — so it records the audit entry here instead. Proxy defaults
-   * to the Node.js runtime as of Next 16 (no explicit opt-in needed, unlike
-   * the old middleware.ts convention) so the service-role admin client is
-   * safe to use; profile lookup bypasses RLS the same way recordActivity's
-   * other callers do.
-   *
    * Public auth pages take the clear-in-place path below instead of this
    * redirect, and the difference matters: redirecting to
    * /admin/login?reason=timeout discards the ORIGINAL query string, and for
@@ -132,23 +120,6 @@ export async function proxy(request: NextRequest) {
       .forEach((cookie) => timedOut.cookies.delete({ name: cookie.name, path: "/" }));
     timedOut.cookies.delete({ name: ACTIVITY_COOKIE, path: ACTIVITY_COOKIE_PATH });
 
-    const admin = createSupabaseAdminClient();
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("full_name")
-      .eq("id", user.id)
-      .single();
-    await recordActivity(
-      { id: user.id, fullName: profile?.full_name ?? "" },
-      {
-        type: "logout",
-        action: "signed out",
-        entityType: "session",
-        entityId: user.id,
-        detail: "signed out for inactivity",
-      },
-    );
-
     return timedOut;
   }
 
@@ -160,12 +131,6 @@ export async function proxy(request: NextRequest) {
    * `!isLoginPage` keeps /admin/login out — a signed-in user there is still
    * handled by the redirect-to-/admin branch immediately below, exactly as
    * before, so the "no loop is possible" note above still holds.
-   *
-   * No audit entry, unlike the redirecting branch: that one records a user
-   * being bounced OUT of an authenticated area, which is the event worth
-   * discovering. This one is someone arriving at a page that is public and
-   * unauthenticated by design; the session is dropped as hygiene, not as a
-   * sign-out worth attributing.
    */
   if (
     user &&

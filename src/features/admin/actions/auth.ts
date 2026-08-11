@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { cookies, headers } from "next/headers";
-import { getSessionUser, getSessionUserIgnoringIdle } from "@/lib/auth";
 import { recordActivity } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { checkRateLimit, countRateLimitHits, recordRateLimitHit, requestIp } from "@/lib/rate-limit";
@@ -151,7 +150,7 @@ export async function signIn(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, is_active, is_archived")
+    .select("is_active, is_archived")
     .eq("id", data.user.id)
     .single();
   if (!profile || !profile.is_active || profile.is_archived) {
@@ -165,7 +164,7 @@ export async function signIn(
   }
 
   // Success: record nothing on either key. Proceed to the idle-cookie/
-  // audit-log/redirect logic below unchanged.
+  // redirect logic below unchanged.
 
   // Open the idle window. Without this the very next page GET would see no
   // activity cookie and bounce the user straight back to the login page.
@@ -180,14 +179,6 @@ export async function signIn(
   const secure = forwardedProtoIsHttps(requestHeaders.get("x-forwarded-proto"));
   const cookieStore = await cookies();
   cookieStore.set(activityCookieOptions(secure));
-
-  // Before the redirect: redirect() throws, so anything after it never runs.
-  // A rejected sign-in is deliberately NOT logged — failed attempts against a
-  // guessed address would let anyone append rows to an append-only table.
-  await recordActivity(
-    { id: data.user.id, fullName: profile.full_name },
-    { type: "login", action: "signed in", entityType: "session", entityId: data.user.id },
-  );
 
   redirect("/admin");
 }
@@ -470,47 +461,22 @@ export async function resetPassword(
 }
 
 export async function signOut(): Promise<void> {
-  // Resolve the actor BEFORE signing out — afterwards there is no session to
-  // attribute the entry to.
-  const actor = await getSessionUser();
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
-  if (actor) {
-    await recordActivity(actor, {
-      type: "logout",
-      action: "signed out",
-      entityType: "session",
-      entityId: actor.id,
-    });
-  }
   redirect("/admin/login");
 }
 
 /**
  * Sign out because the idle deadline passed, called by <IdleTimeout />.
  *
- * Distinct from `signOut` only in how it resolves the actor and what it logs.
- * By the time this fires the activity cookie has already expired, so
- * `getSessionUser` would return null and the audit entry would be lost — hence
- * `getSessionUserIgnoringIdle`, whose sole purpose this is.
- *
- * The closed-window path has no counterpart here and records nothing: there is
- * no session running to attribute an entry to.
+ * The closed-window path has no counterpart here: there is no client running
+ * to call it, so it is discovered and cleared by the Proxy idle-gate branch
+ * instead.
  */
 export async function signOutIdle(): Promise<void> {
-  const actor = await getSessionUserIgnoringIdle();
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   const cookieStore = await cookies();
   cookieStore.delete({ name: ACTIVITY_COOKIE, path: ACTIVITY_COOKIE_PATH });
-  if (actor) {
-    await recordActivity(actor, {
-      type: "logout",
-      action: "signed out",
-      entityType: "session",
-      entityId: actor.id,
-      detail: "signed out for inactivity",
-    });
-  }
   redirect("/admin/login?reason=timeout");
 }

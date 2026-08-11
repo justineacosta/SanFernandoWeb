@@ -32,13 +32,13 @@ place instead of four.
 ## What is logged, and what deliberately is not
 
 - Every content status transition, restore (`restore`) and permanent delete.
-- Both idle sign-out paths — open tab (`signOutIdle`) and closed tab (the Proxy idle-gate
-  branch) — file the identical row: `type: "logout"`, `detail: "signed out for
-  inactivity"`. See `.claude/authentication.md` for how the closed-tab branch resolves an
-  actor. A stale background tab can file a second, harmless row; **not deduplicated**, since
-  two true rows cost less than the query needed to suppress one.
-- **A rejected sign-in is deliberately NOT logged** — that row would be unbounded and
-  attacker-triggerable at will.
+- **Sign-in and sign-out are NOT logged**, in any path (`signIn`, `signOut`, `signOutIdle`,
+  the Proxy idle-gate branch). This was reversed on 2026-08-11 — it used to log both; see git
+  history on this file and on `src/features/admin/actions/auth.ts`/`src/proxy.ts` for the
+  removed `recordActivity` calls. The `login`/`logout` `AuditActionType` values and their
+  `AUDIT_ACTION_LABELS` entries are kept anyway: `audit_log` is append-only (see Guarantees
+  above), so historical rows written before the reversal can never be deleted and must stay
+  displayable.
 - **The public forgot-password request IS logged**, reusing the existing `"password_reset"`
   type, with `detail: "requested from the public forgot-password form"`. It is filed against
   a *real* account by an anonymous caller, and **the `detail` is what stops a reader

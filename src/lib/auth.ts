@@ -9,9 +9,8 @@ import { ACTIVITY_COOKIE, hasActivityCookie } from "@/lib/session-activity";
 /**
  * The profile behind the Supabase session, with no idle check.
  *
- * Split out for exactly one caller: `signOutIdle` runs at the moment the
- * activity cookie has just expired, and still needs an actor to attribute its
- * audit entry to. Everything else must go through `getSessionUser`.
+ * `getSessionUser` below is the only caller — it applies the idle gate on top
+ * of this.
  */
 const loadSessionUser = cache(async (): Promise<SessionUser | null> => {
   const supabase = await createSupabaseServerClient();
@@ -40,9 +39,6 @@ const loadSessionUser = cache(async (): Promise<SessionUser | null> => {
     avatarSrc: profile.avatar_src,
   };
 });
-
-/** See the note on loadSessionUser. Only `signOutIdle` may use this. */
-export const getSessionUserIgnoringIdle = loadSessionUser;
 
 /**
  * Resolve the signed-in admin user (null if signed out, disabled, archived, or

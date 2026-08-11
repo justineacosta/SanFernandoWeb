@@ -12,8 +12,6 @@ anywhere in this app** — don't introduce one. Permissions are a separate conce
   archived **or idle past the timeout**. `cache()`d per request. It reads cookies and never
   writes them (`cookies()` is read-only in a Server Component); Proxy and the client
   heartbeat own every write.
-- `getSessionUserIgnoringIdle` — one caller only, `signOutIdle`, which needs an actor for
-  its audit entry at the moment the activity cookie has just died.
 - `requireSessionUser()` redirects to `/admin/login`. **Signed-out users are redirected,
   not 404'd** — they may well hold the permission once authenticated.
 
@@ -39,16 +37,11 @@ minutes" work with no code.
   warning, and must not reach a `Drawer`/`ConfirmDialog` open behind it either — those
   listen on `document` in the bubble phase and were registered first, so the dialog
   swallows the key from capture where `stopImmediatePropagation()` still comes first.
-- **Both idle sign-out paths are audited identically** (`type: "logout"`, `detail: "signed
-  out for inactivity"`): `signOutIdle` for an open tab, and the Proxy idle-gate branch for a
-  closed one — the latter has no live client to call the action from, since discovering the
-  expiry *is* the request that trips it. It resolves the actor from the `getUser()` result,
-  fetches `full_name` via the service-role client (`profiles` is unreadable otherwise) and
-  calls `recordActivity` directly. Safe because **Proxy defaults to the Node.js runtime as
-  of Next 16** — `proxy.ts` (renamed from `middleware.ts` in the 2026-07-28 pass) does not
-  accept a `runtime` config at all; setting one throws. A stale background tab can file a
-  second, harmless row; not deduplicated, since two true rows cost less than the query to
-  suppress one.
+- **Neither idle sign-out path is audited** (`signOutIdle` for an open tab, the Proxy
+  idle-gate branch for a closed one) — sign-in/sign-out logging was removed 2026-08-11, see
+  `.claude/audit-logs.md`. The closed-tab branch still has no live client to call an action
+  from, since discovering the expiry *is* the request that trips it; it just clears cookies
+  and redirects, nothing more.
 
 ## `src/proxy.ts` — `isPublicAuthPage` exempts two branches, not one
 
@@ -59,10 +52,9 @@ to `/admin/login?reason=timeout` **discards the query string**, throwing away th
 `token_hash` with no route back. A second block right after it handles the same idle
 condition on the two reset pages by deleting the stale `sb-*` cookies onto the response that
 goes on to render normally: same hygiene, no redirect, query string intact. It carries
-`!isLoginPage` so `/admin/login` still falls through to the redirect-to-`/admin` branch,
-files no audit entry (that page is public by design), and sets a `clearedStaleSession` flag
-the bottom activity-slide block checks so no `sf-activity` window opens for a session just
-deleted.
+`!isLoginPage` so `/admin/login` still falls through to the redirect-to-`/admin` branch, and
+sets a `clearedStaleSession` flag the bottom activity-slide block checks so no `sf-activity`
+window opens for a session just deleted.
 
 ## Sign-in and the adaptive challenge
 
@@ -123,8 +115,8 @@ new table, column or key namespace. Spec:
   (Vercel-controlled, not client-forgeable) unless `TRUSTED_IP_HEADER` explicitly names a
   header to trust instead — and it doesn't on this deployment. One knob, two effects still
   holds: `LOGIN_WINDOW_MS` drives both the rate limit and the CAPTCHA threshold together.
-- A rejected sign-in is **deliberately not** written to the audit log: the row would be
-  unbounded and attacker-triggerable at will.
+- No sign-in outcome, successful or rejected, is written to the audit log — see
+  `.claude/audit-logs.md`.
 
 ## Self-service "Forgot password?"
 
