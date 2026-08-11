@@ -34,20 +34,29 @@ The two seed scripts (`upload-official-portraits.mjs`, `upload-site-images.mjs`)
 directly to Storage with no app-side size check of their own — a future asset over the cap
 would fail with a raw Storage error, not a validation message.
 
-**`allowed_mime_types` is set on `ticket-media` and `feedback-media` only.** Not an
-oversight: those two buckets are pure ingest with no lifecycle. The other twelve go through
-`copyObjects` (promote/demote), which as of hardening backlog Task 7 (2026-08-11) resolves
-an explicit content type — **sniffed bytes → path extension (`mimeFromExtension`,
-`storage.ts`) → the downloaded blob's own type** — before every re-upload, and only falls
-through to `undefined` if all three come back empty. Before this fix `copyObjects` uploaded
-with `contentType: file.type || undefined`, and a Storage download's blob routinely comes
-back with no type of its own; Supabase would then substitute a default that a bucket-level
-`allowed_mime_types` would reject, and `promoteMedia` fails closed — breaking publishing in
-production. Verified 2026-08-11 against real objects both directions (publish and archive)
-for one image kind (news) and one document kind (legislative): `storage.objects.metadata->>
-'mimetype'` came back `image/png` and `application/pdf` respectively in every case, never a
-generic default. This is the precondition Task 8's `allowed_mime_types` migration on the
-twelve status-aware buckets depends on.
+**`allowed_mime_types` is set on all fourteen upload-taking buckets.** `site-media` and
+`avatars-media` are the only two buckets left `null` — they have no draft/promote lifecycle
+and are out of scope for this restriction.
+
+`ticket-media` and `feedback-media` got theirs in migration `0036`. The twelve status-aware
+buckets (`news`/`officials`/`events`/`announcements`/`legislative`/`transparency`, each
+`-media`/`-drafts`) get theirs in migration `0037` — the four image-only kinds allow
+`image/png`/`image/jpeg`/`image/webp`; `legislative`/`transparency` add `application/pdf`.
+`0037` had to wait for those twelve to go through `copyObjects` (promote/demote) safely,
+because that path resolves an explicit content type — **sniffed bytes → path extension
+(`mimeFromExtension`, `storage.ts`) → the downloaded blob's own type** — before every
+re-upload, and only falls through to `undefined` if all three come back empty. Before that
+fix (hardening backlog Task 7, 2026-08-11) `copyObjects` uploaded with `contentType:
+file.type || undefined`, and a Storage download's blob routinely comes back with no type of
+its own; Supabase would then substitute a default that a bucket-level `allowed_mime_types`
+would reject, and `promoteMedia` fails closed — breaking publishing in production. Verified
+2026-08-11 against real objects both directions (publish and archive) for one image kind
+(news) and one document kind (legislative): `storage.objects.metadata->>'mimetype'` came
+back `image/png` and `application/pdf` respectively in every case, never a generic default.
+`0037` (hardening backlog Task 8) was written the same day against that verified fix, folded
+into the baseline alongside it — **but as of this writing has not been applied to any
+environment**; it is manual, staging first, like every migration since `0012`
+(`.claude/deployment.md`).
 
 ### Publish is three steps in this order
 

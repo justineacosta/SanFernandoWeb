@@ -1270,24 +1270,24 @@ create trigger site_items_updated_at
 -- row write fails — so "a storage object exists only if a row references it"
 -- holds by construction.
 
-insert into storage.buckets (id, name, public, file_size_limit) values
-  ('news-media', 'news-media', true, 2097152),
-  ('officials-media', 'officials-media', true, 2097152),
-  ('events-media', 'events-media', true, 2097152),
-  ('announcements-media', 'announcements-media', true, 2097152),
-  ('legislative-media', 'legislative-media', true, 10485760),
-  ('transparency-media', 'transparency-media', true, 10485760),
-  ('site-media', 'site-media', true, 2097152),
-  ('avatars-media', 'avatars-media', true, 2097152)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values
+  ('news-media', 'news-media', true, 2097152, array['image/png', 'image/jpeg', 'image/webp']),
+  ('officials-media', 'officials-media', true, 2097152, array['image/png', 'image/jpeg', 'image/webp']),
+  ('events-media', 'events-media', true, 2097152, array['image/png', 'image/jpeg', 'image/webp']),
+  ('announcements-media', 'announcements-media', true, 2097152, array['image/png', 'image/jpeg', 'image/webp']),
+  ('legislative-media', 'legislative-media', true, 10485760, array['application/pdf', 'image/png', 'image/jpeg', 'image/webp']),
+  ('transparency-media', 'transparency-media', true, 10485760, array['application/pdf', 'image/png', 'image/jpeg', 'image/webp']),
+  ('site-media', 'site-media', true, 2097152, null),
+  ('avatars-media', 'avatars-media', true, 2097152, null)
   on conflict (id) do nothing;
 
-insert into storage.buckets (id, name, public, file_size_limit) values
-  ('news-drafts', 'news-drafts', false, 2097152),
-  ('officials-drafts', 'officials-drafts', false, 2097152),
-  ('events-drafts', 'events-drafts', false, 2097152),
-  ('announcements-drafts', 'announcements-drafts', false, 2097152),
-  ('legislative-drafts', 'legislative-drafts', false, 10485760),
-  ('transparency-drafts', 'transparency-drafts', false, 10485760)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values
+  ('news-drafts', 'news-drafts', false, 2097152, array['image/png', 'image/jpeg', 'image/webp']),
+  ('officials-drafts', 'officials-drafts', false, 2097152, array['image/png', 'image/jpeg', 'image/webp']),
+  ('events-drafts', 'events-drafts', false, 2097152, array['image/png', 'image/jpeg', 'image/webp']),
+  ('announcements-drafts', 'announcements-drafts', false, 2097152, array['image/png', 'image/jpeg', 'image/webp']),
+  ('legislative-drafts', 'legislative-drafts', false, 10485760, array['application/pdf', 'image/png', 'image/jpeg', 'image/webp']),
+  ('transparency-drafts', 'transparency-drafts', false, 10485760, array['application/pdf', 'image/png', 'image/jpeg', 'image/webp'])
   on conflict (id) do nothing;
 
 -- PRIVATE. A screenshot of the page a resident was looking at can contain
@@ -1295,10 +1295,10 @@ insert into storage.buckets (id, name, public, file_size_limit) values
 -- leave that readable by anyone holding the URL, forever. There is
 -- deliberately NO read policy below: the service-role client is the only
 -- reader and it mints a short-lived signed URL per page load.
--- allowed_mime_types is set HERE and on ticket-media only, never on the six
--- status-aware pairs above: promoteMedia re-uploads with a possibly-undefined
--- contentType, which a restrictive allow-list would reject, and it fails closed
--- — publishing would break. These two buckets have no lifecycle. [0036]
+-- allowed_mime_types is set on every bucket that takes uploads [0036, 0037].
+-- The status-aware pairs above could only join once copyObjects resolved an
+-- explicit contentType (sniff → extension → blob type); before that, an
+-- untyped promote would have been rejected and promoteMedia fails closed.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
   values ('feedback-media', 'feedback-media', false, 2097152,
           array['image/png', 'image/jpeg', 'image/webp'])

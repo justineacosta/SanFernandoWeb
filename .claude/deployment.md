@@ -51,6 +51,7 @@ build**, and several of these fail quietly:
 | `0033` (application name parts) | `listApplications` selects columns that don't exist; both inserts write them |
 | `0035` (service flow) | `services.flow` reads `undefined`, every application is rejected silently |
 | `0036` (bucket ceilings) | **no deploy-order hazard in either direction** — ceilings equal what code already enforces, so it may be applied before or after the code |
+| `0037` (bucket MIME allow-lists, status-aware pairs) | order-safe in itself (constrains uploads only), but **requires hardening backlog Task 7's `copyObjects` content-type fix (`src/lib/media-lifecycle.ts`) already deployed** — without it, `promoteMedia` re-uploads with a possibly-undefined content type that the new allow-list rejects, and publishing fails closed. Not yet applied to any environment as of 2026-08-11; staging first, then verify, then production |
 
 ## Per-environment setup scripts
 
