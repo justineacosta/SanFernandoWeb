@@ -39,6 +39,11 @@ Applications additionally collect a middle name and date of birth — see
 
 Every public submission is Turnstile-gated **first**, then rate-limited, then Zod-validated.
 
+**Three of the four accept attachments at filing — `apply`, `complaint`, `assistance` —
+appointments deliberately do not.** All three share one picker, `TicketFileField`
+(`src/components/shared/ticket-file-field.tsx`), and one upload sequence,
+`src/lib/ticket-attachments.ts` (`.claude/storage.md`).
+
 ### `/track`
 
 `lookupTicket` matches a ticket number **plus the surname** — ticket numbers are sequential
@@ -48,9 +53,9 @@ from `ticket_updates` filtered `.eq("visibility","public")` in the query layer.
 Resident replies flip a ticket from `awaiting-info` back to `under-review`. `canReply()`
 (`src/lib/ticket-updates.ts`) **only opens a reply on `awaiting-info`** — copy anywhere else
 must not tell a resident to "reply on the Track page" unless the ticket is in that status.
-`submitAssistance`'s `ATTACHMENT_WARNING` constant
-(`src/features/assistance/actions.ts`) is the live example: a freshly-filed request is
-`pending`, so that instruction would be false the instant the warning can show.
+`TICKET_ATTACHMENT_WARNING` (`src/lib/ticket-attachments.ts`) is the live example: a
+freshly-filed request is `pending`, so that instruction would be false the instant the
+warning can show.
 
 `submitTicketReply` returns the refreshed `TicketLookupResult` directly (via a
 `buildTicketResult` helper shared with `lookupTicket`) rather than having the client re-run
@@ -58,8 +63,10 @@ the lookup: `track-lookup.tsx` nulls its Turnstile token the instant a lookup su
 second round trip would show a CAPTCHA error right after the reply worked.
 
 Attachments: private `ticket-media`, 3 files × 2 MB — see `.claude/storage.md`. The picker is
-the shared `TicketFileField` (`src/components/shared/ticket-file-field.tsx`, added 2026-08-11)
-— `AssistanceForm` and `TicketReplyForm` both render it rather than duplicating the input; an
+the shared `TicketFileField` (`src/components/shared/ticket-file-field.tsx`, added
+2026-08-11) — every ticket-filing surface that accepts attachments renders it rather than
+duplicating the input (`TicketReplyForm` here on `/track`; the `apply`, `complaint` and
+`assistance` filing forms below and their walk-in equivalents, `.claude/admin-cms.md`); an
 oversized image is downscaled in the browser (`downscaleImageFile`,
 `src/lib/downscale-image.ts`) instead of rejected. Send/Submit is disabled while the field's
 `error` is set, and additionally while it reports `preparing` (downscaling in flight) — the
@@ -127,10 +134,13 @@ the "What to prepare" card is gated on `selected.description ||
 selected.requirements.length > 0`, which is what let this ship before any category had real
 guidance text written.
 
-Attachments at filing needed **no new schema** — `submitAssistance` already called
-`recordTicketUpdate`, which already accepted an `attachments` array, writing through helpers
-whose path allow-list already covered the `AST-` prefix. Filing is simply a second caller of
-the resident-reply machinery. Ordering and failure handling: `.claude/storage.md`.
+Attachments at filing needed **no new schema** — true of `assistance`, and now true of
+`apply` and `complaint` too: `recordTicketUpdate` already accepted an `attachments` array,
+and the path allow-list already covered all four ticket prefixes. `submitAssistance`,
+`submitApplication` and `submitComplaint` each call the shared `recordIntakeWithAttachments`
+(`src/lib/ticket-attachments.ts`), not the reply machinery directly — it is that module, not
+any one form, that owns the upload-then-timeline-write sequence. Ordering and failure
+handling: `.claude/storage.md`.
 
 `SubmitAssistanceResult extends SubmitTicketResult` rather than widening the shared type —
 the base has two other callers (`submitAppointment`, `submitComplaint`; applications use

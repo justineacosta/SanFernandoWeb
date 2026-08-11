@@ -31,9 +31,11 @@ CSP test sat green for weeks while never reaching its assertion.
 
 `tests/e2e/public/`: `site.spec.ts`, `turnstile.spec.ts`, `feedback.spec.ts`,
 `news.spec.ts`, `notices.spec.ts`, `events.spec.ts`, `appointment-form.spec.ts`,
-`assistance-form.spec.ts`, `services-directory.spec.ts`, `forgot-password.spec.ts` (needs no
-admin credentials — both reset pages are public; the full emailed-link round trip isn't
-automatable without a live inbox).
+`assistance-form.spec.ts`, `apply-form.spec.ts` (files a document application with a
+supporting PDF attached, end to end through `ticket-media` and `ticket_updates`),
+`services-directory.spec.ts`, `forgot-password.spec.ts` (needs no admin credentials — both
+reset pages are public; the full emailed-link round trip isn't automatable without a live
+inbox). **Complaints deliberately has no submitting spec** — see the rate-limit table below.
 
 `tests/e2e/admin/`: `login.spec.ts`, `users.spec.ts`, `global-search.spec.ts`,
 `inbox-tabs.spec.ts`, `notifications.spec.ts`, `ticket-updates.spec.ts` (three tests: the
@@ -52,8 +54,17 @@ collision first, a regression second** — except where noted.
 | `public/feedback.spec.ts` | all 3 of `SUBMIT_LIMIT` on `feedback:unknown` | 1 per hour |
 | `admin/ticket-updates.spec.ts` | 2 `track:*` lookups (`LOOKUP_LIMIT` = 10 / 10 min) + 1 `reply:ip:*` (`REPLY_LIMIT` = 5 / **hour**, the binding one). Its `reply:ticket:*` budget is keyed on a ticket the test just created, so it can never collide | ~5 per hour |
 | `public/assistance-form.spec.ts` | 1 `assistance:<ip>` — but it forges a fresh random IP per run, so **no shared budget exists to collide with**. Also spends 1 `assistance:contact:<digits>`, same reasoning: the contact-number field is filled with a per-run-unique, `Date.now()`-suffixed value | unlimited; **read a failure here as real** |
+| `public/apply-form.spec.ts` | 1 `apply:<ip>` against `SUBMIT_LIMIT` = 10/hour (`src/features/services/actions.ts`) — same forged-fresh-IP-per-run pattern as `assistance-form.spec.ts`, copied from it, so again **no shared budget exists to collide with** | unlimited; **read a failure here as real** |
 
 `public/services-directory.spec.ts` submits nothing, so it spends no budget either.
+
+**Complaints has no submitting e2e spec, on purpose.** `submitComplaint`'s `SUBMIT_LIMIT` is
+5/hour — tied with `assistance`'s and tighter than `apply`'s 10/hour, the scarcest budget of
+the three attachment-accepting public forms. The shared picker and upload sequence
+(`TicketFileField` / `src/lib/ticket-attachments.ts`) are already exercised twice, by
+`assistance-form.spec.ts` and `apply-form.spec.ts`; a third submitting spec against the
+tightest limit of the three would only spend more of a scarce budget re-covering the same
+shared code, not add coverage of anything complaint-specific.
 
 ## Turnstile in tests
 
@@ -110,7 +121,9 @@ no DOM-observable "token ready" signal to poll. Giving `AssistanceForm` the same
 `office-days`, `resident-name`, `login-challenge`, `session-activity`, `storage`,
 `public-forms`, `pagination`, `form-draft`, `initials`, `build-full-name`,
 `legislative-number`, `service-flow`, `appointment-demand`, `search-modules` vs
-`notifications` agreement, `crop-image`, and the email templates/text helpers.
+`notifications` agreement, `crop-image`, `downscale-image` (the pure `scaleToFit` math —
+canvas/`document` work stays inside function bodies for exactly this reason, per its own file
+header), and the email templates/text helpers.
 
 **Two classes of bug this suite structurally cannot catch**, so verify them another way:
 

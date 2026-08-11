@@ -42,26 +42,31 @@ overrides, so no variant prop is needed). `<Toast>` closes on click as well as o
   itself once the field is valid — a close button on "this field is required" has nothing to
   dismiss *to*.
 - **A file-picker's field-level error must also disable Submit, not only stay
-  non-dismissible.** `AssistanceForm` and `TicketReplyForm` both had this gap until
-  2026-08-11: a resident could pick a file the client rejects (declared type mismatches —
+  non-dismissible.** This gap first showed up in `AssistanceForm` and `TicketReplyForm`
+  (2026-08-11): a resident could pick a file the client rejects (declared type mismatches —
   Storage's byte-signature check catches everything else), see the message, and still click
-  Submit, because nothing gated the button on `fileError`. The rejected file was already
+  Submit, because nothing gated the button on the error. The rejected file was already
   cleared from state, so the result wasn't corrupted data — it was a ticket/reply filed with
-  the attachment silently absent and no indication it never made it. Both now disable Submit
-  while `fileError` is set; there is no dismiss to route around it, only picking a valid file
-  or removing the bad one. **`FeedbackPanel` gets the same gate for parity**, even though its
-  screenshot was always optional and `clearScreenshot()` already emptied the picker's visible
-  state on rejection — nothing was silently lost there the way it was on the other two, so
-  this one is consistency rather than a distinct bug fix. Follow the gating pattern for any
-  new file picker, regardless of whether the field is optional.
-  - **As of the same day, `AssistanceForm` and `TicketReplyForm` no longer own separate inline
-    pickers — both render the shared `TicketFileField`**
-    (`src/components/shared/ticket-file-field.tsx`), which owns the reject-and-clear logic and
-    the rejection copy. The parent form still owns the `error`/`preparing` state and still does
-    the actual Submit-gating (`disabled={isPending || filePreparing || fileError !== null}`) —
-    the component only reports both booleans up, it never disables anything itself, since it
-    has no opinion on what "Submit" is called or what else might also gate it. Any new resident
-    attachment surface should render `TicketFileField` rather than re-implementing this.
+  the attachment silently absent and no indication it never made it.
+  - **`TicketFileField` (`src/components/shared/ticket-file-field.tsx`) is now the one place
+    this convention lives**, not a pattern repeated per form. It owns the reject-and-clear
+    logic and the rejection copy, and reports two booleans up: `error` and `preparing`
+    (downscaling in flight — new relative to the original fix, because downscaling is async
+    and a submit landing mid-resize would file with no attachment). The parent form owns
+    both booleans and does the actual gating —
+    `disabled={isPending || filePreparing || fileError !== null}` — the component never
+    disables anything itself, since it has no opinion on what "Submit" is called or what else
+    might also gate it. Every ticket-filing surface that takes attachments renders it: the
+    public `apply`/`complaint`/`assistance` forms and `TicketReplyForm` on `/track`, plus
+    their three walk-in encode equivalents in the admin portal (`.claude/admin-cms.md`).
+    Render `TicketFileField` for any new resident/walk-in attachment surface rather than
+    re-implementing this.
+  - **`FeedbackPanel` keeps its own picker and its own copy of the gate**, deliberately not
+    `TicketFileField` — different bucket (`feedback-media`, not `ticket-media`), images only,
+    single file, and its screenshot was always optional. It got the same
+    `fileError`-disables-Submit treatment for parity, even though `clearScreenshot()` already
+    emptied its visible state on rejection and nothing was silently lost the way it was on
+    the other two — consistency, not a distinct bug fix.
 - The four review drawers render `localError ?? error`, so dismissing has to clear both
   halves — hence their `onDismissError` prop.
 - **`login-form.tsx` is the true special case:** `useActionState` gives no setter to null out

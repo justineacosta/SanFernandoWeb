@@ -100,13 +100,19 @@ Server-Action payload under the `"8mb"` limit.
   has no Save button to defer to. Read the sub-project 7 spec §2.4 before "fixing" it.
 - **Every ingest point verifies bytes against the declared type.** `sniffMimeType`
   (`src/lib/storage.ts`, unit-tested) reads the first 12 bytes of the buffer the uploader
-  already holds and the caller rejects on `!== file.type`. Six call sites:
-  `uploadTicketAttachment`, `uploadFeedbackScreenshot`, `uploadSingleImage`, the document
-  Route Handler, `attachPendingPhotos` (news) and `uploadAchievementPhotos`. **The last two
-  do not route through `uploadSingleImage`** — they upload directly, which is why patching
-  the shared helper alone was not enough. Each rejection reuses that call site's existing
-  declared-type string so a prober cannot tell the two checks apart. `media-lifecycle.ts`'s
-  promote/demote copy is deliberately exempt: it re-uploads already-validated bytes.
+  already holds and the caller rejects on `!== file.type`. Re-audited 2026-08-11
+  (`git grep -n "sniffMimeType(" src/`): **seven call sites**, not six —
+  `uploadTicketAttachment`, `uploadFeedbackScreenshot`, `uploadSingleImage` (all three in
+  `src/lib/media.ts`), the document Route Handler, `attachPendingPhotos` (news),
+  `uploadAchievementPhotos`, and now `validateTicketFiles`
+  (`src/lib/ticket-attachments.ts`) — the pre-insert gate shared by all six ticket ingest
+  points, which replaced the inline sniff `submitAssistance` used to do on its own before
+  the shared module existed. **`attachPendingPhotos` and `uploadAchievementPhotos` still do
+  not route through `uploadSingleImage`** — they upload directly, which is why patching the
+  shared helper alone was never enough for those two. Each rejection reuses that call site's
+  existing declared-type string so a prober cannot tell the two checks apart.
+  `media-lifecycle.ts`'s promote/demote copy is deliberately exempt: it re-uploads
+  already-validated bytes.
 
 ## Document PDFs upload through a Route Handler, not a Server Action
 
@@ -159,32 +165,64 @@ the resolved path.
 ## Resident ticket attachments (private `ticket-media`)
 
 Capped at **3 files × 2 MB** (`MAX_TICKET_FILES`/`MAX_TICKET_FILE_BYTES` — renamed from
-`MAX_REPLY_*` once filing-time attachments joined replies), sized to fit the existing
-`"8mb"` limit rather than raise it. `uploadTicketAttachment`/`discardTicketAttachment`
-(`src/lib/media.ts`); the path allow-list covers all four ticket prefixes.
+`MAX_REPLY_*` once filing-time attachments joined replies), unchanged since replies were the
+only caller, and still sized to fit the existing `"8mb"` `bodySizeLimit` rather than raise
+it. `uploadTicketAttachment`/`discardTicketAttachment` (`src/lib/media.ts`); the path
+allow-list covers all four ticket prefixes.
+
+**`src/lib/ticket-attachments.ts` is the single owner of the upload-after-insert sequence**
+for every ticket ingest point except resident replies:
+
+- `validateTicketFiles` is the **pre-insert gate** — file count, declared type, size and the
+  byte-sniff cross-check, all resident/staff-fixable, all run before any row exists.
+- `recordIntakeWithAttachments` runs **after** the insert: it uploads each file, writes the
+  intake `ticket_updates` entry that references them (`TICKET_INTAKE_STATUS[kind]`,
+  `visibility: "public"`, `authorKind: "system"`), and on a storage or timeline failure
+  discards whatever it already uploaded and returns `TICKET_ATTACHMENT_WARNING` instead of
+  failing the caller.
+- **All six ingest points call it**: the three public Server Actions (`submitApplication`,
+  `submitComplaint`, `submitAssistance`, `src/features/services/actions.ts` /
+  `complaints/actions.ts` / `assistance/actions.ts`) and the three staff walk-in encode
+  actions (`createWalkInApplication`, `createWalkInComplaint`, `createWalkInAssistance`,
+  `.claude/admin-cms.md`). Walk-in callers pass `authorName: actor.fullName`; public callers
+  leave it undefined.
+- **`submitTicketReply` keeps its own path**, not this module — it writes a `reply` entry,
+  not an intake one, so the timeline write has a different shape even though the upload and
+  discard mechanics are identical.
+- `entryId` is returned only so a caller that sends an intake email can call
+  `markTicketUpdateNotified` after the send; an action with no email path (none currently)
+  would have no use for it.
 
 **The 2 MB cap is enforced twice, on purpose.** The client picker (`TicketFileField`,
 `.claude/frontend.md`) downscales an oversized image in the browser via `downscaleImageFile`
-(`src/lib/downscale-image.ts`) rather than rejecting it outright — a straight-from-camera
-photo routinely runs 3-5 MB and a resident on a phone has no easy way to shrink one. PDFs are
-never touched; an image that can't be brought under the cap (or won't decode) becomes a
-normal, visible client-side rejection. The server-side cap in `uploadTicketAttachment` is
-still the real gate — the client step is a UX convenience, not a trust boundary.
+(`src/lib/downscale-image.ts`, `DOWNSCALE_EDGE_LADDER` = 2048/1600/1200/900px, WebP at
+quality 0.82) rather than rejecting it outright — a straight-from-camera photo routinely runs
+3-5 MB and a resident on a phone has no easy way to shrink one. PDFs and already-small images
+are returned untouched; an image that can't be brought under the cap (or won't decode)
+becomes a normal, visible client-side rejection. **The output `File`'s type comes from the
+returned `blob.type`, never a hardcoded `"image/webp"`** — `canvas.toBlob` falls back to PNG
+where WebP encoding is unavailable, and the server compares uploaded bytes against the
+*declared* type (`sniffMimeType`), so a hardcoded type would get a valid PNG rejected as a
+mismatch. `crop-image.ts` documents this same trap for the avatar cropper.
+`validateTicketFiles`'s server-side cap is still the real gate — the client step is a UX
+convenience, not a trust boundary.
 
 **The upload runs after the insert, and that ordering is not negotiable:** the storage path
 is `<ticket_no>/<uuid>.<ext>`, and the ticket number does not exist until the row is
 written. Therefore:
 
-- Every resident-fixable rejection — file count, size, MIME — is checked **before** the
-  insert and returns a normal error with no ticket filed.
+- Every resident/staff-fixable rejection — file count, size, MIME — is checked **before** the
+  insert (`validateTicketFiles`) and returns a normal error with no ticket filed.
 - A storage failure *after* the insert must **never** fail the submission: the ticket is
-  already the resident's, and failing here would have them refile for a second number. A
+  already filed, and failing here would have the submitter refile for a second number. A
   partial or failed upload is discarded and a warning field carries the explanation instead
   — so the warning path is reachable only by a genuine storage failure, never by anything
-  the resident did wrong.
+  the submitter did wrong.
 - A `recordTicketUpdate` failure downgrades to the same warning **and also discards any
   uploads** — without that, a resident's uploaded ID would sit in the private bucket
   referenced by no row at all.
+- **Appointments accept no attachments on either surface, deliberately** — neither
+  `submitAppointment` nor `createWalkInAppointment` calls this module.
 
 ## Avatars
 

@@ -115,6 +115,21 @@ so **nothing outside this poll tells anyone that work arrived.**
 - Staff may schedule a **weekend** appointment: the closed-day rule is deliberately not
   applied to `walkInSchema` or the review drawer's `confirmedDate`. Don't "fix" that
   inconsistency.
+- **The application, complaint and assistance walk-in encode forms accept up to 3 × 2 MB
+  attachments through the same `TicketFileField`** (`.claude/frontend.md`,
+  `.claude/resident-portal.md`) the public filing forms use; the appointment one does not,
+  matching the public side. `createWalkInApplication`/`createWalkInComplaint`/
+  `createWalkInAssistance` validate with `validateTicketFiles` before the insert and upload
+  with `recordIntakeWithAttachments` after it, same as the public actions
+  (`.claude/storage.md`).
+- **The upload files no audit entry of its own** — the encode action's single
+  `recordActivity` call (`type: "create"`, e.g. "encoded walk-in application") is the
+  auditable event, same reasoning as the document Route Handler's upload. A failed upload
+  does not fail the encode: the ticket is filed either way, and the action returns
+  `attachmentWarning` instead of an error. The manager component shows it as the success
+  toast in place of the normal "encoded" message (`showToast(result.attachmentWarning ??
+  "Walk-in ... encoded.")`) rather than raising a separate error banner — the encode
+  succeeded, so nothing there needs dismissing.
 
 ## Modules with their own shape
 
