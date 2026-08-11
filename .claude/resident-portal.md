@@ -66,6 +66,13 @@ correctly stay `"system"` — only its walk-in *intake* entry is human-authored 
 never on `authorKind`, so this never reaches a resident-facing label — the admin drawer
 (`.claude/admin-cms.md`) is the only surface that renders it.
 
+This is forward-only: it takes effect once this branch reaches production, and every
+`ticket_updates` row already written before that deploy keeps `author_kind = 'system'` — no
+backfill migration exists on this branch — so historic intake entries still render "Barangay
+staff" in the admin drawer regardless of whether they were resident-filed or walk-in. A clean
+discriminator for a future backfill: an intake-status row with `author_kind = 'system'` and
+`author_name IS NULL` was a public filing; one with `author_name` set was a walk-in.
+
 Resident replies flip a ticket from `awaiting-info` back to `under-review`. `canReply()`
 (`src/lib/ticket-updates.ts`) **only opens a reply on `awaiting-info`** — copy anywhere else
 must not tell a resident to "reply on the Track page" unless the ticket is in that status.

@@ -43,6 +43,11 @@ restriction.
 buckets (`news`/`officials`/`events`/`announcements`/`legislative`/`transparency`, each
 `-media`/`-drafts`) get theirs in migration `0037` — the four image-only kinds allow
 `image/png`/`image/jpeg`/`image/webp`; `legislative`/`transparency` add `application/pdf`.
+This bucket-level allow-list is a superset of app code for `legislative` specifically:
+`uploadRulesFor("legislative")` (below) restricts it to a single PDF, and `ImageFolder` in
+`src/lib/media.ts` excludes `legislative` entirely, so no code path in this repo ever uploads
+an image there. `transparency` is the genuine match — its `documents`/`projects` kinds
+actually upload both PDF and image files, per `uploadRulesFor` below.
 `0037` had to wait for those twelve to go through `copyObjects` (promote/demote) safely,
 because that path resolves an explicit content type — **sniffed bytes → path extension
 (`mimeFromExtension`, `storage.ts`) → the downloaded blob's own type** — before every
