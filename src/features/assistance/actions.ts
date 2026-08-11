@@ -102,7 +102,7 @@ export async function submitAssistance(
   if (!(await checkRateLimit(contactKey(parsed.data.contactNumber), CONTACT_LIMIT, CONTACT_WINDOW_MS))) {
     return {
       error:
-        "We have already received several requests for this contact number. Please try again later or visit the barangay hall.",
+        "Too many requests from this connection. Please try again later or visit the barangay hall.",
       ticketNo: null,
       attachmentWarning: null,
     };
