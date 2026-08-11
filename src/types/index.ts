@@ -798,6 +798,8 @@ export interface SubmitApplicationResult {
   error: string | null;
   /** e.g. "APP-2026-00001" — present only on success. */
   ticketNo: string | null;
+  /** Non-null only alongside a successful ticketNo: the ticket filed, the files did not. */
+  attachmentWarning: string | null;
 }
 
 /** A queue row for the admin manager: flat and serializable. */
@@ -984,19 +986,29 @@ export interface SubmitTicketResult {
 }
 
 /**
- * Assistance is the one public submission that also carries files. Its upload
- * happens after the row insert (the storage path is prefixed with the ticket
- * number, which does not exist until then), so a storage failure can leave a
- * real ticket with no attachments — a case `SubmitTicketResult` cannot express,
- * since a non-null `error` there means no ticket was filed.
+ * Every public submission that also carries files. Their uploads happen after
+ * the row insert (the storage path is prefixed with the ticket number, which
+ * does not exist until then), so they need a way to say "you have a real ticket
+ * with no attachments" — a case `SubmitTicketResult` cannot express, since a
+ * non-null `error` there means no ticket was filed.
  *
  * Extending rather than widening the shared type, for the reason
  * `SignInFormState extends AuthFormState` does: the base must not carry a field
- * that is inert for its two other callers, `submitAppointment` and
- * `submitComplaint` (applications use their own separate `SubmitApplicationResult`).
+ * that is inert for `submitAppointment`, the one public flow that accepts no
+ * files at all. Applications use their own `SubmitApplicationResult`.
  */
-export interface SubmitAssistanceResult extends SubmitTicketResult {
+export interface SubmitTicketWithFilesResult extends SubmitTicketResult {
   /** Non-null only alongside a successful ticketNo: the ticket filed, the files did not. */
+  attachmentWarning: string | null;
+}
+
+/**
+ * A walk-in encode action's result. `ActionResult` plus the same warning the
+ * public flows carry: a counter ticket is encoded whether or not its
+ * attachments landed, and staff need to be told which happened.
+ */
+export interface WalkInTicketResult {
+  error: string | null;
   attachmentWarning: string | null;
 }
 

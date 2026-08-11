@@ -1,23 +1,13 @@
 "use server";
 
-import type { PublicAssistanceValues, SubmitAssistanceResult, TicketAttachment } from "@/types";
+import type { PublicAssistanceValues, SubmitTicketWithFilesResult } from "@/types";
 import { AssistanceSubmittedEmail } from "@/emails/AssistanceSubmittedEmail";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
-import {
-  TICKET_INTAKE_STATUS,
-  markTicketUpdateNotified,
-  recordTicketUpdate,
-} from "@/lib/ticket-updates";
+import { markTicketUpdateNotified } from "@/lib/ticket-updates";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
-import { discardTicketAttachment, uploadTicketAttachment } from "@/lib/media";
-import {
-  ALLOWED_DOC_FILE_TYPES,
-  MAX_TICKET_FILES,
-  MAX_TICKET_FILE_BYTES,
-  sniffMimeType,
-} from "@/lib/storage";
+import { recordIntakeWithAttachments, validateTicketFiles } from "@/lib/ticket-attachments";
 import { assistanceSchema } from "./schema";
 
 /** Tighter than /apply: an assistance request is a heavier record and far rarer per household. */
@@ -57,13 +47,6 @@ function contactKey(contactNumber: string): string {
   return `assistance:contact:${contactNumber.replace(/\D/g, "")}`;
 }
 
-// A freshly-filed request is `pending`, and `canReply` (src/lib/ticket-updates.ts)
-// only allows a reply once staff move it to `awaiting-info` — so "reply on the
-// Track page" would be false the moment this shows. Point the resident at
-// something they can actually do right now instead.
-const ATTACHMENT_WARNING =
-  "We could not attach your files. Your request is filed — bring them to the barangay hall, or send them through /track once staff ask for more information.";
-
 /**
  * A resident's public assistance request. No auth — the service-role client is
  * used because `assistance_requests` has no RLS policies at all; this action IS
@@ -78,7 +61,7 @@ export async function submitAssistance(
   values: PublicAssistanceValues,
   files: File[],
   turnstileToken: string | null,
-): Promise<SubmitAssistanceResult> {
+): Promise<SubmitTicketWithFilesResult> {
   const ip = await requestIp();
   if (!(await verifyTurnstileToken(turnstileToken, ip))) {
     return { error: TURNSTILE_FAILURE_MESSAGE, ticketNo: null, attachmentWarning: null };
@@ -115,40 +98,9 @@ export async function submitAssistance(
   // Everything the resident can fix is rejected here, before any row exists —
   // so the attachmentWarning path below is reserved for genuine storage
   // failures they had no part in.
-  if (files.length > MAX_TICKET_FILES) {
-    return {
-      error: `You can attach up to ${MAX_TICKET_FILES} files.`,
-      ticketNo: null,
-      attachmentWarning: null,
-    };
-  }
-  for (const file of files) {
-    if (!ALLOWED_DOC_FILE_TYPES.includes(file.type as (typeof ALLOWED_DOC_FILE_TYPES)[number])) {
-      return {
-        error: "Attachments must be JPG, PNG, WebP, or PDF.",
-        ticketNo: null,
-        attachmentWarning: null,
-      };
-    }
-    if (file.size > MAX_TICKET_FILE_BYTES) {
-      return {
-        error: "Each attachment must be 2 MB or smaller.",
-        ticketNo: null,
-        attachmentWarning: null,
-      };
-    }
-    // Bytes, not just the declared type, must match — checked here (not only
-    // inside uploadTicketAttachment) because a mismatch is resident-fixable
-    // and belongs in this pre-insert gate, not the post-insert warning path
-    // reserved for genuine storage failures the resident had no part in.
-    const buffer = Buffer.from(await file.arrayBuffer());
-    if (sniffMimeType(buffer) !== file.type) {
-      return {
-        error: "Attachments must be JPG, PNG, WebP, or PDF.",
-        ticketNo: null,
-        attachmentWarning: null,
-      };
-    }
+  const fileError = await validateTicketFiles(files);
+  if (fileError) {
+    return { error: fileError, ticketNo: null, attachmentWarning: null };
   }
 
   const admin = createSupabaseAdminClient();
@@ -195,44 +147,12 @@ export async function submitAssistance(
 
   // data.ticket_no, never a client string — it becomes a storage path prefix,
   // the same reason submitTicketReply uses its DB-resolved view.ticket_no.
-  const uploaded: TicketAttachment[] = [];
-  let attachmentWarning: string | null = null;
-  for (const file of files) {
-    const result = await uploadTicketAttachment(file, data.ticket_no);
-    if (result.error || !result.src) {
-      // The ticket is already filed and is the resident's. Failing the whole
-      // submission here would have them refile and collect a second number, so
-      // drop the attachments instead and say so.
-      for (const done of uploaded) {
-        await discardTicketAttachment(done.path, "submitAssistance upload failed");
-      }
-      uploaded.length = 0;
-      attachmentWarning = ATTACHMENT_WARNING;
-      break;
-    }
-    uploaded.push({ path: result.src, name: file.name, mime: file.type, sizeBytes: file.size });
-  }
-
-  const entryId = await recordTicketUpdate({
+  const { entryId, attachmentWarning } = await recordIntakeWithAttachments({
     ticketNo: data.ticket_no,
     kind: "assistance",
-    entryType: "status",
-    status: TICKET_INTAKE_STATUS.assistance,
-    visibility: "public",
-    authorKind: "system",
-    attachments: uploaded,
+    files,
+    context: "submitAssistance",
   });
-  // `recordTicketUpdate` is fire-and-forget and returns null on failure, which
-  // would leave those objects referenced by no row at all — the one invariant
-  // every upload path here keeps. Same compensating delete `submitTicketReply`
-  // does on its own insert failure; the ticket itself still stands, so this
-  // only downgrades the result to the warning path, never to an error.
-  if (!entryId && uploaded.length > 0) {
-    for (const done of uploaded) {
-      await discardTicketAttachment(done.path, "submitAssistance timeline insert failed");
-    }
-    attachmentWarning = ATTACHMENT_WARNING;
-  }
   if (parsed.data.email) {
     await sendEmail({
       to: parsed.data.email,
