@@ -28,10 +28,13 @@ test.describe("services directory", () => {
     await page.goto("/services/apply/social-services-assistance");
 
     // toHaveCount(0), not toBeHidden(): getApplyService returns null for a
-    // non-'apply' flow and the page renders <ApplyUnavailable> INSTEAD of the
-    // form, so the field is absent from the DOM rather than collapsed. A
-    // visibility assertion would pass just as well against a form that merely
-    // started collapsed, which is not what this guards.
+    // service whose flow isn't 'apply' (queries.ts:53), which triggers
+    // Next's notFound() at page.tsx:27 — a 404 page, not <ApplyUnavailable>.
+    // (ApplyUnavailable only renders when a flow==='apply' service resolves
+    // but has been toggled off by staff.) Either way the field is absent
+    // from the DOM rather than collapsed, but a visibility assertion would
+    // pass just as well against a form that merely started collapsed, which
+    // is not what this guards.
     await expect(page.getByLabel("First name")).toHaveCount(0);
   });
 });
