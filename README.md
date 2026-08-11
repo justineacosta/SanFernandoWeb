@@ -99,6 +99,13 @@ ticketing workflows, and a security-hardened public-facing site, backed by Supab
   reachable only from an already-archived record, enforced server-side (`guardDelete()`)
 - Compensating-delete uploads — a Server Action that fails to write its DB row deletes the
   Storage object it just uploaded, so an object never exists without a row referencing it
+- Bucket-level `allowed_mime_types` ceilings (migrations `0036`, `0037`) on every bucket
+  except `site-media`/`avatars-media` (deliberately unrestricted) — the four image-only
+  status-aware kinds accept `image/png`/`image/jpeg`/`image/webp`, `legislative`/
+  `transparency` add `application/pdf`, and `ticket-media`/`feedback-media` got theirs
+  earlier in `0036`. Enforced at the Storage layer itself, not just app code, so a
+  promote/demote (`copyObjects`) re-upload resolves an explicit content type before every
+  write instead of letting a typeless blob fall through to a default the bucket would reject
 - Full audit log (`/admin/audit`) for every write and every sign-out
 
 ### Validation
@@ -393,8 +400,10 @@ The UI follows an **amber + ink** civic/municipal aesthetic:
 ## Project Status
 
 Deployed to production 2026-07-28; the ticket-timeline, invite, password-reset, adaptive-
-login, application name-parts and search-parity work has landed on `main` since. Known gaps,
-tracked as not-yet-done rather than bugs:
+login, application name-parts, search-parity and bucket-level MIME allow-list (`0037`) work
+has landed on `main` since. `0037` was applied to staging then production on 2026-08-12 and
+verified live in both — the hardening backlog it closed out has been removed from the repo.
+Known gaps, tracked as not-yet-done rather than bugs:
 
 - **The public site has no alert-signup entry point** — the footer and news-sidebar
   newsletter panels were removed on request, so `alert_subscribers` stops gaining rows. The
