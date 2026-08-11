@@ -1643,26 +1643,27 @@ Pages are currently `○ static`. Once data comes from a DB, pick per-route:
       `x-forwarded-for` (host-dependent). On such a host every admin shares one IP-side
       rate-limit budget, so one admin's failed logins can tighten the budget for every other
       admin signing in from that same host.
-17. **Turnstile CAPTCHA (security-hardening Plan 2) is code-complete but blocked on a real
-    Cloudflare account + site/secret key pair before any deploy**, the same shape as the
-    Resend gating in §2D above but with a sharper failure mode. All 8 public anonymous Server
-    Actions (`src/lib/turnstile.ts`'s `verifyTurnstileToken`) now verify a Turnstile token
-    before doing anything else. With `TURNSTILE_SECRET_KEY` unset: in **development** only,
-    verification is skipped (returns `true`, one-time `console.warn`) so a contributor without
-    a Cloudflare account isn't blocked. In **production**, the same missing key makes
-    `verifyTurnstileToken` **throw** instead of bypassing — every one of the 8 forms
+17. **Turnstile CAPTCHA (security-hardening Plan 2) is live in production, confirmed
+    2026-07-28** — `NEXT_PUBLIC_TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` are both set and
+    verified in use (real Cloudflare keys, not the missing-key scenario below). All 8 public
+    anonymous Server Actions (`src/lib/turnstile.ts`'s `verifyTurnstileToken`) verify a
+    Turnstile token before doing anything else. Worth keeping in mind for future environments
+    (a new staging project, a redeploy after a key rotation) since the failure mode is sharp:
+    with `TURNSTILE_SECRET_KEY` unset, **development** skips verification (returns `true`,
+    one-time `console.warn`) so a contributor without a Cloudflare account isn't blocked, but
+    **production** makes `verifyTurnstileToken` **throw** instead — every one of the 8 forms
     (certificate applications, appointments, complaints, assistance requests, inquiries,
     feedback, alert subscriptions, ticket lookups) fails on first submit. **This is not caught
     by a build or a smoke test of page loads** — the throw is per-request, so a keyless deploy
     looks perfectly healthy (build succeeds, every page renders) until the first resident
     actually submits a form. Six of the 8 forms only handle a `{ error }` return shape and have
-    no error boundary tuned for an unhandled Server Action rejection. **Do not deploy this
-    branch to production or staging before `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and
-    `TURNSTILE_SECRET_KEY` are both set** (Dashboard → Turnstile → add a site, "Managed" widget
-    mode; documented in `.env.example`). Note also that `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is
-    inlined into the client bundle at **build** time — setting it in a hosting dashboard after
-    a build already happened requires a rebuild, not just a redeploy/restart, or the server
-    will enforce verification against a page that never rendered a challenge.
+    no error boundary tuned for an unhandled Server Action rejection. **Any new environment
+    needs `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` set before its first
+    deploy** (Dashboard → Turnstile → add a site, "Managed" widget mode; documented in
+    `.env.example`). Note also that `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is inlined into the client
+    bundle at **build** time — setting it in a hosting dashboard after a build already happened
+    requires a rebuild, not just a redeploy/restart, or the server will enforce verification
+    against a page that never rendered a challenge.
 18. **Migration `0031` (`first_name`/`middle_name`/`last_name` on `profiles`, added by the
     2026-08-01 admin-account feature — then still invite-based) must be applied before this
     feature's code deploys** — see CLAUDE.md's "Admin account creation is password-based: the
