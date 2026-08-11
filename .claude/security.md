@@ -14,9 +14,7 @@ Access control is `.claude/authorization.md`; auth flows are `.claude/authentica
    endpoints; a browser can POST to any of them regardless of what any page links to.
 3. **Free-text fields on unauthenticated endpoints carry a length cap** — that is what
    `src/lib/public-forms.ts` requires of them. A floor is a policy choice; the cap is not.
-4. **`docs/HARDENING_BACKLOG.md` is the live list of deferred security work.** Read it
-   before adding anything IP-keyed. Delete entries as they ship.
-5. **A declared MIME type is a claim, not evidence.** Every upload path verifies the leading
+4. **A declared MIME type is a claim, not evidence.** Every upload path verifies the leading
    bytes with `sniffMimeType` before the object reaches Storage — including the two anonymous
    public paths (ticket attachments, feedback screenshots).
 

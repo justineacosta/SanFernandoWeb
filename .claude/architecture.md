@@ -98,5 +98,4 @@ portal and lives in Supabase — not in the repo.
 Design/implementation history lives in `docs/superpowers/specs/` and
 `docs/superpowers/plans/` (and `docs/superpowers/sdd/` for later work). Those dated files
 are **historical records — never retro-edit them**, even when a decision they document has
-since been reversed. `docs/BACKEND_HANDOFF.md` is the living integration brief;
-`docs/HARDENING_BACKLOG.md` is the live deferred-work list.
+since been reversed. `docs/BACKEND_HANDOFF.md` is the living integration brief.

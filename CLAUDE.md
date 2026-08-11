@@ -52,9 +52,6 @@ npm run test:e2e   # Playwright against the dev server; `--project=public` needs
 Historical *why*: `docs/superpowers/specs/`, `/plans/`, `/sdd/` — dated files, **historical
 records, never retro-edited**, even when a decision they document has since been reversed.
 `docs/BACKEND_HANDOFF.md` is the living integration brief.
-**`docs/HARDENING_BACKLOG.md` is the one live list of deferred engineering work** — it is
-tracked in git specifically because the SDD ledgers under `.superpowers/sdd/` are git-ignored
-and never reach GitHub. Delete entries as they ship rather than letting it accumulate.
 
 ## Analyze before modifying
 
