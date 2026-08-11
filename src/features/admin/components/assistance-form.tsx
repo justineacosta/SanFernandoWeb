@@ -5,10 +5,11 @@ import type { WalkInAssistanceValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { TicketFileField } from "@/components/shared/ticket-file-field";
 
 interface AssistanceFormProps {
   categories: { id: string; label: string }[];
-  onSubmit: (values: WalkInAssistanceValues) => void;
+  onSubmit: (values: WalkInAssistanceValues, files: File[]) => void;
   onCancel: () => void;
   saving: boolean;
   error: string | null;
@@ -34,6 +35,9 @@ export function AssistanceForm({
     details: "",
     consent: false,
   });
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [filePreparing, setFilePreparing] = useState(false);
 
   const set = <K extends keyof WalkInAssistanceValues>(
     key: K,
@@ -42,7 +46,7 @@ export function AssistanceForm({
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    onSubmit(values);
+    onSubmit(values, files);
   };
 
   return (
@@ -113,6 +117,16 @@ export function AssistanceForm({
             onChange={(event) => set("details", event.target.value)}
           />
         </Field>
+        <TicketFileField
+          files={files}
+          onFilesChange={setFiles}
+          error={fileError}
+          onErrorChange={setFileError}
+          preparing={filePreparing}
+          onPreparingChange={setFilePreparing}
+          idPrefix="walkin-assistance"
+          label="Documents handed over (optional)"
+        />
         <label className="flex items-start gap-3 text-sm text-ink-600">
           <Checkbox
             checked={values.consent}
@@ -130,7 +144,7 @@ export function AssistanceForm({
         <Button variant="ghost" type="button" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving || filePreparing || fileError !== null}>
           {saving ? "Saving…" : "Encode request"}
         </Button>
       </div>

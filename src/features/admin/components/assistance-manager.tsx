@@ -177,18 +177,18 @@ export function AssistanceManager({ requests, categories }: AssistanceManagerPro
     });
   };
 
-  const handleCreate = (values: WalkInAssistanceValues) => {
+  const handleCreate = (values: WalkInAssistanceValues, files: File[]) => {
     setFormError(null);
     startTransition(async () => {
       try {
-        const result = await createWalkInAssistance(values);
+        const result = await createWalkInAssistance(values, files);
         if (result.error) {
           setFormError(result.error);
           return;
         }
         setCreateOpen(false);
         setPage(1);
-        showToast("Walk-in request encoded.");
+        showToast(result.attachmentWarning ?? "Walk-in request encoded.");
       } catch {
         setFormError("Something went wrong. Please try again.");
       }

@@ -6,6 +6,7 @@ import type {
   AssistanceDecisionValues,
   AssistanceReviewValues,
   WalkInAssistanceValues,
+  WalkInTicketResult,
 } from "@/types";
 import { AssistanceDeclinedEmail } from "@/emails/AssistanceDeclinedEmail";
 import { AssistanceGrantedEmail } from "@/emails/AssistanceGrantedEmail";
@@ -15,7 +16,10 @@ import { recordActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
-  TICKET_INTAKE_STATUS,
+  recordIntakeWithAttachments,
+  validateTicketFiles,
+} from "@/lib/ticket-attachments";
+import {
   markTicketUpdateNotified,
   recordTicketUpdate,
 } from "@/lib/ticket-updates";
@@ -233,12 +237,13 @@ export async function decideAssistance(
 /** Encode a walk-in requester into the same queue (spec §3: one queue, online + office). */
 export async function createWalkInAssistance(
   values: WalkInAssistanceValues,
-): Promise<ActionResult> {
+  files: File[],
+): Promise<WalkInTicketResult> {
   const actor = await checkPermission("handle-assistance");
-  if (!actor) return { error: NOT_FOUND };
+  if (!actor) return { error: NOT_FOUND, attachmentWarning: null };
   const parsed = walkInSchema.safeParse(values);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
+    return { error: parsed.error.issues[0]?.message ?? "Invalid form values.", attachmentWarning: null };
   }
 
   const admin = createSupabaseAdminClient();
@@ -253,11 +258,17 @@ export async function createWalkInAssistance(
     .maybeSingle();
   if (categoryError) {
     console.error("createWalkInAssistance category lookup failed:", categoryError.message);
-    return { error: "Something went wrong. Please try again." };
+    return { error: "Something went wrong. Please try again.", attachmentWarning: null };
   }
   if (!category?.is_active) {
-    return { error: "Pick the kind of assistance you need." };
+    return { error: "Pick the kind of assistance you need.", attachmentWarning: null };
   }
+
+  // Staff-fixable rejections happen before any row exists, exactly as on the
+  // public path — a bad scan must not cost the resident at the counter a
+  // ticket number.
+  const fileError = await validateTicketFiles(files);
+  if (fileError) return { error: fileError, attachmentWarning: null };
 
   // Availability is NOT checked beyond the category: online intake toggled off
   // must still be encodable at the counter — that is the point of the toggle.
@@ -277,17 +288,15 @@ export async function createWalkInAssistance(
     .single();
   if (error || !data) {
     console.error("createWalkInAssistance failed:", error?.message);
-    return { error: "Could not encode the request." };
+    return { error: "Could not encode the request.", attachmentWarning: null };
   }
 
-  const entryId = await recordTicketUpdate({
+  const { entryId, attachmentWarning } = await recordIntakeWithAttachments({
     ticketNo: data.ticket_no,
     kind: "assistance",
-    entryType: "status",
-    status: TICKET_INTAKE_STATUS.assistance,
-    visibility: "public",
-    authorKind: "system",
+    files,
     authorName: actor.fullName,
+    context: "createWalkInAssistance",
   });
   if (parsed.data.email) {
     await sendEmail({
@@ -310,5 +319,5 @@ export async function createWalkInAssistance(
     entityId: data.ticket_no,
   });
   revalidatePath("/admin/assistance");
-  return { error: null };
+  return { error: null, attachmentWarning };
 }
