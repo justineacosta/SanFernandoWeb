@@ -78,6 +78,7 @@ spent one-time tools from the `0028`/`0030` bucket split.
 | `TURNSTILE_SECRET_KEY` | one `console.warn`, verification skipped | **throws** — a keyless deploy 500s rather than shipping with no CAPTCHA |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | warns once, sending skipped | `console.error` per call, sending skipped (fail-open by design) |
 | `NEXT_PUBLIC_SITE_URL` | falls back to `localhost:3000` | `console.error`, same fallback — emails then carry broken links |
+| `TRUSTED_IP_HEADER` | unset — `requestIp()` never reads `cf-connecting-ip` | unset is correct here too: production is bare Vercel with no proxy in front, so leaving it unset is the safe default, not a gap |
 
 - **The Turnstile *site* key is inlined at build time.** A key rotation needs a **rebuild**,
   not just an env change and a redeploy. Error 110200 in the browser is the symptom.

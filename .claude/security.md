@@ -28,13 +28,17 @@ request through: a limiter outage must not take the site down with it.
 - `checkRateLimit` checks and records together — all 8 public forms.
 - `countRateLimitHits` + `recordRateLimitHit` are split so `signIn` can read a budget
   without spending it.
-- **`requestIp()` trusts the LAST `X-Forwarded-For` entry, not the first**, and prefers
-  `cf-connecting-ip`. Every IP-keyed bucket on the site derives from this one helper. The
-  first entry is whatever the client itself put in the header it sent, which made IP
-  throttling decorative; the last is the hop appended by the app's own edge, which a client
-  can prepend to but not append after. **It assumes exactly one trusted hop in front of the
-  app and nothing asserts that assumption** — the lead entry in `docs/HARDENING_BACKLOG.md`.
-  An extra untrusted proxy would need the Nth-from-last instead.
+- **`requestIp()` trusts the LAST `X-Forwarded-For` entry, not the first**, and reads
+  `cf-connecting-ip` **only when `TRUSTED_IP_HEADER` names it** (a closed allow-list; unset
+  is the default and the safe one). Every IP-keyed bucket on the site derives from this one
+  helper.
+  **The deployed topology is asserted, not assumed:** production is bare Vercel — verified
+  2026-08-11 by response headers (`Server: Vercel`, zero `cf-*`) and by the `*.vercel.app`
+  host, which cannot be Cloudflare-proxied. Vercel overwrites XFF and does not forward
+  client-supplied values, so the last-entry rule is correct there and needs no extra hop
+  counting. **Using Turnstile is not a Cloudflare hop** — it is an outbound `siteverify`
+  call, and mistaking it for one is what made the old unconditional trust look reasonable.
+  If a real proxy is ever put in front, set `TRUSTED_IP_HEADER` and re-check this bullet.
 ### Every budget currently in force
 
 Verified against source; the constants live beside their action, not in `rate-limit.ts`.

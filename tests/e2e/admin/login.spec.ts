@@ -9,16 +9,23 @@ import { randomUUID } from "node:crypto";
 test.use({ storageState: { cookies: [], origins: [] } });
 
 /**
- * Every request in this file gets a unique, run-scoped `cf-connecting-ip`.
+ * Every request in this file gets a unique, run-scoped `x-forwarded-for`.
  *
- * `requestIp()` prefers that header, so this puts each run on its own
- * `login:ip:*` bucket instead of the machine's shared one — exactly as if the
- * run came from a fresh client. Without it these tests are not idempotent:
- * `login:ip:*` is shared by every failed login on this machine, so one run
- * leaves the next one starting from a flagged IP, and (since Task 4B made the
- * page server-render the challenge from that key) `auth.setup.ts`'s own
- * correct-password sign-in starts demanding a token it never provides,
+ * `requestIp()` takes the LAST entry of that header, so this puts each run on
+ * its own `login:ip:*` bucket instead of the machine's shared one — exactly as
+ * if the run came from a fresh client. Without it these tests are not
+ * idempotent: `login:ip:*` is shared by every failed login on this machine, so
+ * one run leaves the next one starting from a flagged IP, and (since Task 4B
+ * made the page server-render the challenge from that key) `auth.setup.ts`'s
+ * own correct-password sign-in starts demanding a token it never provides,
  * failing the whole `admin` project rather than just this file.
+ *
+ * NOT `cf-connecting-ip`, which this file used until the A1 hardening pass:
+ * `requestIp()` now ignores that header unless TRUSTED_IP_HEADER names it, and
+ * this deployment is bare Vercel. Forging XFF works locally because the dev
+ * server has no proxy in front to overwrite it — and is inert against
+ * production, where Vercel overwrites it. The technique cannot be turned into
+ * an attack on the deployed site.
  *
  * Nothing about the code under test changes and no limit is raised or
  * disabled — the email-keyed budget, which is what the first test actually
@@ -44,7 +51,7 @@ test.beforeEach(async ({ page, baseURL }) => {
   const origin = new URL(baseURL ?? "http://localhost:3000").origin;
   await page.route(`${origin}/**`, async (route) => {
     await route.continue({
-      headers: { ...route.request().headers(), "cf-connecting-ip": ip },
+      headers: { ...route.request().headers(), "x-forwarded-for": ip },
     });
   });
 });

@@ -108,26 +108,64 @@ export async function recordRateLimitHit(key: string): Promise<void> {
 }
 
 /**
+ * Header names a deployment may be configured to trust — a closed list, not a
+ * free string. `TRUSTED_IP_HEADER` names which upstream this app sits behind;
+ * an attacker-chosen header name must never become readable just by setting an
+ * env var to it.
+ */
+const TRUSTED_IP_HEADERS = ["cf-connecting-ip"] as const;
+
+/**
+ * Resolved once per server instance rather than per request, so a typo warns
+ * once instead of on every call — and silently doing nothing is exactly how a
+ * misconfiguration here would hide.
+ */
+const TRUSTED_IP_HEADER: string | null = (() => {
+  const configured = process.env.TRUSTED_IP_HEADER?.trim().toLowerCase();
+  if (!configured) return null;
+  if ((TRUSTED_IP_HEADERS as readonly string[]).includes(configured)) return configured;
+  console.warn(
+    `TRUSTED_IP_HEADER="${configured}" is not a recognised proxy header; ignoring it. ` +
+      `Accepted values: ${TRUSTED_IP_HEADERS.join(", ")}.`,
+  );
+  return null;
+})();
+
+/**
  * Caller IP from the proxy headers, or a shared fallback bucket.
  *
- * Trusts the LAST entry of X-Forwarded-For, not the first. Each hop appends
+ * **`cf-connecting-ip` is read only when TRUSTED_IP_HEADER names it.** This
+ * deployment is bare Vercel — verified 2026-08-11: production answers with
+ * `Server: Vercel` and no `cf-*` headers at all, and a `*.vercel.app` host
+ * cannot be Cloudflare-proxied. So no request arrives via Cloudflare and every
+ * `cf-connecting-ip` that shows up is forged by its sender. Reading it
+ * unconditionally, as this did until the A1 hardening pass, let any caller pick
+ * its own bucket for every IP-keyed limit on the site — and buy one
+ * unchallenged guess per account against /admin/login's adaptive CAPTCHA.
+ *
+ * Using Turnstile is NOT a Cloudflare hop: it is a browser widget plus an
+ * outbound siteverify call. It never terminates an inbound request, so it never
+ * sets this header. Don't let its presence talk you into trusting one.
+ *
+ * Unset is the safe default — a deploy that forgets the variable is more
+ * restrictive, not less. This is the opposite of the limiter's fail-open
+ * posture, deliberately: failing open here means trusting a forged value.
+ *
+ * Otherwise: the LAST entry of X-Forwarded-For, not the first. Each hop appends
  * the IP it received the request from, so the first entry is whatever the
- * client itself claimed in the header it sent — trivially spoofable, and
- * every IP-keyed limiter (all 8 public forms, admin login's `login:ip:*` key)
- * derived its bucket from exactly that forgeable value. The last entry is the
- * IP that reached this app's own immediate reverse proxy/edge, which a client
- * cannot set. `cf-connecting-ip` is preferred when present, since Cloudflare's
- * edge always overwrites it rather than forwarding a client-supplied value.
- * This assumes exactly one trusted hop in front of the app; if this deploy is
- * ever placed behind an additional untrusted proxy, take the Nth-from-last
- * entry instead of the last.
+ * client itself claimed. On Vercel this is already trustworthy — Vercel
+ * overwrites XFF and does not forward externally-supplied values, specifically
+ * to prevent spoofing; a client-controlled XFF needs an Enterprise trusted-proxy
+ * purchase this deployment does not have.
  */
 export async function requestIp(): Promise<string> {
   const { headers } = await import("next/headers");
   const store = await headers();
 
-  const cfIp = store.get("cf-connecting-ip")?.trim();
-  if (cfIp) return cfIp;
+  if (TRUSTED_IP_HEADER) {
+    const trusted = store.get(TRUSTED_IP_HEADER)?.trim();
+    if (trusted) return trusted;
+  }
 
   const forwarded = store.get("x-forwarded-for");
   if (forwarded) {

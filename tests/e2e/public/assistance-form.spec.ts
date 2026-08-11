@@ -9,11 +9,12 @@ import { randomUUID } from "node:crypto";
  * Spends one `assistance:<ip>` hit against `SUBMIT_LIMIT` = 5 per hour — see
  * CLAUDE.md's Commands section. Roughly 5 runs an hour before it fails on the
  * limiter rather than on a regression. Pinned to its own bucket via a forged
- * `cf-connecting-ip`, following the exact pattern `tests/e2e/admin/
- * login.spec.ts` established: `page.route()` scoped to the app's own origin,
- * deliberately NOT `test.use({ extraHTTPHeaders })`, which would also send
- * the forged header to `challenges.cloudflare.com` and get the Turnstile
- * widget refused by its edge.
+ * `x-forwarded-for` (NOT `cf-connecting-ip` — `requestIp()` ignores that
+ * header since the A1 hardening pass), following the exact pattern
+ * `tests/e2e/admin/login.spec.ts` established: `page.route()` scoped to the
+ * app's own origin, deliberately NOT `test.use({ extraHTTPHeaders })`, which
+ * would also send the forged header to `challenges.cloudflare.com` and get the
+ * Turnstile widget refused by its edge.
  */
 test.beforeEach(async ({ page, baseURL }) => {
   const h = randomUUID().replace(/-/g, "");
@@ -21,7 +22,7 @@ test.beforeEach(async ({ page, baseURL }) => {
   const origin = new URL(baseURL ?? "http://localhost:3000").origin;
   await page.route(`${origin}/**`, async (route) => {
     await route.continue({
-      headers: { ...route.request().headers(), "cf-connecting-ip": ip },
+      headers: { ...route.request().headers(), "x-forwarded-for": ip },
     });
   });
 });

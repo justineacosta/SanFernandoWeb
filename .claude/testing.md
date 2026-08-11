@@ -64,11 +64,14 @@ collision first, a regression second** — except where noted.
   be registered for `localhost` and will not solve locally at all. **The site key is inlined
   at build time, so switching key sets needs the dev server restarted**, not just a saved
   file.
-- **Forge `cf-connecting-ip` with a `page.route()` interception scoped to the app's own
+- **Forge `x-forwarded-for` with a `page.route()` interception scoped to the app's own
   origin — never `test.use({ extraHTTPHeaders })`.** The latter also sends the forged header
   to `challenges.cloudflare.com`, whose edge then refuses to serve the widget script.
   `login.spec.ts` established the pattern to pin each run to its own `login:ip:*` bucket;
-  `assistance-form.spec.ts` copies it. The **email** key still collides by design.
+  `assistance-form.spec.ts` copies it. **Not `cf-connecting-ip`** — `requestIp()` ignores
+  that header unless `TRUSTED_IP_HEADER` names it. Forging XFF works locally (no proxy to
+  overwrite it) and is inert against production (Vercel overwrites it). The **email** key
+  still collides by design.
 - `auth.setup.ts` carries a token wait plus **one retry**, because the page cannot see the
   email key at render time: when the test account's own address is the flagged one, its first
   attempt renders no widget, sends no token, and is turned away.
