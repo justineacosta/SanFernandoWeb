@@ -45,10 +45,13 @@ test("an application with a supporting document is filed and returns a ticket", 
   });
 
   await page.getByRole("checkbox").check();
-  // Turnstile's token arrives asynchronously via a callback into React state;
-  // ApplyForm has no form-action hidden input to poll, so there is no DOM
-  // signal to wait on. A short pause covers the always-pass test key.
-  await page.waitForTimeout(3000);
+  // Cloudflare's callback lands the token in React state, which the form
+  // mirrors into a hidden input. Polling that beats the fixed 3s sleep this
+  // replaced: it returns as soon as the token is real, and it FAILS rather
+  // than silently submitting a null token when the widget never resolves.
+  await expect(page.locator('input[name="turnstileToken"]')).not.toHaveValue("", {
+    timeout: 15_000,
+  });
   await page.getByRole("button", { name: "Submit application" }).click();
 
   await expect(page.getByText("Application filed")).toBeVisible();

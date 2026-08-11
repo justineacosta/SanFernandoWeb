@@ -122,13 +122,14 @@ run's ticket while asserting against the current run's. Its reply test uses a
 `Date.now()`-suffixed surname; the two older tests keep fixed ones (`Testa Reyes`,
 `Testb Bautista`) only because they never re-find their row after navigating away.
 
-## Known flake with a known fix
+## Turnstile token waits are deterministic
 
-**`assistance-form.spec.ts`'s fixed `page.waitForTimeout(3000)` is the likely cause of a
-failure there**, not the limiter: `AssistanceForm` keeps its Turnstile token in plain
-`useState` rather than a form-action hidden input the way `LoginForm` does, so the test has
-no DOM-observable "token ready" signal to poll. Giving `AssistanceForm` the same hidden
-`turnstileToken` input would make that wait deterministic — the follow-up worth doing.
+`AssistanceForm` and `ApplyForm` each render a hidden `input[name="turnstileToken"]`
+mirroring their React token state. Neither server action reads it — both take the token
+as an argument — it exists so `assistance-form.spec.ts` and `apply-form.spec.ts` can poll
+a DOM signal instead of sleeping a fixed 3s. **Do not delete it as dead markup**, and if
+you add a submitting spec for another public form, give that form the same input rather
+than reintroducing a sleep.
 
 ## What has unit coverage today
 

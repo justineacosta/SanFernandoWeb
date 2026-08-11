@@ -334,6 +334,11 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
             ) : null}
           </div>
           {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
+          {/* Not read by the server — `submitAssistance` takes the token as an
+              argument. This mirrors React state into the DOM so Playwright has
+              a "token ready" signal to poll instead of a fixed sleep, the shape
+              `login-form.tsx` uses for real. */}
+          <input type="hidden" name="turnstileToken" value={turnstileToken ?? ""} />
           <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
           {/* fileError clears itself on the next valid pick, so unlike `error`
               there's no dismiss button to route around it — the only way past

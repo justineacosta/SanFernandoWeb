@@ -319,6 +319,11 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
               </p>
             ) : null}
           </div>
+          {/* Not read by the server — `submitApplication` takes the token as an
+              argument. This mirrors React state into the DOM so Playwright has
+              a "token ready" signal to poll instead of a fixed sleep, the shape
+              `login-form.tsx` uses for real. */}
+          <input type="hidden" name="turnstileToken" value={turnstileToken ?? ""} />
           <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
           {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
           <Button
