@@ -2,15 +2,12 @@
 
 import type { PublicApplicationValues, SubmitApplicationResult } from "@/types";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import {
-  TICKET_INTAKE_STATUS,
-  markTicketUpdateNotified,
-  recordTicketUpdate,
-} from "@/lib/ticket-updates";
+import { markTicketUpdateNotified } from "@/lib/ticket-updates";
 import { checkRateLimit, requestIp } from "@/lib/rate-limit";
 import { TURNSTILE_FAILURE_MESSAGE, verifyTurnstileToken } from "@/lib/turnstile";
 import { sendEmail } from "@/lib/email";
 import { ApplicationSubmittedEmail } from "@/emails/ApplicationSubmittedEmail";
+import { recordIntakeWithAttachments, validateTicketFiles } from "@/lib/ticket-attachments";
 import { applicationSchema } from "./schema";
 
 /** Generous enough for a household on one connection; tight enough to stop a script. */
@@ -25,22 +22,28 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
 export async function submitApplication(
   serviceId: string,
   values: PublicApplicationValues,
+  files: File[],
   turnstileToken: string | null,
 ): Promise<SubmitApplicationResult> {
   const ip = await requestIp();
   if (!(await verifyTurnstileToken(turnstileToken, ip))) {
-    return { error: TURNSTILE_FAILURE_MESSAGE, ticketNo: null };
+    return { error: TURNSTILE_FAILURE_MESSAGE, ticketNo: null, attachmentWarning: null };
   }
   if (!(await checkRateLimit(`apply:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS))) {
     return {
       error: "Too many applications from this connection. Please try again later or visit the barangay hall.",
       ticketNo: null,
+      attachmentWarning: null,
     };
   }
 
   const parsed = applicationSchema.safeParse(values);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again.", ticketNo: null };
+    return {
+      error: parsed.error.issues[0]?.message ?? "Please check the form and try again.",
+      ticketNo: null,
+      attachmentWarning: null,
+    };
   }
 
   const admin = createSupabaseAdminClient();
@@ -57,16 +60,29 @@ export async function submitApplication(
     .maybeSingle();
   if (serviceError) {
     console.error("submitApplication service lookup failed:", serviceError.message);
-    return { error: "Something went wrong. Please try again.", ticketNo: null };
+    return { error: "Something went wrong. Please try again.", ticketNo: null, attachmentWarning: null };
   }
   if (!service || service.flow !== "apply") {
-    return { error: "That service is not accepting online applications.", ticketNo: null };
+    return {
+      error: "That service is not accepting online applications.",
+      ticketNo: null,
+      attachmentWarning: null,
+    };
   }
   if (!service.is_available) {
     return {
       error: "This service is temporarily unavailable. Please visit the barangay hall.",
       ticketNo: null,
+      attachmentWarning: null,
     };
+  }
+
+  // Everything the resident can fix is rejected here, before any row exists —
+  // so the attachmentWarning path below is reserved for genuine storage
+  // failures they had no part in.
+  const fileError = await validateTicketFiles(files);
+  if (fileError) {
+    return { error: fileError, ticketNo: null, attachmentWarning: null };
   }
 
   const { data, error } = await admin
@@ -88,16 +104,19 @@ export async function submitApplication(
     .single();
   if (error || !data) {
     console.error("submitApplication failed:", error?.message);
-    return { error: "We could not file your application. Please try again.", ticketNo: null };
+    return {
+      error: "We could not file your application. Please try again.",
+      ticketNo: null,
+      attachmentWarning: null,
+    };
   }
 
-  const entryId = await recordTicketUpdate({
+  // data.ticket_no, never a client string — it becomes a storage path prefix.
+  const { entryId, attachmentWarning } = await recordIntakeWithAttachments({
     ticketNo: data.ticket_no,
     kind: "application",
-    entryType: "status",
-    status: TICKET_INTAKE_STATUS.application,
-    visibility: "public",
-    authorKind: "system",
+    files,
+    context: "submitApplication",
   });
   if (parsed.data.email) {
     await sendEmail({
@@ -113,5 +132,5 @@ export async function submitApplication(
     if (entryId) await markTicketUpdateNotified(entryId);
   }
 
-  return { error: null, ticketNo: data.ticket_no };
+  return { error: null, ticketNo: data.ticket_no, attachmentWarning };
 }

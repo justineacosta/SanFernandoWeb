@@ -11,6 +11,7 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
 import { FormSectionLabel } from "@/components/ui/form-section-label";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { TicketFileField } from "@/components/shared/ticket-file-field";
 import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/shared/turnstile-widget";
 import { useFieldValidation } from "@/hooks/use-field-validation";
 import { manilaToday } from "@/lib/format";
@@ -40,6 +41,10 @@ const EMPTY: PublicApplicationValues = {
 export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormProps) {
   const [values, setValues] = useState<PublicApplicationValues>(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [filePreparing, setFilePreparing] = useState(false);
+  const [attachmentWarning, setAttachmentWarning] = useState<string | null>(null);
   const [ticketNo, setTicketNo] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -64,11 +69,12 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
     setError(null);
     startTransition(async () => {
       try {
-        const result = await submitApplication(serviceId, values, turnstileToken);
+        const result = await submitApplication(serviceId, values, files, turnstileToken);
         if (result.error || !result.ticketNo) {
           setError(result.error ?? "Something went wrong. Please try again.");
           return;
         }
+        setAttachmentWarning(result.attachmentWarning);
         setTicketNo(result.ticketNo);
       } catch {
         setError("Something went wrong. Please try again.");
@@ -123,6 +129,13 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
               <span aria-live="polite">{copied ? "Copied" : "Copy number"}</span>
             </button>
           </div>
+          {attachmentWarning ? (
+            <InlineAlert
+              message={attachmentWarning}
+              onDismiss={() => setAttachmentWarning(null)}
+              className="mb-6 text-left"
+            />
+          ) : null}
           <div className="mb-6 rounded-2xl border border-ink-200 bg-ink-50 p-6 text-left">
             <p className="mb-2 text-sm font-semibold text-ink-900">What happens next</p>
             <ol className="list-decimal space-y-1 pl-5 text-sm text-ink-600">
@@ -275,6 +288,15 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
               {...v.fieldProps("purpose", "apply-purpose")}
             />
           </Field>
+          <TicketFileField
+            files={files}
+            onFilesChange={setFiles}
+            error={fileError}
+            onErrorChange={setFileError}
+            preparing={filePreparing}
+            onPreparingChange={setFilePreparing}
+            idPrefix="apply"
+          />
           <div className="space-y-2">
             <label className="flex items-start gap-3 text-sm text-ink-600">
               <Checkbox
@@ -299,7 +321,12 @@ export function ApplyForm({ serviceId, serviceTitle, requirements }: ApplyFormPr
           </div>
           <TurnstileWidget ref={turnstileRef} onVerify={setTurnstileToken} className="flex justify-center" />
           {error ? <InlineAlert message={error} onDismiss={() => setError(null)} /> : null}
-          <Button type="submit" variant="primary" className="w-full" disabled={isPending}>
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full"
+            disabled={isPending || filePreparing || fileError !== null}
+          >
             {isPending ? "Filing…" : "Submit application"}
           </Button>
         </Card>
