@@ -274,7 +274,7 @@ node scripts/upload-site-images.mjs
 
 For an environment that already has some migrations applied, apply only the numbered
 migrations it's missing, in order — the baseline assumes an empty schema and fails against
-one that already has any of them. Migrations are numbered through `0034`.
+one that already has any of them. Migrations are numbered through `0037`.
 
 **4. Start the dev server**
 ```bash

@@ -1,7 +1,7 @@
 # Database
 
-Supabase Postgres. Migrations live in `supabase/migrations/` (`0001`–`0035` as of
-2026-08-10). zod is **v4** (not v3). See `.claude/deployment.md` for how migrations are
+Supabase Postgres. Migrations live in `supabase/migrations/` (`0001`–`0037` as of
+2026-08-11). zod is **v4** (not v3). See `.claude/deployment.md` for how migrations are
 applied and the deploy-order hazards; this file is the schema/data model itself.
 
 ## RLS model — the single most important rule
