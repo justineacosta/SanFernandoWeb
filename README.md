@@ -266,7 +266,7 @@ cp .env.example .env.local
 For a **fresh** Supabase project:
 ```bash
 # 1. Apply supabase/baseline/0000_baseline_2026-07-23.sql (Supabase SQL editor or CLI)
-#    — a single-transaction squash of migrations 0001–0034 against an empty schema.
+#    — a single-transaction squash of migrations 0001–0037 against an empty schema.
 #    It is contiguous: there is no "and then run X on top" companion step.
 node scripts/upload-official-portraits.mjs
 node scripts/upload-site-images.mjs

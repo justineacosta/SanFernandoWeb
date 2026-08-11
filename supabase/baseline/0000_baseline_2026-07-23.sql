@@ -1,12 +1,12 @@
 -- ============================================================================
 -- Barangay San Fernando — CONSOLIDATED BASELINE SCHEMA
--- Squash of migrations 0001–0035, as of 2026-07-23 (0031, 0032, 0033, 0034 and
--- 0035 folded in after the fact — see supabase/migrations/README.md).
+-- Squash of migrations 0001–0037, as of 2026-07-23 (0031 through 0037 all
+-- folded in after the fact — see supabase/migrations/README.md).
 -- ============================================================================
 --
 -- WHAT THIS IS
 -- ------------
--- One file that builds the *final state* of migrations 0001 through 0035 on an
+-- One file that builds the *final state* of migrations 0001 through 0037 on an
 -- empty database, in a single transaction. It is not a replay: columns that a
 -- later migration dropped are never created, columns that a later migration
 -- relaxed are declared relaxed, and functions appear once in their final form.
@@ -15,7 +15,7 @@
 -- --------------
 --   • Standing up a NEW environment (production, a fresh staging, a local dev
 --     database) from nothing.
---   • NOT for an environment that already has any of 0001–0035 applied. This
+--   • NOT for an environment that already has any of 0001–0037 applied. This
 --     file assumes an empty `public` schema and will fail loudly on a database
 --     that already has these objects — which is the intended behaviour. To
 --     bring an existing environment forward, apply the individual numbered
@@ -29,7 +29,7 @@
 -- scripts the officials directory and the home/About pages render broken
 -- images. Original migrations 0012 and 0021 carry the same warning.
 --
--- HOW IT DIFFERS FROM RUNNING 0001–0035 IN SEQUENCE
+-- HOW IT DIFFERS FROM RUNNING 0001–0037 IN SEQUENCE
 -- --------------------------------------------------
 -- The end state is identical. Four mechanical differences, all deliberate:
 --
@@ -1295,8 +1295,9 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 -- leave that readable by anyone holding the URL, forever. There is
 -- deliberately NO read policy below: the service-role client is the only
 -- reader and it mints a short-lived signed URL per page load.
--- allowed_mime_types is set on every bucket that takes uploads [0036, 0037].
--- The status-aware pairs above could only join once copyObjects resolved an
+-- allowed_mime_types is set on every bucket except site-media and
+-- avatars-media, which are deliberately unrestricted [0036, 0037]. The
+-- status-aware pairs above could only join once copyObjects resolved an
 -- explicit contentType (sniff → extension → blob type); before that, an
 -- untyped promote would have been rejected and promoteMedia fails closed.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

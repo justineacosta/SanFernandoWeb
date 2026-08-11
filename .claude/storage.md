@@ -24,7 +24,7 @@ Helpers: `MediaKind` / `publicBucketFor` / `draftBucketFor` / `bucketForStatus` 
 in `storage.ts`; `promoteMedia` / `cleanupPromotedMedia` / `demoteMedia` /
 `storedObjectExists` in `media-lifecycle.ts`.
 
-### Bucket-level ceilings (migration `0036`)
+### Bucket-level ceilings (migrations `0036`, `0037`)
 
 Every bucket carries a `file_size_limit` equal to what app code already enforces (10 MB for
 `legislative-*`/`transparency-*`, 2 MB everywhere else), so the app cap and the bucket cap
@@ -34,9 +34,10 @@ The two seed scripts (`upload-official-portraits.mjs`, `upload-site-images.mjs`)
 directly to Storage with no app-side size check of their own — a future asset over the cap
 would fail with a raw Storage error, not a validation message.
 
-**`allowed_mime_types` is set on all fourteen upload-taking buckets.** `site-media` and
-`avatars-media` are the only two buckets left `null` — they have no draft/promote lifecycle
-and are out of scope for this restriction.
+**`allowed_mime_types` is set on every bucket except `site-media` and `avatars-media`.**
+Those two also take uploads (`scripts/upload-site-images.mjs`, the avatar uploader) but are
+deliberately left `null` — they have no draft/promote lifecycle and are out of scope for this
+restriction.
 
 `ticket-media` and `feedback-media` got theirs in migration `0036`. The twelve status-aware
 buckets (`news`/`officials`/`events`/`announcements`/`legislative`/`transparency`, each

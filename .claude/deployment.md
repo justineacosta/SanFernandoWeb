@@ -17,8 +17,8 @@ Supabase (staging first, then production). Every migration since `0012` has been
 
 **New environment** (production, a fresh staging, a local dev database) standing up from
 nothing → apply `supabase/baseline/0000_baseline_2026-07-23.sql`, a single-transaction squash
-of `0001`–`0035` (`0031`–`0035` folded in after the fact). **The file's own header is
-authoritative** on the range it covers, and earlier prose has been wrong about it more than
+of `0001`–`0037` (`0031` through `0037` all folded in after the fact). **The file's own header
+is authoritative** on the range it covers, and earlier prose has been wrong about it more than
 once — keep folding new migrations in as they land, so it stays contiguous and never needs a
 "run X after" companion step.
 
