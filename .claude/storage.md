@@ -56,15 +56,26 @@ would reject, and `promoteMedia` fails closed — breaking publishing in product
 back `image/png` and `application/pdf` respectively in every case, never a generic default.
 `0037` (hardening backlog Task 8) was written 2026-08-11 against that verified fix, folded
 into the baseline alongside it, and applied to staging then production on 2026-08-12 —
-manual, staging first, like every migration since `0012` (`.claude/deployment.md`). Confirmed
-byte-for-byte with a direct `storage.buckets` read (service-role `listBuckets()`): all
-fourteen non-null buckets carried exactly the array `0037`/`0036` specify, `site-media` and
-`avatars-media` still `null`. Then re-ran the Task 7 round trip with the allow-list actually
-enforcing, one image kind (news) and the PDF kind (legislative): publish and archive both
-succeeded, `storage.objects.metadata->>'mimetype'` still read `image/png` and
-`application/pdf` (never rejected, never a generic default), and the public page/PDF download
-served the correct `content-type` in both cases. Test records deleted afterward; all four
-buckets touched returned to their exact pre-test object counts.
+manual, staging first, like every migration since `0012` (`.claude/deployment.md`).
+`.env.local`'s active, uncommented Supabase block (labeled "Development API," which is stale
+now that the split matters) is **staging**; the commented-out "Production API" block, with its
+own project and keys, is the real production database — the two are separate projects, not
+one project under two names.
+
+Verified in two tiers, matching the risk each environment can carry:
+- **Staging** — full round trip through the real admin portal with the allow-list actually
+  enforcing: published and archived a throwaway image-kind record (news) and a throwaway
+  PDF-kind record (legislative). Both succeeded, `storage.objects.metadata->>'mimetype'` read
+  `image/png` and `application/pdf` (never rejected, never a generic default), and the public
+  page/PDF download served the correct `content-type` in both cases. Test records deleted
+  afterward; all four touched buckets returned to their exact pre-test object counts.
+- **Production** — read-only only, deliberately: a direct `storage.buckets` read (service-role
+  `listBuckets()`) confirmed all fourteen non-null buckets carry exactly the array `0037`/
+  `0036` specify, `site-media`/`avatars-media` still `null` — byte-for-byte identical to
+  staging. No publish/archive round trip was run against production; staging's round trip
+  already proved the promote/demote mechanism, this branch isn't deployed to production yet,
+  and a live write there would only re-prove what staging showed while carrying real risk
+  (audit log entries, potential live-subscriber side effects) for no new information.
 
 ### Publish is three steps in this order
 
