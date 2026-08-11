@@ -128,7 +128,9 @@ function rather than two copies that can drift.
   `PURPOSE_PRESETS` chips are each a bare `<button type="button">` — load-bearing, since a
   `<button>` inside a `<form>` with no explicit `type` submits it — and `applyPreset` fills
   the purpose field when empty and **appends on a new line otherwise**, so a chip tap never
-  destroys text a resident already typed.
+  destroys text a resident already typed. Per design §5.3, it also returns focus to the
+  textarea with the caret at the end (via a ref and `requestAnimationFrame`, deferred a tick
+  so the selection isn't clamped to the controlled value's pre-update length).
 
 ### `/assistance/new`
 

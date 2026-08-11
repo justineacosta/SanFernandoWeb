@@ -65,6 +65,7 @@ export function AppointmentForm({ demand }: { demand: AppointmentDemand }) {
   const submitting = useRef(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
+  const purposeRef = useRef<HTMLTextAreaElement>(null);
 
   const set = <K extends keyof PublicAppointmentValues>(key: K, value: PublicAppointmentValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -74,7 +75,18 @@ export function AppointmentForm({ demand }: { demand: AppointmentDemand }) {
     // resident who has typed three sentences and taps a chip out of curiosity
     // does not lose them — and never inert, which a fill-only-when-empty rule
     // would make it once they had typed anything.
-    set("purpose", values.purpose.trim() ? `${values.purpose.trimEnd()}\n${preset}` : preset);
+    const next = values.purpose.trim() ? `${values.purpose.trimEnd()}\n${preset}` : preset;
+    set("purpose", next);
+    // Design §5.3: the chip is a starting point to edit, so hand the caret back
+    // at the end of the text. Deferred a tick because the textarea is
+    // controlled — setting the selection before React commits `next` would
+    // clamp it to the OLD, shorter value's length.
+    requestAnimationFrame(() => {
+      const el = purposeRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(next.length, next.length);
+    });
   }
 
   const v = useFieldValidation(appointmentSchema, values);
@@ -288,6 +300,7 @@ export function AppointmentForm({ demand }: { demand: AppointmentDemand }) {
             <Textarea
               id="appointment-purpose"
               name="purpose"
+              ref={purposeRef}
               rows={4}
               placeholder="e.g. Consultation with the Punong Barangay"
               value={values.purpose}
