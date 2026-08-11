@@ -24,6 +24,19 @@ Helpers: `MediaKind` / `publicBucketFor` / `draftBucketFor` / `bucketForStatus` 
 in `storage.ts`; `promoteMedia` / `cleanupPromotedMedia` / `demoteMedia` /
 `storedObjectExists` in `media-lifecycle.ts`.
 
+### Bucket-level ceilings (migration `0036`)
+
+Every bucket carries a `file_size_limit` equal to what app code already enforces (10 MB for
+`legislative-*`/`transparency-*`, 2 MB everywhere else), so the app cap and the bucket cap
+cannot drift into disagreement without someone editing both.
+
+**`allowed_mime_types` is set on `ticket-media` and `feedback-media` only.** Not an
+oversight: `promoteMedia` re-uploads with `contentType: file.type || undefined`, so a
+status-aware bucket with a MIME allow-list would reject a promoted copy whose downloaded
+type came back empty — and `promoteMedia` fails closed, so publishing breaks. Those two
+buckets are pure ingest with no lifecycle, so they are safe. Restricting the other twelve
+requires giving `promoteMedia` an explicit `contentType` first.
+
 ### Publish is three steps in this order
 
 `promoteMedia` (copy only, deletes nothing) → the DB status update → `cleanupPromotedMedia`
@@ -183,19 +196,6 @@ It copies `ConfirmDialog`'s focus trap, scroll lock and Escape handling on purpo
 give it its own. `react-easy-crop` injects its own stylesheet — nothing to add to
 `globals.css`. `SingleImageUploader`'s `previewShape="circle"` option is now unused; the
 officials portrait is the obvious next consumer if the cropper ever widens.
-
-### Bucket-level ceilings (migration `0036`)
-
-Every bucket carries a `file_size_limit` equal to what app code already enforces (10 MB for
-`legislative-*`/`transparency-*`, 2 MB everywhere else), so the app cap and the bucket cap
-cannot drift into disagreement without someone editing both.
-
-**`allowed_mime_types` is set on `ticket-media` and `feedback-media` only.** Not an
-oversight: `promoteMedia` re-uploads with `contentType: file.type || undefined`, so a
-status-aware bucket with a MIME allow-list would reject a promoted copy whose downloaded
-type came back empty — and `promoteMedia` fails closed, so publishing breaks. Those two
-buckets are pure ingest with no lifecycle, so they are safe. Restricting the other twelve
-requires giving `promoteMedia` an explicit `contentType` first.
 
 ## Orphan reporting
 
