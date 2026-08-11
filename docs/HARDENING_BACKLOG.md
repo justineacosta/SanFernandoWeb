@@ -33,10 +33,18 @@ From the same reviews. Ordered by leverage, not severity.
    `isClosedDay` refine then rejects. Fix: a `nextOpenDay()` beside `isClosedDay`
    in `src/lib/office-days.ts`.
 
-3. **Timeline attribution.** Resident-supplied attachments hang on the intake
-   entry, which is `authorKind: "system"`, so the admin drawer attributes them to
-   "Barangay staff". The resident's own `/track` view reads correctly. Touches
-   all four ticket flows.
+3. **Timeline attribution — widened, priority should be reconsidered.** Resident-supplied
+   attachments hang on the intake entry, which is `authorKind: "system"`, so the admin
+   drawer attributes them to "Barangay staff". The resident's own `/track` view reads
+   correctly. Touches all four ticket flows. As of `feat/ticket-attachments`, this now
+   affects three public intake flows, not one: `submitApplication` and `submitComplaint`
+   both attach files through the same `recordIntakeWithAttachments` helper `submitAssistance`
+   already used, with the same `authorKind: "system"`, no `authorName`. The application flow
+   raises the stakes — the admin review drawer there is the surface staff use to check a
+   resident's supporting documents before issuing a legal document, so a resident-uploaded ID
+   or supporting document showing as authored by "Barangay staff" is a more consequential
+   mislabel than it was for assistance alone. Whoever triages this list next should weigh it
+   accordingly — this is a documentation-only note; no fix is included here.
 
 4. **`applyPreset` does not focus the textarea.** Design §5.3 asked for it; it
    was silently dropped during implementation.

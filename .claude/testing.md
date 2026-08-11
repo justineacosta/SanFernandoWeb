@@ -58,13 +58,28 @@ collision first, a regression second** — except where noted.
 
 `public/services-directory.spec.ts` submits nothing, so it spends no budget either.
 
-**Complaints has no submitting e2e spec, on purpose.** `submitComplaint`'s `SUBMIT_LIMIT` is
-5/hour — tied with `assistance`'s and tighter than `apply`'s 10/hour, the scarcest budget of
-the three attachment-accepting public forms. The shared picker and upload sequence
-(`TicketFileField` / `src/lib/ticket-attachments.ts`) are already exercised twice, by
-`assistance-form.spec.ts` and `apply-form.spec.ts`; a third submitting spec against the
-tightest limit of the three would only spend more of a scarce budget re-covering the same
-shared code, not add coverage of anything complaint-specific.
+**Complaints has no submitting e2e spec, on purpose.** The shared picker and upload sequence
+(`TicketFileField` / `recordIntakeWithAttachments` in `src/lib/ticket-attachments.ts`) are
+already exercised twice, by `assistance-form.spec.ts` and `apply-form.spec.ts`; a third
+submitting spec would cover the identical shared machinery a second time over, not add
+coverage of anything complaint-specific. (`submitComplaint`'s `SUBMIT_LIMIT` is 5/hour, the
+same as `assistance`'s — the tightest of the three attachment-accepting public forms — but
+that is not the reason to skip it: a complaint spec could copy `assistance-form.spec.ts`'s
+forge-a-fresh-IP-per-run pattern just as easily, since `complaint:${ip}` is the only
+dimension `submitComplaint` rate-limits on, with no second contact-number budget the way
+assistance has.) One real, honest gap this leaves: `TicketFileField`'s `label` prop is used
+only by `ComplaintForm` (`"Photos or documents (optional)"`), and both existing specs select
+the input by the shared default label (`"Supporting documents (optional)"`), so that custom
+label has no automated coverage either way — low-risk, not a defect.
+
+**The three walk-in encoding flows (application/complaint/assistance) have no e2e coverage
+at all**, on the same rate-limit reasoning as the `admin/login.spec.ts` row above: every spec
+under `tests/e2e/admin/` depends on `auth.setup.ts`, which spends a `login:email:*` hit, and
+exhausting that budget fails the **entire** `admin` project, not just its own test. Three more
+admin submitting specs would be an ongoing collision-risk tax on the whole admin suite, not a
+cost paid once. Verified once by hand instead: filing CMP-2026-00069 and AST-2026-00047 with
+real attachments and confirming they render in the admin timeline via real signed Storage
+URLs.
 
 ## Turnstile in tests
 

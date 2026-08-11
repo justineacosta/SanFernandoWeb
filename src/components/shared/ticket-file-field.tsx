@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import {
   ALLOWED_DOC_FILE_TYPES,
   MAX_TICKET_FILES,
@@ -34,10 +34,6 @@ interface TicketFileFieldProps {
  * resident on a phone has no easy way to resize one. PDFs are never touched.
  */
 export function TicketFileField({
-  // `files` is kept in the destructure to document the prop pair
-  // symmetrically with onFilesChange; the component itself never needs to
-  // read the current selection back.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   files,
   onFilesChange,
   error,
@@ -57,6 +53,17 @@ export function TicketFileField({
     onFilesChange([]);
     if (inputRef.current) inputRef.current.value = "";
   }
+
+  // Mirror image of `reject`'s comment above: if the PARENT clears `files`
+  // (e.g. TicketReplyForm resets state after a successful send) while this
+  // component stays mounted, sync the native input back to empty too — an
+  // input still showing a stale filename the parent no longer holds is its
+  // own silent-mismatch bug, just in the other direction.
+  useEffect(() => {
+    if (files.length === 0 && inputRef.current) {
+      inputRef.current.value = "";
+    }
+  }, [files]);
 
   async function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(event.target.files ?? []);
@@ -90,6 +97,13 @@ export function TicketFileField({
       }
       onErrorChange(null);
       onFilesChange(prepared);
+    } catch {
+      // downscaleImageFile is verified to always resolve rather than throw —
+      // this is a safety net for if that contract ever breaks. Without it, an
+      // exception here would leave `files` and `error` untouched while
+      // `preparing` still resets to false in `finally`, re-enabling Submit
+      // with no attachment and nothing on screen to explain why.
+      reject("We could not prepare that file. Please try another.");
     } finally {
       onPreparingChange(false);
     }
@@ -107,7 +121,7 @@ export function TicketFileField({
         id={inputId}
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp,application/pdf"
+        accept={ALLOWED_DOC_FILE_TYPES.join(",")}
         onChange={handleChange}
         className="block w-full text-sm text-ink-600 file:mr-3 file:rounded-full file:border-0 file:bg-brand-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand-700"
       />

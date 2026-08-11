@@ -339,7 +339,8 @@ export function AssistanceForm({ categories }: { categories: AssistanceCategoryR
               there's no dismiss button to route around it — the only way past
               a rejected file is to fix the file input, exactly what the field-
               level comment above intends. Without this, Submit stayed
-              clickable and silently filed a ticket with no attachments. */}
+              clickable and silently filed a ticket with no attachments.
+              filePreparing gates it too, so Submit can't fire mid-downscale. */}
           <Button
             type="submit"
             variant="primary"
