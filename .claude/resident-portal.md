@@ -57,9 +57,14 @@ must not tell a resident to "reply on the Track page" unless the ticket is in th
 the lookup: `track-lookup.tsx` nulls its Turnstile token the instant a lookup succeeds, so a
 second round trip would show a CAPTCHA error right after the reply worked.
 
-Attachments: private `ticket-media`, 3 files × 2 MB — see `.claude/storage.md`. `TicketReplyForm`'s
-Send button is disabled while a picked file is rejected client-side — `.claude/frontend.md`'s
-error-banner section, not this file, owns that convention.
+Attachments: private `ticket-media`, 3 files × 2 MB — see `.claude/storage.md`. The picker is
+the shared `TicketFileField` (`src/components/shared/ticket-file-field.tsx`, added 2026-08-11)
+— `AssistanceForm` and `TicketReplyForm` both render it rather than duplicating the input; an
+oversized image is downscaled in the browser (`downscaleImageFile`,
+`src/lib/downscale-image.ts`) instead of rejected. Send/Submit is disabled while the field's
+`error` is set, and additionally while it reports `preparing` (downscaling in flight) — the
+parent form owns both booleans, the component only reports them. `.claude/frontend.md`'s
+error-banner section, not this file, owns the gating convention.
 
 ### `/appointments/new`
 

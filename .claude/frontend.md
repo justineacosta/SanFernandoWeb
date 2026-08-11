@@ -54,6 +54,14 @@ overrides, so no variant prop is needed). `<Toast>` closes on click as well as o
   state on rejection — nothing was silently lost there the way it was on the other two, so
   this one is consistency rather than a distinct bug fix. Follow the gating pattern for any
   new file picker, regardless of whether the field is optional.
+  - **As of the same day, `AssistanceForm` and `TicketReplyForm` no longer own separate inline
+    pickers — both render the shared `TicketFileField`**
+    (`src/components/shared/ticket-file-field.tsx`), which owns the reject-and-clear logic and
+    the rejection copy. The parent form still owns the `error`/`preparing` state and still does
+    the actual Submit-gating (`disabled={isPending || filePreparing || fileError !== null}`) —
+    the component only reports both booleans up, it never disables anything itself, since it
+    has no opinion on what "Submit" is called or what else might also gate it. Any new resident
+    attachment surface should render `TicketFileField` rather than re-implementing this.
 - The four review drawers render `localError ?? error`, so dismissing has to clear both
   halves — hence their `onDismissError` prop.
 - **`login-form.tsx` is the true special case:** `useActionState` gives no setter to null out

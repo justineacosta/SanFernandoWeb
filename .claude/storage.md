@@ -163,6 +163,14 @@ Capped at **3 files × 2 MB** (`MAX_TICKET_FILES`/`MAX_TICKET_FILE_BYTES` — re
 `"8mb"` limit rather than raise it. `uploadTicketAttachment`/`discardTicketAttachment`
 (`src/lib/media.ts`); the path allow-list covers all four ticket prefixes.
 
+**The 2 MB cap is enforced twice, on purpose.** The client picker (`TicketFileField`,
+`.claude/frontend.md`) downscales an oversized image in the browser via `downscaleImageFile`
+(`src/lib/downscale-image.ts`) rather than rejecting it outright — a straight-from-camera
+photo routinely runs 3-5 MB and a resident on a phone has no easy way to shrink one. PDFs are
+never touched; an image that can't be brought under the cap (or won't decode) becomes a
+normal, visible client-side rejection. The server-side cap in `uploadTicketAttachment` is
+still the real gate — the client step is a UX convenience, not a trust boundary.
+
 **The upload runs after the insert, and that ordering is not negotiable:** the storage path
 is `<ticket_no>/<uuid>.<ext>`, and the ticket number does not exist until the row is
 written. Therefore:
