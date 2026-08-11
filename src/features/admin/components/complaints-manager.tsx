@@ -166,18 +166,18 @@ export function ComplaintsManager({ complaints }: ComplaintsManagerProps) {
     });
   };
 
-  const handleCreate = (values: WalkInComplaintValues) => {
+  const handleCreate = (values: WalkInComplaintValues, files: File[]) => {
     setFormError(null);
     startTransition(async () => {
       try {
-        const result = await createWalkInComplaint(values);
+        const result = await createWalkInComplaint(values, files);
         if (result.error) {
           setFormError(result.error);
           return;
         }
         setCreateOpen(false);
         setPage(1);
-        showToast("Walk-in report encoded.");
+        showToast(result.attachmentWarning ?? "Walk-in report encoded.");
       } catch {
         setFormError("Something went wrong. Please try again.");
       }

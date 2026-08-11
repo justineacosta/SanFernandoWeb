@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { ComplaintCloseValues, ComplaintReviewValues, WalkInComplaintValues } from "@/types";
+import type { ComplaintCloseValues, ComplaintReviewValues, WalkInComplaintValues, WalkInTicketResult } from "@/types";
 import { ComplaintDismissedEmail } from "@/emails/ComplaintDismissedEmail";
 import { ComplaintResolvedEmail } from "@/emails/ComplaintResolvedEmail";
 import { ComplaintSubmittedEmail } from "@/emails/ComplaintSubmittedEmail";
@@ -11,10 +11,10 @@ import { recordActivity } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
-  TICKET_INTAKE_STATUS,
   markTicketUpdateNotified,
   recordTicketUpdate,
 } from "@/lib/ticket-updates";
+import { recordIntakeWithAttachments, validateTicketFiles } from "@/lib/ticket-attachments";
 import { manilaToday } from "@/lib/format";
 
 export interface ActionResult {
@@ -241,17 +241,27 @@ export async function closeComplaint(
 }
 
 /** Encode a walk-in complainant into the same queue (spec §3: one queue, online + office). */
-export async function createWalkInComplaint(values: WalkInComplaintValues): Promise<ActionResult> {
+export async function createWalkInComplaint(
+  values: WalkInComplaintValues,
+  files: File[],
+): Promise<WalkInTicketResult> {
   const actor = await checkPermission("handle-complaints");
-  if (!actor) return { error: NOT_FOUND };
+  if (!actor) return { error: NOT_FOUND, attachmentWarning: null };
   const parsed = walkInSchema.safeParse(values);
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid form values." };
+    return { error: parsed.error.issues[0]?.message ?? "Invalid form values.", attachmentWarning: null };
   }
 
   // Availability is NOT checked: online intake toggled off must still be
   // encodable at the counter — that is the point of the toggle.
   const admin = createSupabaseAdminClient();
+
+  // Staff-fixable rejections happen before any row exists, exactly as on the
+  // public path — a bad scan must not cost the resident at the counter a
+  // ticket number.
+  const fileError = await validateTicketFiles(files);
+  if (fileError) return { error: fileError, attachmentWarning: null };
+
   const { data, error } = await admin
     .from("complaints")
     .insert({
@@ -270,17 +280,15 @@ export async function createWalkInComplaint(values: WalkInComplaintValues): Prom
     .single();
   if (error || !data) {
     console.error("createWalkInComplaint failed:", error?.message);
-    return { error: "Could not encode the report." };
+    return { error: "Could not encode the report.", attachmentWarning: null };
   }
 
-  const entryId = await recordTicketUpdate({
+  const { entryId, attachmentWarning } = await recordIntakeWithAttachments({
     ticketNo: data.ticket_no,
     kind: "complaint",
-    entryType: "status",
-    status: TICKET_INTAKE_STATUS.complaint,
-    visibility: "public",
-    authorKind: "system",
+    files,
     authorName: actor.fullName,
+    context: "createWalkInComplaint",
   });
   if (parsed.data.email) {
     await sendEmail({
@@ -303,5 +311,5 @@ export async function createWalkInComplaint(values: WalkInComplaintValues): Prom
     entityId: data.ticket_no,
   });
   revalidatePath("/admin/complaints");
-  return { error: null };
+  return { error: null, attachmentWarning };
 }

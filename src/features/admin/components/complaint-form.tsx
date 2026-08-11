@@ -5,10 +5,11 @@ import type { WalkInComplaintValues } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
 import { InlineAlert } from "@/components/ui/inline-alert";
+import { TicketFileField } from "@/components/shared/ticket-file-field";
 import { manilaToday } from "@/lib/format";
 
 interface ComplaintFormProps {
-  onSubmit: (values: WalkInComplaintValues) => void;
+  onSubmit: (values: WalkInComplaintValues, files: File[]) => void;
   onCancel: () => void;
   saving: boolean;
   error: string | null;
@@ -35,6 +36,9 @@ export function ComplaintForm({
     narrative: "",
     consent: false,
   });
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [filePreparing, setFilePreparing] = useState(false);
 
   const set = <K extends keyof WalkInComplaintValues>(
     key: K,
@@ -43,7 +47,7 @@ export function ComplaintForm({
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    onSubmit(values);
+    onSubmit(values, files);
   };
 
   return (
@@ -126,6 +130,16 @@ export function ComplaintForm({
             onChange={(event) => set("narrative", event.target.value)}
           />
         </Field>
+        <TicketFileField
+          files={files}
+          onFilesChange={setFiles}
+          error={fileError}
+          onErrorChange={setFileError}
+          preparing={filePreparing}
+          onPreparingChange={setFilePreparing}
+          idPrefix="walkin-complaint"
+          label="Photos or documents (optional)"
+        />
         <label className="flex items-start gap-3 text-sm text-ink-600">
           <Checkbox
             checked={values.consent}
@@ -143,7 +157,7 @@ export function ComplaintForm({
         <Button variant="ghost" type="button" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving || filePreparing || fileError !== null}>
           {saving ? "Saving…" : "Encode report"}
         </Button>
       </div>
